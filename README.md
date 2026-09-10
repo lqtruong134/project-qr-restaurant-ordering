@@ -96,3 +96,9 @@ mysql2 3.23.1) theo advisory; kiểm thử migration và runtime sau cập nhậ
 
 API contract: [OpenAPI](docs/openapi.yaml). CI chạy lint/typecheck/unit,
 migration/seed, integration, build, browser test, audit và rehearsal.
+
+## Demo API bằng Swagger UI
+
+Mở http://localhost:3000/api-docs sau khi chạy `pnpm dev`. Không cần Postman.
+Xem [hướng dẫn demo từng bước](docs/swagger-demo.md). Trang dùng cookie cùng nguồn
+và tự gửi header chống CSRF. Tài nguyên Swagger được sinh trước dev/build, không dùng CDN.

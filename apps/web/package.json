@@ -4,21 +4,23 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --hostname 127.0.0.1",
-    "build": "next build",
+    "dev": "node scripts/prepare-docs.mjs && next dev --hostname 127.0.0.1",
+    "build": "node scripts/prepare-docs.mjs && next build",
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@thesis/contracts": "workspace:*",
+    "@thesis/ui": "workspace:*",
     "next": "16.3.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "@thesis/ui": "workspace:*",
-    "@thesis/contracts": "workspace:*"
+    "swagger-ui-dist": "^5.32.15",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "tailwindcss": "^4.1.0",
-    "@tailwindcss/postcss": "^4.1.0"
+    "tailwindcss": "^4.1.0"
   }
 }

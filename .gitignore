@@ -11,3 +11,5 @@ playwright-report/
 *.log
 .runtime/
 packages/database/generated/
+
+/apps/web/public/api-docs-assets/

@@ -19,5 +19,5 @@ export default async function Home() {
       ['04', 'Dữ liệu & demo', 'Seed, từ điển dữ liệu và diễn tập', 'Sẵn sàng nghiệm thu'],
     ].map(([n, title, detail, status]) => <article key={n}><span className="step">{n}</span><h3>{title}</h3><p>{detail}</p><small>{status}</small></article>)}</section>
     <footer><span>Mốc Sprint Review</span><strong>20 tháng 09, 2026</strong><span>Sprint 1 · Môi trường local</span></footer>
-  <p style={{marginTop:24}}><a className="primary-button" href="/login">Đăng nhập nội bộ</a></p></main>;
+  <p style={{marginTop:24}}><a className="primary-button" href="/login">Đăng nhập nội bộ</a> <a className="secondary-button" href="/api-docs">Demo API — Swagger UI</a></p></main>;
 }

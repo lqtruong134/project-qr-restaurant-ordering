@@ -1,0 +1,1 @@
+export default function ApiDocs(){return <iframe title="Swagger UI — API Sprint 1" src="/api-docs-assets/index.html" style={{position:'fixed',inset:0,width:'100%',height:'100%',border:0,background:'white',zIndex:10}}/>;}
