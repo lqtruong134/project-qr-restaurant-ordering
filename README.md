@@ -1,4 +1,6 @@
-# QR Ordering — luận văn
+# project-qr-restaurant-ordering
+
+QR Ordering — luận văn
 
 ## Phạm vi hiện tại
 
@@ -71,7 +73,8 @@ Chưa sinh Prisma Client ở EN-C0-01 vì chưa có model. Truy vấn kiểm tra
 
 ## Git
 
-Repository local chưa có thông tin tác giả/remote cho đến khi chủ dự án cung cấp.
+Remote: https://github.com/lqtruong134/project-qr-restaurant-ordering.git
+Tác giả Git đã được cấu hình theo thông tin chủ dự án cung cấp. Xác thực push do Git Credential Manager quản lý.
 Đặt `git config user.name` và `git config user.email` chỉ tại repository này.
 Kiểm tra `git status`, `git diff --cached`, và `pnpm check:secrets` trước commit.
 Không commit `.env`, token, mật khẩu hoặc log có credential.
