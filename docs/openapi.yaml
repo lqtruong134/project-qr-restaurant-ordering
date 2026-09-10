@@ -1,21 +1,143 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
-  title: QR Ordering Foundation API
-  version: 0.1.0
+  title: QR Ordering Sprint 1 API
+  version: 0.2.0
+  description: Internal login and role workspace access only; POS/KDS operations are future work.
 servers:
-  - url: http://localhost:4000
+  - url: http://localhost:3000/api
+security:
+  - accessCookie: []
 paths:
   /health/live:
     get:
-      summary: Check API process liveness
+      security: []
       responses:
-        '200':
-          description: API process is alive; does not guarantee database availability
+        '200': {description: Process alive}
   /health/ready:
     get:
-      summary: Check database readiness with SELECT 1
+      security: []
+      responses:
+        '200': {description: PostgreSQL connected}
+        '503': {description: PostgreSQL unavailable}
+  /auth/login:
+    post:
+      security: []
+      description: Five attempts per minute per account AND IP. New login revokes previous session. Origin must match APP_ORIGINS.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [username, password]
+              properties:
+                username: {type: string, minLength: 3, maxLength: 64, pattern: '^[a-zA-Z0-9_.-]+$'}
+                password: {type: string, minLength: 1, maxLength: 256}
       responses:
         '200':
-          description: API can query PostgreSQL
-        '503':
-          description: Database unavailable; no connection secrets returned
+          description: Sets HttpOnly access (15 minutes) and refresh (7 days absolute) cookies; Secure in production and SameSite Strict.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/IdentityResponse'}
+        '400': {$ref: '#/components/responses/Invalid'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '429': {description: RATE_LIMITED; Retry-After 60 seconds}
+  /auth/refresh:
+    post:
+      security: [{refreshCookie: []}]
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      description: Origin allowlist required. Atomic rotation; old credential unusable; absolute expiry is never extended.
+      responses:
+        '200': {description: New cookies and status ok}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /auth/logout:
+    post:
+      security: [{refreshCookie: []}]
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      description: Origin allowlist required. Idempotently revokes current refresh/access and clears cookies, including if short access has expired.
+      responses:
+        '204': {description: Signed out}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /auth/me:
+    get:
+      responses:
+        '200':
+          description: Current database identity and permissions
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/IdentityResponse'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /workspaces/{area}:
+    get:
+      description: Requires matching area.workspace permission resolved from database. These are access-check endpoints, not operational POS/KDS APIs.
+      parameters:
+        - in: path
+          name: area
+          required: true
+          schema: {type: string, enum: [staff, kitchen, admin]}
+      responses:
+        '200':
+          description: Permission granted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/IdentityResponse'
+                  - type: object
+                    properties:
+                      area: {type: string}
+                      message: {type: string}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+components:
+  securitySchemes:
+    accessCookie: {type: apiKey, in: cookie, name: access}
+    refreshCookie: {type: apiKey, in: cookie, name: refresh}
+  parameters:
+    Csrf:
+      in: header
+      name: X-CSRF-Protection
+      required: true
+      schema: {type: string, enum: ['1']}
+  schemas:
+    IdentityResponse:
+      type: object
+      properties:
+        user:
+          type: object
+          properties:
+            id: {type: string, format: uuid}
+            displayName: {type: string}
+            role: {type: string}
+            permissions: {type: array, items: {type: string}}
+            version: {type: integer}
+    Error:
+      type: object
+      required: [errorCode, userMessage, correlationId]
+      properties:
+        errorCode: {type: string}
+        userMessage: {type: string}
+        correlationId: {type: string}
+  responses:
+    Invalid:
+      description: INVALID_INPUT
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Unauthorized:
+      description: UNAUTHORIZED; missing, expired, revoked or invalid credentials
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Forbidden:
+      description: FORBIDDEN or CSRF_REJECTED
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}

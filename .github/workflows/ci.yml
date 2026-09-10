@@ -12,13 +12,18 @@ jobs:
           node-version-file: .nvmrc
       - run: npm install --global pnpm@12.3.4
       - run: pnpm install --frozen-lockfile
-      - run: pnpm setup
+      - run: pnpm run setup
+      - run: pnpm db:generate
       - run: pnpm check:secrets
+      - run: pnpm audit --audit-level=high
       - run: pnpm check
       - run: pnpm db:up
-      - run: pnpm test:integration
+      - run: pnpm db:migrate
+      - run: pnpm db:seed
+      - run: pnpm test:coverage
       - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
+      - run: pnpm demo:rehearse
       - if: always()
         run: pnpm db:down

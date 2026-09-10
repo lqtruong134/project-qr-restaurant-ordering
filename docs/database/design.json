@@ -1,0 +1,711 @@
+{
+  "restaurant": [
+    "Nhà hàng",
+    [
+      [
+        "id",
+        "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+        "Khóa chính UUID"
+      ],
+      [
+        "name",
+        "text NOT NULL",
+        "Tên nhà hàng"
+      ],
+      [
+        "address",
+        "text",
+        "Địa chỉ"
+      ],
+      [
+        "currency",
+        "text NOT NULL DEFAULT 'VND'",
+        "Đơn vị tiền"
+      ],
+      [
+        "timezone",
+        "text NOT NULL DEFAULT 'Asia/Ho_Chi_Minh'",
+        "Múi giờ hiển thị"
+      ],
+      [
+        "status",
+        "text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE'))",
+        "Trạng thái: ACTIVE, INACTIVE"
+      ],
+      [
+        "created_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm tạo UTC"
+      ],
+      [
+        "updated_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm cập nhật UTC; trigger tự động"
+      ]
+    ],
+    "CHECK (currency = 'VND')"
+  ],
+  "app_user": [
+    "Tài khoản nội bộ và trạng thái đăng nhập",
+    [
+      [
+        "id",
+        "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+        "Khóa chính UUID"
+      ],
+      [
+        "restaurant_id",
+        "uuid NOT NULL REFERENCES restaurant(id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+        "Tham chiếu restaurant; không xóa lịch sử"
+      ],
+      [
+        "username",
+        "varchar(64) NOT NULL",
+        "Tên đăng nhập chữ thường, duy nhất trong nhà hàng"
+      ],
+      [
+        "password_hash",
+        "text NOT NULL",
+        "Argon2id hash; không chứa mật khẩu rõ"
+      ],
+      [
+        "display_name",
+        "text NOT NULL",
+        "Tên hiển thị"
+      ],
+      [
+        "status",
+        "text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE'))",
+        "Trạng thái: ACTIVE, INACTIVE"
+      ],
+      [
+        "last_login_at",
+        "timestamptz",
+        "Lần đăng nhập thành công gần nhất"
+      ],
+      [
+        "refresh_token_hash",
+        "text UNIQUE",
+        "SHA256 refresh opaque; chỉ lưu hash"
+      ],
+      [
+        "refresh_expires_at",
+        "timestamptz",
+        "Hạn tuyệt đối của phiên đăng nhập"
+      ],
+      [
+        "auth_version",
+        "integer NOT NULL DEFAULT 0 CHECK (auth_version >= 0)",
+        "Tăng khi đăng nhập/thu hồi phiên"
+      ],
+      [
+        "created_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm tạo UTC"
+      ],
+      [
+        "updated_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm cập nhật UTC; trigger tự động"
+      ]
+    ],
+    "UNIQUE (restaurant_id, username), CHECK (username ~ '^[a-z0-9_.-]{3,64}$'), CHECK ((refresh_token_hash IS NULL) = (refresh_expires_at IS NULL))"
+  ],
+  "role": [
+    "Vai trò toàn hệ thống",
+    [
+      [
+        "id",
+        "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+        "Khóa chính UUID"
+      ],
+      [
+        "code",
+        "text NOT NULL UNIQUE",
+        "Mã STAFF, KITCHEN, ADMIN"
+      ],
+      [
+        "name",
+        "text NOT NULL",
+        "Tên vai trò"
+      ],
+      [
+        "description",
+        "text",
+        "Mô tả"
+      ],
+      [
+        "created_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm tạo UTC"
+      ],
+      [
+        "updated_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm cập nhật UTC; trigger tự động"
+      ]
+    ],
+    "CHECK (code IN ('STAFF','KITCHEN','ADMIN'))"
+  ],
+  "permission": [
+    "Quyền chức năng",
+    [
+      [
+        "id",
+        "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+        "Khóa chính UUID"
+      ],
+      [
+        "code",
+        "text NOT NULL UNIQUE",
+        "Mã quyền duy nhất"
+      ],
+      [
+        "module",
+        "text NOT NULL",
+        "Phân hệ"
+      ],
+      [
+        "action",
+        "text NOT NULL",
+        "Hành động"
+      ],
+      [
+        "description",
+        "text",
+        "Mô tả"
+      ],
+      [
+        "created_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm tạo UTC"
+      ],
+      [
+        "updated_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm cập nhật UTC; trigger tự động"
+      ]
+    ],
+    ""
+  ],
+  "user_role": [
+    "Lịch sử gán vai trò",
+    [
+      [
+        "id",
+        "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+        "Khóa chính UUID"
+      ],
+      [
+        "user_id",
+        "uuid NOT NULL REFERENCES app_user(id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+        "Tham chiếu app_user; không xóa lịch sử"
+      ],
+      [
+        "role_id",
+        "uuid NOT NULL REFERENCES role(id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+        "Tham chiếu role; không xóa lịch sử"
+      ],
+      [
+        "assigned_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm cấp"
+      ],
+      [
+        "revoked_at",
+        "timestamptz",
+        "Null khi còn hiệu lực"
+      ],
+      [
+        "created_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm tạo UTC"
+      ],
+      [
+        "updated_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm cập nhật UTC; trigger tự động"
+      ]
+    ],
+    "CHECK (revoked_at IS NULL OR revoked_at >= assigned_at)"
+  ],
+  "role_permission": [
+    "Quyền của vai trò",
+    [
+      [
+        "id",
+        "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+        "Khóa chính UUID"
+      ],
+      [
+        "role_id",
+        "uuid NOT NULL REFERENCES role(id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+        "Tham chiếu role; không xóa lịch sử"
+      ],
+      [
+        "permission_id",
+        "uuid NOT NULL REFERENCES permission(id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+        "Tham chiếu permission; không xóa lịch sử"
+      ],
+      [
+        "scope",
+        "text NOT NULL DEFAULT 'RESTAURANT'",
+        "Phạm vi cấp quyền"
+      ],
+      [
+        "created_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm tạo UTC"
+      ],
+      [
+        "updated_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm cập nhật UTC; trigger tự động"
+      ]
+    ],
+    "UNIQUE (role_id, permission_id), CHECK (scope = 'RESTAURANT')"
+  ],
+  "dining_area": [
+    "Khu vực bàn",
+    [
+      [
+        "id",
+        "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+        "Khóa chính UUID"
+      ],
+      [
+        "restaurant_id",
+        "uuid NOT NULL REFERENCES restaurant(id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+        "Tham chiếu restaurant; không xóa lịch sử"
+      ],
+      [
+        "code",
+        "text NOT NULL",
+        "Mã khu vực"
+      ],
+      [
+        "name",
+        "text NOT NULL",
+        "Tên khu vực"
+      ],
+      [
+        "sort_order",
+        "integer NOT NULL DEFAULT 0",
+        "Thứ tự hiển thị"
+      ],
+      [
+        "is_active",
+        "boolean NOT NULL DEFAULT true",
+        "Ngừng dùng bằng false; giữ lịch sử"
+      ],
+      [
+        "created_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm tạo UTC"
+      ],
+      [
+        "updated_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm cập nhật UTC; trigger tự động"
+      ]
+    ],
+    "UNIQUE (restaurant_id, code), UNIQUE (id, restaurant_id)"
+  ],
+  "dining_table": [
+    "Bàn ăn",
+    [
+      [
+        "id",
+        "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+        "Khóa chính UUID"
+      ],
+      [
+        "restaurant_id",
+        "uuid NOT NULL REFERENCES restaurant(id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+        "Tham chiếu restaurant; không xóa lịch sử"
+      ],
+      [
+        "area_id",
+        "uuid NOT NULL",
+        "Khu vực cùng nhà hàng; FK ghép"
+      ],
+      [
+        "code",
+        "text NOT NULL",
+        "Mã bàn"
+      ],
+      [
+        "name",
+        "text NOT NULL",
+        "Tên bàn"
+      ],
+      [
+        "capacity",
+        "integer NOT NULL CHECK (capacity > 0)",
+        "Số chỗ > 0"
+      ],
+      [
+        "table_status",
+        "text NOT NULL DEFAULT 'AVAILABLE' CHECK (table_status IN ('AVAILABLE','OCCUPIED','NEEDS_CLEANING'))",
+        "Trạng thái: AVAILABLE, OCCUPIED, NEEDS_CLEANING"
+      ],
+      [
+        "is_active",
+        "boolean NOT NULL DEFAULT true",
+        "Ngừng dùng bằng false; giữ lịch sử"
+      ],
+      [
+        "version",
+        "integer NOT NULL DEFAULT 1 CHECK (version > 0)",
+        "Phiên bản optimistic locking"
+      ],
+      [
+        "created_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm tạo UTC"
+      ],
+      [
+        "updated_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm cập nhật UTC; trigger tự động"
+      ]
+    ],
+    "UNIQUE (restaurant_id, code), FOREIGN KEY (area_id, restaurant_id) REFERENCES dining_area(id, restaurant_id) ON DELETE RESTRICT ON UPDATE RESTRICT"
+  ],
+  "table_qr_token": [
+    "QR bàn; giữ lịch sử token",
+    [
+      [
+        "id",
+        "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+        "Khóa chính UUID"
+      ],
+      [
+        "table_id",
+        "uuid NOT NULL REFERENCES dining_table(id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+        "Tham chiếu dining_table; không xóa lịch sử"
+      ],
+      [
+        "token_hash",
+        "text NOT NULL UNIQUE",
+        "SHA256 token opaque; không lưu token rõ"
+      ],
+      [
+        "version_no",
+        "integer NOT NULL CHECK (version_no > 0)",
+        "Phiên bản QR của bàn"
+      ],
+      [
+        "status",
+        "text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','REVOKED','EXPIRED'))",
+        "Trạng thái: ACTIVE, REVOKED, EXPIRED"
+      ],
+      [
+        "issued_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm phát hành"
+      ],
+      [
+        "expires_at",
+        "timestamptz",
+        "Hạn tùy chọn"
+      ],
+      [
+        "revoked_at",
+        "timestamptz",
+        "Thời điểm thu hồi"
+      ],
+      [
+        "created_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm tạo UTC"
+      ],
+      [
+        "updated_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm cập nhật UTC; trigger tự động"
+      ]
+    ],
+    "UNIQUE (table_id, version_no), CHECK (expires_at IS NULL OR expires_at > issued_at), CHECK ((status = 'REVOKED') = (revoked_at IS NOT NULL))"
+  ],
+  "table_session": [
+    "Phiên phục vụ tại bàn",
+    [
+      [
+        "id",
+        "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+        "Khóa chính UUID"
+      ],
+      [
+        "table_id",
+        "uuid NOT NULL REFERENCES dining_table(id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+        "Tham chiếu dining_table; không xóa lịch sử"
+      ],
+      [
+        "session_status",
+        "text NOT NULL DEFAULT 'ACTIVE' CHECK (session_status IN ('ACTIVE','CLOSED','CANCELLED'))",
+        "Trạng thái: ACTIVE, CLOSED, CANCELLED"
+      ],
+      [
+        "verification_status",
+        "text NOT NULL DEFAULT 'UNVERIFIED' CHECK (verification_status IN ('UNVERIFIED','VERIFIED','SUSPENDED'))",
+        "Trạng thái: UNVERIFIED, VERIFIED, SUSPENDED"
+      ],
+      [
+        "opened_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm mở"
+      ],
+      [
+        "verified_at",
+        "timestamptz",
+        "Thời điểm xác minh"
+      ],
+      [
+        "closed_at",
+        "timestamptz",
+        "Thời điểm kết thúc"
+      ],
+      [
+        "close_reason",
+        "text",
+        "Lý do kết thúc"
+      ],
+      [
+        "version",
+        "integer NOT NULL DEFAULT 1 CHECK (version > 0)",
+        "Phiên bản optimistic locking"
+      ],
+      [
+        "created_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm tạo UTC"
+      ],
+      [
+        "updated_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm cập nhật UTC; trigger tự động"
+      ]
+    ],
+    "CHECK ((session_status = 'ACTIVE') = (closed_at IS NULL)), CHECK (closed_at IS NULL OR closed_at >= opened_at)"
+  ],
+  "session_participant": [
+    "Khách trong phiên; chỉ dữ liệu mẫu Sprint 1",
+    [
+      [
+        "id",
+        "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+        "Khóa chính UUID"
+      ],
+      [
+        "session_id",
+        "uuid NOT NULL REFERENCES table_session(id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+        "Tham chiếu table_session; không xóa lịch sử"
+      ],
+      [
+        "guest_id",
+        "uuid NOT NULL",
+        "Định danh khách opaque trong phiên"
+      ],
+      [
+        "display_name",
+        "text",
+        "Tên khách tùy chọn"
+      ],
+      [
+        "credential_hash",
+        "text NOT NULL UNIQUE",
+        "Hash credential khách"
+      ],
+      [
+        "device_session_hash",
+        "text",
+        "Hash định danh thiết bị trong phiên"
+      ],
+      [
+        "status",
+        "text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','BLOCKED','LEFT'))",
+        "Trạng thái: ACTIVE, BLOCKED, LEFT"
+      ],
+      [
+        "blocked_until",
+        "timestamptz",
+        "Hạn chặn tùy chọn"
+      ],
+      [
+        "joined_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm tham gia"
+      ],
+      [
+        "last_seen_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Hoạt động gần nhất"
+      ],
+      [
+        "created_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm tạo UTC"
+      ],
+      [
+        "updated_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm cập nhật UTC; trigger tự động"
+      ]
+    ],
+    "UNIQUE (session_id, guest_id)"
+  ],
+  "session_cart": [
+    "Giỏ phiên, chưa có dòng món",
+    [
+      [
+        "id",
+        "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+        "Khóa chính UUID"
+      ],
+      [
+        "session_id",
+        "uuid NOT NULL REFERENCES table_session(id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+        "Tham chiếu table_session; không xóa lịch sử"
+      ],
+      [
+        "cart_version",
+        "integer NOT NULL DEFAULT 1 CHECK (cart_version > 0)",
+        "Phiên bản giỏ"
+      ],
+      [
+        "created_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm tạo UTC"
+      ],
+      [
+        "updated_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm cập nhật UTC; trigger tự động"
+      ]
+    ],
+    "UNIQUE (session_id)"
+  ],
+  "menu_category": [
+    "Danh mục món",
+    [
+      [
+        "id",
+        "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+        "Khóa chính UUID"
+      ],
+      [
+        "restaurant_id",
+        "uuid NOT NULL REFERENCES restaurant(id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+        "Tham chiếu restaurant; không xóa lịch sử"
+      ],
+      [
+        "code",
+        "text NOT NULL",
+        "Mã danh mục"
+      ],
+      [
+        "name",
+        "text NOT NULL",
+        "Tên danh mục"
+      ],
+      [
+        "description",
+        "text",
+        "Mô tả"
+      ],
+      [
+        "sort_order",
+        "integer NOT NULL DEFAULT 0",
+        "Thứ tự hiển thị"
+      ],
+      [
+        "is_active",
+        "boolean NOT NULL DEFAULT true",
+        "Ngừng dùng bằng false; giữ lịch sử"
+      ],
+      [
+        "created_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm tạo UTC"
+      ],
+      [
+        "updated_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm cập nhật UTC; trigger tự động"
+      ]
+    ],
+    "UNIQUE (restaurant_id, code), UNIQUE (id, restaurant_id)"
+  ],
+  "product": [
+    "Món ăn",
+    [
+      [
+        "id",
+        "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+        "Khóa chính UUID"
+      ],
+      [
+        "restaurant_id",
+        "uuid NOT NULL REFERENCES restaurant(id) ON DELETE RESTRICT ON UPDATE RESTRICT",
+        "Tham chiếu restaurant; không xóa lịch sử"
+      ],
+      [
+        "category_id",
+        "uuid NOT NULL",
+        "Danh mục cùng nhà hàng; FK ghép"
+      ],
+      [
+        "code",
+        "text NOT NULL",
+        "Mã món"
+      ],
+      [
+        "name",
+        "text NOT NULL",
+        "Tên món"
+      ],
+      [
+        "description",
+        "text",
+        "Mô tả"
+      ],
+      [
+        "image_url",
+        "text",
+        "Đường dẫn ảnh tùy chọn"
+      ],
+      [
+        "base_price",
+        "bigint NOT NULL CHECK (base_price >= 0)",
+        "Giá VND nguyên không âm"
+      ],
+      [
+        "availability_status",
+        "text NOT NULL DEFAULT 'AVAILABLE' CHECK (availability_status IN ('AVAILABLE','UNAVAILABLE'))",
+        "Trạng thái: AVAILABLE, UNAVAILABLE"
+      ],
+      [
+        "is_active",
+        "boolean NOT NULL DEFAULT true",
+        "Ngừng dùng bằng false; giữ lịch sử"
+      ],
+      [
+        "version",
+        "integer NOT NULL DEFAULT 1 CHECK (version > 0)",
+        "Phiên bản optimistic locking"
+      ],
+      [
+        "created_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm tạo UTC"
+      ],
+      [
+        "updated_at",
+        "timestamptz NOT NULL DEFAULT now()",
+        "Thời điểm cập nhật UTC; trigger tự động"
+      ]
+    ],
+    "UNIQUE (restaurant_id, code), FOREIGN KEY (category_id, restaurant_id) REFERENCES menu_category(id, restaurant_id) ON DELETE RESTRICT ON UPDATE RESTRICT"
+  ]
+}

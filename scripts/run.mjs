@@ -12,6 +12,13 @@ if (mode === 'db-up') run('docker', ['compose', 'up', '-d', '--wait', '--wait-ti
 else if (mode === 'db-down') run('docker', ['compose', 'down']);
 else if (mode === 'db-check') run('pnpm', ['exec', 'tsx', 'scripts/db-check.ts']);
 else if (mode === 'integration') run('pnpm', ['exec', 'vitest', 'run', '--config', 'vitest.integration.config.ts']);
+else if (mode === 'migrate') run('pnpm', ['--filter', '@thesis/database', 'exec', 'prisma', 'migrate', 'deploy']);
+else if (mode === 'generate') run('pnpm', ['--filter', '@thesis/database', 'exec', 'prisma', 'generate']);
+else if (mode === 'introspect') run('pnpm', ['--filter', '@thesis/database', 'exec', 'prisma', 'db', 'pull']);
+else if (mode === 'coverage') run('pnpm', ['exec', 'vitest', 'run', '--config', 'vitest.quality.config.ts', '--coverage']);
+else if (mode === 'rehearsal') run('pnpm', ['exec', 'tsx', 'scripts/rehearsal.ts']);
+else if (mode === 'docs') run('pnpm', ['exec', 'tsx', 'scripts/database-docs.ts']);
+else if (mode === 'seed') run('pnpm', ['exec', 'tsx', 'scripts/seed.ts']);
 else if (mode === 'dev') {
   const children = [
     spawn('pnpm', ['--filter', '@thesis/api', 'dev'], { stdio: 'inherit', detached: true }),

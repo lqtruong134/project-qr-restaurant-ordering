@@ -1,93 +1,98 @@
-# project-qr-restaurant-ordering
+# QR Restaurant Ordering — luận văn
 
-QR Ordering — luận văn
+Sprint 1: môi trường Next.js + Fastify + PostgreSQL, schema 14 bảng C0/C1,
+đăng nhập Staff/Kitchen/Admin, kiểm thử quyền và gói demo ERD.
+Guest QR, gọi món, POS/KDS nghiệp vụ, thanh toán, kho và AI thuộc các Sprint sau.
 
-## Phạm vi hiện tại
+## Khởi động trong Ubuntu / WSL
 
-EN-C0-01: pnpm monorepo, web Next.js, API Fastify và PostgreSQL local.
-Chưa triển khai schema 14 bảng, auth, QR Guest, Order, Payment, Inventory hoặc AI.
+Yêu cầu Node theo `.nvmrc` (24.21.0), pnpm theo `packageManager` (12.3.4), Docker Compose.
+Chạy trong thư mục repository:
 
-## Môi trường
-
-Windows: Docker Desktop đang chạy, WSL Integration bật cho Ubuntu; VS Code và DBeaver.
-Thực hiện các lệnh dưới đây trong **Ubuntu**, ở thư mục dự án.
-Node 24.21.0 (`nvm install` và `nvm use` nếu dùng nvm), pnpm 12.3.4 (`npm install -g pnpm@12.3.4`), Git và Docker Compose.
-Không dùng chung node_modules giữa Windows và Ubuntu.
-
-## Cài và chạy từ đầu
-
-```bash
-cd ~/projects/qr-ordering-thesis
+```sh
 pnpm install --frozen-lockfile
-pnpm setup
+pnpm run setup
 pnpm db:up
-pnpm db:check
-pnpm check
-pnpm test:integration
+pnpm db:generate
+pnpm db:migrate
+pnpm db:seed
 pnpm dev
 ```
 
-Mở http://localhost:3000. API: http://localhost:4000/health/live và /health/ready.
-Health live chỉ kiểm tra API còn hoạt động; ready trả 503 nếu database mất kết nối.
-Trang chủ là trang kiểm tra nền tảng Sprint 1, chưa phải giao diện gọi món.
-`Ctrl+C` dừng web/API. `pnpm db:down` dừng container nhưng giữ volume.
-Chạy lại: `pnpm db:up && pnpm dev`. Nếu đổi cổng, sửa `.env` và chạy lại tiến trình.
+Mở http://localhost:3000/login. Dùng `staff`, `kitchen` hoặc `admin` và giá trị
+`SEED_PASSWORD` trong `.env` riêng trên máy. Không commit, chụp ảnh hoặc đưa mật khẩu
+vào báo cáo. `pnpm run setup` giữ cấu hình đã có và chỉ thêm secret còn thiếu.
+Phải dùng `pnpm run setup`; `pnpm setup` là lệnh khác của pnpm.
+Sau khi sửa `.env`, khởi động lại `pnpm dev`.
 
-## PostgreSQL và DBeaver
+Docker dự án dùng cổng **5433**, database `thesis_dev`, user `thesis`; mật khẩu lấy
+từ `.env`. DBeaver kết nối localhost:5433. Container `my-postgres` cổng 5432 cũ là
+môi trường riêng, không chứa schema mới này. Volume dự án được giữ khi `pnpm db:down`.
 
-Kết nối mới: host localhost, port 5433, database thesis_dev, username thesis.
-Password được sinh ngẫu nhiên trong `.env` khi chạy `pnpm setup`; chỉ xem trên máy của bạn.
-Giữ nguyên kết nối cũ cổng 5432. Dự án không sử dụng hay xóa container my-postgres.
-Compose tự đặt volume có tên theo project (`qr-ordering-thesis_postgres_data`).
-Image PostgreSQL 18.6 được khóa bằng digest, có healthcheck và chỉ công bố cổng trên loopback.
-Không chạy `docker compose down -v` nếu muốn giữ dữ liệu.
-Sau khi đổi mật khẩu `.env`, database có volume cũ không tự đổi mật khẩu; cần thao tác quản trị có kế hoạch.
+## Sprint Review theo thứ tự
 
-## Kiểm tra và build
+1. Chạy các lệnh khởi động ở trên; kiểm tra trang chủ có “Môi trường đã sẵn sàng”.
+2. Mở [ERD vật lý 14 bảng](docs/database/physical.svg), [Data Dictionary](docs/database/data-dictionary.md).
+3. Phân biệt với [ERD logic đích 72 thực thể](docs/database/logical-target.md): chỉ 14 bảng đã triển khai.
+4. Đăng nhập lần lượt `staff`, `kitchen`, `admin`; mỗi vai trò vào trang của mình rồi đăng xuất.
+5. Với Staff, nhập `/workspace/admin`: màn hình báo không có quyền và API trả 403.
+6. Chạy `pnpm test:integration` để chứng minh 401/403, refresh rotation, logout,
+   khóa tài khoản/đổi password, CSRF, rate limit, FK/unique/check và concurrency.
+7. Chạy `pnpm demo:rehearse`: tự tạo DB rỗng riêng hai lần, migrate, seed hai lần,
+   query và kiểm tra ba vai trò; không sửa DB bằng tay. Database tạm được dọn sau chạy.
+8. Đọc [log rehearsal](docs/evidence/rehearsal.md), [bằng chứng Sprint](docs/evidence/sprint1.md),
+   xác nhận nghiệm thu trước khi đánh dấu Done/Đạt DoD trên Notion.
 
-```bash
-pnpm check             # lint + TypeScript strict + unit tests
-pnpm test:integration  # SELECT 1 và readiness trên PostgreSQL thật
-pnpm check:secrets     # kiểm tra cơ bản các file Git, không in secret
-pnpm build            # build giao diện production
+## Kiểm tra chất lượng
+
+```sh
+pnpm check
+pnpm test:integration
+pnpm build
+pnpm exec playwright install --with-deps chromium
+pnpm test:e2e
+pnpm audit --audit-level=high
+pnpm check:secrets
+pnpm demo:rehearse
 ```
 
-CI trên GitHub chạy các bước trên khi repository được push. Chưa có remote thì chỉ đã kiểm chứng local.
+Integration/rehearsal sử dụng DB riêng cùng PostgreSQL; user phát triển cần quyền
+CREATE DATABASE. Không chạy bằng user production. Browser test dùng account demo
+ở DB phát triển, đăng nhập mới thu hồi phiên cùng account; tránh demo đồng thời.
+Không chia sẻ Playwright trace vì có thể chứa credential kiểm thử. Chỉ xuất PNG
+màn hình không có mật khẩu. Test-results/trace/.env/.runtime đều được Git bỏ qua.
 
-## Migration và seed
+## Schema và phục hồi
 
-`packages/database/prisma/schema.prisma` hiện chỉ có cấu hình kết nối/generator.
-`pnpm db:migrate` và `pnpm db:seed` trả thông báo chưa triển khai thay vì giả báo thành công.
-EN-C0-02 sẽ tạo đúng 14 bảng C0–C1 cùng migration. EN-C0-03 hoàn thiện seed/Dictionary/demo.
-Chưa sinh Prisma Client ở EN-C0-01 vì chưa có model. Truy vấn kiểm tra kết nối hiện dùng pg.
+- Migration là nguồn sự thật, chỉ thêm migration mới sau khi đã chia sẻ; không dùng `db push`.
+- Prisma biểu diễn quan hệ lịch sử 1:N. Partial unique/check/trigger nằm trong SQL;
+  không chạy `db pull` rồi ghi đè schema vì partial unique có thể bị suy luận thành 1:1.
+- Initial migration tạo đúng 14 bảng; `_prisma_migrations` chỉ là metadata công cụ.
+- Trước migration mới, tạo backup: `docker compose exec -T postgres pg_dump -U thesis -d thesis_dev -Fc > .runtime/pre-migration.dump`
+  (tạo thư mục `.runtime` trước). Backup chứa dữ liệu riêng, không đưa Git.
+- Phục hồi sang DB mới bằng `createdb` và `pg_restore --no-owner --exit-on-error` trong
+  container; đổi DATABASE_URL sang DB đã phục hồi, kiểm tra trước khi sử dụng.
+- Ưu tiên forward-fix hoặc rollback ứng dụng tương thích schema; không rollback bằng
+  DROP TABLE hoặc `docker compose down -v`. Migration đầu chạy transaction nên lỗi
+  SQL rollback toàn bộ; Prisma resolve chỉ sau khi xác minh trạng thái database.
+- Sinh lại docs: cài Graphviz (`sudo apt install graphviz`), chạy `pnpm docs:database`.
 
-## Cấu trúc
+## Quyết định và giới hạn đã biết
 
-- apps/web: Next.js App Router, Tailwind, trang trạng thái.
-- apps/api: Fastify; health endpoints, lỗi an toàn, graceful shutdown.
-- packages/database: kết nối PostgreSQL và cấu hình Prisma.
-- packages/contracts: type dùng chung.
-- packages/ui: thành phần giao diện dùng chung.
-- packages/config: TypeScript strict dùng chung.
-- docs: quyết định kỹ thuật, minh chứng và hướng dẫn.
+[ADR 002](docs/adr/002-sprint1-data-auth.md) mô tả auth và schema.
+Mỗi account có một phiên nội bộ; access 15 phút, refresh tối đa 7 ngày và rotate.
+Rate limiter RAM dùng một API instance cho local/demo; nhiều instance cần shared limiter.
+Cookie Secure ở production; deployment công khai cần HTTPS và cấu hình origin/CSP phù hợp.
+Không tự nhận đã nghiệm thu production hoặc đã triển khai 72 bảng.
+Role workspace là quyền vào phân hệ để chứng minh RBAC C0; quyền hành động nghiệp vụ
+chi tiết sẽ được bổ sung cùng endpoint ở các Sprint sau.
+`financial_status`/`risk_status` chưa tạo vì chưa có chức năng C3/C4 trong Sprint 1.
+Secret seed chỉ tạo account mới; chạy seed lại không đổi mật khẩu hoặc đặt lại dữ liệu.
 
-## Git
+Thư viện bắc cầu được khóa bản vá trong pnpm overrides (deepmerge-ts 8.0.0,
+mysql2 3.23.1) theo advisory; kiểm thử migration và runtime sau cập nhật.
+[Deepmerge advisory](https://github.com/advisories/GHSA-ggr8-5vv4-36mx),
+[MySQL2 advisory](https://github.com/advisories/GHSA-3f6p-5ww8-9rcr).
 
-Remote: https://github.com/lqtruong134/project-qr-restaurant-ordering.git
-Tác giả Git đã được cấu hình theo thông tin chủ dự án cung cấp. Xác thực push do Git Credential Manager quản lý.
-Đặt `git config user.name` và `git config user.email` chỉ tại repository này.
-Kiểm tra `git status`, `git diff --cached`, và `pnpm check:secrets` trước commit.
-Không commit `.env`, token, mật khẩu hoặc log có credential.
-
-## Nguồn yêu cầu
-
-- [Sprint 1](https://www.notion.so/3cf731aa9a6b81d8a067dbef4c73e213)
-- [EN-C0-01](https://www.notion.so/3cf731aa9a6b813fb99bc6541cf31a01)
-- [SRS](https://www.notion.so/3ce731aa9a6b80d485a4d33bfb68dc91)
-
-## Kiểm tra bằng trình duyệt
-
-Lần đầu: `pnpm exec playwright install --with-deps chromium` (có thể cần quyền sudo).
-Sau `pnpm db:up`: chạy `pnpm test:e2e`. Test tự chạy web/API nếu chưa có.
-Kiểm tra desktop/mobile, trạng thái kết nối thật, tràn ngang và lỗi JavaScript.
-Ảnh/log trong test-results không đưa vào Git vì có thể chứa dữ liệu của lần test sau.
+API contract: [OpenAPI](docs/openapi.yaml). CI chạy lint/typecheck/unit,
+migration/seed, integration, build, browser test, audit và rehearsal.

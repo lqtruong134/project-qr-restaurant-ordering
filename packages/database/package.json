@@ -10,7 +10,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "pg": "^8.16.0"
+    "pg": "^8.16.0",
+    "@prisma/client": "7.10.0",
+    "@prisma/adapter-pg": "7.10.0",
+    "argon2": "^0.44.0"
   },
   "devDependencies": {
     "@types/pg": "^8.15.0",

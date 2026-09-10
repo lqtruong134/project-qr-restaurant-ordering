@@ -1,0 +1,61 @@
+digraph Target { graph [rankdir=LR,label="LOGICAL TARGET • 72 ENTITIES • ONLY C0/C1 IMPLEMENTED",labelloc=t,fontname="DejaVu Sans",fontsize=20]; node [shape=box,fontname="DejaVu Sans",style=filled,fillcolor="#f2f6f0"];
+subgraph cluster_C0 {label="C0 (current)"; restaurant;app_user;role;permission;user_role;role_permission;}
+subgraph cluster_C1 {label="C1 (current)"; dining_area;dining_table;table_qr_token;table_session;session_participant;session_cart;menu_category;product;}
+subgraph cluster_C2 {label="C2 (target)"; support_request;operational_alert;cart_item;order_batch;order_item;order_status_history;idempotency_record;outbox_event;}
+subgraph cluster_C3 {label="C3 (target)"; session_financial_account;financial_charge;payment_intent;payment_transaction;payment_allocation;payment_webhook_event;}
+subgraph cluster_C4 {label="C4 (target)"; risk_policy_config;order_risk_assessment;order_review;refund_case;refund_transaction;outstanding_balance_case;}
+subgraph cluster_C5 {label="C5 (target)"; unit_of_measure;ingredient;stock_location;recipe_bom;recipe_bom_item;inventory_balance;inventory_reservation;inventory_movement;goods_receipt;goods_receipt_item;order_item_ingredient_snapshot;}
+subgraph cluster_E1 {label="E1 (target)"; product_variant;option_group;option_item;product_option_group;product_availability_log;cart_item_option;order_item_option;}
+subgraph cluster_E2 {label="E2 (target)"; audit_log;order_submit_attempt;security_event;}
+subgraph cluster_E3 {label="E3 (target)"; session_credit_ledger;reconciliation_case;outstanding_recovery_transaction;}
+subgraph cluster_E4 {label="E4 (target)"; unit_conversion;ingredient_category;supplier;stocktake;stocktake_item;waste_ticket;waste_ticket_item;}
+subgraph cluster_A1 {label="A1 (target)"; ai_provider_config;prompt_version;ai_conversation;ai_message;ai_request_log;ai_suggestion_event;ai_tool_audit;}
+restaurant -> dining_area [label="1:N",fontsize=9];
+restaurant -> app_user [label="1:N",fontsize=9];
+restaurant -> menu_category [label="1:N",fontsize=9];
+restaurant -> product [label="1:N",fontsize=9];
+dining_area -> dining_table [label="1:N",fontsize=9];
+dining_table -> table_qr_token [label="1:N",fontsize=9];
+dining_table -> table_session [label="1:N",fontsize=9];
+table_session -> session_participant [label="1:N",fontsize=9];
+app_user -> user_role [label="1:N",fontsize=9];
+role -> user_role [label="1:N",fontsize=9];
+role -> role_permission [label="1:N",fontsize=9];
+permission -> role_permission [label="1:N",fontsize=9];
+menu_category -> product [label="1:N",fontsize=9];
+session_cart -> cart_item [label="1:N",fontsize=9];
+table_session -> order_batch [label="1:N",fontsize=9];
+table_session -> support_request [label="1:N",fontsize=9];
+table_session -> operational_alert [label="1:N",fontsize=9];
+order_batch -> order_item [label="1:N",fontsize=9];
+order_batch -> order_status_history [label="1:N",fontsize=9];
+product -> product_variant [label="1:N",fontsize=9];
+product -> recipe_bom [label="1:N",fontsize=9];
+product -> order_item [label="1:N",fontsize=9];
+order_item -> order_item_option [label="1:N",fontsize=9];
+order_item -> financial_charge [label="1:N",fontsize=9];
+order_item -> inventory_reservation [label="1:N",fontsize=9];
+order_item -> order_item_ingredient_snapshot [label="1:N",fontsize=9];
+table_session -> payment_intent [label="1:N",fontsize=9];
+payment_intent -> payment_transaction [label="1:N",fontsize=9];
+payment_transaction -> payment_allocation [label="1:N",fontsize=9];
+financial_charge -> payment_allocation [label="1:N",fontsize=9];
+refund_case -> refund_transaction [label="1:N",fontsize=9];
+refund_case -> session_credit_ledger [label="1:N",fontsize=9];
+ingredient -> recipe_bom_item [label="1:N",fontsize=9];
+recipe_bom -> recipe_bom_item [label="1:N",fontsize=9];
+ingredient -> inventory_balance [label="1:N",fontsize=9];
+ingredient -> inventory_movement [label="1:N",fontsize=9];
+goods_receipt -> goods_receipt_item [label="1:N",fontsize=9];
+option_group -> option_item [label="1:N",fontsize=9];
+product -> product_option_group [label="1:N",fontsize=9];
+option_group -> product_option_group [label="1:N",fontsize=9];
+cart_item -> cart_item_option [label="1:N",fontsize=9];
+product -> product_availability_log [label="1:N",fontsize=9];
+stocktake -> stocktake_item [label="1:N",fontsize=9];
+waste_ticket -> waste_ticket_item [label="1:N",fontsize=9];
+outstanding_balance_case -> outstanding_recovery_transaction [label="1:N",fontsize=9];
+ai_conversation -> ai_message [label="1:N",fontsize=9];
+ai_conversation -> ai_request_log [label="1:N",fontsize=9];
+ai_conversation -> ai_suggestion_event [label="1:N",fontsize=9];
+table_session -> session_cart [label="1:0..1"]; table_session -> session_financial_account [label="1:0..1"]; }

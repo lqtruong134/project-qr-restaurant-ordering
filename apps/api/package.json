@@ -10,6 +10,8 @@
   "dependencies": {
     "fastify": "5.12.3",
     "@thesis/contracts": "workspace:*",
-    "@thesis/database": "workspace:*"
+    "@thesis/database": "workspace:*",
+    "@fastify/cookie": "^11.0.0",
+    "jose": "^6.1.0"
   }
 }

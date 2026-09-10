@@ -1,8 +1,257 @@
-// EN-C0-01 only configures the datasource. The 14 models belong to EN-C0-02.
+// Partial unique indexes, CHECK constraints and triggers are owned by SQL migrations.
+// Do not use db push or blind db pull: partial uniqueness is not a 1:1 historical relation.
 generator client {
-  provider = "prisma-client"
-  output = "../generated/prisma"
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
 }
+
 datasource db {
   provider = "postgresql"
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model app_user {
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id      String     @db.Uuid
+  username           String     @db.VarChar(64)
+  password_hash      String
+  display_name       String
+  status             String     @default("ACTIVE")
+  last_login_at      DateTime?  @db.Timestamptz(6)
+  refresh_token_hash String?    @unique
+  refresh_expires_at DateTime?  @db.Timestamptz(6)
+  auth_version       Int        @default(0)
+  created_at         DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime   @default(now()) @db.Timestamptz(6)
+  restaurant         restaurant @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
+  user_role          user_role[]
+
+  @@unique([restaurant_id, username])
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model dining_area {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id String         @db.Uuid
+  code          String
+  name          String
+  sort_order    Int            @default(0)
+  is_active     Boolean        @default(true)
+  created_at    DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime       @default(now()) @db.Timestamptz(6)
+  restaurant    restaurant     @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
+  dining_table  dining_table[]
+
+  @@unique([id, restaurant_id])
+  @@unique([restaurant_id, code])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model dining_table {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id  String          @db.Uuid
+  area_id        String          @db.Uuid
+  code           String
+  name           String
+  capacity       Int
+  table_status   String          @default("AVAILABLE")
+  is_active      Boolean         @default(true)
+  version        Int             @default(1)
+  created_at     DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime        @default(now()) @db.Timestamptz(6)
+  dining_area    dining_area     @relation(fields: [area_id, restaurant_id], references: [id, restaurant_id], onUpdate: Restrict)
+  restaurant     restaurant      @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
+  table_qr_token table_qr_token[]
+  table_session  table_session[]
+
+  @@unique([restaurant_id, code])
+  @@index([area_id, restaurant_id], map: "dining_table_area_idx")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model menu_category {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id String     @db.Uuid
+  code          String
+  name          String
+  description   String?
+  sort_order    Int        @default(0)
+  is_active     Boolean    @default(true)
+  created_at    DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime   @default(now()) @db.Timestamptz(6)
+  restaurant    restaurant @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
+  product       product[]
+
+  @@unique([id, restaurant_id])
+  @@unique([restaurant_id, code])
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model permission {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code            String            @unique
+  module          String
+  action          String
+  description     String?
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime          @default(now()) @db.Timestamptz(6)
+  role_permission role_permission[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model product {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id       String        @db.Uuid
+  category_id         String        @db.Uuid
+  code                String
+  name                String
+  description         String?
+  image_url           String?
+  base_price          BigInt
+  availability_status String        @default("AVAILABLE")
+  is_active           Boolean       @default(true)
+  version             Int           @default(1)
+  created_at          DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime      @default(now()) @db.Timestamptz(6)
+  menu_category       menu_category @relation(fields: [category_id, restaurant_id], references: [id, restaurant_id], onUpdate: Restrict)
+  restaurant          restaurant    @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
+
+  @@unique([restaurant_id, code])
+  @@index([category_id, restaurant_id], map: "product_category_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model restaurant {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String
+  address       String?
+  currency      String          @default("VND")
+  timezone      String          @default("Asia/Ho_Chi_Minh")
+  status        String          @default("ACTIVE")
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime        @default(now()) @db.Timestamptz(6)
+  app_user      app_user[]
+  dining_area   dining_area[]
+  dining_table  dining_table[]
+  menu_category menu_category[]
+  product       product[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model role {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code            String            @unique
+  name            String
+  description     String?
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime          @default(now()) @db.Timestamptz(6)
+  role_permission role_permission[]
+  user_role       user_role[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model role_permission {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role_id       String     @db.Uuid
+  permission_id String     @db.Uuid
+  scope         String     @default("RESTAURANT")
+  created_at    DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime   @default(now()) @db.Timestamptz(6)
+  permission    permission @relation(fields: [permission_id], references: [id], onUpdate: Restrict)
+  role          role       @relation(fields: [role_id], references: [id], onUpdate: Restrict)
+
+  @@unique([role_id, permission_id])
+  @@index([permission_id], map: "role_permission_permission_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model session_cart {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id    String        @unique @db.Uuid
+  cart_version  Int           @default(1)
+  created_at    DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime      @default(now()) @db.Timestamptz(6)
+  table_session table_session @relation(fields: [session_id], references: [id], onUpdate: Restrict)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model session_participant {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id          String        @db.Uuid
+  guest_id            String        @db.Uuid
+  display_name        String?
+  credential_hash     String        @unique
+  device_session_hash String?
+  status              String        @default("ACTIVE")
+  blocked_until       DateTime?     @db.Timestamptz(6)
+  joined_at           DateTime      @default(now()) @db.Timestamptz(6)
+  last_seen_at        DateTime      @default(now()) @db.Timestamptz(6)
+  created_at          DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime      @default(now()) @db.Timestamptz(6)
+  table_session       table_session @relation(fields: [session_id], references: [id], onUpdate: Restrict)
+
+  @@unique([session_id, guest_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model table_qr_token {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  table_id     String       @db.Uuid
+  token_hash   String       @unique
+  version_no   Int
+  status       String       @default("ACTIVE")
+  issued_at    DateTime     @default(now()) @db.Timestamptz(6)
+  expires_at   DateTime?    @db.Timestamptz(6)
+  revoked_at   DateTime?    @db.Timestamptz(6)
+  created_at   DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime     @default(now()) @db.Timestamptz(6)
+  dining_table dining_table @relation(fields: [table_id], references: [id], onUpdate: Restrict)
+
+  @@unique([table_id, version_no])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model table_session {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  table_id            String                @db.Uuid
+  session_status      String                @default("ACTIVE")
+  verification_status String                @default("UNVERIFIED")
+  opened_at           DateTime              @default(now()) @db.Timestamptz(6)
+  verified_at         DateTime?             @db.Timestamptz(6)
+  closed_at           DateTime?             @db.Timestamptz(6)
+  close_reason        String?
+  version             Int                   @default(1)
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
+  session_cart        session_cart?
+  session_participant session_participant[]
+  dining_table        dining_table          @relation(fields: [table_id], references: [id], onUpdate: Restrict)
+
+  @@index([table_id], map: "table_session_table_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model user_role {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String    @db.Uuid
+  role_id     String    @db.Uuid
+  assigned_at DateTime  @default(now()) @db.Timestamptz(6)
+  revoked_at  DateTime? @db.Timestamptz(6)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @default(now()) @db.Timestamptz(6)
+  role        role      @relation(fields: [role_id], references: [id], onUpdate: Restrict)
+  app_user    app_user  @relation(fields: [user_id], references: [id], onUpdate: Restrict)
+
+  @@index([role_id], map: "user_role_role_idx")
 }

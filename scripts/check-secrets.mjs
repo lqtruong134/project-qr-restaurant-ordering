@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'node:fs';
 const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean);
 const issues = [];
 const localSecrets = existsSync('.env')
-  ? readFileSync('.env', 'utf8').split('\n').filter(line => /^POSTGRES_PASSWORD=/.test(line)).map(line => line.slice(line.indexOf('=') + 1)).filter(value => value.length > 16)
+  ? readFileSync('.env', 'utf8').split('\n').filter(line => /^(POSTGRES_PASSWORD|AUTH_SECRET|SEED_PASSWORD)=/.test(line)).map(line => line.slice(line.indexOf('=') + 1)).filter(value => value.length > 16)
   : [];
 for (const file of files) {
   if (/(^|\/)\.env($|\.)/.test(file) && !file.endsWith('.env.example')) issues.push(file);
