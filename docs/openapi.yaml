@@ -1,0 +1,21 @@
+openapi: 3.0.3
+info:
+  title: QR Ordering Foundation API
+  version: 0.1.0
+servers:
+  - url: http://localhost:4000
+paths:
+  /health/live:
+    get:
+      summary: Check API process liveness
+      responses:
+        '200':
+          description: API process is alive; does not guarantee database availability
+  /health/ready:
+    get:
+      summary: Check database readiness with SELECT 1
+      responses:
+        '200':
+          description: API can query PostgreSQL
+        '503':
+          description: Database unavailable; no connection secrets returned

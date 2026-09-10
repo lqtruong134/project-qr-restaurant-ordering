@@ -1,0 +1,8 @@
+// EN-C0-01 only configures the datasource. The 14 models belong to EN-C0-02.
+generator client {
+  provider = "prisma-client"
+  output = "../generated/prisma"
+}
+datasource db {
+  provider = "postgresql"
+}

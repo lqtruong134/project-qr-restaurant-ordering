@@ -1,0 +1,15 @@
+{
+  "name": "@thesis/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fastify": "5.12.3",
+    "@thesis/contracts": "workspace:*",
+    "@thesis/database": "workspace:*"
+  }
+}

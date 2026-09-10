@@ -1,0 +1,38 @@
+{
+  "name": "qr-ordering-thesis",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.3.4",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "node scripts/run.mjs dev",
+    "db:up": "node scripts/run.mjs db-up",
+    "db:down": "node scripts/run.mjs db-down",
+    "db:check": "node scripts/run.mjs db-check",
+    "db:migrate": "node scripts/pending-database.mjs migrate",
+    "db:seed": "node scripts/pending-database.mjs seed",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "pnpm -r --if-present typecheck && tsc --noEmit -p tsconfig.tools.json",
+    "test": "vitest run",
+    "test:integration": "node scripts/run.mjs integration",
+    "build": "pnpm --filter @thesis/web build",
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.39.0",
+    "globals": "^16.0.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.48.0",
+    "tsx": "^4.20.0",
+    "vitest": "^4.0.0",
+    "@playwright/test": "^1.56.0"
+  }
+}
