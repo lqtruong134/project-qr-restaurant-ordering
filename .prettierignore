@@ -1,0 +1,10 @@
+node_modules
+.next
+dist
+coverage
+test-results
+playwright-report
+**/generated
+**/next-env.d.ts
+apps/web/public/api-docs-assets
+pnpm-lock.yaml

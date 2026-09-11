@@ -102,3 +102,7 @@ migration/seed, integration, build, browser test, audit và rehearsal.
 Mở http://localhost:3000/api-docs sau khi chạy `pnpm dev`. Không cần Postman.
 Xem [hướng dẫn demo từng bước](docs/swagger-demo.md). Trang dùng cookie cùng nguồn
 và tự gửi header chống CSRF. Tài nguyên Swagger được sinh trước dev/build, không dùng CDN.
+
+## Đọc và phát triển code
+
+Xem [Hướng dẫn đọc code](docs/code-guide.md) để theo dõi luồng login, module auth, cấu trúc thư mục, giới hạn hiện tại và cách bổ sung chức năng Sprint sau. Dùng `pnpm format` trước khi commit; `pnpm check` kiểm tra cả định dạng.
