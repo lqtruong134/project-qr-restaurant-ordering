@@ -55,7 +55,10 @@ export function buildApp(database: { ping(): Promise<void> }, logging = false) {
     )
       return reply.code(error.statusCode).send({
         errorCode: 'INVALID_REQUEST',
-        userMessage: 'Yêu cầu không được hỗ trợ hoặc vượt giới hạn.',
+        userMessage:
+          'publicMessage' in error && typeof error.publicMessage === 'string'
+            ? error.publicMessage
+            : 'Yêu cầu không được hỗ trợ hoặc vượt giới hạn.',
         correlationId: request.id,
       });
     request.log.error({ errorCode: 'INTERNAL_ERROR' }, 'Request failed');

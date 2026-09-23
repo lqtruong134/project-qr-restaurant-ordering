@@ -1,5 +1,7 @@
 'use client';
 import { useEffect, useState, use } from 'react';
+import Admin from '../../../components/core/admin';
+import Service from '../../../components/core/service';
 import Link from 'next/link';
 import { getAuthenticated, postApi } from '../../../lib/api-client';
 type User = { displayName: string; role: string; permissions: string[] };
@@ -75,23 +77,8 @@ export default function Workspace({ params }: { params: Promise<{ area: string }
         ) : (
           <>
             <p>Xin chào, {user.displayName}.</p>
-            <div className="workspace-panel">
-              <span className="access-badge">Đã xác thực quyền truy cập</span>
-              <h2>Sẵn sàng cho bước tiếp theo</h2>
-              <p>
-                Tài khoản của bạn đã được kết nối với không gian phù hợp. Các chức năng vận hành sẽ
-                được bổ sung trong các Sprint tiếp theo.
-              </p>
-              <nav aria-label="Không gian được cấp quyền">
-                {Object.entries(labels)
-                  .filter(([key]) => user.permissions.includes(key + '.workspace'))
-                  .map(([key, label]) => (
-                    <Link className="secondary-button" key={key} href={'/workspace/' + key}>
-                      {label}
-                    </Link>
-                  ))}
-              </nav>
-            </div>
+            <span className="access-badge">Đã xác thực quyền truy cập</span>
+            {area === 'admin' ? <Admin /> : <Service kitchen={area === 'kitchen'} />}
           </>
         )}
       </section>

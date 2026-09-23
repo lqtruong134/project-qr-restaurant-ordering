@@ -11,7 +11,7 @@ for (const file of ['swagger-ui-bundle.js', 'swagger-ui.css'])
   copyFileSync(require.resolve('swagger-ui-dist/' + file), resolve(output, file));
 const spec = parse(readFileSync(resolve(web, '../../docs/openapi.yaml'), 'utf8'));
 spec.servers = [{ url: '/api', description: 'API của ứng dụng đang mở' }];
-spec.info.title = 'QR Ordering — Demo API Sprint 1';
+spec.info.title = 'QR Ordering — Demo API CORE45';
 spec.info.description =
   'Đăng nhập bằng API login; trình duyệt tự giữ cookie. Không cần nhập token vào Authorize. Mỗi account có một phiên nội bộ. Các thao tác Execute gọi backend thật.';
 const descriptions = {
@@ -42,6 +42,10 @@ for (const [path, operations] of Object.entries(spec.paths))
         if (parameter.$ref?.endsWith('/Csrf'))
           parameter.description = 'Đã điền sẵn 1. Swagger tự gửi header chống CSRF.';
   }
+spec.paths = {
+  ...spec.paths,
+  ...JSON.parse(readFileSync(resolve(web, '../../docs/core45/openapi-paths.json'), 'utf8')),
+};
 spec.components.parameters.Csrf.schema.default = '1';
 spec.paths['/auth/login'].post.requestBody.content['application/json'].example = {
   username: 'staff',
@@ -52,6 +56,6 @@ writeFileSync(resolve(output, 'openapi.json'), JSON.stringify(spec, null, 2));
 copyFileSync(resolve(web, 'scripts/swagger-init.js'), resolve(output, 'swagger-init.js'));
 writeFileSync(
   resolve(output, 'index.html'),
-  `<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Swagger UI — Sprint 1</title><link rel="stylesheet" href="./swagger-ui.css"><style>body{margin:0;background:#fafcf9}.intro{padding:24px max(20px,calc((100% - 1460px)/2));background:#194c37;color:white;font:16px/1.6 system-ui}.intro h1{margin:0;font-size:25px}.intro p{margin:8px 0}.intro a{color:#d6f4d9}.swagger-ui .scheme-container{box-shadow:none}.swagger-ui .auth-wrapper{display:none}.swagger-ui .curl-command{display:none}.swagger-ui .info{margin:25px 0}.swagger-ui .wrapper{padding:0 20px}</style></head><body><header class="intro"><h1>Demo API · Sprint 1</h1><p>Mở API → Try it out → nhập dữ liệu → Execute → xem Server response.</p><p>Thứ tự: logout → me (401) → login → workspace staff (200) → workspace admin (403) → refresh → logout → me (401).</p><p>Cookie được giữ tự động. Giới hạn login: 5 lần/phút. Không chiếu mật khẩu khi nhập. <a href="/login" target="_top">Mở giao diện đăng nhập</a></p></header><div id="swagger-ui"></div><script src="./swagger-ui-bundle.js"></script><script src="./swagger-init.js"></script></body></html>`,
+  `<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Swagger UI — CORE45</title><link rel="stylesheet" href="./swagger-ui.css"><style>body{margin:0;background:#fafcf9}.intro{padding:24px max(20px,calc((100% - 1460px)/2));background:#194c37;color:white;font:16px/1.6 system-ui}.intro h1{margin:0;font-size:25px}.intro p{margin:8px 0}.intro a{color:#d6f4d9}.swagger-ui .scheme-container{box-shadow:none}.swagger-ui .auth-wrapper{display:none}.swagger-ui .curl-command{display:none}.swagger-ui .info{margin:25px 0}.swagger-ui .wrapper{padding:0 20px}</style></head><body><header class="intro"><h1>Demo API · CORE45</h1><p>Mở API → Try it out → nhập dữ liệu → Execute → xem Server response.</p><p>Thứ tự: logout → me (401) → login → workspace staff (200) → workspace admin (403) → refresh → logout → me (401).</p><p>Cookie được giữ tự động. Giới hạn login: 5 lần/phút. Không chiếu mật khẩu khi nhập. <a href="/login" target="_top">Mở giao diện đăng nhập</a></p></header><div id="swagger-ui"></div><script src="./swagger-ui-bundle.js"></script><script src="./swagger-init.js"></script></body></html>`,
 );
 console.log('Prepared local Swagger UI and OpenAPI documentation.');

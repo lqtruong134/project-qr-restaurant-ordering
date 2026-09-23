@@ -7,7 +7,7 @@ import { seed, restaurantId } from '../packages/database/src/seed.js';
 import { buildApp } from '../apps/api/src/app.js';
 import { registerAuth } from '../apps/api/src/auth.js';
 const logs: string[] = [
-  '# Sprint 1 — Rehearsal evidence',
+  '# CORE45 — Rehearsal evidence',
   new Date().toISOString(),
   'Each run creates its own empty database; existing development data is untouched.',
 ];
@@ -35,7 +35,7 @@ try {
         const rows = await db.pool.query<{ tablename: string }>(
           "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename<>'_prisma_migrations' ORDER BY tablename",
         );
-        assert.equal(rows.rows.length, 14);
+        assert.equal(rows.rows.length, 45);
         const result: Record<string, number> = {};
         for (const { tablename } of rows.rows) {
           assert.match(tablename, /^[a-z_]+$/);

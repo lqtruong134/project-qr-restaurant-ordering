@@ -6,7 +6,11 @@ test('foundation page reflects actual API and database readiness', async ({
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await expect
-    .poll(async () => (await request.get('http://127.0.0.1:4000/health/ready')).status())
+    .poll(async () =>
+      (
+        await request.get((process.env.API_BASE_URL ?? 'http://127.0.0.1:4000') + '/health/ready')
+      ).status(),
+    )
     .toBe(200);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Môi trường đã sẵn sàng' })).toBeVisible();

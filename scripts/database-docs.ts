@@ -14,15 +14,15 @@ try {
       `SELECT c.relname AS name,obj_description(c.oid) AS description FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND c.relname<>'_prisma_migrations' ORDER BY c.relname`,
     )
   ).rows;
-  if (tables.length !== 14) throw new Error('Expected exactly 14 business tables');
+  if (tables.length !== 45) throw new Error('Expected exactly 45 business tables');
   const md = [
-    '# Data Dictionary — Sprint 1',
-    'Version: 2026-09-10 · Migration: `202609100001_c0_c1`',
-    'Sinh từ PostgreSQL đang chạy, gồm đúng 14 bảng. PK/FK/unique/check ở từng bảng; index bao gồm partial unique. Mọi FK RESTRICT, mọi thời gian UTC (timestamptz). Trigger tự cập nhật updated_at; trigger app_user_revoke thu hồi phiên khi đổi mật khẩu/trạng thái. Prisma schema quản lý cấu trúc; SQL migration quản lý thêm partial index, check, comment và trigger.',
+    '# Data Dictionary — CORE45',
+    'Version: 2026-09-23 · Baseline + CORE additive migrations',
+    'Sinh từ PostgreSQL đang chạy, gồm đúng 45 bảng. PK/FK/unique/check ở từng bảng; index bao gồm partial unique. Mọi FK RESTRICT, mọi thời gian UTC (timestamptz). Trigger tự cập nhật updated_at; trigger app_user_revoke thu hồi phiên khi đổi mật khẩu/trạng thái. Prisma schema quản lý cấu trúc; SQL migration quản lý thêm partial index, check, comment và trigger.',
   ];
   const dot = [
     'digraph ERD {',
-    'graph [rankdir=LR,bgcolor="#f7f9f5",pad="0.5",nodesep="0.55",ranksep="1.3",label="SPRINT 1 • PHYSICAL ERD • 14 TABLES\nPostgreSQL · C0 / C1 · 2026-09-10",labelloc=t,fontname="DejaVu Sans",fontsize=22];',
+    'graph [rankdir=LR,bgcolor="#f7f9f5",pad="0.5",nodesep="0.55",ranksep="1.3",label="CORE45 • PHYSICAL ERD • 45 TABLES\nPostgreSQL · C0 / C1 · 2026-09-10",labelloc=t,fontname="DejaVu Sans",fontsize=22];',
     'node [shape=plain,fontname="DejaVu Sans"];',
     'edge [color="#638478",fontname="DejaVu Sans",fontsize=10];',
   ];

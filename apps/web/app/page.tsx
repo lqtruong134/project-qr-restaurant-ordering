@@ -1,79 +1,66 @@
 import { StatusBadge } from '@thesis/ui';
-import type { ServiceHealth } from '@thesis/contracts';
 export const dynamic = 'force-dynamic';
 export default async function Home() {
   let ready = false;
   try {
-    const response = await fetch(
-      `${process.env.API_BASE_URL ?? 'http://127.0.0.1:4000'}/health/ready`,
-      { cache: 'no-store', signal: AbortSignal.timeout(4000) },
-    );
-    const health: ServiceHealth = await response.json();
-    ready = response.ok && health.status === 'ok' && health.database === 'connected';
+    const r = await fetch((process.env.API_BASE_URL ?? 'http://127.0.0.1:4000') + '/health/ready', {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(4000),
+    });
+    ready = r.ok;
   } catch {
-    /* The status card provides a recoverable offline state. */
+    // The readiness card shows the recoverable offline state.
   }
   return (
     <main>
       <header>
         <a href="/" className="brand">
-          <span className="brand-mark">Q</span> QR Ordering
+          <span className="brand-mark">Q</span>An Nhiên · QR Ordering
         </a>
-        <span className="eyebrow">LUẬN VĂN · 2026</span>
+        <a className="secondary-button" href="/login">
+          Đăng nhập nhân viên
+        </a>
       </header>
       <section className="intro">
-        <span className="eyebrow">SPRINT 01 / NỀN TẢNG</span>
+        <span className="eyebrow">GỌI MÓN TẠI BÀN</span>
         <h1>
-          Khởi đầu từ một
+          Từ thực đơn
           <br />
-          <em>nền tảng vững chắc.</em>
+          <em>đến từng bữa ăn.</em>
         </h1>
         <p>
-          Môi trường phát triển cho website gọi món tại bàn.
-          <br />
-          Kiểm tra kết nối và truy cập không gian nội bộ.
+          Khách quét mã QR trên bàn để gọi món. Nhân viên tiếp nhận, bếp cập nhật chế biến và quản
+          trị theo dõi thực đơn, nguyên liệu, thanh toán.
         </p>
       </section>
       <section className="status-card" aria-label="Trạng thái hệ thống">
         <div>
-          <span className="eyebrow">KẾT NỐI HỆ THỐNG</span>
           <h2>{ready ? 'Môi trường đã sẵn sàng' : 'Cần kiểm tra kết nối'}</h2>
           <p>
             {ready
-              ? 'Giao diện, API và PostgreSQL đang kết nối.'
-              : 'Khởi động API và database, sau đó tải lại trang.'}
+              ? 'Bạn có thể đăng nhập để bắt đầu ca làm việc.'
+              : 'Chưa kết nối được hệ thống. Vui lòng thử lại sau.'}
           </p>
         </div>
         <StatusBadge ready={ready}>{ready ? 'Hoạt động' : 'Chưa kết nối'}</StatusBadge>
       </section>
-      <section className="milestones" aria-label="Lộ trình Sprint 1">
+      <section className="milestones">
         {[
-          ['01', 'Bộ khung dự án', 'Môi trường và kiểm tra chất lượng', 'Đã kiểm thử'],
-          ['02', 'Thiết kế dữ liệu', 'ERD và migration 14 bảng C0–C1', 'Đã tạo 14 bảng'],
-          ['03', 'Đăng nhập & quyền', 'Staff · Kitchen · Admin', 'Sẵn sàng nghiệm thu'],
-          ['04', 'Dữ liệu & demo', 'Seed, từ điển dữ liệu và diễn tập', 'Sẵn sàng nghiệm thu'],
-        ].map(([n, title, detail, status]) => (
-          <article key={n}>
-            <span className="step">{n}</span>
-            <h3>{title}</h3>
-            <p>{detail}</p>
-            <small>{status}</small>
+          ['Khách tại bàn', 'Quét QR, chọn món, theo dõi và gọi hỗ trợ.'],
+          ['Phục vụ', 'Duyệt món, phục vụ bàn và xác nhận thu tiền.'],
+          ['Bếp', 'Tiếp nhận lượt gọi, chế biến và báo món sẵn sàng.'],
+          ['Quản trị', 'Quản lý món, công thức, kho và tài khoản nhân viên.'],
+        ].map(([name, description]) => (
+          <article key={name}>
+            <h3>{name}</h3>
+            <p>{description}</p>
           </article>
         ))}
       </section>
       <footer>
-        <span>Mốc Sprint Review</span>
-        <strong>20 tháng 09, 2026</strong>
-        <span>Sprint 1 · Môi trường local</span>
+        <a href="/login">Không gian nội bộ</a>
+        <a href="/api-docs">Tài liệu API</a>
       </footer>
-      <p style={{ marginTop: 24 }}>
-        <a className="primary-button" href="/login">
-          Đăng nhập nội bộ
-        </a>{' '}
-        <a className="secondary-button" href="/api-docs">
-          Demo API — Swagger UI
-        </a>
-      </p>
     </main>
   );
 }

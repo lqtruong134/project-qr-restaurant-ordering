@@ -26,6 +26,9 @@ else if (mode === 'coverage')
   run('pnpm', ['exec', 'vitest', 'run', '--config', 'vitest.quality.config.ts', '--coverage']);
 else if (mode === 'rehearsal') run('pnpm', ['exec', 'tsx', 'scripts/rehearsal.ts']);
 else if (mode === 'docs') run('pnpm', ['exec', 'tsx', 'scripts/database-docs.ts']);
+else if (mode === 'e2e')
+  run('pnpm', ['exec', 'tsx', 'scripts/browser-tests.ts', ...process.argv.slice(3)]);
+else if (mode === 'seed-core') run('pnpm', ['exec', 'tsx', 'scripts/seed-core.ts']);
 else if (mode === 'seed') run('pnpm', ['exec', 'tsx', 'scripts/seed.ts']);
 else if (mode === 'dev') {
   const children = [
