@@ -58,6 +58,8 @@ footer span:last-child { margin-left:auto; }
 .core-guest .core-card{margin:1rem 0 1.25rem}
 .core-qr{max-width:400px}
 .core-qr img{display:block;max-width:100%;height:auto}
+.core-qr-actions{display:flex;flex-wrap:wrap;gap:.65rem;margin-top:1rem}
+.core-qr-actions .secondary-button{flex:1 1 170px}
 summary{cursor:pointer;font-weight:650;padding:.5rem;border-radius:8px}
 summary:hover{background:#f3f7f1}
 select:focus-visible{outline:3px solid #b37425;outline-offset:3px}

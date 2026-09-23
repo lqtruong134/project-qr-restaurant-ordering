@@ -33,7 +33,8 @@ export default function Admin() {
   const [data, setData] = useState<Data>(),
     [error, setError] = useState(''),
     [tab, setTab] = useState('menu'),
-    [qr, setQr] = useState<{ image: string; url: string; table: string }>();
+    [qr, setQr] = useState<{ image: string; url: string; table: string }>(),
+    [copyMessage, setCopyMessage] = useState('');
   const refresh = useCallback(async () => {
     try {
       const [catalog, tables, areas, inventory, users, reports, risk, outstanding] =
@@ -294,9 +295,31 @@ export default function Admin() {
                 <div className="core-card core-qr">
                   <h2>QR {qr.table}</h2>
                   <img src={qr.image} alt={'Mã QR ' + qr.table} width={320} height={320} />
-                  <p>
-                    <a href={qr.url} target="_blank" rel="noreferrer">
+                  <div className="core-qr-actions">
+                    <a className="secondary-button" href={qr.url} target="_blank" rel="noreferrer">
                       Mở thực đơn của bàn
+                    </a>
+                    <button
+                      className="secondary-button"
+                      onClick={async () => {
+                        setCopyMessage('');
+                        try {
+                          await navigator.clipboard.writeText(qr.url);
+                          setCopyMessage('Đã sao chép liên kết thực đơn.');
+                        } catch {
+                          setCopyMessage(
+                            'Không sao chép được. Hãy mở liên kết rồi sao chép thủ công.',
+                          );
+                        }
+                      }}
+                    >
+                      Sao chép liên kết
+                    </button>
+                  </div>
+                  {copyMessage && <p role="status">{copyMessage}</p>}
+                  <p className="small-note">
+                    <a href={qr.url} target="_blank" rel="noreferrer">
+                      Liên kết dành cho khách
                     </a>
                   </p>
                   <a
