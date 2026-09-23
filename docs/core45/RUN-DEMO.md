@@ -1,13 +1,14 @@
 # Hướng dẫn chạy thử CORE 45
 
-Bản phát triển nằm tại `~/projects/qr-ordering-core45`, nhánh `feat/core45`. Bản Sprint 1 và database cũ được giữ riêng.
+Bản hợp nhất dùng tại `~/projects/qr-ordering-thesis`, nhánh `main`. Các chức năng Sprint 1
+và CORE45 dùng chung một lịch sử Git; database phát triển hiện tại được giữ nguyên.
 
 ## Mở chương trình
 
 Trong terminal Ubuntu/WSL:
 
 ```sh
-cd ~/projects/qr-ordering-core45
+cd ~/projects/qr-ordering-thesis
 pnpm dev
 ```
 

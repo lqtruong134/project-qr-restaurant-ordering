@@ -14,9 +14,9 @@ pnpm dev
 
 Nếu `pnpm dev` đã chạy thì không chạy thêm một bản nữa. Mở:
 
-[Swagger UI của dự án](http://localhost:3000/api-docs)
+[Swagger UI của dự án](http://127.0.0.1:3100/api-docs)
 
-Trang chủ cũng có nút **Demo API — Swagger UI**. Khi chuẩn bị demo hãy dùng một địa chỉ cố định `localhost:3000`; không đổi qua lại với `127.0.0.1:3000` vì cookie của hai hostname khác nhau.
+Trang chủ cũng có nút **Demo API — Swagger UI**. Khi chuẩn bị demo hãy dùng một địa chỉ cố định `127.0.0.1:3100`; không đổi qua lại với hostname khác vì cookie của các hostname khác nhau.
 
 ## 2. Hiểu các nút và phần hiển thị
 
@@ -134,7 +134,7 @@ Một account có một phiên nội bộ đang hiệu lực. Đăng nhập ở 
 | 204 ở logout | Thành công, body rỗng là bình thường |
 | 401 trước login/sau logout | Kết quả đúng của bài demo bảo vệ phiên |
 | 403 Staff → Admin | Kết quả đúng của bài demo RBAC |
-| 403 với CSRF_REJECTED ở login/logout | Mở Swagger đúng localhost:3000, giữ header = 1; kiểm tra APP_ORIGINS và restart khi sửa .env |
+| 403 với CSRF_REJECTED ở login/logout | Mở Swagger đúng 127.0.0.1:3100, giữ header = 1; kiểm tra APP_ORIGINS và restart khi sửa .env |
 | 429 | Quá số lần login, chờ một phút |
 | 400 | Kiểm tra JSON đúng cú pháp và đủ username/password |
 | Failed to fetch hoặc lỗi kết nối | Kiểm tra pnpm dev/API/Docker đang chạy |

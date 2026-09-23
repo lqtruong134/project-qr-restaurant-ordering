@@ -9,9 +9,10 @@ Guest QR, gọi món, POS/KDS nghiệp vụ, thanh toán, kho và AI thuộc cá
 ## Khởi động trong Ubuntu / WSL
 
 Yêu cầu Node theo `.nvmrc` (24.21.0), pnpm theo `packageManager` (12.3.4), Docker Compose.
-Chạy trong thư mục repository:
+Chạy trong thư mục dự án duy nhất:
 
 ```sh
+cd ~/projects/qr-ordering-thesis
 pnpm install --frozen-lockfile
 pnpm run setup
 pnpm db:up
@@ -21,7 +22,7 @@ pnpm db:seed
 pnpm dev
 ```
 
-Mở http://localhost:3000/login. Dùng `staff`, `kitchen` hoặc `admin` và giá trị
+Mở http://127.0.0.1:3100/login. Dùng `staff`, `kitchen` hoặc `admin` và giá trị
 `SEED_PASSWORD` trong `.env` riêng trên máy. Không commit, chụp ảnh hoặc đưa mật khẩu
 vào báo cáo. `pnpm run setup` giữ cấu hình đã có và chỉ thêm secret còn thiếu.
 Phải dùng `pnpm run setup`; `pnpm setup` là lệnh khác của pnpm.
@@ -101,7 +102,7 @@ migration/seed, integration, build, browser test, audit và rehearsal.
 
 ## Demo API bằng Swagger UI
 
-Mở http://localhost:3000/api-docs sau khi chạy `pnpm dev`. Không cần Postman.
+Mở http://127.0.0.1:3100/api-docs sau khi chạy `pnpm dev`. API chạy cổng 4100.
 Xem [hướng dẫn demo từng bước](docs/swagger-demo.md). Trang dùng cookie cùng nguồn
 và tự gửi header chống CSRF. Tài nguyên Swagger được sinh trước dev/build, không dùng CDN.
 
