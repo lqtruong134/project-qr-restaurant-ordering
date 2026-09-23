@@ -7,7 +7,7 @@ test('Swagger Execute uses real cookie auth: 401, login, 200, 403, refresh, logo
   test.skip(info.project.name === 'mobile', 'Detailed API demo is validated on desktop.');
   await page.goto('/api-docs');
   const frame = page.frameLocator('iframe');
-  await expect(frame.getByRole('heading', { name: 'Demo API · Sprint 1' })).toBeVisible();
+  await expect(frame.getByRole('heading', { name: 'Demo API · CORE45' })).toBeVisible();
   async function execute(id: string, status: number, edit?: () => Promise<void>) {
     const op = frame.locator('.opblock[id$="-' + id + '"]');
     if (!(await op.locator('.opblock-body').isVisible()))

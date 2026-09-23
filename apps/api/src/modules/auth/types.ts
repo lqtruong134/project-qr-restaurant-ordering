@@ -17,6 +17,7 @@ export interface Identity {
 declare module 'fastify' {
   interface FastifyContextConfig {
     public?: boolean;
+    externalWebhook?: boolean;
     permission?: string;
     authenticated?: boolean;
   }

@@ -59,11 +59,11 @@ beforeEach(async () => {
 afterEach(async () => {
   await app.close();
 });
-it('migrates exactly 14 business tables and seed twice preserves counts and passwords', async () => {
+it('migrates exactly 45 business tables and seed twice preserves counts and passwords', async () => {
   const rows = await db.pool.query(
     "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'",
   );
-  expect(rows.rowCount).toBe(14);
+  expect(rows.rowCount).toBe(45);
   const before = await db.prisma.app_user.findMany({ orderBy: { username: 'asc' } });
   await seed(db, password);
   const after = await db.prisma.app_user.findMany({ orderBy: { username: 'asc' } });

@@ -1,3 +1,5 @@
+> Bản CORE 45: xem [hướng dẫn chạy thử](docs/core45/RUN-DEMO.md) và [tình trạng triển khai](docs/core45/IMPLEMENTATION.md). Phần Sprint 1 bên dưới giữ làm tài liệu nền.
+
 # QR Restaurant Ordering — luận văn
 
 Sprint 1: môi trường Next.js + Fastify + PostgreSQL, schema 14 bảng C0/C1,

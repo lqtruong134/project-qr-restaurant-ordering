@@ -1,3 +1,4 @@
+import { registerCore } from './modules/core/index.js';
 import { createDatabase } from '@thesis/database';
 import { buildApp } from './app.js';
 import { registerAuth } from './auth.js';
@@ -12,6 +13,7 @@ await registerAuth(app, database, {
   secure: process.env.NODE_ENV === 'production',
   loginLimit: Number(process.env.LOGIN_LIMIT ?? 5),
 });
+registerCore(app, database, process.env.RESTAURANT_ID ?? '', process.env.NODE_ENV === 'production');
 app.addHook('onClose', async () => {
   await database.close();
 });

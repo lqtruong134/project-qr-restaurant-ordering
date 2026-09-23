@@ -12,6 +12,7 @@
     "@thesis/contracts": "workspace:*",
     "@thesis/ui": "workspace:*",
     "next": "16.3.4",
+    "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "swagger-ui-dist": "^5.32.15",
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "tailwindcss": "^4.1.0"

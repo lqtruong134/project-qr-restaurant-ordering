@@ -56,7 +56,10 @@ export async function registerAuth(app: FastifyInstance, db: Database, options: 
   }
   app.addHook('onRequest', async (request, reply) => {
     reply.header('Cache-Control', 'no-store').header('X-Content-Type-Options', 'nosniff');
-    if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
+    if (
+      !request.routeOptions.config.externalWebhook &&
+      !['GET', 'HEAD', 'OPTIONS'].includes(request.method)
+    ) {
       if (
         !options.origins.includes(request.headers.origin ?? '') ||
         request.headers['x-csrf-protection'] !== '1'

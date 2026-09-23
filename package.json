@@ -22,13 +22,14 @@
     "build": "pnpm --filter @thesis/web build",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
     "check:secrets": "node scripts/check-secrets.mjs",
-    "test:e2e": "playwright test",
+    "test:e2e": "node scripts/run.mjs e2e",
     "db:generate": "node scripts/run.mjs generate",
     "docs:database": "node scripts/run.mjs docs",
     "demo:rehearse": "node scripts/run.mjs rehearsal",
     "test:coverage": "node scripts/run.mjs coverage",
     "format": "prettier --write \"apps/**/*.{ts,tsx,mjs,js}\" \"packages/**/src/**/*.{ts,tsx}\" \"scripts/*.{ts,mjs}\" \"tests/**/*.{ts,tsx}\" \"*.{ts,mjs,json}\"",
-    "format:check": "prettier --check \"apps/**/*.{ts,tsx,mjs,js}\" \"packages/**/src/**/*.{ts,tsx}\" \"scripts/*.{ts,mjs}\" \"tests/**/*.{ts,tsx}\" \"*.{ts,mjs,json}\""
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx,mjs,js}\" \"packages/**/src/**/*.{ts,tsx}\" \"scripts/*.{ts,mjs}\" \"tests/**/*.{ts,tsx}\" \"*.{ts,mjs,json}\"",
+    "db:seed:core": "node scripts/run.mjs seed-core"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

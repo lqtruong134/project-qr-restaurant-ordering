@@ -1,8 +1,7 @@
-// Partial unique indexes, CHECK constraints and triggers are owned by SQL migrations.
-// Do not use db push or blind db pull: partial uniqueness is not a 1:1 historical relation.
 generator client {
   provider        = "prisma-client"
   output          = "../generated/prisma"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -12,20 +11,37 @@ datasource db {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model app_user {
-  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  restaurant_id      String     @db.Uuid
-  username           String     @db.VarChar(64)
-  password_hash      String
-  display_name       String
-  status             String     @default("ACTIVE")
-  last_login_at      DateTime?  @db.Timestamptz(6)
-  refresh_token_hash String?    @unique
-  refresh_expires_at DateTime?  @db.Timestamptz(6)
-  auth_version       Int        @default(0)
-  created_at         DateTime   @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime   @default(now()) @db.Timestamptz(6)
-  restaurant         restaurant @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
-  user_role          user_role[]
+  id                                                                      String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id                                                           String                     @db.Uuid
+  username                                                                String                     @db.VarChar(64)
+  password_hash                                                           String
+  display_name                                                            String
+  status                                                                  String                     @default("ACTIVE")
+  last_login_at                                                           DateTime?                  @db.Timestamptz(6)
+  refresh_token_hash                                                      String?                    @unique
+  refresh_expires_at                                                      DateTime?                  @db.Timestamptz(6)
+  auth_version                                                            Int                        @default(0)
+  created_at                                                              DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                                              DateTime                   @default(now()) @db.Timestamptz(6)
+  restaurant                                                              restaurant                 @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
+  goods_receipt_goods_receipt_created_byToapp_user                        goods_receipt[]            @relation("goods_receipt_created_byToapp_user")
+  goods_receipt_goods_receipt_approved_byToapp_user                       goods_receipt[]            @relation("goods_receipt_approved_byToapp_user")
+  idempotency_record                                                      idempotency_record[]
+  inventory_movement                                                      inventory_movement[]
+  operational_alert                                                       operational_alert[]
+  order_batch                                                             order_batch[]
+  order_item                                                              order_item[]
+  order_review                                                            order_review[]
+  order_status_history                                                    order_status_history[]
+  outstanding_balance_case_outstanding_balance_case_reported_byToapp_user outstanding_balance_case[] @relation("outstanding_balance_case_reported_byToapp_user")
+  outstanding_balance_case_outstanding_balance_case_admin_ownerToapp_user outstanding_balance_case[] @relation("outstanding_balance_case_admin_ownerToapp_user")
+  payment_transaction                                                     payment_transaction[]
+  refund_case                                                             refund_case[]
+  refund_transaction                                                      refund_transaction[]
+  risk_policy_config                                                      risk_policy_config[]
+  support_request_support_request_acknowledged_byToapp_user               support_request[]          @relation("support_request_acknowledged_byToapp_user")
+  support_request_support_request_resolved_byToapp_user                   support_request[]          @relation("support_request_resolved_byToapp_user")
+  user_role                                                               user_role[]
 
   @@unique([restaurant_id, username])
 }
@@ -50,21 +66,23 @@ model dining_area {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model dining_table {
-  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  restaurant_id  String          @db.Uuid
-  area_id        String          @db.Uuid
-  code           String
-  name           String
-  capacity       Int
-  table_status   String          @default("AVAILABLE")
-  is_active      Boolean         @default(true)
-  version        Int             @default(1)
-  created_at     DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime        @default(now()) @db.Timestamptz(6)
-  dining_area    dining_area     @relation(fields: [area_id, restaurant_id], references: [id, restaurant_id], onUpdate: Restrict)
-  restaurant     restaurant      @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
-  table_qr_token table_qr_token[]
-  table_session  table_session[]
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id            String                     @db.Uuid
+  area_id                  String                     @db.Uuid
+  code                     String
+  name                     String
+  capacity                 Int
+  table_status             String                     @default("AVAILABLE")
+  is_active                Boolean                    @default(true)
+  version                  Int                        @default(1)
+  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
+  dining_area              dining_area                @relation(fields: [area_id, restaurant_id], references: [id, restaurant_id], onUpdate: Restrict)
+  restaurant               restaurant                 @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
+  operational_alert        operational_alert[]
+  outstanding_balance_case outstanding_balance_case[]
+  table_qr_token           table_qr_token[]
+  table_session            table_session[]
 
   @@unique([restaurant_id, code])
   @@index([area_id, restaurant_id], map: "dining_table_area_idx")
@@ -116,8 +134,11 @@ model product {
   version             Int           @default(1)
   created_at          DateTime      @default(now()) @db.Timestamptz(6)
   updated_at          DateTime      @default(now()) @db.Timestamptz(6)
+  cart_item           cart_item[]
+  order_item          order_item[]
   menu_category       menu_category @relation(fields: [category_id, restaurant_id], references: [id, restaurant_id], onUpdate: Restrict)
   restaurant          restaurant    @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
+  recipe_bom          recipe_bom[]
 
   @@unique([restaurant_id, code])
   @@index([category_id, restaurant_id], map: "product_category_idx")
@@ -126,19 +147,22 @@ model product {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model restaurant {
-  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name          String
-  address       String?
-  currency      String          @default("VND")
-  timezone      String          @default("Asia/Ho_Chi_Minh")
-  status        String          @default("ACTIVE")
-  created_at    DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime        @default(now()) @db.Timestamptz(6)
-  app_user      app_user[]
-  dining_area   dining_area[]
-  dining_table  dining_table[]
-  menu_category menu_category[]
-  product       product[]
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String
+  address            String?
+  currency           String               @default("VND")
+  timezone           String               @default("Asia/Ho_Chi_Minh")
+  status             String               @default("ACTIVE")
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  app_user           app_user[]
+  dining_area        dining_area[]
+  dining_table       dining_table[]
+  ingredient         ingredient[]
+  menu_category      menu_category[]
+  product            product[]
+  risk_policy_config risk_policy_config[]
+  stock_location     stock_location[]
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -178,25 +202,34 @@ model session_cart {
   cart_version  Int           @default(1)
   created_at    DateTime      @default(now()) @db.Timestamptz(6)
   updated_at    DateTime      @default(now()) @db.Timestamptz(6)
+  cart_item     cart_item[]
   table_session table_session @relation(fields: [session_id], references: [id], onUpdate: Restrict)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model session_participant {
-  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  session_id          String        @db.Uuid
-  guest_id            String        @db.Uuid
-  display_name        String?
-  credential_hash     String        @unique
-  device_session_hash String?
-  status              String        @default("ACTIVE")
-  blocked_until       DateTime?     @db.Timestamptz(6)
-  joined_at           DateTime      @default(now()) @db.Timestamptz(6)
-  last_seen_at        DateTime      @default(now()) @db.Timestamptz(6)
-  created_at          DateTime      @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime      @default(now()) @db.Timestamptz(6)
-  table_session       table_session @relation(fields: [session_id], references: [id], onUpdate: Restrict)
+  id                                                                     String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id                                                             String                 @db.Uuid
+  guest_id                                                               String                 @db.Uuid
+  display_name                                                           String?
+  credential_hash                                                        String                 @unique
+  device_session_hash                                                    String?
+  status                                                                 String                 @default("ACTIVE")
+  blocked_until                                                          DateTime?              @db.Timestamptz(6)
+  joined_at                                                              DateTime               @default(now()) @db.Timestamptz(6)
+  last_seen_at                                                           DateTime               @default(now()) @db.Timestamptz(6)
+  created_at                                                             DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at                                                             DateTime               @default(now()) @db.Timestamptz(6)
+  cart_item                                                              cart_item[]
+  idempotency_record                                                     idempotency_record[]
+  order_batch                                                            order_batch[]
+  order_item_order_item_cancelled_by_participant_idTosession_participant order_item[]           @relation("order_item_cancelled_by_participant_idTosession_participant")
+  order_item_order_item_owner_participant_idTosession_participant        order_item[]           @relation("order_item_owner_participant_idTosession_participant")
+  order_status_history                                                   order_status_history[]
+  payment_intent                                                         payment_intent[]
+  table_session                                                          table_session          @relation(fields: [session_id], references: [id], onUpdate: Restrict)
+  support_request                                                        support_request[]
 
   @@unique([session_id, guest_id])
 }
@@ -222,20 +255,31 @@ model table_qr_token {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model table_session {
-  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  table_id            String                @db.Uuid
-  session_status      String                @default("ACTIVE")
-  verification_status String                @default("UNVERIFIED")
-  opened_at           DateTime              @default(now()) @db.Timestamptz(6)
-  verified_at         DateTime?             @db.Timestamptz(6)
-  closed_at           DateTime?             @db.Timestamptz(6)
-  close_reason        String?
-  version             Int                   @default(1)
-  created_at          DateTime              @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime              @default(now()) @db.Timestamptz(6)
-  session_cart        session_cart?
-  session_participant session_participant[]
-  dining_table        dining_table          @relation(fields: [table_id], references: [id], onUpdate: Restrict)
+  id                        String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  table_id                  String                     @db.Uuid
+  session_status            String                     @default("ACTIVE")
+  verification_status       String                     @default("UNVERIFIED")
+  opened_at                 DateTime                   @default(now()) @db.Timestamptz(6)
+  verified_at               DateTime?                  @db.Timestamptz(6)
+  closed_at                 DateTime?                  @db.Timestamptz(6)
+  close_reason              String?
+  version                   Int                        @default(1)
+  created_at                DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                   @default(now()) @db.Timestamptz(6)
+  financial_status          String                     @default("UNPAID")
+  risk_status               String                     @default("NORMAL")
+  financial_charge          financial_charge[]
+  operational_alert         operational_alert[]
+  order_batch               order_batch[]
+  outstanding_balance_case  outstanding_balance_case[]
+  payment_intent            payment_intent[]
+  payment_transaction       payment_transaction[]
+  refund_case               refund_case[]
+  session_cart              session_cart?
+  session_financial_account session_financial_account?
+  session_participant       session_participant[]
+  support_request           support_request[]
+  dining_table              dining_table               @relation(fields: [table_id], references: [id], onUpdate: Restrict)
 
   @@index([table_id], map: "table_session_table_idx")
 }
@@ -254,4 +298,725 @@ model user_role {
   app_user    app_user  @relation(fields: [user_id], references: [id], onUpdate: Restrict)
 
   @@index([role_id], map: "user_role_role_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model cart_item {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cart_id              String               @db.Uuid
+  owner_participant_id String?              @db.Uuid
+  product_id           String               @db.Uuid
+  quantity             Int
+  note                 String?
+  unit_price_preview   BigInt
+  selected             Boolean              @default(false)
+  version              Int                  @default(1)
+  created_at           DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime             @default(now()) @db.Timestamptz(6)
+  session_cart         session_cart         @relation(fields: [cart_id], references: [id], onUpdate: Restrict, map: "core_cart_item_f1")
+  session_participant  session_participant? @relation(fields: [owner_participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_cart_item_f2")
+  product              product              @relation(fields: [product_id], references: [id], onUpdate: Restrict, map: "core_cart_item_f3")
+
+  @@index([cart_id], map: "core_cart_item_fk1")
+  @@index([owner_participant_id], map: "core_cart_item_fk2")
+  @@index([product_id], map: "core_cart_item_fk3")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model financial_charge {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id         String               @db.Uuid
+  order_item_id      String?              @db.Uuid
+  charge_type        String
+  amount             BigInt
+  status             String               @default("ACTIVE")
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  reversed_at        DateTime?            @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  table_session      table_session        @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_financial_charge_f1")
+  order_item         order_item?          @relation(fields: [order_item_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_financial_charge_f2")
+  payment_allocation payment_allocation[]
+
+  @@index([session_id], map: "core_financial_charge_fk1")
+  @@index([order_item_id], map: "core_financial_charge_fk2")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model goods_receipt {
+  id                                           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  location_id                                  String               @db.Uuid
+  receipt_no                                   String
+  status                                       String               @default("DRAFT")
+  received_at                                  DateTime?            @db.Timestamptz(6)
+  total_value                                  BigInt
+  created_by                                   String               @db.Uuid
+  approved_by                                  String?              @db.Uuid
+  supplier_name_snapshot                       String?
+  created_at                                   DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                   DateTime             @default(now()) @db.Timestamptz(6)
+  stock_location                               stock_location       @relation(fields: [location_id], references: [id], onUpdate: Restrict, map: "core_goods_receipt_f1")
+  app_user_goods_receipt_created_byToapp_user  app_user             @relation("goods_receipt_created_byToapp_user", fields: [created_by], references: [id], onUpdate: Restrict, map: "core_goods_receipt_f2")
+  app_user_goods_receipt_approved_byToapp_user app_user?            @relation("goods_receipt_approved_byToapp_user", fields: [approved_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_goods_receipt_f3")
+  goods_receipt_item                           goods_receipt_item[]
+  inventory_movement                           inventory_movement[]
+
+  @@unique([location_id, receipt_no])
+  @@index([location_id], map: "core_goods_receipt_fk1")
+  @@index([created_by], map: "core_goods_receipt_fk2")
+  @@index([approved_by], map: "core_goods_receipt_fk3")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model goods_receipt_item {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  receipt_id      String          @db.Uuid
+  ingredient_id   String          @db.Uuid
+  quantity        Decimal         @db.Decimal(18, 6)
+  unit_id         String          @db.Uuid
+  base_quantity   Decimal         @db.Decimal(18, 6)
+  unit_cost       Decimal         @db.Decimal(18, 6)
+  lot_no          String?
+  expiry_date     DateTime?       @db.Date
+  created_at      DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime        @default(now()) @db.Timestamptz(6)
+  goods_receipt   goods_receipt   @relation(fields: [receipt_id], references: [id], onUpdate: Restrict, map: "core_goods_receipt_item_f1")
+  ingredient      ingredient      @relation(fields: [ingredient_id], references: [id], onUpdate: Restrict, map: "core_goods_receipt_item_f2")
+  unit_of_measure unit_of_measure @relation(fields: [unit_id], references: [id], onUpdate: Restrict, map: "core_goods_receipt_item_f3")
+
+  @@index([receipt_id], map: "core_goods_receipt_item_fk1")
+  @@index([ingredient_id], map: "core_goods_receipt_item_fk2")
+  @@index([unit_id], map: "core_goods_receipt_item_fk3")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model idempotency_record {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scope                String
+  idempotency_key      String
+  request_hash         String
+  resource_type        String
+  response_snapshot    Json?
+  expires_at           DateTime             @db.Timestamptz(6)
+  actor_type           String
+  actor_user_id        String?              @db.Uuid
+  actor_participant_id String?              @db.Uuid
+  order_batch_id       String?              @db.Uuid
+  payment_intent_id    String?              @db.Uuid
+  status               String               @default("PROCESSING")
+  created_at           DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime             @default(now()) @db.Timestamptz(6)
+  app_user             app_user?            @relation(fields: [actor_user_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_idempotency_record_f1")
+  session_participant  session_participant? @relation(fields: [actor_participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_idempotency_record_f2")
+  order_batch          order_batch?         @relation(fields: [order_batch_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_idempotency_record_f4")
+  payment_intent       payment_intent?      @relation(fields: [payment_intent_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_idempotency_record_f5")
+
+  @@unique([scope, actor_participant_id, idempotency_key], map: "pdm_idem_guest", where: raw("(actor_type = 'GUEST'::text)"))
+  @@unique([scope, idempotency_key], map: "pdm_idem_system", where: raw("(actor_type = 'SYSTEM'::text)"))
+  @@unique([scope, actor_user_id, idempotency_key], map: "pdm_idem_user", where: raw("(actor_type = 'USER'::text)"))
+  @@index([actor_user_id], map: "core_idempotency_record_fk1")
+  @@index([actor_participant_id], map: "core_idempotency_record_fk2")
+  @@index([order_batch_id], map: "core_idempotency_record_fk4")
+  @@index([payment_intent_id], map: "core_idempotency_record_fk5")
+  @@index([expires_at], map: "pdm_idem_expiry")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ingredient {
+  id                             String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id                  String                           @db.Uuid
+  code                           String
+  name                           String
+  base_unit_id                   String                           @db.Uuid
+  min_stock                      Decimal                          @default(0) @db.Decimal(18, 6)
+  current_avg_cost               Decimal                          @default(0) @db.Decimal(18, 6)
+  is_active                      Boolean                          @default(true)
+  version                        Int                              @default(1)
+  created_at                     DateTime                         @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime                         @default(now()) @db.Timestamptz(6)
+  goods_receipt_item             goods_receipt_item[]
+  restaurant                     restaurant                       @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict, map: "core_ingredient_f1")
+  unit_of_measure                unit_of_measure                  @relation(fields: [base_unit_id], references: [id], onUpdate: Restrict, map: "core_ingredient_f2")
+  inventory_balance              inventory_balance[]
+  inventory_movement             inventory_movement[]
+  inventory_reservation          inventory_reservation[]
+  order_item_ingredient_snapshot order_item_ingredient_snapshot[]
+  recipe_bom_item                recipe_bom_item[]
+
+  @@unique([restaurant_id, code])
+  @@index([restaurant_id], map: "core_ingredient_fk1")
+  @@index([base_unit_id], map: "core_ingredient_fk2")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model inventory_balance {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  location_id    String         @db.Uuid
+  ingredient_id  String         @db.Uuid
+  on_hand_qty    Decimal        @default(0) @db.Decimal(18, 6)
+  reserved_qty   Decimal        @default(0) @db.Decimal(18, 6)
+  available_qty  Decimal        @db.Decimal(18, 6)
+  avg_cost       Decimal        @default(0) @db.Decimal(18, 6)
+  version        Int            @default(1)
+  created_at     DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime       @default(now()) @db.Timestamptz(6)
+  stock_location stock_location @relation(fields: [location_id], references: [id], onUpdate: Restrict, map: "core_inventory_balance_f1")
+  ingredient     ingredient     @relation(fields: [ingredient_id], references: [id], onUpdate: Restrict, map: "core_inventory_balance_f2")
+
+  @@unique([location_id, ingredient_id])
+  @@index([location_id], map: "core_inventory_balance_fk1")
+  @@index([ingredient_id], map: "core_inventory_balance_fk2")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model inventory_movement {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  location_id      String         @db.Uuid
+  ingredient_id    String         @db.Uuid
+  movement_type    String
+  quantity         Decimal        @db.Decimal(18, 6)
+  unit_cost        Decimal        @db.Decimal(18, 6)
+  value            BigInt
+  source_type      String
+  occurred_at      DateTime       @default(now()) @db.Timestamptz(6)
+  created_by       String?        @db.Uuid
+  goods_receipt_id String?        @db.Uuid
+  order_item_id    String?        @db.Uuid
+  created_at       DateTime       @default(now()) @db.Timestamptz(6)
+  goods_receipt    goods_receipt? @relation(fields: [goods_receipt_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_inventory_movement_f1")
+  order_item       order_item?    @relation(fields: [order_item_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_inventory_movement_f2")
+  stock_location   stock_location @relation(fields: [location_id], references: [id], onUpdate: Restrict, map: "core_inventory_movement_f4")
+  ingredient       ingredient     @relation(fields: [ingredient_id], references: [id], onUpdate: Restrict, map: "core_inventory_movement_f5")
+  app_user         app_user?      @relation(fields: [created_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_inventory_movement_f6")
+
+  @@unique([order_item_id, ingredient_id, location_id], map: "core_consumption_line", where: raw("(movement_type = 'CONSUMPTION'::text)"))
+  @@index([goods_receipt_id], map: "core_inventory_movement_fk1")
+  @@index([order_item_id], map: "core_inventory_movement_fk2")
+  @@index([location_id], map: "core_inventory_movement_fk4")
+  @@index([ingredient_id], map: "core_inventory_movement_fk5")
+  @@index([created_by], map: "core_inventory_movement_fk6")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model inventory_reservation {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_item_id    String         @db.Uuid
+  ingredient_id    String         @db.Uuid
+  location_id      String         @db.Uuid
+  reservation_type String
+  quantity         Decimal        @db.Decimal(18, 6)
+  status           String         @default("PROVISIONAL")
+  expires_at       DateTime?      @db.Timestamptz(6)
+  created_at       DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime       @default(now()) @db.Timestamptz(6)
+  order_item       order_item     @relation(fields: [order_item_id], references: [id], onUpdate: Restrict, map: "core_inventory_reservation_f1")
+  ingredient       ingredient     @relation(fields: [ingredient_id], references: [id], onUpdate: Restrict, map: "core_inventory_reservation_f2")
+  stock_location   stock_location @relation(fields: [location_id], references: [id], onUpdate: Restrict, map: "core_inventory_reservation_f3")
+
+  @@unique([order_item_id, ingredient_id, location_id], map: "core_reservation_line")
+  @@index([order_item_id], map: "core_inventory_reservation_fk1")
+  @@index([ingredient_id], map: "core_inventory_reservation_fk2")
+  @@index([location_id], map: "core_inventory_reservation_fk3")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model operational_alert {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id         String?        @db.Uuid
+  table_id           String         @db.Uuid
+  alert_type         String
+  severity           String
+  outstanding_amount BigInt         @default(0)
+  status             String         @default("NEW")
+  acknowledged_by    String?        @db.Uuid
+  escalated_at       DateTime?      @db.Timestamptz(6)
+  resolved_at        DateTime?      @db.Timestamptz(6)
+  created_at         DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime       @default(now()) @db.Timestamptz(6)
+  table_session      table_session? @relation(fields: [session_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_operational_alert_f1")
+  dining_table       dining_table   @relation(fields: [table_id], references: [id], onUpdate: Restrict, map: "core_operational_alert_f2")
+  app_user           app_user?      @relation(fields: [acknowledged_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_operational_alert_f3")
+
+  @@index([session_id], map: "core_operational_alert_fk1")
+  @@index([table_id], map: "core_operational_alert_fk2")
+  @@index([acknowledged_by], map: "core_operational_alert_fk3")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model order_batch {
+  id                        String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id                String                  @db.Uuid
+  created_by_type           String
+  client_request_id         String
+  status                    String                  @default("SUBMITTED")
+  subtotal                  BigInt
+  total_amount              BigInt
+  risk_decision             String?
+  config_version            Int?
+  submitted_at              DateTime?               @db.Timestamptz(6)
+  accepted_at               DateTime?               @db.Timestamptz(6)
+  version                   Int                     @default(1)
+  created_by_user_id        String?                 @db.Uuid
+  created_by_participant_id String?                 @db.Uuid
+  created_at                DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                @default(now()) @db.Timestamptz(6)
+  idempotency_record        idempotency_record[]
+  app_user                  app_user?               @relation(fields: [created_by_user_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_order_batch_f1")
+  session_participant       session_participant?    @relation(fields: [created_by_participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_order_batch_f2")
+  table_session             table_session           @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_order_batch_f4")
+  order_item                order_item[]
+  order_review              order_review[]
+  order_risk_assessment     order_risk_assessment[]
+  order_status_history      order_status_history[]
+  outbox_event              outbox_event[]
+
+  @@unique([session_id, created_by_participant_id, client_request_id], map: "pdm_order_guest_request", where: raw("(created_by_type = 'GUEST'::text)"))
+  @@unique([session_id, created_by_user_id, client_request_id], map: "pdm_order_user_request", where: raw("(created_by_type = 'USER'::text)"))
+  @@index([created_by_user_id], map: "core_order_batch_fk1")
+  @@index([created_by_participant_id], map: "core_order_batch_fk2")
+  @@index([session_id], map: "core_order_batch_fk4")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model order_item {
+  id                                                                              String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_batch_id                                                                  String                           @db.Uuid
+  owner_participant_id                                                            String?                          @db.Uuid
+  product_id                                                                      String                           @db.Uuid
+  product_name_snapshot                                                           String
+  quantity                                                                        Int
+  unit_price_snapshot                                                             BigInt
+  line_total                                                                      BigInt
+  note                                                                            String?
+  status                                                                          String                           @default("SUBMITTED")
+  cancel_reason                                                                   String?
+  version                                                                         Int                              @default(1)
+  cancelled_by_type                                                               String?
+  cancelled_by_user_id                                                            String?                          @db.Uuid
+  cancelled_by_participant_id                                                     String?                          @db.Uuid
+  created_at                                                                      DateTime                         @default(now()) @db.Timestamptz(6)
+  updated_at                                                                      DateTime                         @default(now()) @db.Timestamptz(6)
+  financial_charge                                                                financial_charge[]
+  inventory_movement                                                              inventory_movement[]
+  inventory_reservation                                                           inventory_reservation[]
+  app_user                                                                        app_user?                        @relation(fields: [cancelled_by_user_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_order_item_f1")
+  session_participant_order_item_cancelled_by_participant_idTosession_participant session_participant?             @relation("order_item_cancelled_by_participant_idTosession_participant", fields: [cancelled_by_participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_order_item_f2")
+  order_batch                                                                     order_batch                      @relation(fields: [order_batch_id], references: [id], onUpdate: Restrict, map: "core_order_item_f4")
+  session_participant_order_item_owner_participant_idTosession_participant        session_participant?             @relation("order_item_owner_participant_idTosession_participant", fields: [owner_participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_order_item_f5")
+  product                                                                         product                          @relation(fields: [product_id], references: [id], onUpdate: Restrict, map: "core_order_item_f6")
+  order_item_ingredient_snapshot                                                  order_item_ingredient_snapshot[]
+  order_status_history                                                            order_status_history[]
+  refund_case                                                                     refund_case[]
+
+  @@index([cancelled_by_user_id], map: "core_order_item_fk1")
+  @@index([cancelled_by_participant_id], map: "core_order_item_fk2")
+  @@index([order_batch_id], map: "core_order_item_fk4")
+  @@index([owner_participant_id], map: "core_order_item_fk5")
+  @@index([product_id], map: "core_order_item_fk6")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model order_item_ingredient_snapshot {
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_item_id      String     @db.Uuid
+  recipe_bom_id      String     @db.Uuid
+  ingredient_id      String     @db.Uuid
+  planned_qty        Decimal    @db.Decimal(18, 6)
+  consumed_qty       Decimal    @db.Decimal(18, 6)
+  unit_cost_snapshot Decimal    @db.Decimal(18, 6)
+  cogs_value         BigInt
+  created_at         DateTime   @default(now()) @db.Timestamptz(6)
+  order_item         order_item @relation(fields: [order_item_id], references: [id], onUpdate: Restrict, map: "core_order_item_ingredient_snapshot_f1")
+  recipe_bom         recipe_bom @relation(fields: [recipe_bom_id], references: [id], onUpdate: Restrict, map: "core_order_item_ingredient_snapshot_f2")
+  ingredient         ingredient @relation(fields: [ingredient_id], references: [id], onUpdate: Restrict, map: "core_order_item_ingredient_snapshot_f3")
+
+  @@unique([order_item_id, recipe_bom_id, ingredient_id], map: "order_item_ingredient_snapsho_order_item_id_recipe_bom_id_i_key")
+  @@index([order_item_id], map: "core_order_item_ingredient_snapshot_fk1")
+  @@index([recipe_bom_id], map: "core_order_item_ingredient_snapshot_fk2")
+  @@index([ingredient_id], map: "core_order_item_ingredient_snapshot_fk3")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model order_review {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_batch_id  String      @db.Uuid
+  status          String      @default("PENDING")
+  requested_at    DateTime    @default(now()) @db.Timestamptz(6)
+  expires_at      DateTime    @db.Timestamptz(6)
+  reviewer_id     String?     @db.Uuid
+  decided_at      DateTime?   @db.Timestamptz(6)
+  decision_reason String?
+  version         Int         @default(1)
+  created_at      DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime    @default(now()) @db.Timestamptz(6)
+  order_batch     order_batch @relation(fields: [order_batch_id], references: [id], onUpdate: Restrict, map: "core_order_review_f1")
+  app_user        app_user?   @relation(fields: [reviewer_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_order_review_f2")
+
+  @@index([order_batch_id], map: "core_order_review_fk1")
+  @@index([reviewer_id], map: "core_order_review_fk2")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model order_risk_assessment {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_batch_id  String      @db.Uuid
+  decision        String
+  score           Decimal?    @db.Decimal(18, 6)
+  metric_snapshot Json
+  reason_codes    Json
+  config_version  Int?
+  config_snapshot Json
+  evaluated_at    DateTime    @default(now()) @db.Timestamptz(6)
+  created_at      DateTime    @default(now()) @db.Timestamptz(6)
+  order_batch     order_batch @relation(fields: [order_batch_id], references: [id], onUpdate: Restrict, map: "core_order_risk_assessment_f1")
+
+  @@index([order_batch_id], map: "core_order_risk_assessment_fk1")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model order_status_history {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_batch_id       String               @db.Uuid
+  order_item_id        String?              @db.Uuid
+  old_status           String?
+  new_status           String
+  actor_type           String
+  reason               String?
+  changed_at           DateTime             @default(now()) @db.Timestamptz(6)
+  actor_user_id        String?              @db.Uuid
+  actor_participant_id String?              @db.Uuid
+  created_at           DateTime             @default(now()) @db.Timestamptz(6)
+  app_user             app_user?            @relation(fields: [actor_user_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_order_status_history_f1")
+  session_participant  session_participant? @relation(fields: [actor_participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_order_status_history_f2")
+  order_batch          order_batch          @relation(fields: [order_batch_id], references: [id], onUpdate: Restrict, map: "core_order_status_history_f4")
+  order_item           order_item?          @relation(fields: [order_item_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_order_status_history_f5")
+
+  @@index([actor_user_id], map: "core_order_status_history_fk1")
+  @@index([actor_participant_id], map: "core_order_status_history_fk2")
+  @@index([order_batch_id], map: "core_order_status_history_fk4")
+  @@index([order_item_id], map: "core_order_status_history_fk5")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model outbox_event {
+  id                     String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  aggregate_type         String
+  event_type             String
+  payload                Json
+  status                 String               @default("PENDING")
+  attempts               Int                  @default(0)
+  available_at           DateTime             @default(now()) @db.Timestamptz(6)
+  published_at           DateTime?            @db.Timestamptz(6)
+  order_batch_id         String?              @db.Uuid
+  payment_transaction_id String?              @db.Uuid
+  created_at             DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime             @default(now()) @db.Timestamptz(6)
+  order_batch            order_batch?         @relation(fields: [order_batch_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_outbox_event_f1")
+  payment_transaction    payment_transaction? @relation(fields: [payment_transaction_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_outbox_event_f2")
+
+  @@index([order_batch_id], map: "core_outbox_event_fk1")
+  @@index([payment_transaction_id], map: "core_outbox_event_fk2")
+  @@index([status, available_at], map: "pdm_outbox_ready")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model outstanding_balance_case {
+  id                                                      String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id                                              String        @db.Uuid
+  table_id                                                String        @db.Uuid
+  invoice_total                                           BigInt
+  paid_total                                              BigInt        @default(0)
+  outstanding_amount                                      BigInt        @default(0)
+  reason_code                                             String
+  status                                                  String        @default("PENDING_ADMIN_REVIEW")
+  reported_by                                             String        @db.Uuid
+  admin_owner                                             String?       @db.Uuid
+  evidence_ref                                            String?
+  notes                                                   String?
+  created_at                                              DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at                                              DateTime      @default(now()) @db.Timestamptz(6)
+  table_session                                           table_session @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_outstanding_balance_case_f1")
+  dining_table                                            dining_table  @relation(fields: [table_id], references: [id], onUpdate: Restrict, map: "core_outstanding_balance_case_f2")
+  app_user_outstanding_balance_case_reported_byToapp_user app_user      @relation("outstanding_balance_case_reported_byToapp_user", fields: [reported_by], references: [id], onUpdate: Restrict, map: "core_outstanding_balance_case_f3")
+  app_user_outstanding_balance_case_admin_ownerToapp_user app_user?     @relation("outstanding_balance_case_admin_ownerToapp_user", fields: [admin_owner], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_outstanding_balance_case_f4")
+
+  @@index([session_id], map: "core_outstanding_balance_case_fk1")
+  @@index([table_id], map: "core_outstanding_balance_case_fk2")
+  @@index([reported_by], map: "core_outstanding_balance_case_fk3")
+  @@index([admin_owner], map: "core_outstanding_balance_case_fk4")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payment_allocation {
+  id                     String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payment_transaction_id String              @db.Uuid
+  financial_charge_id    String              @db.Uuid
+  allocated_amount       BigInt
+  reversed_amount        BigInt              @default(0)
+  created_at             DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime            @default(now()) @db.Timestamptz(6)
+  payment_transaction    payment_transaction @relation(fields: [payment_transaction_id], references: [id], onUpdate: Restrict, map: "core_payment_allocation_f1")
+  financial_charge       financial_charge    @relation(fields: [financial_charge_id], references: [id], onUpdate: Restrict, map: "core_payment_allocation_f2")
+  refund_case            refund_case[]
+
+  @@unique([payment_transaction_id, financial_charge_id])
+  @@index([payment_transaction_id], map: "core_payment_allocation_fk1")
+  @@index([financial_charge_id], map: "core_payment_allocation_fk2")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payment_intent {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id           String               @db.Uuid
+  payer_participant_id String?              @db.Uuid
+  method               String
+  amount               BigInt
+  currency             String               @default("VND")
+  status               String               @default("CREATED")
+  client_request_id    String
+  provider             String?
+  provider_reference   String?
+  expires_at           DateTime             @db.Timestamptz(6)
+  version              Int                  @default(1)
+  created_at           DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime             @default(now()) @db.Timestamptz(6)
+  idempotency_record   idempotency_record[]
+  table_session        table_session        @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_payment_intent_f1")
+  session_participant  session_participant? @relation(fields: [payer_participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_payment_intent_f2")
+  payment_transaction  payment_transaction[]
+
+  @@unique([session_id, client_request_id])
+  @@index([session_id], map: "core_payment_intent_fk1")
+  @@index([payer_participant_id], map: "core_payment_intent_fk2")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payment_transaction {
+  id                      String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payment_intent_id       String?                 @db.Uuid
+  session_id              String                  @db.Uuid
+  method                  String
+  provider                String?
+  provider_transaction_id String?
+  amount                  BigInt
+  currency                String                  @default("VND")
+  status                  String                  @default("PENDING")
+  confirmed_by            String?                 @db.Uuid
+  confirmed_at            DateTime?               @db.Timestamptz(6)
+  metadata                Json?
+  created_at              DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                @default(now()) @db.Timestamptz(6)
+  outbox_event            outbox_event[]
+  payment_allocation      payment_allocation[]
+  payment_intent          payment_intent?         @relation(fields: [payment_intent_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_payment_transaction_f1")
+  table_session           table_session           @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_payment_transaction_f2")
+  app_user                app_user?               @relation(fields: [confirmed_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_payment_transaction_f3")
+  payment_webhook_event   payment_webhook_event[]
+  refund_case             refund_case[]
+
+  @@unique([provider, provider_transaction_id], map: "pdm_provider_tx", where: raw("(provider IS NOT NULL)"))
+  @@index([payment_intent_id], map: "core_payment_transaction_fk1")
+  @@index([session_id], map: "core_payment_transaction_fk2")
+  @@index([confirmed_by], map: "core_payment_transaction_fk3")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payment_webhook_event {
+  id                      String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider                String
+  provider_event_id       String
+  provider_transaction_id String?
+  payload_hash            String
+  payload_snapshot        Json
+  signature_valid         Boolean
+  processing_status       String               @default("RECEIVED")
+  received_at             DateTime             @default(now()) @db.Timestamptz(6)
+  processed_at            DateTime?            @db.Timestamptz(6)
+  payment_transaction_id  String?              @db.Uuid
+  created_at              DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime             @default(now()) @db.Timestamptz(6)
+  payment_transaction     payment_transaction? @relation(fields: [payment_transaction_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_payment_webhook_event_f1")
+
+  @@unique([provider, provider_event_id])
+  @@index([payment_transaction_id], map: "core_payment_webhook_event_fk1")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model recipe_bom {
+  id                             String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id                     String                           @db.Uuid
+  version_no                     Int                              @default(1)
+  yield_quantity                 Decimal                          @db.Decimal(18, 6)
+  status                         String                           @default("DRAFT")
+  effective_from                 DateTime                         @default(now()) @db.Timestamptz(6)
+  effective_to                   DateTime?                        @db.Timestamptz(6)
+  created_at                     DateTime                         @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime                         @default(now()) @db.Timestamptz(6)
+  order_item_ingredient_snapshot order_item_ingredient_snapshot[]
+  product                        product                          @relation(fields: [product_id], references: [id], onUpdate: Restrict, map: "core_recipe_bom_f1")
+  recipe_bom_item                recipe_bom_item[]
+
+  @@unique([product_id, version_no])
+  @@index([product_id], map: "core_recipe_bom_fk1")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model recipe_bom_item {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recipe_bom_id String     @db.Uuid
+  ingredient_id String     @db.Uuid
+  quantity      Decimal    @db.Decimal(18, 6)
+  waste_percent Decimal    @default(0) @db.Decimal(18, 6)
+  created_at    DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime   @default(now()) @db.Timestamptz(6)
+  recipe_bom    recipe_bom @relation(fields: [recipe_bom_id], references: [id], onUpdate: Restrict, map: "core_recipe_bom_item_f1")
+  ingredient    ingredient @relation(fields: [ingredient_id], references: [id], onUpdate: Restrict, map: "core_recipe_bom_item_f2")
+
+  @@unique([recipe_bom_id, ingredient_id])
+  @@index([recipe_bom_id], map: "core_recipe_bom_item_fk1")
+  @@index([ingredient_id], map: "core_recipe_bom_item_fk2")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model refund_case {
+  id                            String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id                    String               @db.Uuid
+  order_item_id                 String?              @db.Uuid
+  source_payment_transaction_id String?              @db.Uuid
+  source_allocation_id          String?              @db.Uuid
+  amount                        BigInt
+  reason                        String?
+  status                        String               @default("OPEN")
+  resolution_method             String?
+  assigned_staff_id             String?              @db.Uuid
+  evidence_ref                  String?
+  created_at                    DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                    DateTime             @default(now()) @db.Timestamptz(6)
+  table_session                 table_session        @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_refund_case_f1")
+  order_item                    order_item?          @relation(fields: [order_item_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_refund_case_f2")
+  payment_transaction           payment_transaction? @relation(fields: [source_payment_transaction_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_refund_case_f3")
+  payment_allocation            payment_allocation?  @relation(fields: [source_allocation_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_refund_case_f4")
+  app_user                      app_user?            @relation(fields: [assigned_staff_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_refund_case_f5")
+  refund_transaction            refund_transaction[]
+
+  @@index([session_id], map: "core_refund_case_fk1")
+  @@index([order_item_id], map: "core_refund_case_fk2")
+  @@index([source_payment_transaction_id], map: "core_refund_case_fk3")
+  @@index([source_allocation_id], map: "core_refund_case_fk4")
+  @@index([assigned_staff_id], map: "core_refund_case_fk5")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model refund_transaction {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  refund_case_id String      @db.Uuid
+  method         String
+  amount         BigInt
+  reference      String?
+  status         String      @default("PENDING")
+  processed_by   String      @db.Uuid
+  processed_at   DateTime?   @db.Timestamptz(6)
+  created_at     DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime    @default(now()) @db.Timestamptz(6)
+  refund_case    refund_case @relation(fields: [refund_case_id], references: [id], onUpdate: Restrict, map: "core_refund_transaction_f1")
+  app_user       app_user    @relation(fields: [processed_by], references: [id], onUpdate: Restrict, map: "core_refund_transaction_f2")
+
+  @@index([refund_case_id], map: "core_refund_transaction_fk1")
+  @@index([processed_by], map: "core_refund_transaction_fk2")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model risk_policy_config {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id  String     @db.Uuid
+  config_key     String
+  value_type     String
+  value_json     Json
+  allowed_min    Decimal?   @db.Decimal(18, 6)
+  allowed_max    Decimal?   @db.Decimal(18, 6)
+  version_no     Int        @default(1)
+  effective_from DateTime   @default(now()) @db.Timestamptz(6)
+  changed_by     String     @db.Uuid
+  created_at     DateTime   @default(now()) @db.Timestamptz(6)
+  restaurant     restaurant @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict, map: "core_risk_policy_config_f1")
+  app_user       app_user   @relation(fields: [changed_by], references: [id], onUpdate: Restrict, map: "core_risk_policy_config_f2")
+
+  @@unique([restaurant_id, config_key, version_no])
+  @@index([restaurant_id], map: "core_risk_policy_config_fk1")
+  @@index([changed_by], map: "core_risk_policy_config_fk2")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model session_financial_account {
+  id                      String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id              String        @unique @db.Uuid
+  charge_total            BigInt        @default(0)
+  paid_total              BigInt        @default(0)
+  refunded_total          BigInt        @default(0)
+  reserved_payment_amount BigInt        @default(0)
+  outstanding_amount      BigInt        @default(0)
+  refund_due_amount       BigInt        @default(0)
+  version                 Int           @default(1)
+  created_at              DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime      @default(now()) @db.Timestamptz(6)
+  table_session           table_session @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_session_financial_account_f1")
+
+  @@index([session_id], map: "core_session_financial_account_fk1")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model stock_location {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id         String                  @db.Uuid
+  code                  String
+  name                  String
+  is_active             Boolean                 @default(true)
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                @default(now()) @db.Timestamptz(6)
+  goods_receipt         goods_receipt[]
+  inventory_balance     inventory_balance[]
+  inventory_movement    inventory_movement[]
+  inventory_reservation inventory_reservation[]
+  restaurant            restaurant              @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict, map: "core_stock_location_f1")
+
+  @@unique([restaurant_id, code])
+  @@index([restaurant_id], map: "core_stock_location_fk1")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model support_request {
+  id                                                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id                                         String               @db.Uuid
+  participant_id                                     String?              @db.Uuid
+  request_type                                       String
+  content                                            String?
+  status                                             String               @default("NEW")
+  acknowledged_by                                    String?              @db.Uuid
+  resolved_by                                        String?              @db.Uuid
+  created_at                                         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                         DateTime             @default(now()) @db.Timestamptz(6)
+  acknowledged_at                                    DateTime?            @db.Timestamptz(6)
+  resolved_at                                        DateTime?            @db.Timestamptz(6)
+  table_session                                      table_session        @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_support_request_f1")
+  session_participant                                session_participant? @relation(fields: [participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_support_request_f2")
+  app_user_support_request_acknowledged_byToapp_user app_user?            @relation("support_request_acknowledged_byToapp_user", fields: [acknowledged_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_support_request_f3")
+  app_user_support_request_resolved_byToapp_user     app_user?            @relation("support_request_resolved_byToapp_user", fields: [resolved_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_support_request_f4")
+
+  @@index([session_id], map: "core_support_request_fk1")
+  @@index([participant_id], map: "core_support_request_fk2")
+  @@index([acknowledged_by], map: "core_support_request_fk3")
+  @@index([resolved_by], map: "core_support_request_fk4")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model unit_of_measure {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code               String               @unique
+  name               String
+  dimension          String
+  decimal_scale      Int
+  is_active          Boolean              @default(true)
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  goods_receipt_item goods_receipt_item[]
+  ingredient         ingredient[]
 }
