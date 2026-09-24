@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-test('foundation page reflects actual API and database readiness', async ({
+test('public landing renders restaurant entry while API is ready', async ({
   page,
   request,
 }, testInfo) => {
@@ -13,11 +13,18 @@ test('foundation page reflects actual API and database readiness', async ({
     )
     .toBe(200);
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Môi trường đã sẵn sàng' })).toBeVisible();
-  await expect(page.getByLabel('Trạng thái hệ thống')).toContainText('Hoạt động');
+  await expect(page.getByRole('heading', { name: /Món ngon trên bàn/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Đăng nhập nội bộ/ })).toHaveAttribute(
+    'href',
+    '/login',
+  );
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
   expect(errors).toEqual([]);
-  await page.screenshot({ path: testInfo.outputPath('foundation.png'), fullPage: true });
+  await page.screenshot({
+    caret: 'initial',
+    path: testInfo.outputPath('foundation.png'),
+    fullPage: true,
+  });
 });

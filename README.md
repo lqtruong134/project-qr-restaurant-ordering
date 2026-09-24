@@ -1,15 +1,12 @@
-> Bản CORE 45: xem [hướng dẫn chạy thử](docs/core45/RUN-DEMO.md) và [tình trạng triển khai](docs/core45/IMPLEMENTATION.md). Phần Sprint 1 bên dưới giữ làm tài liệu nền.
+# QR Restaurant Ordering
 
-# QR Restaurant Ordering — luận văn
+Ứng dụng gọi món bằng QR tại bàn cho **Quyết Trường Bistro** (nhà hàng demo). Một repository thống nhất gồm giao diện Next.js/React, API Fastify/TypeScript và PostgreSQL với **45 bảng nghiệp vụ**. Có bốn không gian: quản trị, phục vụ, bếp và khách.
 
-Sprint 1: môi trường Next.js + Fastify + PostgreSQL, schema 14 bảng C0/C1,
-đăng nhập Staff/Kitchen/Admin, kiểm thử quyền và gói demo ERD.
-Guest QR, gọi món, POS/KDS nghiệp vụ, thanh toán, kho và AI thuộc các Sprint sau.
+Đã có gọi món, duyệt đơn, chế biến/phục vụ, hỗ trợ tại bàn, thu tiền và hoàn tiền thủ công, báo cáo, công thức và kho. **AI và tích hợp ngân hàng/cổng thanh toán online chưa triển khai.**
 
-## Khởi động trong Ubuntu / WSL
+## Chạy trên máy
 
-Yêu cầu Node theo `.nvmrc` (24.21.0), pnpm theo `packageManager` (12.3.4), Docker Compose.
-Chạy trong thư mục dự án duy nhất:
+Môi trường phát triển: Ubuntu/WSL, Node theo `.nvmrc`, pnpm theo `packageManager`, Docker Compose.
 
 ```sh
 cd ~/projects/qr-ordering-thesis
@@ -22,90 +19,53 @@ pnpm db:seed
 pnpm dev
 ```
 
-Mở http://127.0.0.1:3100/login. Dùng `staff`, `kitchen` hoặc `admin` và giá trị
-`SEED_PASSWORD` trong `.env` riêng trên máy. Không commit, chụp ảnh hoặc đưa mật khẩu
-vào báo cáo. `pnpm run setup` giữ cấu hình đã có và chỉ thêm secret còn thiếu.
-Phải dùng `pnpm run setup`; `pnpm setup` là lệnh khác của pnpm.
-Sau khi sửa `.env`, khởi động lại `pnpm dev`.
+Mặc định mở **http://localhost:3000**, API ở cổng 4000, PostgreSQL ở 5433. Nếu `.env` đã đổi cổng, dùng `WEB_PORT` tương ứng. Giữ một terminal chạy; Ctrl+C để dừng. Lỗi `EADDRINUSE` nghĩa là cổng đang được chương trình khác dùng, thường do còn một phiên chạy cũ.
 
-Docker dự án dùng cổng **5433**, database `thesis_dev`, user `thesis`; mật khẩu lấy
-từ `.env`. DBeaver kết nối localhost:5433. Container `my-postgres` cổng 5432 cũ là
-môi trường riêng, không chứa schema mới này. Volume dự án được giữ khi `pnpm db:down`.
+`pnpm run setup` tạo `.env` nếu chưa có và giữ các thiết lập đã tồn tại. Mật khẩu seed nằm trong `SEED_PASSWORD` của `.env` riêng. Không đưa `.env`, dump database, cookie hay trace trình duyệt lên Git. Sau khi đổi cấu hình, khởi động lại dịch vụ. `pnpm setup` là lệnh khác, hãy dùng đúng `pnpm run setup`.
 
-## Sprint Review theo thứ tự
+| Vai trò | Tên đăng nhập demo |
+|---|---|
+| Quản trị | `quyettruong05` |
+| Phục vụ | `pv001`, `pv002`, `pv003`, `pv004` |
+| Bếp | `bep001`, `bep002`, `bep003` |
+| Khách | Quét QR, nhập tên; không cần tài khoản nhân viên |
 
-1. Chạy các lệnh khởi động ở trên; kiểm tra trang chủ có “Môi trường đã sẵn sàng”.
-2. Mở [ERD vật lý 14 bảng](docs/database/physical.svg), [Data Dictionary](docs/database/data-dictionary.md).
-3. Phân biệt với [ERD logic đích 72 thực thể](docs/database/logical-target.md): chỉ 14 bảng đã triển khai.
-4. Đăng nhập lần lượt `staff`, `kitchen`, `admin`; mỗi vai trò vào trang của mình rồi đăng xuất.
-5. Với Staff, nhập `/workspace/admin`: màn hình báo không có quyền và API trả 403.
-6. Chạy `pnpm test:integration` để chứng minh 401/403, refresh rotation, logout,
-   khóa tài khoản/đổi password, CSRF, rate limit, FK/unique/check và concurrency.
-7. Chạy `pnpm demo:rehearse`: tự tạo DB rỗng riêng hai lần, migrate, seed hai lần,
-   query và kiểm tra ba vai trò; không sửa DB bằng tay. Database tạm được dọn sau chạy.
-8. Đọc [log rehearsal](docs/evidence/rehearsal.md), [bằng chứng Sprint](docs/evidence/sprint1.md),
-   xác nhận nghiệm thu trước khi đánh dấu Done/Đạt DoD trên Notion.
+Mỗi nhân viên có mã đăng nhập riêng, kể cả khi trùng họ tên. Để thử nhiều vai trò cùng lúc, dùng hồ sơ trình duyệt riêng; các tab trong cùng hồ sơ chia sẻ cookie. Một tài khoản nội bộ chỉ có một phiên đăng nhập hiện hành.
 
-## Kiểm tra chất lượng
+## Tài liệu cần đọc
+
+1. [Chạy thử bốn vai trò và dùng điện thoại](docs/core45/RUN-DEMO.md).
+2. [Cấu trúc và luồng code](docs/code-guide.md), [quy tắc kiến trúc](docs/architecture/README.md).
+3. [Dữ liệu mẫu và cách thay ảnh](docs/core45/DEMO-DATA.md).
+4. [Phạm vi và giới hạn hiện tại](docs/core45/IMPLEMENTATION.md).
+5. [Từ điển database](docs/database/data-dictionary.md), [ERD vật lý](docs/database/physical.svg). Migration là nguồn sự thật.
+6. API trực tiếp tại `/api-docs`; nút Execute gửi yêu cầu thật. [Hướng dẫn Swagger](docs/swagger-demo.md).
+
+Các phương án thiết kế cũ ở [docs/archive](docs/archive/README.md); ADR và bằng chứng từng đợt được giữ để phục vụ luận văn, không thay thế tài liệu hiện hành.
+
+## Kiểm tra trước khi chia sẻ code
 
 ```sh
 pnpm check
-pnpm test:integration
-pnpm build
-pnpm exec playwright install --with-deps chromium
+pnpm test:coverage
+pnpm exec playwright install --with-deps chromium webkit
 pnpm test:e2e
-pnpm audit --audit-level=high
+pnpm build
 pnpm check:secrets
+pnpm audit --audit-level=high
 pnpm demo:rehearse
 ```
 
-Integration/rehearsal sử dụng DB riêng cùng PostgreSQL; user phát triển cần quyền
-CREATE DATABASE. Không chạy bằng user production. Browser test dùng account demo
-ở DB phát triển, đăng nhập mới thu hồi phiên cùng account; tránh demo đồng thời.
-Không chia sẻ Playwright trace vì có thể chứa credential kiểm thử. Chỉ xuất PNG
-màn hình không có mật khẩu. Test-results/trace/.env/.runtime đều được Git bỏ qua.
+`check` gồm định dạng, lint, TypeScript và unit test. Coverage chạy kiểm thử backend và integration. Integration/E2E/rehearsal tự tạo database thử riêng rồi dọn; user PostgreSQL phát triển cần quyền CREATE DATABASE. Không dùng tài khoản hoặc database production để chạy test. E2E dùng cổng 13100/14100 và thư mục `.next-e2e`, không dùng seed đang thao tác trên giao diện phát triển. Trace có thể chứa dữ liệu đăng nhập thử nên bị Git bỏ qua.
 
-## Schema và phục hồi
+## Database và seed
 
-- Migration là nguồn sự thật, chỉ thêm migration mới sau khi đã chia sẻ; không dùng `db push`.
-- Prisma biểu diễn quan hệ lịch sử 1:N. Partial unique/check/trigger nằm trong SQL;
-  không chạy `db pull` rồi ghi đè schema vì partial unique có thể bị suy luận thành 1:1.
-- Initial migration tạo đúng 14 bảng; `_prisma_migrations` chỉ là metadata công cụ.
-- Trước migration mới, tạo backup: `docker compose exec -T postgres pg_dump -U thesis -d thesis_dev -Fc > .runtime/pre-migration.dump`
-  (tạo thư mục `.runtime` trước). Backup chứa dữ liệu riêng, không đưa Git.
-- Phục hồi sang DB mới bằng `createdb` và `pg_restore --no-owner --exit-on-error` trong
-  container; đổi DATABASE_URL sang DB đã phục hồi, kiểm tra trước khi sử dụng.
-- Ưu tiên forward-fix hoặc rollback ứng dụng tương thích schema; không rollback bằng
-  DROP TABLE hoặc `docker compose down -v`. Migration đầu chạy transaction nên lỗi
-  SQL rollback toàn bộ; Prisma resolve chỉ sau khi xác minh trạng thái database.
-- Sinh lại docs: cài Graphviz (`sudo apt install graphviz`), chạy `pnpm docs:database`.
+SQL migration nằm trong `packages/database/prisma/migrations`. Không sửa migration đã chia sẻ; thêm migration mới. Không dùng `db push` để thay lịch sử migration. `pnpm db:seed:core` là alias tương thích của `pnpm db:seed`, dùng cùng một bộ dữ liệu.
 
-## Quyết định và giới hạn đã biết
+Seed chỉ bổ sung bản ghi thiếu, không đặt lại giá, mật khẩu, phiên bàn hoặc tồn kho đã vận hành. Muốn bắt đầu lại demo, sao lưu và tạo database rỗng riêng rồi migrate/seed; không xóa sổ giao dịch trực tiếp. Volume Docker được giữ khi `pnpm db:down`; không dùng `down -v` để dừng thông thường.
 
-[ADR 002](docs/adr/002-sprint1-data-auth.md) mô tả auth và schema.
-Mỗi account có một phiên nội bộ; access 15 phút, refresh tối đa 7 ngày và rotate.
-Rate limiter RAM dùng một API instance cho local/demo; nhiều instance cần shared limiter.
-Cookie Secure ở production; deployment công khai cần HTTPS và cấu hình origin/CSP phù hợp.
-Không tự nhận đã nghiệm thu production hoặc đã triển khai 72 bảng.
-Role workspace là quyền vào phân hệ để chứng minh RBAC C0; quyền hành động nghiệp vụ
-chi tiết sẽ được bổ sung cùng endpoint ở các Sprint sau.
-`financial_status`/`risk_status` chưa tạo vì chưa có chức năng C3/C4 trong Sprint 1.
-Secret seed chỉ tạo account mới; chạy seed lại không đổi mật khẩu hoặc đặt lại dữ liệu.
+Cài Graphviz và chạy `pnpm docs:database` để cập nhật metadata/ERD. Tệp này không xuất dữ liệu khách hàng hay thông tin đăng nhập.
 
-Thư viện bắc cầu được khóa bản vá trong pnpm overrides (deepmerge-ts 8.0.0,
-mysql2 3.23.1) theo advisory; kiểm thử migration và runtime sau cập nhật.
-[Deepmerge advisory](https://github.com/advisories/GHSA-ggr8-5vv4-36mx),
-[MySQL2 advisory](https://github.com/advisories/GHSA-3f6p-5ww8-9rcr).
+## Triển khai sau giai đoạn demo
 
-API contract: [OpenAPI](docs/openapi.yaml). CI chạy lint/typecheck/unit,
-migration/seed, integration, build, browser test, audit và rehearsal.
-
-## Demo API bằng Swagger UI
-
-Mở http://127.0.0.1:3100/api-docs sau khi chạy `pnpm dev`. API chạy cổng 4100.
-Xem [hướng dẫn demo từng bước](docs/swagger-demo.md). Trang dùng cookie cùng nguồn
-và tự gửi header chống CSRF. Tài nguyên Swagger được sinh trước dev/build, không dùng CDN.
-
-## Đọc và phát triển code
-
-Xem [Hướng dẫn đọc code](docs/code-guide.md) để theo dõi luồng login, module auth, cấu trúc thư mục, giới hạn hiện tại và cách bổ sung chức năng Sprint sau. Dùng `pnpm format` trước khi commit; `pnpm check` kiểm tra cả định dạng.
+Cần nghiệm thu tại nhà hàng, HTTPS/origin/cookie phù hợp, backup và thử phục hồi, giám sát lỗi và cấu hình môi trường riêng. Rate limiter hiện ở RAM, phù hợp một API instance; nhiều instance cần kho trạng thái chung. Báo cáo là số liệu nghiệp vụ, chưa phải hệ thống hóa đơn điện tử/kế toán. Kết quả test đạt không thay thế kiểm thử vận hành thực tế.

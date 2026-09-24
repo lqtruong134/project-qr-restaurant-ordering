@@ -1,52 +1,45 @@
-# Hướng dẫn chạy thử CORE 45
+# Chạy thử nhà hàng — bốn vai trò
 
-Bản hợp nhất dùng tại `~/projects/qr-ordering-thesis`, nhánh `main`. Các chức năng Sprint 1
-và CORE45 dùng chung một lịch sử Git; database phát triển hiện tại được giữ nguyên.
+Repository duy nhất: `~/projects/qr-ordering-thesis`. Mặc định web `http://localhost:3000`, API `4000`; cấu hình thật lấy từ `.env`. Trong Ubuntu/WSL, chạy `pnpm db:up`, `pnpm db:migrate`, `pnpm db:seed`, rồi `pnpm dev`. Nếu mới tải code, làm các bước cài đặt trong README trước.
 
-## Mở chương trình
+## Chuẩn bị
 
-Trong terminal Ubuntu/WSL:
+Mở bốn hồ sơ trình duyệt tách biệt cho Admin, Staff, Kitchen, Guest. Admin `quyettruong05`; Staff `pv001`; Kitchen `bep001`. Mật khẩu lấy từ `.env` riêng. Không đăng nhập các vai trò bằng nhiều tab cùng hồ sơ vì cookie dùng chung. Khách không đăng nhập tài khoản nội bộ.
+
+## Một lượt sử dụng đầy đủ
+
+1. **Admin:** vào Bàn & QR, chọn A01, cấp QR mới. Xem QR hiện tại để in lại; chỉ cấp mới khi cần vô hiệu QR cũ. Sao chép liên kết hoặc mở thực đơn trong hồ sơ Guest.
+2. **Guest:** nhập tên, chọn món (ví dụ cơm tấm sườn nướng), thêm vào giỏ; thử tăng/giảm số lượng. Chỉ dòng của mình mới được sửa/gửi. Gửi món rồi mở Món đã gọi. Lượt đầu chưa xác minh có thể chờ nhân viên duyệt.
+3. **Staff:** xem Sơ đồ bàn và Gọi món; duyệt lượt chờ. **Kitchen:** bếp nhận lượt, bắt đầu chế biến, đánh dấu món xong. **Staff:** xác nhận đã mang ra bàn. Trạng thái bên khách cập nhật qua truy vấn định kỳ.
+4. **Guest:** gọi thêm nước/hỗ trợ. **Staff:** tiếp nhận rồi hoàn tất yêu cầu. Hai người không được cùng nhận một yêu cầu mới; lịch sử giữ người xử lý.
+5. **Guest:** mở Thanh toán, nhập số tiền muốn trả, chọn tiền mặt hoặc chuyển khoản. **Staff:** mở chi tiết bàn, chỉ xác nhận sau khi thực nhận đủ tiền; chuyển khoản phải có mã tham chiếu. Có thể trả nhiều lần, mỗi lần tạo giao dịch riêng. Hệ thống không tự xác minh tiền vào ngân hàng.
+6. **Staff:** kiểm tra còn thiếu bằng 0, không còn tiền cần hoàn/công việc chờ, đóng phiên. Bàn sang chờ dọn; xác nhận dọn xong để nhận khách mới. QR của bàn có thể dùng cho lượt khách sau nếu chưa bị thay hoặc hết hạn.
+7. **Admin:** xem doanh số món đã phục vụ, tiền đã thu và kho. Nguyên liệu được giữ lúc gửi món, tiêu hao khi bếp bắt đầu. Giá bán/giá vốn lịch sử giữ snapshot.
+
+## Thử các tình huống bảo vệ dữ liệu
+
+- Đổi giá sau khi đã gửi đơn: đơn cũ giữ giá cũ. Giỏ chưa gửi cần xác nhận lại giá mới.
+- Gửi lại cùng yêu cầu: không tạo hai đơn/hai giao dịch. Giỏ bị người khác sửa thì cần tải lại phiên bản mới.
+- Tắt danh mục: khách không thấy món mới của danh mục; dòng cũ trong giỏ không thể gửi tiếp.
+- Tắt khu vực: không nhận khách mới qua QR, phiên đang phục vụ vẫn hiện cho Staff xử lý nốt.
+- Hủy trước khi bếp làm: giải phóng phần nguyên liệu giữ. Đơn đã thu tiền có thể phát sinh hồ sơ hoàn, phải xử lý trước khi đóng phiên.
+- Ngừng tài khoản nhân viên: phiên cũ mất quyền sử dụng. Mã đăng nhập duy nhất, họ tên được phép trùng.
+- Thử vai trò bếp vào quản trị: API phải từ chối; ẩn nút trên giao diện không thay kiểm tra quyền.
+
+## Thử bằng điện thoại
+
+Máy tính và điện thoại phải cùng mạng Wi-Fi. `localhost` trên điện thoại là chính điện thoại, không phải máy tính.
+
+Trong Ubuntu/WSL, đặt IP LAN của máy tính (thay ví dụ bằng IP thật):
 
 ```sh
-cd ~/projects/qr-ordering-thesis
-pnpm dev
+LAN_HOST=192.168.1.10 pnpm dev:lan
 ```
 
-Mở http://127.0.0.1:3100. API chạy cổng 4100. Giữ terminal chạy; Ctrl+C để dừng. Nếu cổng đang dùng, kiểm tra cửa sổ chạy trước, không mở thêm một bản nữa.
+Mở `http://192.168.1.10:3000` trên điện thoại. Mở trang Admin bằng **cùng địa chỉ LAN** để QR chứa đúng địa chỉ điện thoại truy cập được. Nếu dùng WSL ở chế độ NAT, cần chuyển tiếp cổng web từ Windows vào WSL và cho phép cổng này trong mạng riêng của Windows Firewall; lệnh trên chỉ cấu hình ứng dụng, không tự sửa firewall. Không cần mở cổng database/API ra LAN. IP WSL có thể đổi sau khi khởi động lại.
 
-Nếu PostgreSQL chưa chạy: `pnpm db:up`. Khi cập nhật mã nguồn: `pnpm db:migrate`. Dữ liệu mẫu CORE: `pnpm db:seed:core` (không dùng để xóa lịch sử).
+Trên máy tính vẫn thử được đầy đủ luồng nghiệp vụ. Chế độ điện thoại trong công cụ trình duyệt và test tự động kiểm tra bố cục; camera, Wi-Fi, bàn phím và cảm giác chạm cần kiểm tra thêm trên điện thoại thật.
 
-Tài khoản mẫu: `admin`, `staff`, `kitchen`; mật khẩu là SEED_PASSWORD trong .env riêng của bản này. Không chép .env vào báo cáo hoặc Git. Dùng các hồ sơ trình duyệt riêng cho từng vai trò vì cookie dùng chung giữa các tab trong cùng hồ sơ. Khách không cần tài khoản nhân viên.
+## Phạm vi
 
-## Thử một lượt phục vụ
-
-1. Admin đăng nhập, chọn Bàn & QR, cấp QR mới và mở liên kết thực đơn. Mỗi lần cấp mới làm QR cũ mất hiệu lực.
-2. Mở liên kết trong hồ sơ trình duyệt của khách, nhập tên, thêm món vào giỏ, gửi lượt gọi. Đơn đầu của phiên chưa xác minh có thể cần nhân viên duyệt.
-3. Staff chọn bàn, kiểm tra và duyệt yêu cầu đang chờ. Kitchen nhận lượt gọi, chuyển món sang đang làm rồi sẵn sàng. Staff xác nhận phục vụ.
-4. Khách gửi yêu cầu thanh toán tiền mặt/chuyển khoản. Staff chỉ xác nhận khi đã thực nhận tiền; có thể thu nhiều lần. Số tiền được phân bổ vào từng khoản phải thu.
-5. Khi hết khoản chưa thanh toán và các công việc chờ, Staff đóng phiên rồi xác nhận dọn bàn.
-6. Admin xem doanh thu, nguyên liệu và tồn kho. Khi bếp bắt đầu làm, nguyên liệu được tiêu hao theo công thức và giá vốn được lưu lại.
-
-## Các tình huống khác
-
-- Khách gọi hỗ trợ; Staff tiếp nhận rồi hoàn tất để tránh nhiều người xử lý cùng yêu cầu.
-- Khách được rút lượt của mình trước khi bếp nhận. Hủy sau khi đã thu tiền tạo số tiền cần hoàn; nhân viên xử lý hoàn tiền và lưu xác nhận.
-- Admin đổi giá món; đơn đã gửi vẫn giữ tên và giá chụp tại thời điểm đặt.
-- Admin quản lý nhân viên, thực đơn, khu vực/bàn, công thức, nhập kho và chính sách duyệt đơn. Có thể thử yêu cầu số lượng lớn để thấy bước duyệt hoặc từ chối.
-- Phiên trống chưa xác minh quá hạn và các yêu cầu duyệt/thanh toán quá hạn được tác vụ nền xử lý.
-
-## Giới hạn cần hiểu
-
-Đây là bản chạy thử nghiệp vụ CORE trên máy. Tiền mặt và chuyển khoản là xác nhận thủ công, không tự đối soát ngân hàng. Connector webhook có kiểm tra chữ ký, chống lặp và kiểm thử nhưng chưa phải tích hợp VNPay/MoMo hay cổng cụ thể; cần chọn nhà cung cấp và cấu hình sandbox trước khi bật thanh toán trực tuyến.
-
-Kho hiện hỗ trợ công thức, nhập kho, giữ nguyên liệu, tiêu hao và giá vốn; các phần mở rộng như lô hàng, đổi đơn vị, nhà cung cấp và kiểm kê đầy đủ chưa thuộc bản này. Thông báo giao diện được cập nhật bằng truy vấn định kỳ. Không đưa bản thử nghiệm ra Internet trước khi cấu hình triển khai và kiểm tra vận hành thực tế.
-
-## Tài liệu và kiểm tra
-
-- `/api-docs`: API nền và 66 thao tác CORE; ví dụ là dữ liệu minh họa, nút Execute gọi thật.
-- `pnpm check`: định dạng, kiểm tra code/kiểu và unit test.
-- `pnpm test:integration`: database thử riêng, kiểm tra nâng cấp và các luồng nghiệp vụ.
-- `pnpm test:e2e`: database riêng tự tạo/xóa, thử trình duyệt desktop/mobile.
-- `pnpm build`: kiểm tra đóng gói web.
-
-45 bảng là mô hình đã triển khai; mức sẵn sàng triển khai thực tế còn phụ thuộc cấu hình thanh toán, sao lưu, giám sát và nghiệm thu tại nhà hàng.
+AI và cổng ngân hàng trực tuyến để giai đoạn sau. Connector webhook hiện là nền kỹ thuật, mặc định chưa bật và không được coi là đã tích hợp nhà cung cấp. Ảnh là minh họa demo. Báo cáo hiển thị toàn bộ lịch sử đang lưu, không tự giới hạn hôm nay.

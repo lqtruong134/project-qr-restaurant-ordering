@@ -57,12 +57,17 @@ try {
         secure: false,
       });
       try {
-        for (const role of ['staff', 'kitchen', 'admin']) {
+        const accounts = {
+          staff: 'pv001',
+          kitchen: 'bep001',
+          admin: 'quyettruong05',
+        } as const;
+        for (const role of ['staff', 'kitchen', 'admin'] as const) {
           const login = await app.inject({
             method: 'POST',
             url: '/auth/login',
             headers: { origin: 'http://localhost:3000', 'x-csrf-protection': '1' },
-            payload: { username: role, password },
+            payload: { username: accounts[role], password },
           });
           assert.equal(login.statusCode, 200);
           const cookie = login.cookies.map((c) => c.name + '=' + c.value).join('; ');
@@ -76,14 +81,14 @@ try {
         await app.close();
       }
       const sample = await db.prisma.product.findMany({ select: { code: true, base_price: true } });
-      assert.equal(sample.length, 3);
+      assert.equal(sample.length, 24);
       assert.ok(sample.every((p) => p.base_price >= 0n));
       logs.push(
         '## Run ' + run + ' — PASS',
         '- Empty DB migrate: PASS',
         '- Seed twice + migration rerun preserve data: PASS',
         '- Three logins / 3 allow / 6 deny: PASS',
-        '- Sample VND query: PASS',
+        '- Sample VND catalog query (24 dishes): PASS',
         '```json',
         JSON.stringify(before, null, 2),
         '```',

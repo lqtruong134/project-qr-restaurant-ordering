@@ -171,7 +171,7 @@
               "additionalProperties": true
             },
             "example": {
-              "name": "Bàn 01",
+              "name": "Bàn A05",
               "areaId": "00000000-0000-4000-8000-000000000001",
               "capacity": 4,
               "active": true,
@@ -329,10 +329,10 @@
               "additionalProperties": true
             },
             "example": {
-              "code": "COM-GA",
-              "name": "Cơm gà",
+              "code": "BUN-BO",
+              "name": "Bún bò Huế",
               "categoryId": "00000000-0000-4000-8000-000000000001",
-              "price": "55000"
+              "price": "69000"
             }
           }
         }
@@ -398,8 +398,11 @@
               "additionalProperties": true
             },
             "example": {
-              "name": "Cơm gà",
-              "price": "60000",
+              "name": "Bún bò Huế",
+              "categoryId": "00000000-0000-4000-8000-000000000001",
+              "description": "Bún bò nóng, dùng cùng rau thơm.",
+              "imageUrl": "/menu/rice.svg",
+              "price": "75000",
               "active": true,
               "availability": "AVAILABLE",
               "version": 1
@@ -496,8 +499,8 @@
               "additionalProperties": true
             },
             "example": {
-              "code": "B01",
-              "name": "Bàn 01",
+              "code": "A05",
+              "name": "Bàn A05",
               "areaId": "00000000-0000-4000-8000-000000000001",
               "capacity": 4
             }
@@ -702,6 +705,53 @@
           }
         }
       },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    },
+    "get": {
+      "tags": [
+        "admin.workspace"
+      ],
+      "summary": "GET /core/tables/{id}/qr",
+      "operationId": "core_get__core_tables__id_qr",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
       "responses": {
         "200": {
           "description": "Thành công"
@@ -3591,7 +3641,7 @@
               "additionalProperties": true
             },
             "example": {
-              "username": "staff.new",
+              "username": "pv005",
               "name": "Nhân viên mới",
               "role": "STAFF",
               "password": "THAY_BANG_MAT_KHAU_RIENG"

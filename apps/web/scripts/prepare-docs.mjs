@@ -19,7 +19,7 @@ const descriptions = {
   '/health/ready': ['01. Kết nối', 'Kiểm tra kết nối PostgreSQL', 'ready'],
   '/auth/logout': ['02. Đăng nhập và phiên', 'Đăng xuất — dùng trước và sau demo', 'logout'],
   '/auth/me': ['02. Đăng nhập và phiên', 'Xem tài khoản hiện tại — 401 nếu chưa đăng nhập', 'me'],
-  '/auth/login': ['02. Đăng nhập và phiên', 'Đăng nhập Staff / Kitchen / Admin', 'login'],
+  '/auth/login': ['02. Đăng nhập và phiên', 'Đăng nhập phục vụ / bếp / quản trị', 'login'],
   '/auth/refresh': [
     '02. Đăng nhập và phiên',
     'Làm mới phiên — xoay vòng refresh cookie',
@@ -48,7 +48,7 @@ spec.paths = {
 };
 spec.components.parameters.Csrf.schema.default = '1';
 spec.paths['/auth/login'].post.requestBody.content['application/json'].example = {
-  username: 'staff',
+  username: 'pv001',
   password: 'THAY_BANG_MAT_KHAU_DEMO_TREN_MAY',
 };
 spec.paths['/workspaces/{area}'].get.parameters[0].schema.default = 'staff';

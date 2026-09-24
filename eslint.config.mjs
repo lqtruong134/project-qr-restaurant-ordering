@@ -4,9 +4,11 @@ import globals from 'globals';
 export default tseslint.config(
   {
     ignores: [
+      '.runtime/**',
       'apps/web/public/api-docs-assets/**',
       '**/node_modules/**',
       '**/.next/**',
+      '**/.next-e2e/**',
       '**/dist/**',
       '**/generated/**',
       '**/next-env.d.ts',

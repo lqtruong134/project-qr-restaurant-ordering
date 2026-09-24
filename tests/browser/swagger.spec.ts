@@ -28,14 +28,14 @@ test('Swagger Execute uses real cookie auth: 401, login, 200, 403, refresh, logo
   await execute('login', 401, async () => {
     await login
       .locator('textarea')
-      .fill(JSON.stringify({ username: 'staff', password: 'incorrect-demo-password' }));
+      .fill(JSON.stringify({ username: 'pv001', password: 'incorrect-demo-password' }));
   });
   await execute('login', 200, async () => {
     await login
       .locator('textarea')
-      .fill(JSON.stringify({ username: 'staff', password: process.env.SEED_PASSWORD }));
+      .fill(JSON.stringify({ username: 'pv001', password: process.env.SEED_PASSWORD }));
   });
-  await login.locator('textarea').fill(JSON.stringify({ username: 'staff', password: '(đã ẩn)' }));
+  await login.locator('textarea').fill(JSON.stringify({ username: 'pv001', password: '(đã ẩn)' }));
   await execute('workspace', 200);
   const workspace = frame.locator('.opblock[id$="-workspace"]');
   await execute('workspace', 403, async () => {
@@ -44,5 +44,5 @@ test('Swagger Execute uses real cookie auth: 401, login, 200, 403, refresh, logo
   await execute('refresh', 200);
   await execute('logout', 204);
   await execute('me', 401);
-  await page.screenshot({ path: info.outputPath('swagger.png'), fullPage: true });
+  await page.screenshot({ caret: 'initial', path: info.outputPath('swagger.png'), fullPage: true });
 });

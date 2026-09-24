@@ -6,13 +6,13 @@ import { createDatabase, type Database } from '../packages/database/src/index.js
 import { seed, restaurantId } from '../packages/database/src/seed.js';
 import { buildApp } from '../apps/api/src/app.js';
 import { registerAuth } from '../apps/api/src/auth.js';
-import { registerCore } from '../apps/api/src/modules/core/index.js';
-import { maintainCore } from '../apps/api/src/modules/core/maintenance.js';
+import { registerModules } from '../apps/api/src/modules/index.js';
+import { maintainCore } from '../apps/api/src/modules/notifications/maintenance.js';
 import {
   ingestConnector,
   connectorSignature,
   type ConnectorEvent,
-} from '../apps/api/src/modules/core/webhooks.js';
+} from '../apps/api/src/modules/payments/webhooks.routes.js';
 let db: Database, host: Database, app: ReturnType<typeof buildApp>;
 const name = 'thesis_core_test_' + randomBytes(6).toString('hex');
 const password = randomBytes(24).toString('hex');
@@ -96,12 +96,12 @@ beforeAll(async () => {
     origins: [headers.origin],
     secure: false,
   });
-  registerCore(app, db, restaurantId);
+  registerModules(app, db, restaurantId);
   app.addHook('onError', async (_r, _reply, error) => {
     if (!error.statusCode || error.statusCode >= 500)
       console.error('CORE test error:', error.message);
   });
-  for (const user of ['admin', 'staff', 'kitchen'])
+  for (const user of ['quyettruong05', 'pv001', 'bep001'])
     users[user] = cookies(await request('/auth/login', '', { username: user, password }));
 }, 60000);
 afterAll(async () => {
@@ -120,32 +120,35 @@ it('executes a reviewed guest order, stock consumption, split payment, snapshot 
       )
     ).rows[0].n,
   ).toBe(45);
-  const unit = await ok('/core/units', 'admin', {
+  const unit = await ok('/core/units', 'quyettruong05', {
     code: 'CORE-KG',
     name: 'Kilogram',
     dimension: 'MASS',
   });
-  const ingredient = await ok('/core/ingredients', 'admin', {
+  const ingredient = await ok('/core/ingredients', 'quyettruong05', {
     code: 'CORE-RICE',
     name: 'Gạo',
     unitId: unit.id,
   });
-  const location = await ok('/core/locations', 'admin', { code: 'CORE-KITCHEN', name: 'Kho bếp' });
-  const catalog = await ok('/core/catalog', 'admin');
+  const location = await ok('/core/locations', 'quyettruong05', {
+    code: 'CORE-KITCHEN',
+    name: 'Kho bếp',
+  });
+  const catalog = await ok('/core/catalog', 'quyettruong05');
   const product = catalog.products[0];
-  await ok('/core/products/' + product.id + '/bom', 'admin', {
+  await ok('/core/products/' + product.id + '/bom', 'quyettruong05', {
     lines: [{ ingredientId: ingredient.id, quantity: '0.2' }],
   });
-  const receipt = await ok('/core/receipts', 'admin', {
+  const receipt = await ok('/core/receipts', 'quyettruong05', {
     locationId: location.id,
     number: 'CORE-001',
     lines: [{ ingredientId: ingredient.id, quantity: '10', unitCost: '20000' }],
   });
-  await ok('/core/receipts/' + receipt.id + '/approve', 'admin', {});
-  await ok('/core/receipts/' + receipt.id + '/approve', 'admin', {});
-  const tables = await ok('/core/admin/tables', 'admin');
+  await ok('/core/receipts/' + receipt.id + '/approve', 'quyettruong05', {});
+  await ok('/core/receipts/' + receipt.id + '/approve', 'quyettruong05', {});
+  const tables = await ok('/core/admin/tables', 'quyettruong05');
   const table = tables[0];
-  const qr = await ok('/core/tables/' + table.id + '/qr', 'admin', {});
+  const qr = await ok('/core/tables/' + table.id + '/qr', 'quyettruong05', {});
   const join = await request('/guest/join', '', {
     token: qr.joinPath.split('#')[1],
     name: 'Khách thử',
@@ -173,18 +176,17 @@ it('executes a reviewed guest order, stock consumption, split payment, snapshot 
   const batch = submitted[0]!.json();
   expect(submitted[1]!.json().id).toBe(batch.id);
   expect(batch.status).toBe('PENDING_REVIEW');
-  expect((await ok('/core/kitchen', 'kitchen')).length).toBe(0);
+  expect((await ok('/core/kitchen', 'bep001')).length).toBe(0);
   expect(
-    (await request('/core/orders/' + batch.id + '/review', 'kitchen', { approve: true }))
-      .statusCode,
+    (await request('/core/orders/' + batch.id + '/review', 'bep001', { approve: true })).statusCode,
   ).toBe(403);
-  await ok('/core/orders/' + batch.id + '/review', 'staff', { approve: true });
+  await ok('/core/orders/' + batch.id + '/review', 'pv001', { approve: true });
   const orderItem = (
     await db.pool.query('SELECT * FROM order_item WHERE order_batch_id=$1', [batch.id])
   ).rows[0];
   await ok(
     '/core/products/' + product.id,
-    'admin',
+    'quyettruong05',
     {
       name: 'Tên mới',
       price: '99999',
@@ -198,13 +200,13 @@ it('executes a reviewed guest order, stock consumption, split payment, snapshot 
     (await db.pool.query('SELECT unit_price_snapshot FROM order_item WHERE id=$1', [orderItem.id]))
       .rows[0].unit_price_snapshot,
   ).toBe(product.base_price);
-  await ok('/core/orders/' + batch.id + '/accept', 'kitchen', {});
-  await ok('/core/items/' + orderItem.id + '/prepare', 'kitchen', {});
-  expect(
-    (await request('/core/items/' + orderItem.id + '/prepare', 'kitchen', {})).statusCode,
-  ).toBe(409);
-  await ok('/core/items/' + orderItem.id + '/ready', 'kitchen', {});
-  await ok('/core/items/' + orderItem.id + '/serve', 'staff', {});
+  await ok('/core/orders/' + batch.id + '/accept', 'bep001', {});
+  await ok('/core/items/' + orderItem.id + '/prepare', 'bep001', {});
+  expect((await request('/core/items/' + orderItem.id + '/prepare', 'bep001', {})).statusCode).toBe(
+    409,
+  );
+  await ok('/core/items/' + orderItem.id + '/ready', 'bep001', {});
+  await ok('/core/items/' + orderItem.id + '/serve', 'pv001', {});
   const balance = (
     await db.pool.query('SELECT * FROM inventory_balance WHERE ingredient_id=$1', [ingredient.id])
   ).rows[0];
@@ -219,29 +221,29 @@ it('executes a reviewed guest order, stock consumption, split payment, snapshot 
       amount: amount.toString(),
     });
     const confirmed = await Promise.all([
-      request('/core/payments/' + pi.id + '/confirm', 'staff', { amount: amount.toString() }),
-      request('/core/payments/' + pi.id + '/confirm', 'staff', { amount: amount.toString() }),
+      request('/core/payments/' + pi.id + '/confirm', 'pv001', { amount: amount.toString() }),
+      request('/core/payments/' + pi.id + '/confirm', 'pv001', { amount: amount.toString() }),
     ]);
     for (const r of confirmed) expect(r.statusCode, r.body).toBe(200);
     expect(confirmed[0]!.json().id).toBe(confirmed[1]!.json().id);
   }
-  const bill = await ok('/core/sessions/' + sid + '/bill', 'staff');
+  const bill = await ok('/core/sessions/' + sid + '/bill', 'pv001');
   expect(bill.account.outstanding_amount).toBe('0');
   expect(bill.payments.length).toBe(2);
-  await ok('/core/sessions/' + sid + '/close', 'staff', {});
-  await ok('/core/tables/' + table.id + '/clean', 'staff', {});
+  await ok('/core/sessions/' + sid + '/close', 'pv001', {});
+  await ok('/core/tables/' + table.id + '/clean', 'pv001', {});
   expect((await request('/guest/state', 'guest')).statusCode).not.toBe(200);
 }, 30000);
 
 async function openTable() {
-  const area = (await ok('/core/areas', 'admin'))[0];
-  const t = await ok('/core/tables', 'admin', {
+  const area = (await ok('/core/areas', 'quyettruong05'))[0];
+  const t = await ok('/core/tables', 'quyettruong05', {
     code: randomUUID(),
     name: 'Bàn kiểm thử',
     areaId: area.id,
     capacity: 4,
   });
-  const qr = await ok('/core/tables/' + t.id + '/qr', 'admin', {});
+  const qr = await ok('/core/tables/' + t.id + '/qr', 'quyettruong05', {});
   const joined = await request('/guest/join', '', {
     token: qr.joinPath.split('#')[1],
     name: 'Khách',
@@ -256,10 +258,10 @@ async function openTable() {
   };
 }
 async function staffOrder(sid: string, quantity = 1) {
-  const product = (await ok('/core/catalog', 'admin')).products.find(
+  const product = (await ok('/core/catalog', 'quyettruong05')).products.find(
     (p: { name: string }) => p.name === 'Tên mới',
   );
-  return ok('/core/sessions/' + sid + '/orders', 'staff', {
+  return ok('/core/sessions/' + sid + '/orders', 'pv001', {
     requestId: randomUUID(),
     lines: [{ productId: product.id, quantity }],
   });
@@ -267,31 +269,31 @@ async function staffOrder(sid: string, quantity = 1) {
 it('cancels a paid unprepared order and refunds once with a reconciled zero balance', async () => {
   const t = await openTable(),
     b = await staffOrder(t.sid);
-  const pi = await ok('/core/sessions/' + t.sid + '/payments', 'staff', {
+  const pi = await ok('/core/sessions/' + t.sid + '/payments', 'pv001', {
     requestId: randomUUID(),
     amount: b.total_amount,
     method: 'BANK_TRANSFER',
   });
-  const pay = await ok('/core/payments/' + pi.id + '/confirm', 'staff', {
+  const pay = await ok('/core/payments/' + pi.id + '/confirm', 'pv001', {
     amount: b.total_amount,
     reference: 'TEST-BANK-001',
   });
-  await ok('/core/orders/' + b.id + '/cancel', 'staff', {
+  await ok('/core/orders/' + b.id + '/cancel', 'pv001', {
     reason: 'Khách đổi ý trước khi bếp làm',
   });
-  const bill = await ok('/core/sessions/' + t.sid + '/bill', 'staff');
+  const bill = await ok('/core/sessions/' + t.sid + '/bill', 'pv001');
   expect(bill.account.refund_due_amount).toBe(b.total_amount);
-  expect((await request('/core/sessions/' + t.sid + '/close', 'staff', {})).statusCode).toBe(409);
-  const f = await ok('/core/sessions/' + t.sid + '/refunds', 'staff', {
+  expect((await request('/core/sessions/' + t.sid + '/close', 'pv001', {})).statusCode).toBe(409);
+  const f = await ok('/core/sessions/' + t.sid + '/refunds', 'pv001', {
     paymentId: pay.id,
     amount: b.total_amount,
     reason: 'Hoàn món hủy',
   });
-  await ok('/core/refunds/' + f.id + '/complete', 'staff', {
+  await ok('/core/refunds/' + f.id + '/complete', 'pv001', {
     method: 'BANK_TRANSFER',
     reference: 'TEST-REFUND-001',
   });
-  await ok('/core/refunds/' + f.id + '/complete', 'staff', {
+  await ok('/core/refunds/' + f.id + '/complete', 'pv001', {
     method: 'BANK_TRANSFER',
     reference: 'TEST-REFUND-001',
   });
@@ -303,7 +305,7 @@ it('cancels a paid unprepared order and refunds once with a reconciled zero bala
       )
     ).rows[0].n,
   ).toBe(1);
-  await ok('/core/sessions/' + t.sid + '/close', 'staff', {});
+  await ok('/core/sessions/' + t.sid + '/close', 'pv001', {});
 });
 it('expires reviews and payments, releases stock and publishes the committed outbox', async () => {
   const t = await openTable(),
@@ -349,7 +351,7 @@ it('expires reviews and payments, releases stock and publishes the committed out
   await maintainCore(db, restaurantId);
   expect(
     (
-      await request('/core/payments/' + pi.id + '/confirm', 'staff', {
+      await request('/core/payments/' + pi.id + '/confirm', 'pv001', {
         amount: normal.total_amount,
       })
     ).statusCode,
@@ -397,23 +399,23 @@ it('enforces guest ownership and version conflicts, stock rollback, revoked QR a
     ).statusCode,
   ).toBe(403);
   const before = await db.prisma.order_batch.count();
-  const huge = await request('/core/sessions/' + a.sid + '/orders', 'staff', {
+  const huge = await request('/core/sessions/' + a.sid + '/orders', 'pv001', {
     requestId: randomUUID(),
     lines: [{ productId: product.id, quantity: 100 }],
   });
   expect(huge.statusCode).not.toBe(200);
   expect(await db.prisma.order_batch.count()).toBe(before);
-  await ok('/core/tables/' + a.table + '/qr', 'admin', {});
+  await ok('/core/tables/' + a.table + '/qr', 'quyettruong05', {});
   expect((await request('/guest/join', '', { token: a.token, name: 'QR cũ' })).statusCode).not.toBe(
     200,
   );
   const support = await ok('/guest/support', a.cookie, { type: 'WATER' });
   const claims = await Promise.all([
-    request('/core/support/' + support.id + '/claim', 'staff', {}),
-    request('/core/support/' + support.id + '/claim', 'staff', {}),
+    request('/core/support/' + support.id + '/claim', 'pv001', {}),
+    request('/core/support/' + support.id + '/claim', 'pv001', {}),
   ]);
   expect(claims.map((r) => r.statusCode).sort()).toEqual([200, 409]);
-  await ok('/core/support/' + support.id + '/resolve', 'staff', {});
+  await ok('/core/support/' + support.id + '/resolve', 'pv001', {});
   const cart = (await db.prisma.session_cart.findUnique({ where: { session_id: a.sid } }))!;
   await expect(
     db.pool.query(
@@ -423,17 +425,21 @@ it('enforces guest ownership and version conflicts, stock rollback, revoked QR a
   ).rejects.toMatchObject({ code: '23514' });
 });
 it('versions policies and staff roles while never exposing password hashes', async () => {
-  await ok('/core/risk', 'admin', { LINE_QTY_REVIEW: 4 });
-  const risk = await ok('/core/risk', 'admin');
+  await ok('/core/risk', 'quyettruong05', { LINE_QTY_REVIEW: 4 });
+  const risk = await ok('/core/risk', 'quyettruong05');
   expect(
     risk.policies.find((r: { config_key: string }) => r.config_key === 'LINE_QTY_REVIEW')
       .value_json,
   ).toBe(4);
   expect(
-    (await request('/core/risk', 'admin', { LINE_QTY_REVIEW: 100, LINE_QTY_HARD_LIMIT: 20 }))
-      .statusCode,
+    (
+      await request('/core/risk', 'quyettruong05', {
+        LINE_QTY_REVIEW: 100,
+        LINE_QTY_HARD_LIMIT: 20,
+      })
+    ).statusCode,
   ).toBe(400);
-  const user = await ok('/core/users', 'admin', {
+  const user = await ok('/core/users', 'quyettruong05', {
     username: 'core.employee',
     name: 'Nhân viên mới',
     password,
@@ -442,14 +448,14 @@ it('versions policies and staff roles while never exposing password hashes', asy
   expect(user.password_hash).toBeUndefined();
   await ok(
     '/core/users/' + user.id,
-    'admin',
+    'quyettruong05',
     { name: 'Bếp mới', role: 'KITCHEN', status: 'ACTIVE' },
     'PATCH',
   );
   expect((await db.prisma.user_role.findMany({ where: { user_id: user.id } })).length).toBe(2);
-  const list = await ok('/core/users', 'admin');
+  const list = await ok('/core/users', 'quyettruong05');
   expect(JSON.stringify(list)).not.toContain('password_hash');
-  expect((await request('/core/users', 'kitchen')).statusCode).toBe(403);
+  expect((await request('/core/users', 'bep001')).statusCode).toBe(403);
 });
 it('verifies connector signatures, deduplicates webhook events and retains late money for reconciliation', async () => {
   const t = await openTable(),
@@ -544,7 +550,7 @@ it('verifies connector signatures, deduplicates webhook events and retains late 
     late,
     connectorSignature(late, secret),
   );
-  const bill = await ok('/core/sessions/' + t.sid + '/bill', 'staff');
+  const bill = await ok('/core/sessions/' + t.sid + '/bill', 'pv001');
   expect(bill.account.refund_due_amount).toBe(b.total_amount);
   expect((await db.prisma.payment_intent.findUnique({ where: { id: second.id } }))?.status).toBe(
     'REQUIRES_RECONCILIATION',
@@ -572,38 +578,38 @@ it('preserves ledger snapshots and guards allocation totals at the database boun
 it('restricts debt write-off to admin and only after the kitchen has finished', async () => {
   const t = await openTable(),
     b = await staffOrder(t.sid);
-  const debt = await ok('/core/sessions/' + t.sid + '/outstanding', 'staff', {
+  const debt = await ok('/core/sessions/' + t.sid + '/outstanding', 'pv001', {
     reason: 'LEFT_WITHOUT_PAYING',
     notes: 'Khách rời đi chưa trả tiền',
   });
   expect(
     (
-      await request('/core/outstanding/' + debt.id + '/write-off', 'staff', {
+      await request('/core/outstanding/' + debt.id + '/write-off', 'pv001', {
         reason: 'Không thu được',
       })
     ).statusCode,
   ).toBe(403);
   expect(
     (
-      await request('/core/outstanding/' + debt.id + '/write-off', 'admin', {
+      await request('/core/outstanding/' + debt.id + '/write-off', 'quyettruong05', {
         reason: 'Không thu được',
       })
     ).statusCode,
   ).toBe(409);
-  await ok('/core/orders/' + b.id + '/accept', 'kitchen', {});
+  await ok('/core/orders/' + b.id + '/accept', 'bep001', {});
   const item = (await db.prisma.order_item.findFirst({ where: { order_batch_id: b.id } }))!;
   for (const action of ['prepare', 'ready'])
-    await ok('/core/items/' + item.id + '/' + action, 'kitchen', {});
-  await ok('/core/items/' + item.id + '/serve', 'staff', {});
-  await ok('/core/outstanding/' + debt.id + '/write-off', 'admin', {
+    await ok('/core/items/' + item.id + '/' + action, 'bep001', {});
+  await ok('/core/items/' + item.id + '/serve', 'pv001', {});
+  await ok('/core/outstanding/' + debt.id + '/write-off', 'quyettruong05', {
     reason: 'Đã kiểm tra, ghi nhận tổn thất',
   });
   expect((await db.prisma.table_session.findUnique({ where: { id: t.sid } }))?.session_status).toBe(
     'CLOSED',
   );
   const alert = (await db.prisma.operational_alert.findFirst({ where: { session_id: t.sid } }))!;
-  await ok('/core/alerts/' + alert.id + '/acknowledge', 'staff', {});
-  await ok('/core/alerts/' + alert.id + '/resolve', 'staff', {});
+  await ok('/core/alerts/' + alert.id + '/acknowledge', 'pv001', {});
+  await ok('/core/alerts/' + alert.id + '/resolve', 'pv001', {});
 });
 it('lets guests withdraw their own pending batch and closes only truly idle empty sessions', async () => {
   const t = await openTable(),
@@ -639,4 +645,126 @@ it('lets guests withdraw their own pending batch and closes only truly idle empt
   expect((await db.prisma.table_session.findUnique({ where: { id: t.sid } }))?.session_status).toBe(
     'ACTIVE',
   );
+});
+
+it('allows distinct employee IDs with the same name and revokes a disabled account', async () => {
+  const employee = await ok('/core/users', 'quyettruong05', {
+    username: 'regression.staff',
+    name: 'Nguyễn Minh Anh',
+    role: 'STAFF',
+    password,
+  });
+  const login = await request('/auth/login', '', { username: 'regression.staff', password });
+  expect(login.statusCode).toBe(200);
+  users.disabledRegression = cookies(login);
+  const update = await request(
+    '/core/users/' + employee.id,
+    'quyettruong05',
+    { name: 'Nguyễn Minh Anh', role: 'STAFF', status: 'INACTIVE' },
+    'PATCH',
+  );
+  expect(update.statusCode, update.body).toBe(200);
+  expect((await request('/workspaces/staff', 'disabledRegression')).statusCode).toBe(401);
+});
+
+it('rejects expired or inactive-area QR while allowing an existing table session to finish', async () => {
+  const t = await openTable();
+  await db.pool.query(
+    "UPDATE table_qr_token SET issued_at=now()-interval '1 day',expires_at=now()-interval '1 second' WHERE table_id=$1 AND status='ACTIVE'",
+    [t.table],
+  );
+  expect((await ok('/core/tables/' + t.table + '/qr', 'quyettruong05')).available).toBe(false);
+  expect((await request('/guest/join', '', { token: t.token, name: 'Khách mới' })).statusCode).toBe(
+    404,
+  );
+  const qr = await ok('/core/tables/' + t.table + '/qr', 'quyettruong05', {});
+  const table = await db.prisma.dining_table.findUniqueOrThrow({ where: { id: t.table } });
+  await db.pool.query('UPDATE dining_area SET is_active=false WHERE id=$1', [table.area_id]);
+  try {
+    expect((await ok('/core/tables/' + t.table + '/qr', 'quyettruong05')).available).toBe(false);
+    expect((await request('/core/tables/' + t.table + '/qr', 'quyettruong05', {})).statusCode).toBe(
+      404,
+    );
+    expect(
+      (await request('/guest/join', '', { token: qr.joinPath.split('#')[1], name: 'Khách mới' }))
+        .statusCode,
+    ).toBe(404);
+    expect((await ok('/guest/state', t.cookie)).session.id).toBe(t.sid);
+    expect(
+      (await ok('/core/tables', 'pv001')).some((row: { id: string }) => row.id === t.table),
+    ).toBe(true);
+  } finally {
+    await db.pool.query('UPDATE dining_area SET is_active=true WHERE id=$1', [table.area_id]);
+  }
+});
+
+it('keeps hidden categories consistent across menu, cart edits and order submission', async () => {
+  const t = await openTable();
+  const state = await ok('/guest/state', t.cookie);
+  const product = state.products[0];
+  const item = await ok('/guest/cart', t.cookie, {
+    productId: product.id,
+    quantity: 1,
+    cartVersion: state.cart.cart_version,
+  });
+  await db.pool.query('UPDATE menu_category SET is_active=false WHERE id=$1', [
+    product.category_id,
+  ]);
+  try {
+    const hidden = await ok('/guest/state', t.cookie);
+    expect(hidden.products.some((p: { id: string }) => p.id === product.id)).toBe(false);
+    expect(
+      (
+        await request(
+          '/guest/cart/' + item.id,
+          t.cookie,
+          { quantity: 2, cartVersion: hidden.cart.cart_version },
+          'PATCH',
+        )
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await request('/guest/orders', t.cookie, {
+          requestId: randomUUID(),
+          cartVersion: hidden.cart.cart_version,
+          itemIds: [item.id],
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (await ok('/guest/state', t.cookie)).items.find((i: { id: string }) => i.id === item.id)
+        .quantity,
+    ).toBe(1);
+  } finally {
+    await db.pool.query('UPDATE menu_category SET is_active=true WHERE id=$1', [
+      product.category_id,
+    ]);
+  }
+});
+
+it('can reserve one serving of every seeded dish without adding ingredients or recipes manually', async () => {
+  const t = await openTable();
+  const products = (await ok('/core/catalog', 'quyettruong05')).products;
+  expect(products).toHaveLength(24);
+  const before = await db.pool.query(
+    'SELECT id,on_hand_qty,reserved_qty FROM inventory_balance ORDER BY id',
+  );
+  const batch = await ok('/core/sessions/' + t.sid + '/orders', 'pv001', {
+    requestId: randomUUID(),
+    lines: products.map((p: { id: string }) => ({ productId: p.id, quantity: 1 })),
+  });
+  expect(await db.prisma.order_item.count({ where: { order_batch_id: batch.id } })).toBe(24);
+  expect(
+    await db.prisma.inventory_reservation.count({
+      where: { order_item: { order_batch_id: batch.id } },
+    }),
+  ).toBeGreaterThanOrEqual(24);
+  await ok('/core/orders/' + batch.id + '/cancel', 'pv001', {
+    reason: 'Hoàn tất kiểm tra toàn bộ thực đơn mẫu',
+  });
+  expect(
+    (await db.pool.query('SELECT id,on_hand_qty,reserved_qty FROM inventory_balance ORDER BY id'))
+      .rows,
+  ).toEqual(before.rows);
 });

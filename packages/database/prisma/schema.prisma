@@ -240,6 +240,7 @@ model table_qr_token {
   id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   table_id     String       @db.Uuid
   token_hash   String       @unique
+  token_ciphertext String?
   version_no   Int
   status       String       @default("ACTIVE")
   issued_at    DateTime     @default(now()) @db.Timestamptz(6)

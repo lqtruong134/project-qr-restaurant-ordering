@@ -1,6 +1,6 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { buildApp } from '../apps/api/src/app.js';
-import { registerCore } from '../apps/api/src/modules/core/index.js';
+import { registerModules } from '../apps/api/src/modules/index.js';
 import { createDatabase } from '../packages/database/src/index.js';
 const db = createDatabase(process.env.DATABASE_URL!);
 const app = buildApp(db);
@@ -18,18 +18,21 @@ const examples: Record<string, unknown> = {
   'PATCH /core/categories/:id': { name: 'Món chính', sortOrder: 0, active: true },
   'POST /core/areas': { code: 'TANG-1', name: 'Tầng 1' },
   'PATCH /core/areas/:id': { name: 'Tầng 1', sortOrder: 0, active: true },
-  'POST /core/tables': { code: 'B01', name: 'Bàn 01', areaId: id, capacity: 4 },
-  'PATCH /core/tables/:id': { name: 'Bàn 01', areaId: id, capacity: 4, active: true, version: 1 },
-  'POST /core/products': { code: 'COM-GA', name: 'Cơm gà', categoryId: id, price: '55000' },
+  'POST /core/tables': { code: 'A05', name: 'Bàn A05', areaId: id, capacity: 4 },
+  'PATCH /core/tables/:id': { name: 'Bàn A05', areaId: id, capacity: 4, active: true, version: 1 },
+  'POST /core/products': { code: 'BUN-BO', name: 'Bún bò Huế', categoryId: id, price: '69000' },
   'PATCH /core/products/:id': {
-    name: 'Cơm gà',
-    price: '60000',
+    name: 'Bún bò Huế',
+    categoryId: id,
+    description: 'Bún bò nóng, dùng cùng rau thơm.',
+    imageUrl: '/menu/rice.svg',
+    price: '75000',
     active: true,
     availability: 'AVAILABLE',
     version: 1,
   },
   'POST /core/users': {
-    username: 'staff.new',
+    username: 'pv005',
     name: 'Nhân viên mới',
     role: 'STAFF',
     password: 'THAY_BANG_MAT_KHAU_RIENG',
@@ -120,7 +123,7 @@ app.addHook('onRoute', (r) => {
     },
   };
 });
-registerCore(app, db, process.env.RESTAURANT_ID!);
+registerModules(app, db, process.env.RESTAURANT_ID!);
 mkdirSync('docs/core45', { recursive: true });
 writeFileSync('docs/core45/openapi-paths.json', JSON.stringify(paths, null, 2) + '\n');
 await app.close();

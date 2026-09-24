@@ -1,26 +1,26 @@
 # CORE45 — Rehearsal evidence
-2026-09-23T00:34:30.104Z
+2026-09-23T17:35:25.542Z
 Each run creates its own empty database; existing development data is untouched.
 ## Run 1 — PASS
 - Empty DB migrate: PASS
 - Seed twice + migration rerun preserve data: PASS
 - Three logins / 3 allow / 6 deny: PASS
-- Sample VND query: PASS
+- Sample VND catalog query (24 dishes): PASS
 ```json
 {
-  "app_user": 3,
+  "app_user": 8,
   "cart_item": 0,
-  "dining_area": 1,
-  "dining_table": 3,
+  "dining_area": 3,
+  "dining_table": 16,
   "financial_charge": 0,
-  "goods_receipt": 0,
-  "goods_receipt_item": 0,
+  "goods_receipt": 1,
+  "goods_receipt_item": 32,
   "idempotency_record": 0,
-  "ingredient": 0,
-  "inventory_balance": 0,
-  "inventory_movement": 0,
+  "ingredient": 32,
+  "inventory_balance": 32,
+  "inventory_movement": 32,
   "inventory_reservation": 0,
-  "menu_category": 1,
+  "menu_category": 6,
   "operational_alert": 0,
   "order_batch": 0,
   "order_item": 0,
@@ -35,46 +35,46 @@ Each run creates its own empty database; existing development data is untouched.
   "payment_transaction": 0,
   "payment_webhook_event": 0,
   "permission": 3,
-  "product": 3,
-  "recipe_bom": 0,
-  "recipe_bom_item": 0,
+  "product": 24,
+  "recipe_bom": 24,
+  "recipe_bom_item": 94,
   "refund_case": 0,
   "refund_transaction": 0,
   "restaurant": 1,
   "risk_policy_config": 0,
   "role": 3,
   "role_permission": 3,
-  "session_cart": 1,
+  "session_cart": 0,
   "session_financial_account": 0,
-  "session_participant": 1,
-  "stock_location": 0,
+  "session_participant": 0,
+  "stock_location": 1,
   "support_request": 0,
-  "table_qr_token": 3,
-  "table_session": 1,
-  "unit_of_measure": 0,
-  "user_role": 3
+  "table_qr_token": 0,
+  "table_session": 0,
+  "unit_of_measure": 3,
+  "user_role": 8
 }
 ```
 ## Run 2 — PASS
 - Empty DB migrate: PASS
 - Seed twice + migration rerun preserve data: PASS
 - Three logins / 3 allow / 6 deny: PASS
-- Sample VND query: PASS
+- Sample VND catalog query (24 dishes): PASS
 ```json
 {
-  "app_user": 3,
+  "app_user": 8,
   "cart_item": 0,
-  "dining_area": 1,
-  "dining_table": 3,
+  "dining_area": 3,
+  "dining_table": 16,
   "financial_charge": 0,
-  "goods_receipt": 0,
-  "goods_receipt_item": 0,
+  "goods_receipt": 1,
+  "goods_receipt_item": 32,
   "idempotency_record": 0,
-  "ingredient": 0,
-  "inventory_balance": 0,
-  "inventory_movement": 0,
+  "ingredient": 32,
+  "inventory_balance": 32,
+  "inventory_movement": 32,
   "inventory_reservation": 0,
-  "menu_category": 1,
+  "menu_category": 6,
   "operational_alert": 0,
   "order_batch": 0,
   "order_item": 0,
@@ -89,23 +89,23 @@ Each run creates its own empty database; existing development data is untouched.
   "payment_transaction": 0,
   "payment_webhook_event": 0,
   "permission": 3,
-  "product": 3,
-  "recipe_bom": 0,
-  "recipe_bom_item": 0,
+  "product": 24,
+  "recipe_bom": 24,
+  "recipe_bom_item": 94,
   "refund_case": 0,
   "refund_transaction": 0,
   "restaurant": 1,
   "risk_policy_config": 0,
   "role": 3,
   "role_permission": 3,
-  "session_cart": 1,
+  "session_cart": 0,
   "session_financial_account": 0,
-  "session_participant": 1,
-  "stock_location": 0,
+  "session_participant": 0,
+  "stock_location": 1,
   "support_request": 0,
-  "table_qr_token": 3,
-  "table_session": 1,
-  "unit_of_measure": 0,
-  "user_role": 3
+  "table_qr_token": 0,
+  "table_session": 0,
+  "unit_of_measure": 3,
+  "user_role": 8
 }
 ```

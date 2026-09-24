@@ -6,14 +6,15 @@ const files = execFileSync(
   { encoding: 'utf8' },
 )
   .split('\0')
-  .filter(Boolean);
+  .filter((file) => file && existsSync(file));
 const issues = [];
 const localSecrets = existsSync('.env')
   ? readFileSync('.env', 'utf8')
       .split('\n')
       .filter((line) => /^(POSTGRES_PASSWORD|AUTH_SECRET|SEED_PASSWORD)=/.test(line))
       .map((line) => line.slice(line.indexOf('=') + 1))
-      .filter((value) => value.length > 16)
+      .map((value) => value.trim().replace(/^["']|["']$/g, ''))
+      .filter((value) => value.length >= 8)
   : [];
 for (const file of files) {
   if (/(^|\/)\.env($|\.)/.test(file) && !file.endsWith('.env.example')) issues.push(file);

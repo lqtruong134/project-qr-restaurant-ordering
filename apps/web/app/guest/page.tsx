@@ -1,4 +1,4 @@
-import Guest from '../../components/core/guest';
+import Guest from '../../features/guest/guest';
 export default function Page() {
   return <Guest />;
 }

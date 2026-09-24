@@ -28,15 +28,38 @@ else if (mode === 'rehearsal') run('pnpm', ['exec', 'tsx', 'scripts/rehearsal.ts
 else if (mode === 'docs') run('pnpm', ['exec', 'tsx', 'scripts/database-docs.ts']);
 else if (mode === 'e2e')
   run('pnpm', ['exec', 'tsx', 'scripts/browser-tests.ts', ...process.argv.slice(3)]);
-else if (mode === 'seed-core') run('pnpm', ['exec', 'tsx', 'scripts/seed-core.ts']);
-else if (mode === 'seed') run('pnpm', ['exec', 'tsx', 'scripts/seed.ts']);
-else if (mode === 'dev') {
+else if (mode === 'seed-core' || mode === 'seed') run('pnpm', ['exec', 'tsx', 'scripts/seed.ts']);
+else if (mode === 'dev' || mode === 'dev-lan') {
+  if (mode === 'dev-lan') {
+    const host = process.env.LAN_HOST;
+    if (!host || !/^[a-zA-Z0-9.-]+$/.test(host))
+      throw new Error('Set LAN_HOST to the computer LAN IPv4 address first.');
+    process.env.WEB_HOST = '0.0.0.0';
+    process.env.APP_ORIGINS = [
+      process.env.APP_ORIGINS,
+      'http://' + host + ':' + (process.env.WEB_PORT ?? '3000'),
+    ]
+      .filter(Boolean)
+      .join(',');
+  }
   const children = [
     spawn('pnpm', ['--filter', '@thesis/api', 'dev'], { stdio: 'inherit', detached: true }),
-    spawn('pnpm', ['--filter', '@thesis/web', 'dev', '--port', process.env.WEB_PORT ?? '3000'], {
-      stdio: 'inherit',
-      detached: true,
-    }),
+    spawn(
+      'pnpm',
+      [
+        '--filter',
+        '@thesis/web',
+        'dev',
+        '--hostname',
+        process.env.WEB_HOST ?? '127.0.0.1',
+        '--port',
+        process.env.WEB_PORT ?? '3000',
+      ],
+      {
+        stdio: 'inherit',
+        detached: true,
+      },
+    ),
   ];
   let stopping = false;
   function stop(code) {

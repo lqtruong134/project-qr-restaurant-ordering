@@ -33,7 +33,7 @@ export default function Login() {
     <main className="auth-shell">
       <section className="auth-story">
         <Link href="/" className="brand-link">
-          AN NHIÊN · QR ORDERING
+          QUYẾT TRƯỜNG BISTRO
         </Link>
         <p className="eyebrow">KHÔNG GIAN NỘI BỘ</p>
         <h1>

@@ -1,5 +1,7 @@
 import type { NextConfig } from 'next';
 const config: NextConfig = {
+  devIndicators: false,
+  distDir: process.env.NEXT_DIST_DIR ?? '.next',
   transpilePackages: ['@thesis/ui', '@thesis/contracts'],
   poweredByHeader: false,
   async rewrites() {

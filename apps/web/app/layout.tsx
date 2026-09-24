@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 export const metadata: Metadata = {
-  title: 'QR Ordering · Sprint 1',
-  description: 'Môi trường phát triển luận văn gọi món tại bàn.',
+  title: 'Quyết Trường Bistro · Gọi món tại bàn',
+  description: 'Trải nghiệm gọi món tại bàn của Quyết Trường Bistro.',
 };
 export default function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

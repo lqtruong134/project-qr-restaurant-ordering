@@ -14,6 +14,7 @@ const env = {
   API_BASE_URL: 'http://127.0.0.1:14100',
   APP_ORIGINS: 'http://127.0.0.1:13100,http://localhost:13100',
   CI: '1',
+  NEXT_DIST_DIR: '.next-e2e',
 };
 function run(args: string[]) {
   const result = spawnSync('pnpm', args, { env, stdio: 'inherit' });

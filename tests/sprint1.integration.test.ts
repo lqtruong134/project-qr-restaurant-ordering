@@ -12,10 +12,11 @@ const dbName = 'thesis_test_' + randomBytes(6).toString('hex');
 const password = randomBytes(24).toString('hex');
 let clock = Date.now();
 const headers = { origin: 'http://localhost:3000', 'x-csrf-protection': '1' };
+const accounts = { admin: 'quyettruong05', staff: 'pv001', kitchen: 'bep001' } as const;
 type Response = Awaited<ReturnType<ReturnType<typeof buildApp>['inject']>>;
 const cookies = (response: Response) =>
   response.cookies.map((c) => c.name + '=' + c.value).join('; ');
-async function login(username = 'staff', ip = '127.0.0.1') {
+async function login(username: string = accounts.staff, ip = '127.0.0.1') {
   return app.inject({
     method: 'POST',
     url: '/auth/login',
@@ -67,7 +68,7 @@ it('migrates exactly 45 business tables and seed twice preserves counts and pass
   const before = await db.prisma.app_user.findMany({ orderBy: { username: 'asc' } });
   await seed(db, password);
   const after = await db.prisma.app_user.findMany({ orderBy: { username: 'asc' } });
-  expect(after.length).toBe(3);
+  expect(after.length).toBe(8);
   expect(after.map((u) => u.id)).toEqual(before.map((u) => u.id));
   expect(
     after.every(
@@ -75,11 +76,43 @@ it('migrates exactly 45 business tables and seed twice preserves counts and pass
         u.password_hash === before[i]?.password_hash && u.password_hash.startsWith('$argon2id$'),
     ),
   ).toBe(true);
-  expect(await db.prisma.product.count()).toBe(3);
+  expect(await db.prisma.product.count()).toBe(24);
+});
+it('repeated seed preserves changed stock, table state, prices and disabled employees', async () => {
+  const balance = await db.prisma.inventory_balance.findFirstOrThrow();
+  await db.pool.query(
+    'UPDATE inventory_balance SET on_hand_qty=on_hand_qty-1,available_qty=available_qty-1,version=version+1 WHERE id=$1',
+    [balance.id],
+  );
+  const table = await db.prisma.dining_table.findFirstOrThrow({ where: { code: 'A08' } });
+  await db.prisma.dining_table.update({
+    where: { id: table.id },
+    data: { table_status: 'NEEDS_CLEANING' },
+  });
+  const employee = await db.prisma.app_user.findFirstOrThrow({ where: { username: 'pv004' } });
+  await db.prisma.app_user.update({ where: { id: employee.id }, data: { status: 'INACTIVE' } });
+  const product = await db.prisma.product.findFirstOrThrow();
+  await db.prisma.product.update({ where: { id: product.id }, data: { base_price: 99000n } });
+  const before = await db.prisma.inventory_balance.findUniqueOrThrow({ where: { id: balance.id } });
+  const movements = await db.prisma.inventory_movement.count();
+  await seed(db, password);
+  expect(
+    await db.prisma.inventory_balance.findUniqueOrThrow({ where: { id: balance.id } }),
+  ).toEqual(before);
+  expect(await db.prisma.inventory_movement.count()).toBe(movements);
+  expect(
+    (await db.prisma.dining_table.findUniqueOrThrow({ where: { id: table.id } })).table_status,
+  ).toBe('NEEDS_CLEANING');
+  expect((await db.prisma.app_user.findUniqueOrThrow({ where: { id: employee.id } })).status).toBe(
+    'INACTIVE',
+  );
+  expect(
+    (await db.prisma.product.findUniqueOrThrow({ where: { id: product.id } })).base_price,
+  ).toBe(99000n);
 });
 it('three roles allow their own workspace and deny the other two at backend', async () => {
   for (const [i, role] of ['staff', 'kitchen', 'admin'].entries()) {
-    const response = await login(role, '127.0.0.' + (i + 1));
+    const response = await login(accounts[role as keyof typeof accounts], '127.0.0.' + (i + 1));
     expect(response.statusCode).toBe(200);
     for (const target of ['staff', 'kitchen', 'admin'])
       expect(
@@ -104,7 +137,7 @@ it('rejects CSRF, malformed input, unknown and wrong credentials without account
       await app.inject({
         method: 'POST',
         url: '/auth/login',
-        payload: { username: 'staff', password },
+        payload: { username: accounts.staff, password },
       })
     ).statusCode,
   ).toBe(403);
@@ -114,7 +147,7 @@ it('rejects CSRF, malformed input, unknown and wrong credentials without account
         method: 'POST',
         url: '/auth/login',
         headers: { ...headers, origin: 'https://attacker.example' },
-        payload: { username: 'staff', password },
+        payload: { username: accounts.staff, password },
       })
     ).statusCode,
   ).toBe(403);
@@ -124,7 +157,7 @@ it('rejects CSRF, malformed input, unknown and wrong credentials without account
         method: 'POST',
         url: '/auth/login',
         headers,
-        payload: { username: 'staff', password, unexpected: true },
+        payload: { username: accounts.staff, password, unexpected: true },
       })
     ).statusCode,
   ).toBe(400);
@@ -132,7 +165,7 @@ it('rejects CSRF, malformed input, unknown and wrong credentials without account
     method: 'POST',
     url: '/auth/login',
     headers,
-    payload: { username: 'staff', password: 'wrong' },
+    payload: { username: accounts.staff, password: 'wrong' },
   });
   const b = await app.inject({
     method: 'POST',
@@ -181,9 +214,9 @@ it('enforces five login attempts per account across IPs and per IP across accoun
         })
       ).statusCode,
     ).toBe(401);
-  expect((await login('admin', '10.1.1.1')).statusCode).toBe(429);
+  expect((await login(accounts.admin, '10.1.1.1')).statusCode).toBe(429);
   clock += 61000;
-  expect((await login('admin', '10.1.1.1')).statusCode).toBe(200);
+  expect((await login(accounts.admin, '10.1.1.1')).statusCode).toBe(200);
 });
 it('rotates refresh atomically; old token cannot be reused; logout revokes both credentials', async () => {
   const first = await login();
@@ -255,7 +288,7 @@ it('access expires at 15 minutes, refresh at absolute seven days; login invalida
 });
 it('disable and password change revoke refresh and access even after re-enabling', async () => {
   const first = await login();
-  const u = await db.prisma.app_user.findFirstOrThrow({ where: { username: 'staff' } });
+  const u = await db.prisma.app_user.findFirstOrThrow({ where: { username: accounts.staff } });
   await db.prisma.app_user.update({ where: { id: u.id }, data: { status: 'INACTIVE' } });
   expect(
     (await app.inject({ url: '/auth/me', headers: { cookie: cookies(first) } })).statusCode,
@@ -285,7 +318,7 @@ it('disable and password change revoke refresh and access even after re-enabling
 });
 it('revoked role is effective immediately while role assignment history remains readable', async () => {
   const first = await login();
-  const u = await db.prisma.app_user.findFirstOrThrow({ where: { username: 'staff' } });
+  const u = await db.prisma.app_user.findFirstOrThrow({ where: { username: accounts.staff } });
   const grant = await db.prisma.user_role.findFirstOrThrow({
     where: { user_id: u.id, revoked_at: null },
   });
@@ -302,8 +335,12 @@ it('revoked role is effective immediately while role assignment history remains 
   expect(user.user_role.length).toBe(2);
 });
 it('database enforces unique, FK, tenant isolation, nonnegative VND and active QR/session/cart rules', async () => {
-  const table = await db.prisma.dining_table.findFirstOrThrow({ where: { code: 'B01' } });
-  const session = await db.prisma.table_session.findFirstOrThrow({ where: { table_id: table.id } });
+  const table = await db.prisma.dining_table.findFirstOrThrow({ where: { code: 'A01' } });
+  const session = await db.prisma.table_session.create({ data: { table_id: table.id } });
+  await db.prisma.session_cart.create({ data: { session_id: session.id } });
+  await db.prisma.table_qr_token.create({
+    data: { table_id: table.id, token_hash: randomUUID(), version_no: 1 },
+  });
   const product = await db.prisma.product.findFirstOrThrow();
   const reject = async (sql: string, params: unknown[], code: string) => {
     await expect(db.pool.query(sql, params)).rejects.toMatchObject({ code });
@@ -340,7 +377,7 @@ it('database enforces unique, FK, tenant isolation, nonnegative VND and active Q
   );
 });
 it('two concurrent session opens have exactly one winner', async () => {
-  const table = await db.prisma.dining_table.findFirstOrThrow({ where: { code: 'B03' } });
+  const table = await db.prisma.dining_table.findFirstOrThrow({ where: { code: 'A03' } });
   const results = await Promise.allSettled(
     [1, 2].map(() => db.pool.query('INSERT INTO table_session(table_id) VALUES($1)', [table.id])),
   );
@@ -361,7 +398,7 @@ it('production cookies are Secure, HttpOnly and SameSite Strict', async () => {
       method: 'POST',
       url: '/auth/login',
       headers,
-      payload: { username: 'admin', password },
+      payload: { username: accounts.admin, password },
     });
     expect(res.statusCode).toBe(200);
     expect(res.cookies.every((c) => c.secure && c.httpOnly && c.sameSite === 'Strict')).toBe(true);
@@ -380,7 +417,7 @@ it('an authenticated route still enforces its declared permission', async () => 
   expect(
     (await app.inject({ url: '/test-admin-only', headers: { cookie: cookies(staff) } })).statusCode,
   ).toBe(403);
-  const manager = await login('admin', '127.0.0.2');
+  const manager = await login(accounts.admin, '127.0.0.2');
   expect(
     (await app.inject({ url: '/test-admin-only', headers: { cookie: cookies(manager) } }))
       .statusCode,

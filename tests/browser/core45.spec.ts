@@ -1,10 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
-async function login(page: Page, name: string) {
+async function login(page: Page, username: string, workspace: string) {
   await page.goto('/login');
-  await page.locator('#username').fill(name);
+  await page.locator('#username').fill(username);
   await page.locator('#password').fill(process.env.SEED_PASSWORD!);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
-  await expect(page).toHaveURL(new RegExp('workspace/' + name));
+  await expect(page).toHaveURL(new RegExp('workspace/' + workspace));
 }
 test('CORE screens support QR guest order through review, kitchen, settlement and close', async ({
   browser,
@@ -13,7 +13,14 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
   test.setTimeout(120000);
   const contexts = await Promise.all(
     Array.from({ length: 4 }, () =>
-      browser.newContext({ baseURL, viewport: info.project.use.viewport }),
+      browser.newContext({
+        baseURL,
+        viewport: info.project.use.viewport,
+        isMobile: info.project.use.isMobile,
+        hasTouch: info.project.use.hasTouch,
+        deviceScaleFactor: info.project.use.deviceScaleFactor,
+        userAgent: info.project.use.userAgent,
+      }),
     ),
   );
   const [admin, guest, staff, kitchen] = await Promise.all(contexts.map((c) => c.newPage()));
@@ -21,8 +28,17 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
   for (const page of [admin!, guest!, staff!, kitchen!])
     page.on('pageerror', (e) => errors.push(e.message));
   try {
-    await login(admin!, 'admin');
+    await login(admin!, 'quyettruong05', 'admin');
+    await expect(
+      admin!.getByText('Mỗi ca làm, một trải nghiệm tốt hơn.', { exact: true }),
+    ).toBeVisible();
+    await admin!.screenshot({
+      caret: 'initial',
+      path: info.outputPath('admin-overview.png'),
+      fullPage: true,
+    });
     await admin!.getByRole('button', { name: 'Bàn & QR', exact: true }).click();
+    await admin!.getByText('Thêm bàn hoặc khu vực', { exact: true }).click();
     const code = 'E2E-' + Date.now();
     const form = admin!
       .locator('form')
@@ -33,53 +49,124 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
     const table = admin!
       .locator('article')
       .filter({ has: admin!.getByRole('heading', { name: code, exact: true }) });
+    admin!.once('dialog', (d) => d.accept());
     await table.getByRole('button', { name: 'Cấp QR mới, thay QR cũ' }).click();
     const link = admin!.getByRole('link', { name: 'Mở thực đơn của bàn' });
     await expect(link).toBeVisible();
     const url = await link.getAttribute('href');
-    await admin!.screenshot({ path: info.outputPath('admin-qr.png'), fullPage: true });
+    await admin!.screenshot({
+      caret: 'initial',
+      path: info.outputPath('admin-qr.png'),
+      fullPage: true,
+    });
+    await admin!.emulateMedia({ media: 'print' });
+    await expect(admin!.locator('.core-qr img')).toBeVisible();
+    await expect(link).toBeHidden();
+    await admin!.emulateMedia({ media: 'screen' });
     await guest!.goto(url!);
     await guest!.getByLabel('Tên của bạn').fill('Khách thử trình duyệt');
     await guest!.getByRole('button', { name: 'Xem thực đơn' }).click();
     await expect(guest!.getByRole('heading', { name: 'Hôm nay bạn muốn dùng gì?' })).toBeVisible();
     const dish = guest!
       .locator('article')
-      .filter({ has: guest!.getByRole('heading', { name: 'Cơm gà', exact: true }) });
-    await dish.getByRole('button', { name: 'Thêm vào giỏ' }).click();
+      .filter({ has: guest!.getByRole('heading', { name: 'Cơm tấm sườn nướng', exact: true }) });
+    expect(await guest!.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await guest!.screenshot({
+      caret: 'initial',
+      path: info.outputPath('guest-menu.png'),
+      fullPage: false,
+    });
+    await dish.getByRole('button', { name: 'Chọn Cơm tấm sườn nướng' }).click();
+    await guest!.getByRole('dialog').getByRole('button', { name: 'Thêm vào giỏ' }).click();
+    await expect(guest!.getByRole('dialog')).toHaveCount(0);
+    await expect(guest!.getByRole('heading', { name: 'Giỏ món', exact: true })).toBeVisible();
+    await guest!
+      .getByRole('navigation', { name: 'Điều hướng khách' })
+      .getByRole('button', { name: /Giỏ món/ })
+      .click();
     await guest!.getByRole('button', { name: 'Gửi các món của tôi' }).click();
+    await guest!.getByRole('button', { name: 'Món đã gọi', exact: true }).click();
     await expect(guest!.getByText('Chờ nhân viên duyệt', { exact: true })).toBeVisible();
-    await login(staff!, 'staff');
+    await login(staff!, 'pv001', 'staff');
+    await expect(staff!.getByRole('button', { name: /Sơ đồ bàn/ })).toBeVisible();
+    await staff!.screenshot({
+      caret: 'initial',
+      path: info.outputPath('staff-floor.png'),
+      fullPage: true,
+    });
+    await staff!
+      .getByRole('navigation', { name: 'Phục vụ' })
+      .getByRole('button', { name: /Gọi món/ })
+      .click();
     const order = staff!
       .locator('article')
       .filter({ has: staff!.getByRole('heading', { name: 'Bàn ' + code, exact: true }) });
     await order.getByRole('button', { name: 'Duyệt gửi bếp' }).click();
-    await login(kitchen!, 'kitchen');
+    await login(kitchen!, 'bep001', 'kitchen');
     const ticket = kitchen!
       .locator('article')
       .filter({ has: kitchen!.getByRole('heading', { name: 'Bàn ' + code, exact: true }) });
     await ticket.getByRole('button', { name: 'Bếp nhận cả lượt' }).click();
     await ticket.getByRole('button', { name: 'Bắt đầu chế biến' }).click();
     await ticket.getByRole('button', { name: 'Món đã xong' }).click();
-    await kitchen!.screenshot({ path: info.outputPath('kitchen.png'), fullPage: true });
+    await kitchen!.screenshot({
+      caret: 'initial',
+      path: info.outputPath('kitchen.png'),
+      fullPage: true,
+    });
     await order.getByRole('button', { name: 'Đã mang ra bàn' }).click();
     await expect(guest!.getByText('Đã phục vụ', { exact: true })).toBeVisible();
+    await guest!
+      .getByRole('navigation', { name: 'Điều hướng khách' })
+      .getByRole('button', { name: 'Thanh toán', exact: true })
+      .click();
     const payment = guest!
       .locator('form')
       .filter({ has: guest!.getByRole('heading', { name: 'Yêu cầu thanh toán', exact: true }) });
-    await payment.getByLabel('Số tiền (đồng)').fill('55000');
+    await payment.getByLabel('Số tiền (đồng)').fill('79000');
     await payment.getByRole('button', { name: 'Báo nhân viên thu tiền' }).click();
+    await staff!
+      .getByRole('navigation', { name: 'Phục vụ' })
+      .getByRole('button', { name: /Sơ đồ bàn/ })
+      .click();
     const staffTable = staff!
       .locator('article')
       .filter({ has: staff!.getByRole('heading', { name: code, exact: true }) });
     await staffTable.getByRole('button', { name: 'Xem bàn / tính tiền' }).click();
     await staff!.getByRole('button', { name: 'Tôi đã nhận tiền' }).click();
-    await staff!.screenshot({ path: info.outputPath('staff-bill.png'), fullPage: true });
-    await guest!.screenshot({ path: info.outputPath('guest.png'), fullPage: true });
+    await staff!.screenshot({
+      caret: 'initial',
+      path: info.outputPath('staff-bill.png'),
+      fullPage: true,
+    });
+    await staff!.emulateMedia({ media: 'print' });
+    await expect(staff!.locator('.receipt-lines')).toContainText('Cơm tấm sườn nướng');
+    await expect(staff!.getByRole('heading', { name: 'Lập yêu cầu thu tiền' })).toBeHidden();
+    await staff!.emulateMedia({ media: 'screen' });
+    await guest!.screenshot({
+      caret: 'initial',
+      path: info.outputPath('guest.png'),
+      fullPage: true,
+    });
     expect(await guest!.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
+    staff!.once('dialog', (d) => d.accept());
     await staff!.getByRole('button', { name: 'Đóng phiên sau khi hoàn tất' }).click();
     await staffTable.getByRole('button', { name: 'Đã dọn xong' }).click();
+    await expect(guest!.getByRole('heading', { name: 'Quét QR tại bàn để bắt đầu' })).toBeVisible();
+    for (const page of [admin!, guest!, staff!, kitchen!]) {
+      const dimensions = await page.evaluate(() => ({
+        url: location.pathname,
+        scrollWidth: document.documentElement.scrollWidth,
+        innerWidth,
+      }));
+      expect(dimensions.scrollWidth <= dimensions.innerWidth, JSON.stringify(dimensions)).toBe(
+        true,
+      );
+    }
     expect(errors).toEqual([]);
   } finally {
     await Promise.all(contexts.map((c) => c.close()));
