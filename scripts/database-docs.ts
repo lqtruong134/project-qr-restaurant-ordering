@@ -16,9 +16,9 @@ try {
       `SELECT c.relname name,obj_description(c.oid) description FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND c.relname<>'_prisma_migrations' ORDER BY c.relname`,
     )
   ).rows;
-  if (tables.length !== 45) throw new Error('Expected exactly 45 business tables');
+  if (tables.length !== 53) throw new Error('Expected exactly 53 business tables');
   const md = [
-    '# Từ điển dữ liệu vật lý — 45 bảng',
+    '# Từ điển dữ liệu vật lý — 53 bảng',
     '',
     'Sinh từ metadata PostgreSQL bằng `pnpm docs:database`, không chứa bản ghi nghiệp vụ hay thông tin đăng nhập. Kiểu, giá trị mặc định và các ràng buộc bên dưới lấy trực tiếp từ database đã migrate.',
     '',
@@ -27,7 +27,7 @@ try {
   ];
   const dot = [
     'digraph ERD {',
-    'graph [rankdir=LR,bgcolor="#fafbf8",pad="0.5",nodesep="0.55",ranksep="1.3",label="QR RESTAURANT • PHYSICAL ERD • 45 TABLES",labelloc=t,fontname="DejaVu Sans",fontsize=22];',
+    'graph [rankdir=LR,bgcolor="#fafbf8",pad="0.5",nodesep="0.55",ranksep="1.3",label="QR RESTAURANT • PHYSICAL ERD • 53 TABLES",labelloc=t,fontname="DejaVu Sans",fontsize=22];',
     'node [shape=plain,fontname="DejaVu Sans"];',
     'edge [color="#638478",fontname="DejaVu Sans",fontsize=9,arrowsize=0.6,labeldistance=2.5];',
   ];
@@ -147,7 +147,7 @@ try {
   writeFileSync('docs/database/data-dictionary.md', md.join('\n').trimEnd() + '\n');
   writeFileSync('docs/database/physical.dot', dot.join('\n') + '\n');
   execFileSync('dot', ['-Tsvg', 'docs/database/physical.dot', '-o', 'docs/database/physical.svg']);
-  console.log('Exported data dictionary and physical ERD from 45 live tables.');
+  console.log('Exported data dictionary and physical ERD from 53 live tables.');
 } finally {
   await db.close();
 }

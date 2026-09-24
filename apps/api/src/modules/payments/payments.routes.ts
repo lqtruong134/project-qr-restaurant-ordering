@@ -15,6 +15,7 @@ import {
   type Actor,
 } from '../shared/core-persistence.js';
 import { idempotent } from '../shared/idempotency.js';
+import { readBill } from './receipt.service.js';
 import { recalculate } from '../finance/ledger.service.js';
 async function intent(
   c: Connection,
@@ -50,36 +51,24 @@ export function registerFinance(app: FastifyInstance, db: Database, restaurant: 
   const staff = { permission: 'staff.workspace' };
   app.get('/core/sessions/:id/bill', { config: staff }, async (r) =>
     transaction(db, async (c) => {
-      const s = await session(c, idParam(r), restaurant, false),
-        account = await recalculate(c, s.id);
-      return {
-        session: s,
-        account,
-        charges: (
-          await c.query(
-            'SELECT f.*,i.product_name_snapshot,i.quantity,i.unit_price_snapshot FROM financial_charge f LEFT JOIN order_item i ON i.id=f.order_item_id WHERE f.session_id=$1 ORDER BY f.created_at',
-            [s.id],
-          )
-        ).rows,
-        intents: (
-          await c.query(
-            'SELECT * FROM payment_intent WHERE session_id=$1 ORDER BY created_at DESC',
-            [s.id],
-          )
-        ).rows,
-        payments: (
-          await c.query(
-            'SELECT * FROM payment_transaction WHERE session_id=$1 ORDER BY created_at DESC',
-            [s.id],
-          )
-        ).rows,
-        refunds: (
-          await c.query('SELECT * FROM refund_case WHERE session_id=$1 ORDER BY created_at DESC', [
-            s.id,
-          ])
-        ).rows,
-      };
+      const s = await session(c, idParam(r), restaurant, false);
+      return readBill(c, s, restaurant);
     }),
+  );
+  app.get(
+    '/core/receipts',
+    { config: staff },
+    async () =>
+      (
+        await db.pool.query(
+          `SELECT s.id,s.receipt_number,s.opened_at,s.closed_at,s.close_reason,t.code AS table_code,
+    COALESCE(s.receipt_snapshot->'account'->>'charge_total',a.charge_total::text,'0') AS total_amount,
+    u.display_name AS closed_by_name FROM table_session s JOIN dining_table t ON t.id=s.table_id
+    LEFT JOIN session_financial_account a ON a.session_id=s.id LEFT JOIN app_user u ON u.id=s.closed_by
+    WHERE t.restaurant_id=$1 AND s.session_status='CLOSED' ORDER BY s.closed_at DESC LIMIT 100`,
+          [restaurant],
+        )
+      ).rows,
   );
   app.post('/guest/payments', { config: { public: true } }, async (r) =>
     transaction(db, async (c) => {
@@ -115,13 +104,25 @@ export function registerFinance(app: FastifyInstance, db: Database, restaurant: 
       const amount = money(b.amount);
       if (amount !== pi.amount) reject('Số tiền xác nhận phải khớp yêu cầu thanh toán.');
       const reference = pi.method === 'BANK_TRANSFER' ? text(b.reference, 120) : null;
+      const cashReceived = pi.method === 'CASH' ? money(b.receivedAmount ?? amount) : null;
+      if (cashReceived !== null && BigInt(cashReceived) < BigInt(amount))
+        reject('Tiền khách đưa chưa đủ số tiền xác nhận.', 400);
+      const changeGiven =
+        cashReceived === null ? null : (BigInt(cashReceived) - BigInt(amount)).toString();
       const a = await recalculate(c, pi.session_id);
       if (BigInt(amount) > BigInt(a.outstanding_amount))
         reject('Số dư đã thay đổi. Vui lòng lập yêu cầu mới.');
       const payment = await one(
         c,
         `INSERT INTO payment_transaction(payment_intent_id,session_id,method,amount,currency,status,confirmed_by,confirmed_at,metadata) VALUES($1,$2,$3,$4,'VND','SUCCEEDED',$5,now(),$6) RETURNING *`,
-        [id, pi.session_id, pi.method, amount, r.identity!.id, JSON.stringify({ reference })],
+        [
+          id,
+          pi.session_id,
+          pi.method,
+          amount,
+          r.identity!.id,
+          JSON.stringify({ reference, cashReceived, changeGiven }),
+        ],
       );
       const charges = (
         await c.query(
@@ -229,6 +230,8 @@ export function registerFinance(app: FastifyInstance, db: Database, restaurant: 
     }),
   );
   app.get('/core/reports', { config: { permission: 'admin.workspace' } }, async () => ({
+    store: (await db.pool.query('SELECT name,address FROM restaurant WHERE id=$1', [restaurant]))
+      .rows[0],
     sales: (
       await db.pool.query(
         `SELECT i.product_id,i.product_name_snapshot,sum(i.quantity)::text AS quantity,sum(i.line_total)::text AS sales,COALESCE(sum((SELECT sum(s.cogs_value) FROM order_item_ingredient_snapshot s WHERE s.order_item_id=i.id)),0)::text AS cost FROM order_item i JOIN order_batch b ON b.id=i.order_batch_id JOIN table_session s ON s.id=b.session_id JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND i.status='SERVED' GROUP BY i.product_id,i.product_name_snapshot ORDER BY sum(i.line_total) DESC`,

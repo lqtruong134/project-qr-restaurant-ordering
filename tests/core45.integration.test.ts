@@ -119,7 +119,7 @@ it('executes a reviewed guest order, stock consumption, split payment, snapshot 
         "SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='public' AND tablename<>'_prisma_migrations'",
       )
     ).rows[0].n,
-  ).toBe(45);
+  ).toBe(53);
   const unit = await ok('/core/units', 'quyettruong05', {
     code: 'CORE-KG',
     name: 'Kilogram',
@@ -181,6 +181,29 @@ it('executes a reviewed guest order, stock consumption, split payment, snapshot 
     (await request('/core/orders/' + batch.id + '/review', 'bep001', { approve: true })).statusCode,
   ).toBe(403);
   await ok('/core/orders/' + batch.id + '/review', 'pv001', { approve: true });
+  const nextState = await ok('/guest/state', 'guest');
+  const nextItem = await ok('/guest/cart', 'guest', {
+    productId: product.id,
+    quantity: 1,
+    cartVersion: nextState.cart.cart_version,
+  });
+  await db.pool.query(
+    "UPDATE order_batch SET created_at=now()-interval '10 seconds' WHERE session_id=$1",
+    [sid],
+  );
+  const nextStateAfterCart = await ok('/guest/state', 'guest');
+  const nextBatch = await ok('/guest/orders', 'guest', {
+    requestId: randomUUID(),
+    cartVersion: nextStateAfterCart.cart.cart_version,
+    itemIds: [nextItem.id],
+  });
+  expect(nextBatch.status).toBe('SUBMITTED');
+  expect(
+    (await ok('/core/kitchen', 'bep001')).some((o: { id: string }) => o.id === nextBatch.id),
+  ).toBe(true);
+  await ok('/core/orders/' + nextBatch.id + '/cancel', 'pv001', {
+    reason: 'Hủy lượt kiểm thử sau khi xác nhận luồng tự động gửi bếp',
+  });
   const orderItem = (
     await db.pool.query('SELECT * FROM order_item WHERE order_batch_id=$1', [batch.id])
   ).rows[0];

@@ -9,6 +9,7 @@ import {
   text,
   transaction,
 } from '../shared/core-persistence.js';
+import { freezeReceipt } from '../payments/receipt.service.js';
 import { recalculate } from '../finance/ledger.service.js';
 import { cancelBatch } from '../orders/cancellation.service.js';
 export function registerOperations(app: FastifyInstance, db: Database, restaurant: string) {
@@ -48,7 +49,7 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
   app.get('/core/support', { config }, async () =>
     db.pool
       .query(
-        `SELECT x.*,t.code AS table_code,p.display_name FROM support_request x JOIN table_session s ON s.id=x.session_id JOIN dining_table t ON t.id=s.table_id LEFT JOIN session_participant p ON p.id=x.participant_id WHERE t.restaurant_id=$1 AND x.status IN ('NEW','ACKNOWLEDGED') ORDER BY x.created_at`,
+        `SELECT x.*,t.code AS table_code,p.display_name,u.display_name AS acknowledged_by_name,u.username AS acknowledged_by_username FROM support_request x JOIN table_session s ON s.id=x.session_id JOIN dining_table t ON t.id=s.table_id LEFT JOIN session_participant p ON p.id=x.participant_id LEFT JOIN app_user u ON u.id=x.acknowledged_by WHERE t.restaurant_id=$1 AND x.status IN ('NEW','ACKNOWLEDGED') ORDER BY x.created_at`,
         [restaurant],
       )
       .then((v) => v.rows),
@@ -115,6 +116,7 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
         "UPDATE dining_table SET table_status='NEEDS_CLEANING',version=version+1 WHERE id=$1",
         [s.table_id],
       );
+      await freezeReceipt(c, s.id, restaurant, r.identity!.id);
       return { status: 'ok' };
     }),
   );
@@ -130,7 +132,7 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
   app.get('/core/alerts', { config }, async () =>
     db.pool
       .query(
-        "SELECT a.*,t.code AS table_code FROM operational_alert a JOIN dining_table t ON t.id=a.table_id WHERE t.restaurant_id=$1 AND a.status<>'RESOLVED' ORDER BY a.created_at",
+        "SELECT a.*,COALESCE(current_table.code,t.code) AS table_code,t.code AS original_table_code FROM operational_alert a JOIN dining_table t ON t.id=a.table_id LEFT JOIN table_session current_session ON current_session.id=a.session_id LEFT JOIN dining_table current_table ON current_table.id=current_session.table_id WHERE t.restaurant_id=$1 AND a.status<>'RESOLVED' ORDER BY a.created_at",
         [restaurant],
       )
       .then((v) => v.rows),
@@ -253,6 +255,7 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
           "UPDATE dining_table SET table_status='NEEDS_CLEANING',version=version+1 WHERE id=$1",
           [s.table_id],
         );
+        await freezeReceipt(c, s.id, restaurant, r.identity!.id);
         return { status: 'ok' };
       }),
   );

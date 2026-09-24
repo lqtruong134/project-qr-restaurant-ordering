@@ -1,3 +1,5 @@
 @import 'tailwindcss';
 @import '../styles/restaurant.css';
 @import '../styles/typography.css';
+
+@import '../styles/service.css';

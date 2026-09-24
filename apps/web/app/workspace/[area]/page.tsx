@@ -1,11 +1,12 @@
 'use client';
 import { useEffect, useState, use } from 'react';
+import MyWork from '../../../features/workforce/my-work';
 import Admin from '../../../features/admin/admin';
 import Service from '../../../features/workspace/service';
 import Link from 'next/link';
 import { Icon } from '../../../features/shared/primitives';
 import { getAuthenticated, postApi } from '../../../lib/api-client';
-type User = { displayName: string; role: string; permissions: string[] };
+type User = { id: string; displayName: string; role: string; permissions: string[] };
 const labels: Record<string, string> = {
   staff: 'Không gian nhân viên',
   kitchen: 'Không gian bếp',
@@ -16,6 +17,8 @@ export default function Workspace({ params }: { params: Promise<{ area: string }
   const [user, setUser] = useState<User>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [myWork, setMyWork] = useState(false);
+  const canViewOwnWork = user?.role !== 'ADMIN';
   useEffect(() => {
     let active = true;
     setUser(undefined);
@@ -113,7 +116,25 @@ export default function Workspace({ params }: { params: Promise<{ area: string }
         ) : !user ? (
           <p role="status">Đang kiểm tra quyền truy cập…</p>
         ) : (
-          <>{area === 'admin' ? <Admin /> : <Service kitchen={area === 'kitchen'} />}</>
+          <>
+            {canViewOwnWork && (
+              <nav className="filter-chips" aria-label="Không gian làm việc">
+                <button className={!myWork ? 'active' : ''} onClick={() => setMyWork(false)}>
+                  Vận hành nhà hàng
+                </button>
+                <button className={myWork ? 'active' : ''} onClick={() => setMyWork(true)}>
+                  Lịch làm & lương của tôi
+                </button>
+              </nav>
+            )}
+            {canViewOwnWork && myWork ? (
+              <MyWork />
+            ) : area === 'admin' ? (
+              <Admin />
+            ) : (
+              <Service kitchen={area === 'kitchen'} userId={user.id} />
+            )}
+          </>
         )}
       </section>
     </main>

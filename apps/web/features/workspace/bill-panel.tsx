@@ -1,15 +1,8 @@
 'use client';
 import { requestId } from '../shared/request-id';
 import { useCallback, useEffect, useState } from 'react';
-import { Action, api, EntryForm, options, vnd, type Product, type Row } from '../shared/components';
-type Bill = {
-  session: Row;
-  account: Row;
-  charges: Row[];
-  intents: Row[];
-  payments: Row[];
-  refunds: Row[];
-};
+import { Action, api, EntryForm, options, vnd, type Product } from '../shared/components';
+import Receipt, { type Bill } from './receipt';
 export default function BillPanel({
   id,
   products,
@@ -22,7 +15,8 @@ export default function BillPanel({
   done: () => Promise<void>;
 }) {
   const [bill, setBill] = useState<Bill>(),
-    [error, setError] = useState('');
+    [error, setError] = useState(''),
+    [showReceipt, setShowReceipt] = useState(false);
   const refresh = useCallback(async () => {
     try {
       setBill(await api<Bill>('/core/sessions/' + id + '/bill'));
@@ -33,7 +27,9 @@ export default function BillPanel({
   }, [id]);
   useEffect(() => {
     void refresh();
-    const t = setInterval(() => void refresh(), 3000);
+    const t = setInterval(() => {
+      if (!document.hidden) void refresh();
+    }, 3000);
     return () => clearInterval(t);
   }, [refresh]);
   async function act(path: string, body: unknown = {}) {
@@ -52,159 +48,175 @@ export default function BillPanel({
       {error && <p role="alert">{error}</p>}
       {bill && (
         <>
-          <div className="receipt-heading">
-            <h2>QUYẾT TRƯỜNG BISTRO</h2>
-            <p>
-              Bàn {String(bill.session.table_code)} · {new Date().toLocaleString('vi-VN')}
-            </p>
-            <p>Phiếu thanh toán nội bộ, không phải hóa đơn thuế.</p>
+          <div className="bill-balance-grid">
+            <div>
+              <span>Phải thanh toán</span>
+              <strong>{vnd(bill.account.charge_total)}</strong>
+            </div>
+            <div>
+              <span>Đã thu</span>
+              <strong>{vnd(bill.account.paid_total)}</strong>
+            </div>
+            <div>
+              <span>Còn phải thu</span>
+              <strong>{vnd(bill.account.outstanding_amount)}</strong>
+            </div>
+            <div>
+              <span>Cần hoàn khách</span>
+              <strong>{vnd(bill.account.refund_due_amount)}</strong>
+            </div>
           </div>
-          <div className="core-stats">
-            <p>
-              Phải thu <strong>{vnd(bill.account.charge_total)}</strong>
-            </p>
-            <p>
-              Đã thu <strong>{vnd(bill.account.paid_total)}</strong>
-            </p>
-            <p>
-              Còn thiếu <strong>{vnd(bill.account.outstanding_amount)}</strong>
-            </p>
-            <p>
-              Cần hoàn <strong>{vnd(bill.account.refund_due_amount)}</strong>
-            </p>
-          </div>
-          <div className="receipt-lines">
-            {bill.charges.map((c) => (
-              <div key={c.id} className="core-line">
-                <span>
-                  {String(c.product_name_snapshot ?? 'Khoản thu')} × {String(c.quantity ?? 1)}{' '}
-                  {c.status === 'REVERSED' ? '(đã hủy)' : ''}
-                </span>
-                <strong>{vnd(c.amount)}</strong>
-              </div>
-            ))}
-          </div>
-          <StaffOrder
-            id={id}
-            products={products}
-            done={async () => {
-              await refresh();
-              await done();
-            }}
-          />
-          <h3>Thanh toán chờ xác nhận</h3>
-          {bill.intents
-            .filter((p) => ['CREATED', 'PENDING'].includes(String(p.status)))
-            .map((p) => (
-              <div className="core-card" key={p.id}>
-                <strong>
-                  {p.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'} · {vnd(p.amount)}
-                </strong>
-                <EntryForm
-                  title="Xác nhận sau khi nhận đủ tiền"
-                  fields={
-                    p.method === 'BANK_TRANSFER'
-                      ? [{ key: 'reference', label: 'Mã giao dịch ngân hàng' }]
-                      : []
-                  }
-                  submit="Tôi đã nhận tiền"
-                  onSubmit={(v) =>
-                    act('/core/payments/' + p.id + '/confirm', { ...v, amount: p.amount })
-                  }
-                />
-                <Action run={() => act('/core/payments/' + p.id + '/cancel')}>
-                  Hủy yêu cầu thanh toán
-                </Action>
-              </div>
-            ))}
-          <StaffPayment
-            id={id}
-            done={async () => {
-              await refresh();
-              await done();
-            }}
-          />
-          {BigInt(String(bill.account.refund_due_amount)) > 0n && (
-            <EntryForm
-              title="Lập hồ sơ hoàn tiền"
-              fields={[
-                {
-                  key: 'paymentId',
-                  label: 'Giao dịch gốc',
-                  options: bill.payments.map((p) => ({
-                    value: p.id,
-                    label:
-                      (p.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản') +
-                      ' · ' +
-                      vnd(p.amount) +
-                      ' · ' +
-                      new Date(String(p.created_at)).toLocaleTimeString('vi-VN'),
-                  })),
-                },
-                {
-                  key: 'amount',
-                  label: 'Số tiền hoàn',
-                  type: 'number',
-                  min: 1,
-                  value: String(bill.account.refund_due_amount),
-                },
-                { key: 'reason', label: 'Lý do hoàn' },
-              ]}
-              onSubmit={(v) => act('/core/sessions/' + id + '/refunds', v)}
-            />
-          )}
-          {bill.refunds
-            .filter((r) => ['OPEN', 'IN_PROGRESS'].includes(String(r.status)))
-            .map((r) => (
-              <EntryForm
-                key={r.id}
-                title={'Hoàn lại ' + vnd(r.amount)}
-                fields={[
-                  {
-                    key: 'method',
-                    label: 'Cách hoàn',
-                    options: [
-                      { value: 'CASH', label: 'Tiền mặt' },
-                      { value: 'BANK_TRANSFER', label: 'Chuyển khoản' },
-                    ],
-                  },
-                  {
-                    key: 'reference',
-                    label: 'Mã chuyển khoản (bắt buộc khi chuyển khoản)',
-                    optional: true,
-                  },
-                ]}
-                submit="Đã hoàn tiền cho khách"
-                onSubmit={(v) => act('/core/refunds/' + r.id + '/complete', v)}
-              />
-            ))}
-          <div className="core-line">
-            <Action
-              confirm="Đóng phiên bàn sau khi đã hoàn tất phục vụ và thanh toán?"
-              run={async () => {
-                await act('/core/sessions/' + id + '/close');
-                onClose();
-              }}
+          <div className="receipt-controls">
+            <button
+              className="secondary-button"
+              aria-expanded={showReceipt}
+              onClick={() => setShowReceipt(!showReceipt)}
             >
-              Đóng phiên sau khi hoàn tất
-            </Action>
-            <button className="secondary-button" onClick={() => window.print()}>
+              {showReceipt ? 'Ẩn phiếu' : 'Xem phiếu thanh toán'}
+            </button>
+            <button className="primary-button" onClick={() => window.print()}>
               In thông tin thanh toán
             </button>
           </div>
-          <details>
-            <summary>Khách rời đi khi còn thiếu tiền</summary>
-            <EntryForm
-              title="Báo quản trị xử lý"
-              fields={[
-                { key: 'reason', label: 'Mã lý do', value: 'LEFT_WITHOUT_PAYING' },
-                { key: 'notes', label: 'Diễn biến sự việc' },
-                { key: 'evidence', label: 'Tham chiếu bằng chứng (nếu có)', optional: true },
-              ]}
-              submit="Lập hồ sơ thiếu tiền"
-              onSubmit={(v) => act('/core/sessions/' + id + '/outstanding', v)}
-            />
-          </details>
+          <Receipt bill={bill} visible={showReceipt} />
+          {bill.session.session_status === 'ACTIVE' && (
+            <>
+              <StaffOrder
+                id={id}
+                products={products}
+                done={async () => {
+                  await refresh();
+                  await done();
+                }}
+              />
+              <h3>Thanh toán chờ xác nhận</h3>
+              {bill.intents
+                .filter(
+                  (p) =>
+                    ['CREATED', 'PENDING'].includes(String(p.status)) &&
+                    new Date(String(p.expires_at)).getTime() > Date.now(),
+                )
+                .map((p) => (
+                  <div className="core-card" key={p.id}>
+                    <strong>
+                      {p.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'} · {vnd(p.amount)}
+                    </strong>
+                    <EntryForm
+                      title="Xác nhận sau khi nhận đủ tiền"
+                      fields={
+                        p.method === 'BANK_TRANSFER'
+                          ? [{ key: 'reference', label: 'Mã giao dịch ngân hàng' }]
+                          : [
+                              {
+                                key: 'receivedAmount',
+                                label: 'Tiền mặt khách đưa (đồng)',
+                                type: 'number',
+                                min: Number(p.amount),
+                                value: String(p.amount),
+                              },
+                            ]
+                      }
+                      submit="Tôi đã nhận tiền"
+                      onSubmit={(v) =>
+                        act('/core/payments/' + p.id + '/confirm', { ...v, amount: p.amount })
+                      }
+                    />
+                    <Action run={() => act('/core/payments/' + p.id + '/cancel')}>
+                      Hủy yêu cầu thanh toán
+                    </Action>
+                  </div>
+                ))}
+              <StaffPayment
+                available={(
+                  BigInt(String(bill.account.outstanding_amount)) -
+                  BigInt(String(bill.account.reserved_payment_amount ?? 0))
+                ).toString()}
+                id={id}
+                done={async () => {
+                  await refresh();
+                  await done();
+                }}
+              />
+              {BigInt(String(bill.account.refund_due_amount)) > 0n && (
+                <EntryForm
+                  title="Lập hồ sơ hoàn tiền"
+                  fields={[
+                    {
+                      key: 'paymentId',
+                      label: 'Giao dịch gốc',
+                      options: bill.payments.map((p) => ({
+                        value: p.id,
+                        label:
+                          (p.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản') +
+                          ' · ' +
+                          vnd(p.amount) +
+                          ' · ' +
+                          new Date(String(p.created_at)).toLocaleTimeString('vi-VN'),
+                      })),
+                    },
+                    {
+                      key: 'amount',
+                      label: 'Số tiền hoàn',
+                      type: 'number',
+                      min: 1,
+                      value: String(bill.account.refund_due_amount),
+                    },
+                    { key: 'reason', label: 'Lý do hoàn' },
+                  ]}
+                  onSubmit={(v) => act('/core/sessions/' + id + '/refunds', v)}
+                />
+              )}
+              {bill.refunds
+                .filter((r) => ['OPEN', 'IN_PROGRESS'].includes(String(r.status)))
+                .map((r) => (
+                  <EntryForm
+                    key={r.id}
+                    title={'Hoàn lại ' + vnd(r.amount)}
+                    fields={[
+                      {
+                        key: 'method',
+                        label: 'Cách hoàn',
+                        options: [
+                          { value: 'CASH', label: 'Tiền mặt' },
+                          { value: 'BANK_TRANSFER', label: 'Chuyển khoản' },
+                        ],
+                      },
+                      {
+                        key: 'reference',
+                        label: 'Mã chuyển khoản (bắt buộc khi chuyển khoản)',
+                        optional: true,
+                      },
+                    ]}
+                    submit="Đã hoàn tiền cho khách"
+                    onSubmit={(v) => act('/core/refunds/' + r.id + '/complete', v)}
+                  />
+                ))}
+              <div className="core-line">
+                <Action
+                  confirm="Đóng phiên bàn sau khi đã hoàn tất phục vụ và thanh toán?"
+                  run={async () => {
+                    await act('/core/sessions/' + id + '/close');
+                    setShowReceipt(true);
+                  }}
+                >
+                  Đóng phiên sau khi hoàn tất
+                </Action>
+              </div>
+              <details>
+                <summary>Khách rời đi khi còn thiếu tiền</summary>
+                <EntryForm
+                  title="Báo quản trị xử lý"
+                  fields={[
+                    { key: 'reason', label: 'Mã lý do', value: 'LEFT_WITHOUT_PAYING' },
+                    { key: 'notes', label: 'Diễn biến sự việc' },
+                    { key: 'evidence', label: 'Tham chiếu bằng chứng (nếu có)', optional: true },
+                  ]}
+                  submit="Lập hồ sơ thiếu tiền"
+                  onSubmit={(v) => act('/core/sessions/' + id + '/outstanding', v)}
+                />
+              </details>
+            </>
+          )}
         </>
       )}
     </section>
@@ -249,11 +261,26 @@ function StaffOrder({
     </details>
   );
 }
-function StaffPayment({ id, done }: { id: string; done: () => Promise<void> }) {
+function StaffPayment({
+  id,
+  done,
+  available,
+}: {
+  id: string;
+  available: string;
+  done: () => Promise<void>;
+}) {
   const [key, setKey] = useState(() => requestId());
+  if (BigInt(available) <= 0n)
+    return (
+      <p className="small-note">
+        Không còn số tiền chưa lập yêu cầu thu. Kiểm tra các yêu cầu đang chờ hoặc hoàn tất phiên.
+      </p>
+    );
   return (
     <EntryForm
       title="Lập yêu cầu thu tiền"
+      key={available}
       fields={[
         {
           key: 'method',
@@ -263,7 +290,13 @@ function StaffPayment({ id, done }: { id: string; done: () => Promise<void> }) {
             { value: 'BANK_TRANSFER', label: 'Chuyển khoản' },
           ],
         },
-        { key: 'amount', label: 'Số tiền (đồng)', type: 'number', min: 1 },
+        {
+          key: 'amount',
+          label: 'Số tiền (đồng)',
+          type: 'number',
+          min: 1,
+          value: BigInt(available) > 0n ? available : '',
+        },
       ]}
       onSubmit={async (v) => {
         await api('/core/sessions/' + id + '/payments', { ...v, requestId: key });

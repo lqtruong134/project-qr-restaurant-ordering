@@ -1,0 +1,457 @@
+/* Operational workspace: compact table signals, touch targets and isolated receipt printing. */
+.service-overview {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  padding: 22px 24px;
+  background: #173e34;
+  color: #f5f8ef;
+  border-radius: 20px;
+  margin-bottom: 20px;
+}
+.service-overview h2 {
+  color: inherit;
+  margin: 4px 0;
+  font-size: var(--text-page);
+}
+.service-overview p {
+  color: #dae5dc;
+  margin: 4px 0;
+}
+.service-overview .eyebrow {
+  color: #cbdcaf;
+}
+.service-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  max-width: 340px;
+}
+.service-tools small {
+  flex-basis: 100%;
+  text-align: right;
+  color: #dae5dc;
+}
+.service-tools .secondary-button {
+  background: #fff;
+  color: #173e34;
+}
+.service-notice {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #fff1d6;
+  border: 1px solid #e5c383;
+  border-radius: 12px;
+  margin: 12px 0;
+}
+.service-notice button {
+  min-width: 36px;
+  min-height: 36px;
+}
+.service-nav {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  background: var(--paper, #fff);
+  padding: 8px;
+  border-radius: 14px;
+  box-shadow: 0 3px 18px #182b2110;
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.service-nav button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 10px;
+}
+.service-nav button.active {
+  background: #234d3f;
+  color: #fff;
+}
+.service-nav b {
+  background: #bf4d29;
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 12px;
+}
+.service-app .floor-grid {
+  grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+  gap: 14px;
+}
+.table-dashboard-card {
+  padding: 18px;
+}
+.table-dashboard-card h3 {
+  margin: 0;
+  font-size: var(--text-section);
+}
+.table-dashboard-card .table-signal {
+  min-height: 36px;
+  gap: 5px;
+  align-items: start;
+}
+.table-dashboard-card .need-tag {
+  font-size: 13px;
+  white-space: normal;
+  background: #fff2d9;
+  color: #795016;
+  padding: 5px 8px;
+}
+.table-dashboard-card .table-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  font-size: 14px;
+}
+.table-dashboard-card .table-actions > * {
+  width: 100%;
+}
+.task-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  margin: 10px 0;
+}
+.task-card p {
+  margin: 4px 0;
+}
+.task-card small {
+  color: #536355;
+}
+.task-card .core-action {
+  flex-shrink: 0;
+}
+.task-card > div:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.table-orders {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0;
+}
+.table-orders > .order-card {
+  box-shadow: none;
+  margin: 0;
+}
+.table-detail-alerts {
+  padding: 16px;
+  border-radius: 14px;
+  background: #f1f5ed;
+}
+.bill-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+.bill-balance-grid > div {
+  background: #edf2e7;
+  padding: 14px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.bill-balance-grid span {
+  font-size: 14px;
+  color: #4b5f50;
+}
+.bill-balance-grid strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.receipt-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+.core-bill > .receipt-sheet {
+  display: none;
+}
+.core-bill > .receipt-sheet.receipt-visible {
+  display: block;
+}
+.receipt-sheet {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 430px;
+  margin: 20px auto;
+  background: #fff;
+  color: #111;
+  font-family: Arial, sans-serif;
+}
+.receipt-meta {
+  overflow-wrap: anywhere;
+}
+.receipt-row {
+  grid-template-columns: minmax(0, 1fr) 24px minmax(58px, auto) minmax(65px, auto);
+  gap: 6px;
+  font-size: 13px;
+  break-inside: avoid;
+}
+.receipt-row > span:first-child {
+  overflow-wrap: anywhere;
+}
+.receipt-row strong {
+  font-size: inherit;
+}
+.receipt-payment-entry {
+  display: block !important;
+  padding: 6px 0;
+  border-bottom: 1px dashed #ccc;
+}
+.receipt-payment-entry p {
+  margin: 0;
+}
+.receipt-payment-entry small {
+  display: block;
+}
+.receipt-footer {
+  break-inside: avoid;
+}
+.admin-layout > .core-tabs button[aria-current='page'] {
+  background: #e5edda;
+  color: #315338;
+}
+.service-app .toolbar {
+  margin-bottom: 18px;
+}
+@media (max-width: 800px) {
+  .workspace-header {
+    padding: 12px 16px;
+    gap: 10px;
+  }
+  .workspace-header .brand-lockup small,
+  .workspace-header .avatar,
+  .workspace-title .eyebrow,
+  .workspace-title > div > p:last-child,
+  .workspace-title > .live-indicator {
+    display: none;
+  }
+  .workspace-title {
+    margin: 12px 0;
+  }
+  .workspace-title h1 {
+    font-size: 22px;
+  }
+  .workspace-content {
+    padding: 16px 12px;
+  }
+  .workspace-user strong {
+    font-size: 13px;
+  }
+  .workspace-user small {
+    font-size: 12px;
+  }
+  .workspace-user .secondary-button {
+    padding: 8px;
+    min-height: 44px;
+  }
+  .workspace-header .brand-lockup strong {
+    font-size: 14px;
+  }
+  .service-overview {
+    padding: 16px;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .service-overview h2 {
+    font-size: 22px;
+  }
+  .service-tools {
+    max-width: 160px;
+  }
+  .service-tools small {
+    font-size: 11px;
+  }
+  .service-tools button {
+    padding: 8px;
+    font-size: 12px;
+  }
+  .service-overview p {
+    font-size: 13px;
+  }
+  .service-app:not(.kitchen-app) {
+    padding-bottom: 80px;
+  }
+  .service-nav {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: 16px 16px 0 0;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    margin: 0;
+    box-shadow: 0 -2px 20px #173e3420;
+    justify-content: space-around;
+    background: #fff;
+  }
+  .service-nav button {
+    flex: 1;
+    position: relative;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+    padding: 7px 3px;
+    min-height: 54px;
+  }
+  .service-nav b {
+    position: absolute;
+    right: 7px;
+    top: 1px;
+    font-size: 10px;
+  }
+  .service-nav button.active {
+    background: #e7efdf;
+    color: #214c3d;
+  }
+  .task-card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .task-card .core-action {
+    width: 100%;
+  }
+  .task-card .core-action button {
+    width: 100%;
+  }
+  .bill-balance-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .bill-balance-grid > div {
+    padding: 11px;
+  }
+  .bill-balance-grid strong {
+    font-size: 17px;
+  }
+  .app-dialog {
+    width: calc(100% - 12px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 16px;
+  }
+  .dialog-heading {
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 5;
+  }
+  .dialog-body {
+    padding: 14px;
+  }
+  .core-bill {
+    padding: 0;
+  }
+  .core-bill > .core-line h2 {
+    font-size: 20px;
+  }
+  .core-form input,
+  .core-form select,
+  .core-form textarea,
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  .admin-layout > .core-tabs {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #f7f8f3;
+    padding: 6px;
+    margin: 0 0 14px;
+    max-width: 100%;
+    border-radius: 10px;
+  }
+  .admin-layout.nav-collapsed > .core-tabs > button:not(.sidebar-toggle):not([aria-current='page']),
+  .admin-layout.nav-collapsed > .core-tabs > .core-action {
+    display: none;
+  }
+  .admin-layout.nav-collapsed .sidebar-toggle span {
+    display: inline;
+  }
+  .admin-layout.nav-collapsed > .core-tabs > button {
+    font-size: 14px;
+  }
+}
+@media (max-width: 380px) {
+  .service-overview {
+    flex-direction: column;
+  }
+  .service-tools {
+    max-width: none;
+    justify-content: flex-start;
+  }
+  .service-tools small {
+    flex-basis: auto;
+    align-self: center;
+  }
+  .service-app .floor-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .workspace-header .brand-lockup > div {
+    display: none;
+  }
+}
+@media print {
+  @page {
+    margin: 8mm;
+  }
+  .workspace-header,
+  .workspace-title,
+  .service-nav,
+  .workspace-content > .filter-chips {
+    display: none !important;
+  }
+  .core-app:has(> .app-dialog[open]) > :not(.app-dialog) {
+    display: none !important;
+  }
+  .app-dialog[open] .dialog-body > :not(.core-bill):not(.core-qr) {
+    display: none !important;
+  }
+  .core-bill {
+    padding: 0 !important;
+  }
+  .core-bill > .receipt-sheet {
+    display: block !important;
+    width: 100%;
+    max-width: 80mm;
+    margin: 0 auto;
+    color: #000;
+    visibility: visible !important;
+    font-family: Arial, sans-serif;
+  }
+  .receipt-sheet * {
+    visibility: visible !important;
+  }
+  .receipt-sheet .receipt-row {
+    font-size: 10pt;
+  }
+  .receipt-store h2 {
+    font-size: 15pt;
+  }
+  .receipt-meta,
+  .receipt-payments,
+  .receipt-footer {
+    font-size: 10pt;
+  }
+  .receipt-controls {
+    display: none !important;
+  }
+}

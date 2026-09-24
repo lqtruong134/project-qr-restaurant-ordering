@@ -112,13 +112,27 @@ export function registerGuest(
         ).rows,
         products: (
           await c.query(
-            `SELECT p.*,c.name AS category_name FROM product p JOIN menu_category c ON c.id=p.category_id WHERE p.restaurant_id=$1 AND p.is_active AND c.is_active ORDER BY c.sort_order,p.name`,
+            `SELECT p.*,c.name AS category_name,
+              CASE WHEN p.availability_status<>'AVAILABLE' OR NOT EXISTS (
+                SELECT 1 FROM recipe_bom b WHERE b.product_id=p.id AND b.status='ACTIVE'
+                  AND b.effective_from<=now() AND (b.effective_to IS NULL OR b.effective_to>now())
+              ) OR EXISTS (
+                SELECT 1 FROM recipe_bom b JOIN recipe_bom_item bi ON bi.recipe_bom_id=b.id
+                WHERE b.product_id=p.id AND b.status='ACTIVE' AND b.effective_from<=now()
+                  AND (b.effective_to IS NULL OR b.effective_to>now())
+                  AND NOT EXISTS (
+                    SELECT 1 FROM inventory_balance ib JOIN stock_location sl ON sl.id=ib.location_id
+                    WHERE ib.ingredient_id=bi.ingredient_id AND sl.restaurant_id=$1 AND sl.is_active
+                      AND ib.available_qty >= ceil((bi.quantity/b.yield_quantity)*(1+bi.waste_percent/100)*1000000)/1000000
+                  )
+              ) THEN 'UNAVAILABLE' ELSE 'AVAILABLE' END AS availability_status
+              FROM product p JOIN menu_category c ON c.id=p.category_id WHERE p.restaurant_id=$1 AND p.is_active AND c.is_active ORDER BY c.sort_order,p.name`,
             [restaurant],
           )
         ).rows,
         orders: (
           await c.query(
-            'SELECT b.id,b.status,b.total_amount,b.created_at,b.created_by_participant_id,i.id AS item_id,i.product_name_snapshot,i.quantity,i.unit_price_snapshot,i.status AS item_status FROM order_batch b JOIN order_item i ON i.order_batch_id=b.id WHERE b.session_id=$1 ORDER BY b.created_at DESC',
+            'SELECT b.id,b.status,b.total_amount,b.created_at,b.created_by_participant_id,i.id AS item_id,i.product_name_snapshot,i.quantity,i.unit_price_snapshot,i.status AS item_status,i.cancel_reason AS item_reason FROM order_batch b JOIN order_item i ON i.order_batch_id=b.id WHERE b.session_id=$1 ORDER BY b.created_at DESC',
             [p.session_id],
           )
         ).rows,

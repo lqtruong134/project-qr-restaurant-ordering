@@ -14,7 +14,9 @@ export default function OrderCard({
     <article className="core-card order-card">
       <div className="core-line">
         <h3>Bàn {o.table_code}</h3>
-        <span className="access-badge">{label(o.status)}</span>
+        <span className="status-pill" data-status={o.status}>
+          {label(o.status)}
+        </span>
       </div>
       <div className="order-meta">
         <Icon name="clock" size={13} />
@@ -31,9 +33,33 @@ export default function OrderCard({
             {i.quantity} × {i.product_name_snapshot}
           </strong>
           {i.note && <p>Ghi chú: {String(i.note)}</p>}
-          <p>{label(i.status)}</p>
+          <p>
+            <span className="status-pill" data-status={i.status}>
+              {label(i.status)}
+            </span>
+          </p>
+          {i.status === 'UNAVAILABLE' && i.cancel_reason && (
+            <p className="form-error">Lý do: {String(i.cancel_reason)}</p>
+          )}
           {kitchen && i.status === 'ACCEPTED' && (
-            <Action run={() => act('/core/items/' + i.id + '/prepare')}>Bắt đầu chế biến</Action>
+            <div className="order-item-actions">
+              <Action run={() => act('/core/items/' + i.id + '/prepare')}>Bắt đầu chế biến</Action>
+              <details className="rare-action">
+                <summary>Hủy món</summary>
+                <EntryForm
+                  title="Xác nhận hủy món"
+                  fields={[
+                    {
+                      key: 'reason',
+                      label: 'Lý do không thể chế biến',
+                      value: 'Nguyên liệu không đạt yêu cầu',
+                    },
+                  ]}
+                  submit="Xác nhận hủy món"
+                  onSubmit={(v) => act('/core/items/' + i.id + '/unavailable', v)}
+                />
+              </details>
+            </div>
           )}
           {kitchen && i.status === 'IN_PREPARATION' && (
             <Action run={() => act('/core/items/' + i.id + '/ready')}>Món đã xong</Action>

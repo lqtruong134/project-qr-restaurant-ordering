@@ -232,6 +232,9 @@ export default function Guest() {
                         <span className="status-pill" data-status={String(i.item_status)}>
                           {label(i.item_status)}
                         </span>
+                        {i.item_reason && (
+                          <small className="form-error">{String(i.item_reason)}</small>
+                        )}
                       </div>
                     ))}
                     <p className="core-line">
@@ -325,7 +328,9 @@ export default function Guest() {
                 {state.support?.map((s) => (
                   <div className="core-line" key={s.id}>
                     <span>{label(s.request_type)}</span>
-                    <span className="status-pill">{label(s.status)}</span>
+                    <span className="status-pill" data-status={s.status}>
+                      {label(s.status)}
+                    </span>
                   </div>
                 ))}
               </div>

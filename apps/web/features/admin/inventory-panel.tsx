@@ -3,6 +3,11 @@ import type { AdminData, SaveAdmin } from './admin-types';
 import { LinesForm } from './admin-forms';
 import { Action, EntryForm, options, vnd, type Field } from '../shared/components';
 import { matches } from '../shared/primitives';
+const quantity = (value: unknown) => {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return '—';
+  return n.toLocaleString('vi-VN', { maximumFractionDigits: 3 });
+};
 export default function InventoryPanel({
   data,
   search,
@@ -105,10 +110,14 @@ export default function InventoryPanel({
                   <td>{String(b.ingredient_name)}</td>
                   <td>{String(b.location_name)}</td>
                   <td>
-                    {String(b.on_hand_qty)} {String(b.unit)}
+                    {quantity(b.on_hand_qty)} {String(b.unit)}
                   </td>
-                  <td>{String(b.reserved_qty)}</td>
-                  <td>{String(b.available_qty)}</td>
+                  <td>
+                    {quantity(b.reserved_qty)} {String(b.unit)}
+                  </td>
+                  <td>
+                    {quantity(b.available_qty)} {String(b.unit)}
+                  </td>
                 </tr>
               ))}
           </tbody>

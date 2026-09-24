@@ -30,7 +30,9 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
   try {
     await login(admin!, 'quyettruong05', 'admin');
     await expect(
-      admin!.getByText('Mỗi ca làm, một trải nghiệm tốt hơn.', { exact: true }),
+      admin!.getByText('Chủ quán nắm được mọi điểm quan trọng trong một màn hình.', {
+        exact: true,
+      }),
     ).toBeVisible();
     await admin!.screenshot({
       caret: 'initial',
@@ -49,8 +51,8 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
     const table = admin!
       .locator('article')
       .filter({ has: admin!.getByRole('heading', { name: code, exact: true }) });
-    admin!.once('dialog', (d) => d.accept());
     await table.getByRole('button', { name: 'Cấp QR mới, thay QR cũ' }).click();
+    await admin!.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
     const link = admin!.getByRole('link', { name: 'Mở thực đơn của bàn' });
     await expect(link).toBeVisible();
     const url = await link.getAttribute('href');
@@ -81,7 +83,6 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
     await dish.getByRole('button', { name: 'Chọn Cơm tấm sườn nướng' }).click();
     await guest!.getByRole('dialog').getByRole('button', { name: 'Thêm vào giỏ' }).click();
     await expect(guest!.getByRole('dialog')).toHaveCount(0);
-    await expect(guest!.getByRole('heading', { name: 'Giỏ món', exact: true })).toBeVisible();
     await guest!
       .getByRole('navigation', { name: 'Điều hướng khách' })
       .getByRole('button', { name: /Giỏ món/ })
@@ -134,7 +135,8 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
     const staffTable = staff!
       .locator('article')
       .filter({ has: staff!.getByRole('heading', { name: code, exact: true }) });
-    await staffTable.getByRole('button', { name: 'Xem bàn / tính tiền' }).click();
+    await staffTable.getByRole('button', { name: 'Mở chi tiết bàn' }).click();
+    await staff!.getByLabel('Tiền mặt khách đưa (đồng)').fill('100000');
     await staff!.getByRole('button', { name: 'Tôi đã nhận tiền' }).click();
     await staff!.screenshot({
       caret: 'initial',
@@ -142,7 +144,7 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
       fullPage: true,
     });
     await staff!.emulateMedia({ media: 'print' });
-    await expect(staff!.locator('.receipt-lines')).toContainText('Cơm tấm sườn nướng');
+    await expect(staff!.locator('.receipt-sheet')).toContainText('Cơm tấm sườn nướng');
     await expect(staff!.getByRole('heading', { name: 'Lập yêu cầu thu tiền' })).toBeHidden();
     await staff!.emulateMedia({ media: 'screen' });
     await guest!.screenshot({
@@ -153,10 +155,27 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
     expect(await guest!.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    staff!.once('dialog', (d) => d.accept());
     await staff!.getByRole('button', { name: 'Đóng phiên sau khi hoàn tất' }).click();
+    await staff!.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
+    await expect(staff!.locator('.receipt-sheet')).toContainText('PHIẾU THANH TOÁN');
+    await expect(staff!.locator('.receipt-sheet')).toContainText('21.000');
+    await expect(staff!.locator('.receipt-sheet')).not.toContainText('Đang phục vụ');
+    await staff!.screenshot({
+      caret: 'initial',
+      path: info.outputPath('closed-receipt.png'),
+      fullPage: true,
+    });
+    await staff!.getByRole('button', { name: 'Đóng', exact: true }).click();
     await staffTable.getByRole('button', { name: 'Đã dọn xong' }).click();
     await expect(guest!.getByRole('heading', { name: 'Quét QR tại bàn để bắt đầu' })).toBeVisible();
+    await staff!.getByRole('button', { name: 'Phiếu đã chốt', exact: true }).click();
+    await staff!
+      .locator('.task-card')
+      .filter({ hasText: code })
+      .getByRole('button', { name: 'Xem / in lại' })
+      .click();
+    await staff!.getByRole('button', { name: 'Xem phiếu thanh toán' }).click();
+    await expect(staff!.locator('.receipt-sheet')).toContainText('PHIẾU THANH TOÁN');
     for (const page of [admin!, guest!, staff!, kitchen!]) {
       const dimensions = await page.evaluate(() => ({
         url: location.pathname,

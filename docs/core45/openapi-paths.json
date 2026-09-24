@@ -1,4 +1,1061 @@
 {
+  "/core/workforce": {
+    "get": {
+      "tags": [
+        "admin.workspace"
+      ],
+      "summary": "GET /core/workforce",
+      "operationId": "core_get__core_workforce",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/workforce/me": {
+    "get": {
+      "tags": [
+        "Đã đăng nhập"
+      ],
+      "summary": "GET /core/workforce/me",
+      "operationId": "core_get__core_workforce_me",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/workforce/shifts": {
+    "post": {
+      "tags": [
+        "admin.workspace"
+      ],
+      "summary": "POST /core/workforce/shifts",
+      "operationId": "core_post__core_workforce_shifts",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {
+              "code": "CA-SANG-20260925",
+              "name": "Ca sáng",
+              "startsAt": "2026-09-25T07:00:00+07:00",
+              "endsAt": "2026-09-25T15:00:00+07:00",
+              "breakMinutes": 30
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/workforce/assignments": {
+    "post": {
+      "tags": [
+        "admin.workspace"
+      ],
+      "summary": "POST /core/workforce/assignments",
+      "operationId": "core_post__core_workforce_assignments",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {}
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/workforce/assignments/{id}/cancel": {
+    "post": {
+      "tags": [
+        "admin.workspace"
+      ],
+      "summary": "POST /core/workforce/assignments/{id}/cancel",
+      "operationId": "core_post__core_workforce_assignments__id_cancel",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {}
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/workforce/assignments/{id}/check-in": {
+    "post": {
+      "tags": [
+        "Đã đăng nhập"
+      ],
+      "summary": "POST /core/workforce/assignments/{id}/check-in",
+      "operationId": "core_post__core_workforce_assignments__id_check_in",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {}
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/workforce/assignments/{id}/check-out": {
+    "post": {
+      "tags": [
+        "Đã đăng nhập"
+      ],
+      "summary": "POST /core/workforce/assignments/{id}/check-out",
+      "operationId": "core_post__core_workforce_assignments__id_check_out",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {}
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/workforce/pay-rates": {
+    "post": {
+      "tags": [
+        "admin.workspace"
+      ],
+      "summary": "POST /core/workforce/pay-rates",
+      "operationId": "core_post__core_workforce_pay_rates",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {}
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/workforce/assignments/{id}/approve": {
+    "post": {
+      "tags": [
+        "admin.workspace"
+      ],
+      "summary": "POST /core/workforce/assignments/{id}/approve",
+      "operationId": "core_post__core_workforce_assignments__id_approve",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {}
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/payroll": {
+    "get": {
+      "tags": [
+        "admin.workspace"
+      ],
+      "summary": "GET /core/payroll",
+      "operationId": "core_get__core_payroll",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    },
+    "post": {
+      "tags": [
+        "admin.workspace"
+      ],
+      "summary": "POST /core/payroll",
+      "operationId": "core_post__core_payroll",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {}
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/payroll/me": {
+    "get": {
+      "tags": [
+        "Đã đăng nhập"
+      ],
+      "summary": "GET /core/payroll/me",
+      "operationId": "core_get__core_payroll_me",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/payroll/{id}": {
+    "get": {
+      "tags": [
+        "admin.workspace"
+      ],
+      "summary": "GET /core/payroll/{id}",
+      "operationId": "core_get__core_payroll__id",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    },
+    "delete": {
+      "tags": [
+        "admin.workspace"
+      ],
+      "summary": "DELETE /core/payroll/{id}",
+      "operationId": "core_delete__core_payroll__id",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {}
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/payroll/{id}/adjustments": {
+    "post": {
+      "tags": [
+        "admin.workspace"
+      ],
+      "summary": "POST /core/payroll/{id}/adjustments",
+      "operationId": "core_post__core_payroll__id_adjustments",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {}
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/payroll/{id}/finalize": {
+    "post": {
+      "tags": [
+        "admin.workspace"
+      ],
+      "summary": "POST /core/payroll/{id}/finalize",
+      "operationId": "core_post__core_payroll__id_finalize",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {}
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/payroll/{id}/paid": {
+    "post": {
+      "tags": [
+        "admin.workspace"
+      ],
+      "summary": "POST /core/payroll/{id}/paid",
+      "operationId": "core_post__core_payroll__id_paid",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {}
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/sessions/{id}/transfers": {
+    "get": {
+      "tags": [
+        "staff.workspace"
+      ],
+      "summary": "GET /core/sessions/{id}/transfers",
+      "operationId": "core_get__core_sessions__id_transfers",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/sessions/{id}/transfer": {
+    "post": {
+      "tags": [
+        "staff.workspace"
+      ],
+      "summary": "POST /core/sessions/{id}/transfer",
+      "operationId": "core_post__core_sessions__id_transfer",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {
+              "tableId": "00000000-0000-4000-8000-000000000001",
+              "fromTableId": "00000000-0000-4000-8000-000000000001",
+              "partySize": 4,
+              "reason": "Khách muốn chuyển sang khu vực yên tĩnh"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
   "/core/categories/{id}": {
     "patch": {
       "tags": [
@@ -1515,6 +2572,43 @@
           "description": "Quá giới hạn gửi"
         }
       }
+    },
+    "get": {
+      "tags": [
+        "staff.workspace"
+      ],
+      "summary": "GET /core/receipts",
+      "operationId": "core_get__core_receipts",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
     }
   },
   "/core/receipts/{id}/approve": {
@@ -1764,6 +2858,70 @@
           "accessCookie": []
         }
       ],
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/items/{id}/unavailable": {
+    "post": {
+      "tags": [
+        "kitchen.workspace"
+      ],
+      "summary": "POST /core/items/{id}/unavailable",
+      "operationId": "core_post__core_items__id_unavailable",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {}
+          }
+        }
+      },
       "responses": {
         "200": {
           "description": "Thành công"

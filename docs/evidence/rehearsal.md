@@ -1,5 +1,5 @@
 # CORE45 — Rehearsal evidence
-2026-09-23T17:35:25.542Z
+2026-09-24T06:34:44.812Z
 Each run creates its own empty database; existing development data is untouched.
 ## Run 1 — PASS
 - Empty DB migrate: PASS
@@ -9,9 +9,11 @@ Each run creates its own empty database; existing development data is untouched.
 ```json
 {
   "app_user": 8,
+  "attendance_record": 0,
   "cart_item": 0,
   "dining_area": 3,
   "dining_table": 16,
+  "employee_pay_rate": 7,
   "financial_charge": 0,
   "goods_receipt": 1,
   "goods_receipt_item": 32,
@@ -34,6 +36,9 @@ Each run creates its own empty database; existing development data is untouched.
   "payment_intent": 0,
   "payment_transaction": 0,
   "payment_webhook_event": 0,
+  "payroll_line": 0,
+  "payroll_run": 0,
+  "payroll_slip": 0,
   "permission": 3,
   "product": 24,
   "recipe_bom": 24,
@@ -47,12 +52,15 @@ Each run creates its own empty database; existing development data is untouched.
   "session_cart": 0,
   "session_financial_account": 0,
   "session_participant": 0,
+  "shift_assignment": 49,
   "stock_location": 1,
   "support_request": 0,
   "table_qr_token": 0,
   "table_session": 0,
+  "table_transfer_history": 0,
   "unit_of_measure": 3,
-  "user_role": 8
+  "user_role": 8,
+  "work_shift": 14
 }
 ```
 ## Run 2 — PASS
@@ -63,9 +71,11 @@ Each run creates its own empty database; existing development data is untouched.
 ```json
 {
   "app_user": 8,
+  "attendance_record": 0,
   "cart_item": 0,
   "dining_area": 3,
   "dining_table": 16,
+  "employee_pay_rate": 7,
   "financial_charge": 0,
   "goods_receipt": 1,
   "goods_receipt_item": 32,
@@ -88,6 +98,9 @@ Each run creates its own empty database; existing development data is untouched.
   "payment_intent": 0,
   "payment_transaction": 0,
   "payment_webhook_event": 0,
+  "payroll_line": 0,
+  "payroll_run": 0,
+  "payroll_slip": 0,
   "permission": 3,
   "product": 24,
   "recipe_bom": 24,
@@ -101,11 +114,14 @@ Each run creates its own empty database; existing development data is untouched.
   "session_cart": 0,
   "session_financial_account": 0,
   "session_participant": 0,
+  "shift_assignment": 49,
   "stock_location": 1,
   "support_request": 0,
   "table_qr_token": 0,
   "table_session": 0,
+  "table_transfer_history": 0,
   "unit_of_measure": 3,
-  "user_role": 8
+  "user_role": 8,
+  "work_shift": 14
 }
 ```

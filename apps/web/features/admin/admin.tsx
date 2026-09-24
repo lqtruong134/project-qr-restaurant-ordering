@@ -1,12 +1,13 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import QRCode from 'qrcode';
+import WorkforcePanel from '../workforce/workforce-panel';
 import type { AdminData, Inventory } from './admin-types';
 import InventoryPanel from './inventory-panel';
 import UsersPanel from './users-panel';
 import RiskPanel from './risk-panel';
 import ReportsPanel from './reports-panel';
-import { Icon, Modal, Search, Stat, matches } from '../shared/primitives';
+import { Icon, Modal, Search, matches } from '../shared/primitives';
 import {
   Action,
   api,
@@ -17,6 +18,173 @@ import {
   type Field,
   type Row,
 } from '../shared/components';
+
+const sumMoney = (rows: Row[], key: string) =>
+  rows.reduce((sum, row) => sum + BigInt(String(row[key] ?? 0)), 0n);
+const percent = (part: number, total: number) => (total ? Math.round((part / total) * 100) : 0);
+
+function Overview({ data, open }: { data: AdminData; open: (tab: string) => void }) {
+  const occupied = data.tables.filter((t) => t.table_status === 'OCCUPIED').length;
+  const cleaning = data.tables.filter((t) => t.table_status === 'NEEDS_CLEANING').length;
+  const activeStaff = data.users.filter((u) => u.status === 'ACTIVE' && u.role !== 'ADMIN').length;
+  const topSales = data.reports.sales.slice(0, 6);
+  const maxSales = Math.max(...topSales.map((r) => Number(r.sales ?? 0)), 1);
+  return (
+    <>
+      <div className="welcome-panel">
+        <div>
+          <p className="eyebrow" style={{ color: '#c7d8b7' }}>
+            QUYẾT TRƯỜNG BISTRO · TRUNG TÂM ĐIỀU HÀNH
+          </p>
+          <h2>Chủ quán nắm được mọi điểm quan trọng trong một màn hình.</h2>
+          <p>Các số liệu bên dưới là lối tắt đến cùng hệ thống báo cáo chi tiết.</p>
+        </div>
+        <div className="welcome-art" aria-hidden="true">
+          QT
+        </div>
+      </div>
+      <div className="stats-grid">
+        <button className="stat-card stat-card-button" onClick={() => open('tables')}>
+          <div>
+            <span className="stat-label">Bàn đang phục vụ</span>
+            <strong>
+              {occupied}/{data.tables.length}
+            </strong>
+            <small>
+              {cleaning} bàn chờ dọn · {percent(occupied, data.tables.length)}% công suất
+            </small>
+          </div>
+          <span className="stat-icon">
+            <Icon name="table" />
+          </span>
+        </button>
+        <button className="stat-card stat-card-button" onClick={() => open('reports')}>
+          <div>
+            <span className="stat-label">Doanh số đã phục vụ</span>
+            <strong>{vnd(sumMoney(data.reports.sales, 'sales'))}</strong>
+            <small>{data.reports.sales.length} món có phát sinh doanh số</small>
+          </div>
+          <span className="stat-icon">
+            <Icon name="chart" />
+          </span>
+        </button>
+        <button className="stat-card stat-card-button" onClick={() => open('users')}>
+          <div>
+            <span className="stat-label">Nhân viên đang hoạt động</span>
+            <strong>{activeStaff}</strong>
+            <small>
+              {data.users.filter((u) => u.role === 'STAFF').length} phục vụ ·{' '}
+              {data.users.filter((u) => u.role === 'KITCHEN').length} bếp
+            </small>
+          </div>
+          <span className="stat-icon">
+            <Icon name="people" />
+          </span>
+        </button>
+        <button className="stat-card stat-card-button" onClick={() => open('reports')}>
+          <div>
+            <span className="stat-label">Đã thu thành công</span>
+            <strong>{vnd(sumMoney(data.reports.payments, 'amount'))}</strong>
+            <small>{data.reports.payments.length} phương thức thanh toán</small>
+          </div>
+          <span className="stat-icon">
+            <Icon name="receipt" />
+          </span>
+        </button>
+      </div>
+      <div className="dashboard-grid">
+        <article className="core-card chart-card">
+          <div className="section-heading compact">
+            <div>
+              <h2>Top món theo doanh số</h2>
+              <p>Bấm vào biểu đồ để mở báo cáo chi tiết.</p>
+            </div>
+            <button className="secondary-button" onClick={() => open('reports')}>
+              Xem toàn bộ
+            </button>
+          </div>
+          <div className="bar-chart">
+            {topSales.length ? (
+              topSales.map((row) => (
+                <button
+                  className="bar-row"
+                  key={String(row.product_id ?? row.product_name_snapshot)}
+                  onClick={() => open('reports')}
+                >
+                  <span title={String(row.product_name_snapshot)}>
+                    {String(row.product_name_snapshot)}
+                  </span>
+                  <span className="bar-track">
+                    <i
+                      style={{
+                        width: `${Math.max(5, (Number(row.sales ?? 0) / maxSales) * 100)}%`,
+                      }}
+                    />
+                  </span>
+                  <strong>{vnd(row.sales)}</strong>
+                </button>
+              ))
+            ) : (
+              <p>Chưa có dữ liệu món đã phục vụ.</p>
+            )}
+          </div>
+        </article>
+        <article className="core-card dashboard-summary">
+          <div className="section-heading compact">
+            <div>
+              <h2>Cảnh báo cần chú ý</h2>
+              <p>Ưu tiên xử lý trước khi chốt ca.</p>
+            </div>
+            <button className="secondary-button" onClick={() => open('risk')}>
+              Mở kiểm soát
+            </button>
+          </div>
+          <div className="dashboard-alert">
+            <Icon name="shield" />
+            <span>
+              <strong>{data.outstanding.length}</strong>
+              <small>hồ sơ thiếu tiền đang mở</small>
+            </span>
+          </div>
+          <div className="dashboard-alert">
+            <Icon name="box" />
+            <span>
+              <strong>
+                {data.inventory.balances.filter((b) => Number(b.available_qty ?? 0) <= 0).length}
+              </strong>
+              <small>nguyên liệu hết khả dụng</small>
+            </span>
+          </div>
+          <div className="dashboard-alert">
+            <Icon name="bell" />
+            <span>
+              <strong>Đang bật</strong>
+              <small>kiểm soát gọi món theo chính sách</small>
+            </span>
+          </div>
+        </article>
+      </div>
+      <div className="quick-links">
+        {(
+          [
+            ['reports', 'Báo cáo & thanh toán', 'Doanh số, tiền thu, thiếu tiền'],
+            ['tables', 'Bàn & QR', 'Sức chứa, trạng thái và mã QR'],
+            ['workforce', 'Ca làm & lương', 'Phân ca, duyệt công, chốt lương'],
+            ['inventory', 'Kho & công thức', 'Tồn kho, nhập hàng, định lượng'],
+          ] as const
+        ).map(([key, title, desc]) => (
+          <button className="quick-link" key={key} onClick={() => open(key)}>
+            <span>
+              <strong>{title}</strong>
+              <small>{desc}</small>
+            </span>
+            <Icon name="arrow" size={17} />
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
 export default function Admin() {
   const [data, setData] = useState<AdminData>(),
     [error, setError] = useState(''),
@@ -24,7 +192,8 @@ export default function Admin() {
     [search, setSearch] = useState(''),
     [editTable, setEditTable] = useState<Row>(),
     [qr, setQr] = useState<{ image: string; url: string; table: string }>(),
-    [copyMessage, setCopyMessage] = useState('');
+    [copyMessage, setCopyMessage] = useState(''),
+    [navCollapsed, setNavCollapsed] = useState(false);
   const refresh = useCallback(async () => {
     try {
       const [catalog, tables, areas, inventory, users, reports, risk, outstanding] =
@@ -56,23 +225,38 @@ export default function Admin() {
     { key: 'name', label: 'Tên' },
   ];
   return (
-    <section className="core-app admin-layout">
+    <section className={'core-app admin-layout' + (navCollapsed ? ' nav-collapsed' : '')}>
       <nav className="core-tabs" aria-label="Quản trị">
+        <button
+          className="sidebar-toggle secondary-button"
+          type="button"
+          aria-expanded={!navCollapsed}
+          aria-label={navCollapsed ? 'Mở thanh điều hướng' : 'Thu gọn thanh điều hướng'}
+          onClick={() => setNavCollapsed((collapsed) => !collapsed)}
+        >
+          <Icon name="menu" size={18} />
+          <span>{navCollapsed ? 'Mở menu' : 'Thu gọn menu'}</span>
+        </button>
         {[
           ['overview', 'Tổng quan'],
           ['menu', 'Thực đơn'],
           ['tables', 'Bàn & QR'],
           ['inventory', 'Kho & công thức'],
           ['users', 'Nhân viên'],
+          ['workforce', 'Ca làm & lương'],
           ['risk', 'Kiểm soát gọi món'],
           ['reports', 'Báo cáo'],
         ].map(([key, title]) => (
           <button
             key={key}
             className={tab === key ? 'primary-button' : 'secondary-button'}
+            title={title}
+            aria-label={title}
+            aria-current={tab === key ? 'page' : undefined}
             onClick={() => {
               setTab(key!);
               setSearch('');
+              if (window.innerWidth <= 800) setNavCollapsed(true);
             }}
           >
             <Icon
@@ -84,6 +268,7 @@ export default function Admin() {
                     tables: 'table',
                     inventory: 'box',
                     users: 'people',
+                    workforce: 'people',
                     risk: 'shield',
                     reports: 'chart',
                   } as Record<string, string>
@@ -111,8 +296,9 @@ export default function Admin() {
                     tables: 'Không gian & bàn',
                     inventory: 'Kho nguyên liệu',
                     users: 'Đội ngũ của bạn',
+                    workforce: 'Phân ca, chấm công & lương',
                     risk: 'Kiểm soát gọi món',
-                    reports: 'Báo cáo vận hành',
+                    reports: 'Báo cáo & thanh toán',
                   } as Record<string, string>
                 )[tab]
               }
@@ -126,8 +312,10 @@ export default function Admin() {
                     tables: 'Quản lý khu vực, sức chứa và QR tại bàn.',
                     inventory: 'Theo dõi nguyên liệu từ nhập kho đến chế biến.',
                     users: 'Mỗi người một mã đăng nhập. Tên hiển thị có thể trùng nhau.',
+                    workforce: 'Phân công rõ ràng, duyệt giờ công và chốt phiếu lương.',
                     risk: 'Các quy tắc hỗ trợ nhân viên duyệt yêu cầu bất thường.',
-                    reports: 'Số liệu toàn bộ lịch sử đang lưu, không phải riêng hôm nay.',
+                    reports:
+                      'Doanh số, tiền thu và hồ sơ thiếu tiền trong cùng một trang chi tiết.',
                   } as Record<string, string>
                 )[tab]
               }
@@ -148,98 +336,7 @@ export default function Admin() {
           <p>Đang tải dữ liệu…</p>
         ) : (
           <>
-            {tab === 'overview' && (
-              <>
-                <div className="welcome-panel">
-                  <div>
-                    <p className="eyebrow" style={{ color: '#c7d8b7' }}>
-                      QUYẾT TRƯỜNG BISTRO
-                    </p>
-                    <h2>Mỗi ca làm, một trải nghiệm tốt hơn.</h2>
-                    <p>Thực đơn được chăm chút. Không gian sẵn sàng. Đội ngũ luôn kết nối.</p>
-                    <button className="primary-button" onClick={() => setTab('tables')}>
-                      Quản lý bàn <Icon name="arrow" size={16} />
-                    </button>
-                  </div>
-                  <div className="welcome-art" aria-hidden="true">
-                    QT
-                  </div>
-                </div>
-                <div className="stats-grid">
-                  <Stat
-                    title="Bàn đang phục vụ"
-                    value={data.tables.filter((t) => t.table_status === 'OCCUPIED').length}
-                    hint={'Trên ' + data.tables.length + ' bàn'}
-                    icon="table"
-                  />
-                  <Stat
-                    title="Món đang kinh doanh"
-                    value={data.catalog.products.filter((p) => p.is_active).length}
-                    hint={data.catalog.categories.length + ' danh mục'}
-                    icon="menu"
-                  />
-                  <Stat
-                    title="Nhân viên hoạt động"
-                    value={data.users.filter((u) => u.status === 'ACTIVE').length}
-                    hint="Tài khoản nội bộ"
-                    icon="people"
-                  />
-                  <Stat
-                    title="Doanh số đã phục vụ"
-                    value={vnd(
-                      data.reports.sales.reduce((s, r) => s + BigInt(String(r.sales)), 0n),
-                    )}
-                    hint="Toàn bộ lịch sử"
-                    icon="chart"
-                  />
-                </div>
-                <div className="core-grid">
-                  <article className="core-card">
-                    <h2>Chuẩn bị cho ca phục vụ</h2>
-                    <p>Kiểm tra bàn, thực đơn và nguyên liệu trước khi đón khách.</p>
-                    {[
-                      ['tables', 'Bàn & QR'],
-                      ['menu', 'Thực đơn'],
-                      ['inventory', 'Kho & công thức'],
-                    ].map(([key, title]) => (
-                      <div className="core-line" key={key}>
-                        <span>{title}</span>
-                        <button
-                          className="icon-button"
-                          aria-label={'Mở ' + title}
-                          onClick={() => setTab(key!)}
-                        >
-                          <Icon name="arrow" size={17} />
-                        </button>
-                      </div>
-                    ))}
-                  </article>
-                  <article className="core-card">
-                    <h2>Phân công rõ ràng</h2>
-                    <p>
-                      Quản trị thiết lập vận hành. Phục vụ chăm sóc bàn và thu tiền. Bếp tiếp nhận
-                      và hoàn thành món.
-                    </p>
-                    <div className="core-line">
-                      <span>Phục vụ</span>
-                      <strong>
-                        {data.users.filter((u) => u.role === 'STAFF').length} tài khoản
-                      </strong>
-                    </div>
-                    <div className="core-line">
-                      <span>Nhân viên bếp</span>
-                      <strong>
-                        {data.users.filter((u) => u.role === 'KITCHEN').length} tài khoản
-                      </strong>
-                    </div>
-                    <div className="core-line">
-                      <span>Hồ sơ dư nợ</span>
-                      <strong>{data.outstanding.length}</strong>
-                    </div>
-                  </article>
-                </div>
-              </>
-            )}
+            {tab === 'overview' && <Overview data={data} open={setTab} />}
             {tab === 'menu' && (
               <>
                 <details className="core-card">
@@ -576,6 +673,7 @@ export default function Admin() {
             )}
             {tab === 'inventory' && <InventoryPanel data={data} search={search} save={save} />}
             {tab === 'users' && <UsersPanel data={data} search={search} save={save} />}
+            {tab === 'workforce' && <WorkforcePanel users={data.users} areas={data.areas} />}
             {tab === 'risk' && <RiskPanel data={data} save={save} />}
             {tab === 'reports' && <ReportsPanel data={data} save={save} />}
           </>

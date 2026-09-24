@@ -12,9 +12,9 @@ import {
   session,
   transaction,
 } from '../shared/core-persistence.js';
-import { consume, release } from '../inventory/inventory.service.js';
+import { consume, release, releaseItem } from '../inventory/inventory.service.js';
 import { submit } from './orders.service.js';
-import { addCharges } from '../finance/ledger.service.js';
+import { addCharges, recalculate } from '../finance/ledger.service.js';
 export function registerOrders(app: FastifyInstance, db: Database, restaurant: string) {
   app.post('/guest/orders', { config: { public: true } }, async (r) => {
     const result = await transaction(db, async (c) => {
@@ -65,6 +65,79 @@ export function registerOrders(app: FastifyInstance, db: Database, restaurant: s
         [restaurant],
       )
       .then((v) => v.rows),
+  );
+  app.post(
+    '/core/items/:id/unavailable',
+    { config: { permission: 'kitchen.workspace' } },
+    async (r) =>
+      transaction(db, async (c) => {
+        const id = idParam(r),
+          b = object(r.body);
+        const item = await one(
+          c,
+          'SELECT i.*,b.session_id FROM order_item i JOIN order_batch b ON b.id=i.order_batch_id WHERE i.id=$1',
+          [id],
+        );
+        await session(c, item.session_id, restaurant);
+        const current = await one(c, 'SELECT status FROM order_item WHERE id=$1 FOR UPDATE', [id]);
+        const batch = await one(c, 'SELECT status FROM order_batch WHERE id=$1 FOR UPDATE', [
+          item.order_batch_id,
+        ]);
+        if (current.status !== 'ACCEPTED')
+          reject('Chỉ có thể báo hết nguyên liệu cho món bếp đã tiếp nhận.');
+        const reason = text(b.reason, 300);
+        await releaseItem(c, id);
+        await c.query(
+          "UPDATE order_item SET status='UNAVAILABLE',cancel_reason=$2,cancelled_by_type='USER',cancelled_by_user_id=$3,version=version+1 WHERE id=$1",
+          [id, reason, r.identity!.id],
+        );
+        const remaining = await one(
+          c,
+          "SELECT count(*)::int AS n FROM order_item WHERE order_batch_id=$1 AND status NOT IN ('SERVED','CANCELLED','UNAVAILABLE')",
+          [item.order_batch_id],
+        );
+        if (remaining.n === 0)
+          await c.query("UPDATE order_batch SET status='COMPLETED',version=version+1 WHERE id=$1", [
+            item.order_batch_id,
+          ]);
+        if (remaining.n === 0)
+          await history(c, item.order_batch_id, null, batch.status, 'COMPLETED', {
+            type: 'USER',
+            id: r.identity!.id,
+          });
+        await history(
+          c,
+          item.order_batch_id,
+          id,
+          'ACCEPTED',
+          'UNAVAILABLE',
+          {
+            type: 'USER',
+            id: r.identity!.id,
+          },
+          reason,
+        );
+        await c.query(
+          "UPDATE financial_charge SET status='REVERSED',reversed_at=now() WHERE order_item_id=$1 AND status='ACTIVE'",
+          [id],
+        );
+        await c.query(
+          'UPDATE payment_allocation SET reversed_amount=allocated_amount WHERE financial_charge_id IN (SELECT id FROM financial_charge WHERE order_item_id=$1)',
+          [id],
+        );
+        await c.query(
+          "UPDATE payment_intent SET status='CANCELLED',version=version+1 WHERE session_id=$1 AND status IN ('CREATED','PENDING')",
+          [item.session_id],
+        );
+        const balance = await recalculate(c, item.session_id);
+        if (BigInt(balance.refund_due_amount) > 0n)
+          await c.query(
+            "INSERT INTO operational_alert(session_id,table_id,alert_type,severity,outstanding_amount) SELECT id,table_id,'REFUND_REQUIRED','WARNING',$2 FROM table_session WHERE id=$1",
+            [item.session_id, balance.refund_due_amount],
+          );
+        await event(c, item.order_batch_id, 'ITEM_UNAVAILABLE');
+        return { status: 'ok', reason };
+      }),
   );
   app.post('/core/orders/:id/review', { config: { permission: 'staff.workspace' } }, async (r) =>
     transaction(db, async (c) => {
@@ -162,7 +235,7 @@ export function registerOrders(app: FastifyInstance, db: Database, restaurant: s
         await c.query('UPDATE order_item SET status=$2,version=version+1 WHERE id=$1', [id, to]);
         const remaining = await one(
           c,
-          "SELECT count(*)::int AS n FROM order_item WHERE order_batch_id=$1 AND status NOT IN ('SERVED','CANCELLED')",
+          "SELECT count(*)::int AS n FROM order_item WHERE order_batch_id=$1 AND status NOT IN ('SERVED','CANCELLED','UNAVAILABLE')",
           [item.order_batch_id],
         );
         await c.query('UPDATE order_batch SET status=$2,version=version+1 WHERE id=$1', [

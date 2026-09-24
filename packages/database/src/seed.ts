@@ -1,3 +1,4 @@
+import { seedWorkforce } from './workforce-seed.js';
 import { hash, argon2id, type Database } from './index.js';
 import { demoCategories, demoIngredients, demoMenu, demoStaff } from './demo-data.js';
 export const restaurantId = '10000000-0000-4000-8000-000000000001';
@@ -18,11 +19,13 @@ export async function seed(db: Database, password: string) {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(450045)`;
       await tx.restaurant.upsert({
         where: { id: restaurantId },
-        update: {},
+        update: {
+          address: 'Đường 3/2, phường Xuân Khánh, quận Ninh Kiều, thành phố Cần Thơ',
+        },
         create: {
           id: restaurantId,
           name: 'Quyết Trường Bistro',
-          address: 'TP. Hồ Chí Minh · địa chỉ mô phỏng',
+          address: 'Đường 3/2, phường Xuân Khánh, quận Ninh Kiều, thành phố Cần Thơ',
         },
       });
       const roles = new Map<string, string>();
@@ -53,7 +56,13 @@ export async function seed(db: Database, password: string) {
         const existing = await tx.app_user.findUnique({
           where: { restaurant_id_username: { restaurant_id: restaurantId, username } },
         });
-        if (existing) continue;
+        if (existing) {
+          await tx.app_user.update({
+            where: { id: existing.id },
+            data: { display_name },
+          });
+          continue;
+        }
         const user = await tx.app_user.create({
           data: {
             restaurant_id: restaurantId,
@@ -81,14 +90,18 @@ export async function seed(db: Database, password: string) {
             String(area === 10 ? n + 1 : area === 11 ? n - 7 : n - 13).padStart(2, '0');
         await tx.dining_table.upsert({
           where: { restaurant_id_code: { restaurant_id: restaurantId, code } },
-          update: {},
+          update: {
+            area_id: id(area),
+            name: (area === 12 ? 'Phòng ' : 'Bàn ') + code,
+            capacity: area === 12 ? 10 : 4,
+          },
           create: {
             id: id(100 + n),
             restaurant_id: restaurantId,
             area_id: id(area),
             code,
             name: (area === 12 ? 'Phòng ' : 'Bàn ') + code,
-            capacity: area === 12 ? 10 : n % 4 === 0 ? 2 : n % 4 === 3 ? 6 : 4,
+            capacity: area === 12 ? 10 : 4,
           },
         });
       }
@@ -249,6 +262,7 @@ export async function seed(db: Database, password: string) {
           });
         }
       }
+      await seedWorkforce(tx, restaurantId);
     },
     { timeout: 60000 },
   );

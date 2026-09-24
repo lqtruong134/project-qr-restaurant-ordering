@@ -6,6 +6,20 @@ const db = createDatabase(process.env.DATABASE_URL!);
 const app = buildApp(db);
 const id = '00000000-0000-4000-8000-000000000001';
 const examples: Record<string, unknown> = {
+  'POST /core/sessions/:id/transfer': {
+    tableId: id,
+    fromTableId: id,
+    partySize: 4,
+    reason: 'Khách muốn chuyển sang khu vực yên tĩnh',
+  },
+  'POST /core/workforce/shifts': {
+    code: 'CA-SANG-20260925',
+    name: 'Ca sáng',
+    startsAt: '2026-09-25T07:00:00+07:00',
+    endsAt: '2026-09-25T15:00:00+07:00',
+    breakMinutes: 30,
+  },
+
   'POST /guest/join': { token: 'LAY_TU_MA_QR_MOI', name: 'Khách' },
   'POST /guest/cart': { productId: id, quantity: 1, cartVersion: 1, note: '' },
   'PATCH /guest/cart/:id': { quantity: 2, cartVersion: 2, note: '' },

@@ -4,7 +4,6 @@ import { EntryForm, options, type Row } from '../shared/components';
 export const roles = [
   { value: 'STAFF', label: 'Nhân viên phục vụ' },
   { value: 'KITCHEN', label: 'Nhân viên bếp' },
-  { value: 'ADMIN', label: 'Quản trị viên' },
 ];
 export const riskLabels: Record<string, string> = {
   FIRST_ORDER_REVIEW_ENABLED: 'Duyệt lượt đầu của phiên chưa xác minh',

@@ -1,6 +1,6 @@
 # Phạm vi triển khai hiện tại — 24/09/2026
 
-Một repository `qr-ordering-thesis`, nhánh `main`; không còn hai ứng dụng Sprint 1/CORE độc lập. Các migration bổ sung nâng schema nền 14 bảng lên 45 bảng và giữ kiểm thử nâng cấp dữ liệu cũ.
+Một repository `qr-ordering-thesis`, nhánh `main`; không còn hai ứng dụng Sprint 1/CORE độc lập. Các migration bổ sung nâng schema nền 14 bảng lên 53 bảng và giữ kiểm thử nâng cấp dữ liệu cũ.
 
 | Nhóm | Chức năng hiện có |
 |---|---|

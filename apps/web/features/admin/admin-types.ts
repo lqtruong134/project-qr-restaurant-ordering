@@ -12,7 +12,7 @@ export type AdminData = {
   areas: Row[];
   inventory: Inventory;
   users: Row[];
-  reports: { sales: Row[]; payments: Row[] };
+  reports: { store: Row; sales: Row[]; payments: Row[] };
   risk: { defaults: Record<string, number | boolean>; policies: Row[] };
   outstanding: Row[];
 };

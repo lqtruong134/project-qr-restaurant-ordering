@@ -63,7 +63,7 @@ export async function transaction<T>(db: Database, fn: (c: Connection) => Promis
   } catch (error) {
     await c.query('ROLLBACK');
     const code = (error as { code?: string }).code;
-    if (['23505', '23503', '23514', '40001', '40P01', '55P03'].includes(code ?? ''))
+    if (['23505', '23503', '23514', '23P01', '40001', '40P01', '55P03'].includes(code ?? ''))
       reject('Dữ liệu xung đột hoặc đã thay đổi. Vui lòng tải lại.');
     throw error;
   } finally {

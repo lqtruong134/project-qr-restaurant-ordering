@@ -1,6 +1,6 @@
 // Fictional Vietnamese bistro data. Prices and quantities are demo assumptions, not a real restaurant's menu.
 export const demoStaff = [
-  ['quyettruong05', 'Lưu Quyết Trường', 'ADMIN'],
+  ['quyettruong05', 'Lữ Quyết Trường', 'ADMIN'],
   ['pv001', 'Nguyễn Minh Anh', 'STAFF'],
   ['pv002', 'Nguyễn Minh Anh', 'STAFF'],
   ['pv003', 'Trần Ngọc Lan', 'STAFF'],

@@ -67,6 +67,21 @@ export async function release(c: Connection, batch: string) {
     await c.query("UPDATE inventory_reservation SET status='RELEASED' WHERE id=$1", [row.id]);
   }
 }
+export async function releaseItem(c: Connection, item: string) {
+  const rows = (
+    await c.query(
+      "SELECT * FROM inventory_reservation WHERE order_item_id=$1 AND status IN ('PROVISIONAL','ACTIVE') FOR UPDATE",
+      [item],
+    )
+  ).rows;
+  for (const row of rows) {
+    await c.query(
+      'UPDATE inventory_balance SET reserved_qty=reserved_qty-$2::numeric,available_qty=available_qty+$2::numeric,version=version+1 WHERE ingredient_id=$1 AND location_id=$3',
+      [row.ingredient_id, row.quantity, row.location_id],
+    );
+    await c.query("UPDATE inventory_reservation SET status='RELEASED' WHERE id=$1", [row.id]);
+  }
+}
 export async function consume(c: Connection, item: string, actor: string) {
   const rows = (
     await c.query(

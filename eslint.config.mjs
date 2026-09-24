@@ -8,6 +8,7 @@ export default tseslint.config(
       'apps/web/public/api-docs-assets/**',
       '**/node_modules/**',
       '**/.next/**',
+      '**/.next-*/**',
       '**/.next-e2e/**',
       '**/dist/**',
       '**/generated/**',

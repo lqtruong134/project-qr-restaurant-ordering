@@ -11,6 +11,8 @@ datasource db {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model app_user {
+  closed_sessions table_session[] @relation("session_closed_by")
+
   id                                                                      String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   restaurant_id                                                           String                     @db.Uuid
   username                                                                String                     @db.VarChar(64)
@@ -42,22 +44,36 @@ model app_user {
   support_request_support_request_acknowledged_byToapp_user               support_request[]          @relation("support_request_acknowledged_byToapp_user")
   support_request_support_request_resolved_byToapp_user                   support_request[]          @relation("support_request_resolved_byToapp_user")
   user_role                                                               user_role[]
+  attendance_record                                                       attendance_record[]
+  employee_pay_rate_employee_pay_rate_created_by_restaurant_idToapp_user  employee_pay_rate[]        @relation("employee_pay_rate_created_by_restaurant_idToapp_user")
+  employee_pay_rate_employee_pay_rate_user_id_restaurant_idToapp_user     employee_pay_rate[]        @relation("employee_pay_rate_user_id_restaurant_idToapp_user")
+  payroll_line                                                            payroll_line[]
+  payroll_run_payroll_run_created_by_restaurant_idToapp_user              payroll_run[]              @relation("payroll_run_created_by_restaurant_idToapp_user")
+  payroll_run_payroll_run_finalized_by_restaurant_idToapp_user            payroll_run[]              @relation("payroll_run_finalized_by_restaurant_idToapp_user")
+  payroll_run_payroll_run_paid_by_restaurant_idToapp_user                 payroll_run[]              @relation("payroll_run_paid_by_restaurant_idToapp_user")
+  payroll_slip                                                            payroll_slip[]
+  shift_assignment_shift_assignment_assigned_by_restaurant_idToapp_user   shift_assignment[]         @relation("shift_assignment_assigned_by_restaurant_idToapp_user")
+  shift_assignment_shift_assignment_user_id_restaurant_idToapp_user       shift_assignment[]         @relation("shift_assignment_user_id_restaurant_idToapp_user")
+  table_transfer_history                                                  table_transfer_history[]
+  work_shift                                                              work_shift[]
 
   @@unique([restaurant_id, username])
+  @@unique([id, restaurant_id], map: "app_user_id_restaurant_key")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model dining_area {
-  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  restaurant_id String         @db.Uuid
-  code          String
-  name          String
-  sort_order    Int            @default(0)
-  is_active     Boolean        @default(true)
-  created_at    DateTime       @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime       @default(now()) @db.Timestamptz(6)
-  restaurant    restaurant     @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
-  dining_table  dining_table[]
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id    String             @db.Uuid
+  code             String
+  name             String
+  sort_order       Int                @default(0)
+  is_active        Boolean            @default(true)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  restaurant       restaurant         @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
+  dining_table     dining_table[]
+  shift_assignment shift_assignment[]
 
   @@unique([id, restaurant_id])
   @@unique([restaurant_id, code])
@@ -66,25 +82,28 @@ model dining_area {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model dining_table {
-  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  restaurant_id            String                     @db.Uuid
-  area_id                  String                     @db.Uuid
-  code                     String
-  name                     String
-  capacity                 Int
-  table_status             String                     @default("AVAILABLE")
-  is_active                Boolean                    @default(true)
-  version                  Int                        @default(1)
-  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
-  updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
-  dining_area              dining_area                @relation(fields: [area_id, restaurant_id], references: [id, restaurant_id], onUpdate: Restrict)
-  restaurant               restaurant                 @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
-  operational_alert        operational_alert[]
-  outstanding_balance_case outstanding_balance_case[]
-  table_qr_token           table_qr_token[]
-  table_session            table_session[]
+  id                                                                                      String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id                                                                           String                     @db.Uuid
+  area_id                                                                                 String                     @db.Uuid
+  code                                                                                    String
+  name                                                                                    String
+  capacity                                                                                Int
+  table_status                                                                            String                     @default("AVAILABLE")
+  is_active                                                                               Boolean                    @default(true)
+  version                                                                                 Int                        @default(1)
+  created_at                                                                              DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                                                              DateTime                   @default(now()) @db.Timestamptz(6)
+  dining_area                                                                             dining_area                @relation(fields: [area_id, restaurant_id], references: [id, restaurant_id], onUpdate: Restrict)
+  restaurant                                                                              restaurant                 @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
+  operational_alert                                                                       operational_alert[]
+  outstanding_balance_case                                                                outstanding_balance_case[]
+  table_qr_token                                                                          table_qr_token[]
+  table_session                                                                           table_session[]
+  table_transfer_history_table_transfer_history_from_table_id_restaurant_idTodining_table table_transfer_history[]   @relation("table_transfer_history_from_table_id_restaurant_idTodining_table")
+  table_transfer_history_table_transfer_history_to_table_id_restaurant_idTodining_table   table_transfer_history[]   @relation("table_transfer_history_to_table_id_restaurant_idTodining_table")
 
   @@unique([restaurant_id, code])
+  @@unique([id, restaurant_id], map: "dining_table_id_restaurant_key")
   @@index([area_id, restaurant_id], map: "dining_table_area_idx")
 }
 
@@ -147,22 +166,30 @@ model product {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model restaurant {
-  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name               String
-  address            String?
-  currency           String               @default("VND")
-  timezone           String               @default("Asia/Ho_Chi_Minh")
-  status             String               @default("ACTIVE")
-  created_at         DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
-  app_user           app_user[]
-  dining_area        dining_area[]
-  dining_table       dining_table[]
-  ingredient         ingredient[]
-  menu_category      menu_category[]
-  product            product[]
-  risk_policy_config risk_policy_config[]
-  stock_location     stock_location[]
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                   String
+  address                String?
+  currency               String                   @default("VND")
+  timezone               String                   @default("Asia/Ho_Chi_Minh")
+  status                 String                   @default("ACTIVE")
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  app_user               app_user[]
+  dining_area            dining_area[]
+  dining_table           dining_table[]
+  ingredient             ingredient[]
+  menu_category          menu_category[]
+  product                product[]
+  risk_policy_config     risk_policy_config[]
+  stock_location         stock_location[]
+  attendance_record      attendance_record[]
+  employee_pay_rate      employee_pay_rate[]
+  payroll_line           payroll_line[]
+  payroll_run            payroll_run[]
+  payroll_slip           payroll_slip[]
+  shift_assignment       shift_assignment[]
+  table_transfer_history table_transfer_history[]
+  work_shift             work_shift[]
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -237,18 +264,18 @@ model session_participant {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model table_qr_token {
-  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  table_id     String       @db.Uuid
-  token_hash   String       @unique
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  table_id         String       @db.Uuid
+  token_hash       String       @unique
   token_ciphertext String?
-  version_no   Int
-  status       String       @default("ACTIVE")
-  issued_at    DateTime     @default(now()) @db.Timestamptz(6)
-  expires_at   DateTime?    @db.Timestamptz(6)
-  revoked_at   DateTime?    @db.Timestamptz(6)
-  created_at   DateTime     @default(now()) @db.Timestamptz(6)
-  updated_at   DateTime     @default(now()) @db.Timestamptz(6)
-  dining_table dining_table @relation(fields: [table_id], references: [id], onUpdate: Restrict)
+  version_no       Int
+  status           String       @default("ACTIVE")
+  issued_at        DateTime     @default(now()) @db.Timestamptz(6)
+  expires_at       DateTime?    @db.Timestamptz(6)
+  revoked_at       DateTime?    @db.Timestamptz(6)
+  created_at       DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime     @default(now()) @db.Timestamptz(6)
+  dining_table     dining_table @relation(fields: [table_id], references: [id], onUpdate: Restrict)
 
   @@unique([table_id, version_no])
 }
@@ -256,6 +283,11 @@ model table_qr_token {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model table_session {
+  receipt_number String? @unique
+  closed_by String? @db.Uuid
+  receipt_snapshot Json?
+  closed_by_user app_user? @relation("session_closed_by",fields:[closed_by],references:[id],onDelete:NoAction,onUpdate:NoAction)
+
   id                        String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   table_id                  String                     @db.Uuid
   session_status            String                     @default("ACTIVE")
@@ -281,6 +313,7 @@ model table_session {
   session_participant       session_participant[]
   support_request           support_request[]
   dining_table              dining_table               @relation(fields: [table_id], references: [id], onUpdate: Restrict)
+  table_transfer_history    table_transfer_history[]
 
   @@index([table_id], map: "table_session_table_idx")
 }
@@ -766,23 +799,23 @@ model payment_allocation {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model payment_intent {
-  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  session_id           String               @db.Uuid
-  payer_participant_id String?              @db.Uuid
+  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id           String                @db.Uuid
+  payer_participant_id String?               @db.Uuid
   method               String
   amount               BigInt
-  currency             String               @default("VND")
-  status               String               @default("CREATED")
+  currency             String                @default("VND")
+  status               String                @default("CREATED")
   client_request_id    String
   provider             String?
   provider_reference   String?
-  expires_at           DateTime             @db.Timestamptz(6)
-  version              Int                  @default(1)
-  created_at           DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime             @default(now()) @db.Timestamptz(6)
+  expires_at           DateTime              @db.Timestamptz(6)
+  version              Int                   @default(1)
+  created_at           DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime              @default(now()) @db.Timestamptz(6)
   idempotency_record   idempotency_record[]
-  table_session        table_session        @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_payment_intent_f1")
-  session_participant  session_participant? @relation(fields: [payer_participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_payment_intent_f2")
+  table_session        table_session         @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_payment_intent_f1")
+  session_participant  session_participant?  @relation(fields: [payer_participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_payment_intent_f2")
   payment_transaction  payment_transaction[]
 
   @@unique([session_id, client_request_id])
@@ -1020,4 +1053,166 @@ model unit_of_measure {
   updated_at         DateTime             @default(now()) @db.Timestamptz(6)
   goods_receipt_item goods_receipt_item[]
   ingredient         ingredient[]
+}
+
+model attendance_record {
+  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id        String           @db.Uuid
+  assignment_id        String           @unique @db.Uuid
+  checked_in_at        DateTime?        @db.Timestamptz(6)
+  checked_out_at       DateTime?        @db.Timestamptz(6)
+  status               String           @default("RECORDED")
+  approved_minutes     Int?
+  hourly_rate_snapshot BigInt?
+  amount               BigInt?
+  approved_by          String?          @db.Uuid
+  approved_at          DateTime?        @db.Timestamptz(6)
+  review_note          String?
+  created_at           DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime         @default(now()) @db.Timestamptz(6)
+  app_user             app_user?        @relation(fields: [approved_by, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  shift_assignment     shift_assignment @relation(fields: [assignment_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  restaurant           restaurant       @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payroll_line         payroll_line?
+
+  @@unique([assignment_id, restaurant_id])
+}
+
+model employee_pay_rate {
+  id                                                            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id                                                 String     @db.Uuid
+  user_id                                                       String     @db.Uuid
+  effective_from                                                DateTime   @db.Timestamptz(6)
+  hourly_rate                                                   BigInt
+  reason                                                        String
+  created_by                                                    String     @db.Uuid
+  created_at                                                    DateTime   @default(now()) @db.Timestamptz(6)
+  app_user_employee_pay_rate_created_by_restaurant_idToapp_user app_user   @relation("employee_pay_rate_created_by_restaurant_idToapp_user", fields: [created_by, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  restaurant                                                    restaurant @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  app_user_employee_pay_rate_user_id_restaurant_idToapp_user    app_user   @relation("employee_pay_rate_user_id_restaurant_idToapp_user", fields: [user_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([user_id, effective_from])
+  @@index([user_id, effective_from(sort: Desc)], map: "employee_pay_rate_lookup_idx")
+}
+
+model payroll_line {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id        String             @db.Uuid
+  payroll_slip_id      String             @db.Uuid
+  attendance_id        String?            @unique @db.Uuid
+  line_type            String
+  description          String
+  minutes              Int?
+  hourly_rate_snapshot BigInt?
+  amount               BigInt
+  created_by           String             @db.Uuid
+  created_at           DateTime           @default(now()) @db.Timestamptz(6)
+  attendance_record    attendance_record? @relation(fields: [attendance_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  app_user             app_user           @relation(fields: [created_by, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  payroll_slip         payroll_slip       @relation(fields: [payroll_slip_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  restaurant           restaurant         @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([payroll_slip_id], map: "payroll_line_slip_idx")
+}
+
+model payroll_run {
+  id                                                        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id                                             String         @db.Uuid
+  period_start                                              DateTime       @db.Date
+  period_end                                                DateTime       @db.Date
+  status                                                    String         @default("DRAFT")
+  created_by                                                String         @db.Uuid
+  finalized_by                                              String?        @db.Uuid
+  finalized_at                                              DateTime?      @db.Timestamptz(6)
+  paid_by                                                   String?        @db.Uuid
+  paid_at                                                   DateTime?      @db.Timestamptz(6)
+  payment_reference                                         String?
+  created_at                                                DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at                                                DateTime       @default(now()) @db.Timestamptz(6)
+  app_user_payroll_run_created_by_restaurant_idToapp_user   app_user       @relation("payroll_run_created_by_restaurant_idToapp_user", fields: [created_by, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  app_user_payroll_run_finalized_by_restaurant_idToapp_user app_user?      @relation("payroll_run_finalized_by_restaurant_idToapp_user", fields: [finalized_by, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  app_user_payroll_run_paid_by_restaurant_idToapp_user      app_user?      @relation("payroll_run_paid_by_restaurant_idToapp_user", fields: [paid_by, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  restaurant                                                restaurant     @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payroll_slip                                              payroll_slip[]
+
+  @@unique([id, restaurant_id])
+}
+
+model payroll_slip {
+  id                     String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id          String         @db.Uuid
+  payroll_run_id         String         @db.Uuid
+  user_id                String         @db.Uuid
+  employee_name_snapshot String
+  username_snapshot      String
+  created_at             DateTime       @default(now()) @db.Timestamptz(6)
+  payroll_line           payroll_line[]
+  payroll_run            payroll_run    @relation(fields: [payroll_run_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  restaurant             restaurant     @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  app_user               app_user       @relation(fields: [user_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([id, restaurant_id])
+  @@unique([payroll_run_id, user_id])
+}
+
+model shift_assignment {
+  id                                                            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id                                                 String             @db.Uuid
+  shift_id                                                      String             @db.Uuid
+  user_id                                                       String             @db.Uuid
+  area_id                                                       String?            @db.Uuid
+  starts_at                                                     DateTime           @db.Timestamptz(6)
+  ends_at                                                       DateTime           @db.Timestamptz(6)
+  status                                                        String             @default("ASSIGNED")
+  assigned_by                                                   String             @db.Uuid
+  cancellation_reason                                           String?
+  created_at                                                    DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at                                                    DateTime           @default(now()) @db.Timestamptz(6)
+  attendance_record                                             attendance_record?
+  dining_area                                                   dining_area?       @relation(fields: [area_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  app_user_shift_assignment_assigned_by_restaurant_idToapp_user app_user           @relation("shift_assignment_assigned_by_restaurant_idToapp_user", fields: [assigned_by, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  restaurant                                                    restaurant         @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  work_shift                                                    work_shift         @relation(fields: [shift_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  app_user_shift_assignment_user_id_restaurant_idToapp_user     app_user           @relation("shift_assignment_user_id_restaurant_idToapp_user", fields: [user_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([id, restaurant_id])
+  @@unique([shift_id, user_id])
+  @@index([restaurant_id, starts_at], map: "shift_assignment_restaurant_start_idx")
+}
+
+model table_transfer_history {
+  id                                                                            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id                                                                 String        @db.Uuid
+  session_id                                                                    String        @db.Uuid
+  from_table_id                                                                 String        @db.Uuid
+  to_table_id                                                                   String        @db.Uuid
+  transferred_by                                                                String        @db.Uuid
+  reason                                                                        String
+  transferred_at                                                                DateTime      @default(now()) @db.Timestamptz(6)
+  dining_table_table_transfer_history_from_table_id_restaurant_idTodining_table dining_table  @relation("table_transfer_history_from_table_id_restaurant_idTodining_table", fields: [from_table_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  restaurant                                                                    restaurant    @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  table_session                                                                 table_session @relation(fields: [session_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dining_table_table_transfer_history_to_table_id_restaurant_idTodining_table   dining_table  @relation("table_transfer_history_to_table_id_restaurant_idTodining_table", fields: [to_table_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  app_user                                                                      app_user      @relation(fields: [transferred_by, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([session_id, transferred_at], map: "table_transfer_history_session_idx")
+}
+
+model work_shift {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id    String             @db.Uuid
+  code             String
+  name             String
+  starts_at        DateTime           @db.Timestamptz(6)
+  ends_at          DateTime           @db.Timestamptz(6)
+  break_minutes    Int                @default(0)
+  created_by       String             @db.Uuid
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  shift_assignment shift_assignment[]
+  app_user         app_user           @relation(fields: [created_by, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  restaurant       restaurant         @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([id, restaurant_id])
+  @@unique([restaurant_id, code])
 }

@@ -1,4 +1,4 @@
-# Từ điển dữ liệu vật lý — 45 bảng
+# Từ điển dữ liệu vật lý — 53 bảng
 
 Sinh từ metadata PostgreSQL bằng `pnpm docs:database`, không chứa bản ghi nghiệp vụ hay thông tin đăng nhập. Kiểu, giá trị mặc định và các ràng buộc bên dưới lấy trực tiếp từ database đã migrate.
 
@@ -41,15 +41,68 @@ app_user_updated_at_not_null: NOT NULL updated_at
 app_user_username_not_null: NOT NULL username
 app_user_pkey: PRIMARY KEY (id)
 core_tenant_check: TRIGGER DEFERRABLE
+app_user_id_restaurant_key: UNIQUE (id, restaurant_id)
 app_user_refresh_token_hash_key: UNIQUE (refresh_token_hash)
 app_user_restaurant_id_username_key: UNIQUE (restaurant_id, username)
 ```
 
 ### Chỉ mục
 ```sql
+CREATE UNIQUE INDEX app_user_id_restaurant_key ON public.app_user USING btree (id, restaurant_id);
 CREATE UNIQUE INDEX app_user_pkey ON public.app_user USING btree (id);
 CREATE UNIQUE INDEX app_user_refresh_token_hash_key ON public.app_user USING btree (refresh_token_hash);
 CREATE UNIQUE INDEX app_user_restaurant_id_username_key ON public.app_user USING btree (restaurant_id, username);
+```
+
+## attendance_record
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| assignment_id | uuid | Có | FK | — | — |
+| checked_in_at | timestamp with time zone | Không |  | — | — |
+| checked_out_at | timestamp with time zone | Không |  | — | — |
+| status | text | Có |  | 'RECORDED'::text | — |
+| approved_minutes | integer | Không |  | — | — |
+| hourly_rate_snapshot | bigint | Không |  | — | — |
+| amount | bigint | Không |  | — | — |
+| approved_by | uuid | Không | FK | — | — |
+| approved_at | timestamp with time zone | Không |  | — | — |
+| review_note | text | Không |  | — | — |
+| created_at | timestamp with time zone | Có |  | now() | — |
+| updated_at | timestamp with time zone | Có |  | now() | — |
+
+### Ràng buộc
+```sql
+attendance_record_amount_check: CHECK ((amount >= 0))
+attendance_record_approved_minutes_check: CHECK (((approved_minutes >= 0) AND (approved_minutes <= 960)))
+attendance_record_check: CHECK (((checked_out_at IS NULL) OR ((checked_in_at IS NOT NULL) AND (checked_out_at >= checked_in_at))))
+attendance_record_check1: CHECK ((((status = 'RECORDED'::text) AND (approved_minutes IS NULL) AND (hourly_rate_snapshot IS NULL) AND (amount IS NULL) AND (approved_by IS NULL) AND (approved_at IS NULL)) OR ((status = 'APPROVED'::text) AND (approved_minutes IS NOT NULL) AND (hourly_rate_snapshot IS NOT NULL) AND (amount IS NOT NULL) AND (approved_by IS NOT NULL) AND (approved_at IS NOT NULL) AND (length(btrim(COALESCE(review_note, ''::text))) > 0))))
+attendance_record_check2: CHECK ((amount = ((((approved_minutes)::bigint * hourly_rate_snapshot) + 30) / 60)))
+attendance_record_hourly_rate_snapshot_check: CHECK (((hourly_rate_snapshot >= 1000) AND (hourly_rate_snapshot <= 10000000)))
+attendance_record_status_check: CHECK ((status = ANY (ARRAY['RECORDED'::text, 'APPROVED'::text])))
+attendance_record_approved_by_restaurant_id_fkey: FOREIGN KEY (approved_by, restaurant_id) REFERENCES app_user(id, restaurant_id)
+attendance_record_assignment_id_restaurant_id_fkey: FOREIGN KEY (assignment_id, restaurant_id) REFERENCES shift_assignment(id, restaurant_id)
+attendance_record_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id)
+attendance_record_assignment_id_not_null: NOT NULL assignment_id
+attendance_record_created_at_not_null: NOT NULL created_at
+attendance_record_id_not_null: NOT NULL id
+attendance_record_restaurant_id_not_null: NOT NULL restaurant_id
+attendance_record_status_not_null: NOT NULL status
+attendance_record_updated_at_not_null: NOT NULL updated_at
+attendance_record_pkey: PRIMARY KEY (id)
+attendance_record_assignment_id_key: UNIQUE (assignment_id)
+attendance_record_assignment_id_restaurant_id_key: UNIQUE (assignment_id, restaurant_id)
+```
+
+### Chỉ mục
+```sql
+CREATE UNIQUE INDEX attendance_record_assignment_id_key ON public.attendance_record USING btree (assignment_id);
+CREATE UNIQUE INDEX attendance_record_assignment_id_restaurant_id_key ON public.attendance_record USING btree (assignment_id, restaurant_id);
+CREATE UNIQUE INDEX attendance_record_pkey ON public.attendance_record USING btree (id);
 ```
 
 ## cart_item
@@ -176,14 +229,57 @@ dining_table_updated_at_not_null: NOT NULL updated_at
 dining_table_version_not_null: NOT NULL version
 dining_table_pkey: PRIMARY KEY (id)
 core_tenant_check: TRIGGER DEFERRABLE
+dining_table_id_restaurant_key: UNIQUE (id, restaurant_id)
 dining_table_restaurant_id_code_key: UNIQUE (restaurant_id, code)
 ```
 
 ### Chỉ mục
 ```sql
 CREATE INDEX dining_table_area_idx ON public.dining_table USING btree (area_id, restaurant_id);
+CREATE UNIQUE INDEX dining_table_id_restaurant_key ON public.dining_table USING btree (id, restaurant_id);
 CREATE UNIQUE INDEX dining_table_pkey ON public.dining_table USING btree (id);
 CREATE UNIQUE INDEX dining_table_restaurant_id_code_key ON public.dining_table USING btree (restaurant_id, code);
+```
+
+## employee_pay_rate
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| user_id | uuid | Có | FK | — | — |
+| effective_from | timestamp with time zone | Có |  | — | — |
+| hourly_rate | bigint | Có |  | — | — |
+| reason | text | Có |  | — | — |
+| created_by | uuid | Có | FK | — | — |
+| created_at | timestamp with time zone | Có |  | now() | — |
+
+### Ràng buộc
+```sql
+employee_pay_rate_hourly_rate_check: CHECK (((hourly_rate >= 1000) AND (hourly_rate <= 10000000)))
+employee_pay_rate_reason_check: CHECK (((length(btrim(reason)) >= 1) AND (length(btrim(reason)) <= 500)))
+employee_pay_rate_created_by_restaurant_id_fkey: FOREIGN KEY (created_by, restaurant_id) REFERENCES app_user(id, restaurant_id)
+employee_pay_rate_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id)
+employee_pay_rate_user_id_restaurant_id_fkey: FOREIGN KEY (user_id, restaurant_id) REFERENCES app_user(id, restaurant_id)
+employee_pay_rate_created_at_not_null: NOT NULL created_at
+employee_pay_rate_created_by_not_null: NOT NULL created_by
+employee_pay_rate_effective_from_not_null: NOT NULL effective_from
+employee_pay_rate_hourly_rate_not_null: NOT NULL hourly_rate
+employee_pay_rate_id_not_null: NOT NULL id
+employee_pay_rate_reason_not_null: NOT NULL reason
+employee_pay_rate_restaurant_id_not_null: NOT NULL restaurant_id
+employee_pay_rate_user_id_not_null: NOT NULL user_id
+employee_pay_rate_pkey: PRIMARY KEY (id)
+employee_pay_rate_user_id_effective_from_key: UNIQUE (user_id, effective_from)
+```
+
+### Chỉ mục
+```sql
+CREATE INDEX employee_pay_rate_lookup_idx ON public.employee_pay_rate USING btree (user_id, effective_from DESC);
+CREATE UNIQUE INDEX employee_pay_rate_pkey ON public.employee_pay_rate USING btree (id);
+CREATE UNIQUE INDEX employee_pay_rate_user_id_effective_from_key ON public.employee_pay_rate USING btree (user_id, effective_from);
 ```
 
 ## financial_charge
@@ -789,14 +885,14 @@ CREATE UNIQUE INDEX pdm_order_user_request ON public.order_batch USING btree (se
 
 ### Ràng buộc
 ```sql
+order_item_cancellation_check: CHECK (((status <> ALL (ARRAY['CANCELLED'::text, 'UNAVAILABLE'::text])) OR ((cancel_reason IS NOT NULL) AND (length(btrim(cancel_reason)) > 0) AND (cancelled_by_type IS NOT NULL))))
 order_item_cancelled_by_type_check: CHECK ((cancelled_by_type = ANY (ARRAY['USER'::text, 'GUEST'::text, 'SYSTEM'::text])))
 order_item_check: CHECK (((((cancelled_by_type = 'USER'::text) AND (cancelled_by_user_id IS NOT NULL) AND (cancelled_by_participant_id IS NULL)) OR ((cancelled_by_type = 'GUEST'::text) AND (cancelled_by_user_id IS NULL) AND (cancelled_by_participant_id IS NOT NULL)) OR ((cancelled_by_type = 'SYSTEM'::text) AND (cancelled_by_user_id IS NULL) AND (cancelled_by_participant_id IS NULL)) OR ((cancelled_by_type IS NULL) AND (cancelled_by_user_id IS NULL) AND (cancelled_by_participant_id IS NULL))) IS TRUE))
 order_item_check1: CHECK (((line_total)::numeric = ((quantity)::numeric * (unit_price_snapshot)::numeric)))
-order_item_check2: CHECK (((status <> 'CANCELLED'::text) OR ((cancel_reason IS NOT NULL) AND (length(btrim(cancel_reason)) > 0) AND (cancelled_by_type IS NOT NULL))))
 order_item_line_total_check: CHECK ((line_total >= 0))
 order_item_product_name_snapshot_check: CHECK ((length(btrim(product_name_snapshot)) > 0))
 order_item_quantity_check: CHECK ((quantity > 0))
-order_item_status_check: CHECK ((status = ANY (ARRAY['SUBMITTED'::text, 'ACCEPTED'::text, 'IN_PREPARATION'::text, 'READY'::text, 'SERVED'::text, 'CANCELLED'::text])))
+order_item_status_check: CHECK ((status = ANY (ARRAY['SUBMITTED'::text, 'ACCEPTED'::text, 'IN_PREPARATION'::text, 'READY'::text, 'SERVED'::text, 'UNAVAILABLE'::text, 'CANCELLED'::text])))
 order_item_status_check1: CHECK ((length(btrim(status)) > 0))
 order_item_unit_price_snapshot_check: CHECK ((unit_price_snapshot >= 0))
 order_item_version_check: CHECK ((version > 0))
@@ -1329,6 +1425,140 @@ payment_webhook_event_provider_provider_event_id_key: UNIQUE (provider, provider
 CREATE INDEX core_payment_webhook_event_fk1 ON public.payment_webhook_event USING btree (payment_transaction_id);
 CREATE UNIQUE INDEX payment_webhook_event_pkey ON public.payment_webhook_event USING btree (id);
 CREATE UNIQUE INDEX payment_webhook_event_provider_provider_event_id_key ON public.payment_webhook_event USING btree (provider, provider_event_id);
+```
+
+## payroll_line
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| payroll_slip_id | uuid | Có | FK | — | — |
+| attendance_id | uuid | Không | FK | — | — |
+| line_type | text | Có |  | — | — |
+| description | text | Có |  | — | — |
+| minutes | integer | Không |  | — | — |
+| hourly_rate_snapshot | bigint | Không |  | — | — |
+| amount | bigint | Có |  | — | — |
+| created_by | uuid | Có | FK | — | — |
+| created_at | timestamp with time zone | Có |  | now() | — |
+
+### Ràng buộc
+```sql
+payroll_line_amount_check: CHECK (((amount >= '-100000000000'::bigint) AND (amount <= '100000000000'::bigint)))
+payroll_line_check: CHECK ((((line_type = 'WORK'::text) AND (attendance_id IS NOT NULL) AND (minutes >= 0) AND (minutes IS NOT NULL) AND (hourly_rate_snapshot IS NOT NULL) AND (amount >= 0)) OR ((line_type = 'BONUS'::text) AND (attendance_id IS NULL) AND (minutes IS NULL) AND (hourly_rate_snapshot IS NULL) AND (amount > 0)) OR ((line_type = 'DEDUCTION'::text) AND (attendance_id IS NULL) AND (minutes IS NULL) AND (hourly_rate_snapshot IS NULL) AND (amount < 0))))
+payroll_line_description_check: CHECK (((length(btrim(description)) >= 1) AND (length(btrim(description)) <= 500)))
+payroll_line_line_type_check: CHECK ((line_type = ANY (ARRAY['WORK'::text, 'BONUS'::text, 'DEDUCTION'::text])))
+payroll_line_attendance_id_fkey: FOREIGN KEY (attendance_id) REFERENCES attendance_record(id)
+payroll_line_created_by_restaurant_id_fkey: FOREIGN KEY (created_by, restaurant_id) REFERENCES app_user(id, restaurant_id)
+payroll_line_payroll_slip_id_restaurant_id_fkey: FOREIGN KEY (payroll_slip_id, restaurant_id) REFERENCES payroll_slip(id, restaurant_id)
+payroll_line_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id)
+payroll_line_amount_not_null: NOT NULL amount
+payroll_line_created_at_not_null: NOT NULL created_at
+payroll_line_created_by_not_null: NOT NULL created_by
+payroll_line_description_not_null: NOT NULL description
+payroll_line_id_not_null: NOT NULL id
+payroll_line_line_type_not_null: NOT NULL line_type
+payroll_line_payroll_slip_id_not_null: NOT NULL payroll_slip_id
+payroll_line_restaurant_id_not_null: NOT NULL restaurant_id
+payroll_line_pkey: PRIMARY KEY (id)
+payroll_line_attendance_id_key: UNIQUE (attendance_id)
+```
+
+### Chỉ mục
+```sql
+CREATE UNIQUE INDEX payroll_line_attendance_id_key ON public.payroll_line USING btree (attendance_id);
+CREATE UNIQUE INDEX payroll_line_pkey ON public.payroll_line USING btree (id);
+CREATE INDEX payroll_line_slip_idx ON public.payroll_line USING btree (payroll_slip_id);
+```
+
+## payroll_run
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| period_start | date | Có |  | — | — |
+| period_end | date | Có |  | — | — |
+| status | text | Có |  | 'DRAFT'::text | — |
+| created_by | uuid | Có | FK | — | — |
+| finalized_by | uuid | Không | FK | — | — |
+| finalized_at | timestamp with time zone | Không |  | — | — |
+| paid_by | uuid | Không | FK | — | — |
+| paid_at | timestamp with time zone | Không |  | — | — |
+| payment_reference | text | Không |  | — | — |
+| created_at | timestamp with time zone | Có |  | now() | — |
+| updated_at | timestamp with time zone | Có |  | now() | — |
+
+### Ràng buộc
+```sql
+payroll_run_check: CHECK (((period_end > period_start) AND (period_end <= (period_start + 62))))
+payroll_run_check1: CHECK ((((status = 'DRAFT'::text) AND (finalized_at IS NULL) AND (finalized_by IS NULL) AND (paid_at IS NULL) AND (paid_by IS NULL) AND (payment_reference IS NULL)) OR ((status = 'FINALIZED'::text) AND (finalized_at IS NOT NULL) AND (finalized_by IS NOT NULL) AND (paid_at IS NULL) AND (paid_by IS NULL) AND (payment_reference IS NULL)) OR ((status = 'PAID'::text) AND (finalized_at IS NOT NULL) AND (finalized_by IS NOT NULL) AND (paid_at IS NOT NULL) AND (paid_by IS NOT NULL) AND (length(btrim(COALESCE(payment_reference, ''::text))) > 0))))
+payroll_run_status_check: CHECK ((status = ANY (ARRAY['DRAFT'::text, 'FINALIZED'::text, 'PAID'::text])))
+payroll_run_created_by_restaurant_id_fkey: FOREIGN KEY (created_by, restaurant_id) REFERENCES app_user(id, restaurant_id)
+payroll_run_finalized_by_restaurant_id_fkey: FOREIGN KEY (finalized_by, restaurant_id) REFERENCES app_user(id, restaurant_id)
+payroll_run_paid_by_restaurant_id_fkey: FOREIGN KEY (paid_by, restaurant_id) REFERENCES app_user(id, restaurant_id)
+payroll_run_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id)
+payroll_run_created_at_not_null: NOT NULL created_at
+payroll_run_created_by_not_null: NOT NULL created_by
+payroll_run_id_not_null: NOT NULL id
+payroll_run_period_end_not_null: NOT NULL period_end
+payroll_run_period_start_not_null: NOT NULL period_start
+payroll_run_restaurant_id_not_null: NOT NULL restaurant_id
+payroll_run_status_not_null: NOT NULL status
+payroll_run_updated_at_not_null: NOT NULL updated_at
+payroll_run_pkey: PRIMARY KEY (id)
+payroll_run_id_restaurant_id_key: UNIQUE (id, restaurant_id)
+payroll_run_restaurant_id_daterange_excl: EXCLUDE USING gist (restaurant_id WITH =, daterange(period_start, period_end, '[)'::text) WITH &&)
+```
+
+### Chỉ mục
+```sql
+CREATE UNIQUE INDEX payroll_run_id_restaurant_id_key ON public.payroll_run USING btree (id, restaurant_id);
+CREATE UNIQUE INDEX payroll_run_pkey ON public.payroll_run USING btree (id);
+CREATE INDEX payroll_run_restaurant_id_daterange_excl ON public.payroll_run USING gist (restaurant_id, daterange(period_start, period_end, '[)'::text));
+```
+
+## payroll_slip
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| payroll_run_id | uuid | Có | FK | — | — |
+| user_id | uuid | Có | FK | — | — |
+| employee_name_snapshot | text | Có |  | — | — |
+| username_snapshot | text | Có |  | — | — |
+| created_at | timestamp with time zone | Có |  | now() | — |
+
+### Ràng buộc
+```sql
+payroll_slip_payroll_run_id_restaurant_id_fkey: FOREIGN KEY (payroll_run_id, restaurant_id) REFERENCES payroll_run(id, restaurant_id)
+payroll_slip_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id)
+payroll_slip_user_id_restaurant_id_fkey: FOREIGN KEY (user_id, restaurant_id) REFERENCES app_user(id, restaurant_id)
+payroll_slip_created_at_not_null: NOT NULL created_at
+payroll_slip_employee_name_snapshot_not_null: NOT NULL employee_name_snapshot
+payroll_slip_id_not_null: NOT NULL id
+payroll_slip_payroll_run_id_not_null: NOT NULL payroll_run_id
+payroll_slip_restaurant_id_not_null: NOT NULL restaurant_id
+payroll_slip_user_id_not_null: NOT NULL user_id
+payroll_slip_username_snapshot_not_null: NOT NULL username_snapshot
+payroll_slip_pkey: PRIMARY KEY (id)
+payroll_slip_id_restaurant_id_key: UNIQUE (id, restaurant_id)
+payroll_slip_payroll_run_id_user_id_key: UNIQUE (payroll_run_id, user_id)
+```
+
+### Chỉ mục
+```sql
+CREATE UNIQUE INDEX payroll_slip_id_restaurant_id_key ON public.payroll_slip USING btree (id, restaurant_id);
+CREATE UNIQUE INDEX payroll_slip_payroll_run_id_user_id_key ON public.payroll_slip USING btree (payroll_run_id, user_id);
+CREATE UNIQUE INDEX payroll_slip_pkey ON public.payroll_slip USING btree (id);
 ```
 
 ## permission
@@ -1875,6 +2105,59 @@ CREATE UNIQUE INDEX session_participant_pkey ON public.session_participant USING
 CREATE UNIQUE INDEX session_participant_session_id_guest_id_key ON public.session_participant USING btree (session_id, guest_id);
 ```
 
+## shift_assignment
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| shift_id | uuid | Có | FK | — | — |
+| user_id | uuid | Có | FK | — | — |
+| area_id | uuid | Không | FK | — | — |
+| starts_at | timestamp with time zone | Có |  | — | — |
+| ends_at | timestamp with time zone | Có |  | — | — |
+| status | text | Có |  | 'ASSIGNED'::text | — |
+| assigned_by | uuid | Có | FK | — | — |
+| cancellation_reason | text | Không |  | — | — |
+| created_at | timestamp with time zone | Có |  | now() | — |
+| updated_at | timestamp with time zone | Có |  | now() | — |
+
+### Ràng buộc
+```sql
+shift_assignment_check: CHECK ((ends_at > starts_at))
+shift_assignment_status_check: CHECK ((status = ANY (ARRAY['ASSIGNED'::text, 'CANCELLED'::text])))
+shift_assignment_area_id_restaurant_id_fkey: FOREIGN KEY (area_id, restaurant_id) REFERENCES dining_area(id, restaurant_id)
+shift_assignment_assigned_by_restaurant_id_fkey: FOREIGN KEY (assigned_by, restaurant_id) REFERENCES app_user(id, restaurant_id)
+shift_assignment_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id)
+shift_assignment_shift_id_restaurant_id_fkey: FOREIGN KEY (shift_id, restaurant_id) REFERENCES work_shift(id, restaurant_id)
+shift_assignment_user_id_restaurant_id_fkey: FOREIGN KEY (user_id, restaurant_id) REFERENCES app_user(id, restaurant_id)
+shift_assignment_assigned_by_not_null: NOT NULL assigned_by
+shift_assignment_created_at_not_null: NOT NULL created_at
+shift_assignment_ends_at_not_null: NOT NULL ends_at
+shift_assignment_id_not_null: NOT NULL id
+shift_assignment_restaurant_id_not_null: NOT NULL restaurant_id
+shift_assignment_shift_id_not_null: NOT NULL shift_id
+shift_assignment_starts_at_not_null: NOT NULL starts_at
+shift_assignment_status_not_null: NOT NULL status
+shift_assignment_updated_at_not_null: NOT NULL updated_at
+shift_assignment_user_id_not_null: NOT NULL user_id
+shift_assignment_pkey: PRIMARY KEY (id)
+shift_assignment_id_restaurant_id_key: UNIQUE (id, restaurant_id)
+shift_assignment_shift_id_user_id_key: UNIQUE (shift_id, user_id)
+shift_assignment_user_id_tstzrange_excl: EXCLUDE USING gist (user_id WITH =, tstzrange(starts_at, ends_at, '[)'::text) WITH &&) WHERE ((status = 'ASSIGNED'::text))
+```
+
+### Chỉ mục
+```sql
+CREATE UNIQUE INDEX shift_assignment_id_restaurant_id_key ON public.shift_assignment USING btree (id, restaurant_id);
+CREATE UNIQUE INDEX shift_assignment_pkey ON public.shift_assignment USING btree (id);
+CREATE INDEX shift_assignment_restaurant_start_idx ON public.shift_assignment USING btree (restaurant_id, starts_at);
+CREATE UNIQUE INDEX shift_assignment_shift_id_user_id_key ON public.shift_assignment USING btree (shift_id, user_id);
+CREATE INDEX shift_assignment_user_id_tstzrange_excl ON public.shift_assignment USING gist (user_id, tstzrange(starts_at, ends_at, '[)'::text)) WHERE (status = 'ASSIGNED'::text);
+```
+
 ## stock_location
 
 
@@ -2028,16 +2311,21 @@ Phiên phục vụ tại bàn
 | updated_at | timestamp with time zone | Có |  | now() | Thời điểm cập nhật UTC; trigger tự động |
 | financial_status | text | Có |  | 'UNPAID'::text | — |
 | risk_status | text | Có |  | 'NORMAL'::text | — |
+| receipt_number | text | Không |  | — | — |
+| closed_by | uuid | Không | FK | — | — |
+| receipt_snapshot | jsonb | Không |  | — | — |
 
 ### Ràng buộc
 ```sql
 core_financial_status: CHECK ((financial_status = ANY (ARRAY['UNPAID'::text, 'PARTIALLY_PAID'::text, 'SETTLED'::text, 'REFUND_DUE'::text, 'OUTSTANDING_EXCEPTION'::text])))
 core_risk_status: CHECK ((risk_status = ANY (ARRAY['NORMAL'::text, 'REVIEW_REQUIRED'::text, 'BLOCKED'::text])))
+receipt_snapshot_closed: CHECK (((receipt_snapshot IS NULL) OR ((session_status = 'CLOSED'::text) AND (closed_at IS NOT NULL) AND (closed_by IS NOT NULL) AND (receipt_number IS NOT NULL))))
 table_session_check: CHECK (((session_status = 'ACTIVE'::text) = (closed_at IS NULL)))
 table_session_check1: CHECK (((closed_at IS NULL) OR (closed_at >= opened_at)))
 table_session_session_status_check: CHECK ((session_status = ANY (ARRAY['ACTIVE'::text, 'CLOSED'::text, 'CANCELLED'::text])))
 table_session_verification_status_check: CHECK ((verification_status = ANY (ARRAY['UNVERIFIED'::text, 'VERIFIED'::text, 'SUSPENDED'::text])))
 table_session_version_check: CHECK ((version > 0))
+table_session_closed_by_fkey: FOREIGN KEY (closed_by) REFERENCES app_user(id)
 table_session_table_id_fkey: FOREIGN KEY (table_id) REFERENCES dining_table(id) ON UPDATE RESTRICT ON DELETE RESTRICT
 table_session_created_at_not_null: NOT NULL created_at
 table_session_financial_status_not_null: NOT NULL financial_status
@@ -2051,13 +2339,56 @@ table_session_verification_status_not_null: NOT NULL verification_status
 table_session_version_not_null: NOT NULL version
 table_session_pkey: PRIMARY KEY (id)
 core_tenant_check: TRIGGER DEFERRABLE
+table_session_receipt_number_key: UNIQUE (receipt_number)
 ```
 
 ### Chỉ mục
 ```sql
 CREATE UNIQUE INDEX table_session_one_open ON public.table_session USING btree (table_id) WHERE (session_status <> ALL (ARRAY['CLOSED'::text, 'CANCELLED'::text]));
 CREATE UNIQUE INDEX table_session_pkey ON public.table_session USING btree (id);
+CREATE UNIQUE INDEX table_session_receipt_number_key ON public.table_session USING btree (receipt_number);
 CREATE INDEX table_session_table_idx ON public.table_session USING btree (table_id);
+```
+
+## table_transfer_history
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| session_id | uuid | Có | FK | — | — |
+| from_table_id | uuid | Có | FK | — | — |
+| to_table_id | uuid | Có | FK | — | — |
+| transferred_by | uuid | Có | FK | — | — |
+| reason | text | Có |  | — | — |
+| transferred_at | timestamp with time zone | Có |  | now() | — |
+
+### Ràng buộc
+```sql
+table_transfer_history_check: CHECK ((from_table_id <> to_table_id))
+table_transfer_history_reason_check: CHECK (((length(btrim(reason)) >= 1) AND (length(btrim(reason)) <= 500)))
+table_transfer_history_from_table_id_restaurant_id_fkey: FOREIGN KEY (from_table_id, restaurant_id) REFERENCES dining_table(id, restaurant_id)
+table_transfer_history_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id)
+table_transfer_history_session_id_fkey: FOREIGN KEY (session_id) REFERENCES table_session(id)
+table_transfer_history_to_table_id_restaurant_id_fkey: FOREIGN KEY (to_table_id, restaurant_id) REFERENCES dining_table(id, restaurant_id)
+table_transfer_history_transferred_by_restaurant_id_fkey: FOREIGN KEY (transferred_by, restaurant_id) REFERENCES app_user(id, restaurant_id)
+table_transfer_history_from_table_id_not_null: NOT NULL from_table_id
+table_transfer_history_id_not_null: NOT NULL id
+table_transfer_history_reason_not_null: NOT NULL reason
+table_transfer_history_restaurant_id_not_null: NOT NULL restaurant_id
+table_transfer_history_session_id_not_null: NOT NULL session_id
+table_transfer_history_to_table_id_not_null: NOT NULL to_table_id
+table_transfer_history_transferred_at_not_null: NOT NULL transferred_at
+table_transfer_history_transferred_by_not_null: NOT NULL transferred_by
+table_transfer_history_pkey: PRIMARY KEY (id)
+```
+
+### Chỉ mục
+```sql
+CREATE UNIQUE INDEX table_transfer_history_pkey ON public.table_transfer_history USING btree (id);
+CREATE INDEX table_transfer_history_session_idx ON public.table_transfer_history USING btree (session_id, transferred_at);
 ```
 
 ## unit_of_measure
@@ -2135,4 +2466,52 @@ core_tenant_check: TRIGGER DEFERRABLE
 CREATE UNIQUE INDEX user_role_one_active ON public.user_role USING btree (user_id) WHERE (revoked_at IS NULL);
 CREATE UNIQUE INDEX user_role_pkey ON public.user_role USING btree (id);
 CREATE INDEX user_role_role_idx ON public.user_role USING btree (role_id);
+```
+
+## work_shift
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| code | text | Có |  | — | — |
+| name | text | Có |  | — | — |
+| starts_at | timestamp with time zone | Có |  | — | — |
+| ends_at | timestamp with time zone | Có |  | — | — |
+| break_minutes | integer | Có |  | 0 | — |
+| created_by | uuid | Có | FK | — | — |
+| created_at | timestamp with time zone | Có |  | now() | — |
+| updated_at | timestamp with time zone | Có |  | now() | — |
+
+### Ràng buộc
+```sql
+work_shift_break_minutes_check: CHECK (((break_minutes >= 0) AND (break_minutes <= 240)))
+work_shift_check: CHECK (((ends_at > starts_at) AND (ends_at <= (starts_at + '16:00:00'::interval))))
+work_shift_check1: CHECK ((((break_minutes)::double precision * '00:01:00'::interval) < (ends_at - starts_at)))
+work_shift_code_check: CHECK (((length(btrim(code)) >= 1) AND (length(btrim(code)) <= 64)))
+work_shift_name_check: CHECK (((length(btrim(name)) >= 1) AND (length(btrim(name)) <= 120)))
+work_shift_created_by_restaurant_id_fkey: FOREIGN KEY (created_by, restaurant_id) REFERENCES app_user(id, restaurant_id)
+work_shift_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id)
+work_shift_break_minutes_not_null: NOT NULL break_minutes
+work_shift_code_not_null: NOT NULL code
+work_shift_created_at_not_null: NOT NULL created_at
+work_shift_created_by_not_null: NOT NULL created_by
+work_shift_ends_at_not_null: NOT NULL ends_at
+work_shift_id_not_null: NOT NULL id
+work_shift_name_not_null: NOT NULL name
+work_shift_restaurant_id_not_null: NOT NULL restaurant_id
+work_shift_starts_at_not_null: NOT NULL starts_at
+work_shift_updated_at_not_null: NOT NULL updated_at
+work_shift_pkey: PRIMARY KEY (id)
+work_shift_id_restaurant_id_key: UNIQUE (id, restaurant_id)
+work_shift_restaurant_id_code_key: UNIQUE (restaurant_id, code)
+```
+
+### Chỉ mục
+```sql
+CREATE UNIQUE INDEX work_shift_id_restaurant_id_key ON public.work_shift USING btree (id, restaurant_id);
+CREATE UNIQUE INDEX work_shift_pkey ON public.work_shift USING btree (id);
+CREATE UNIQUE INDEX work_shift_restaurant_id_code_key ON public.work_shift USING btree (restaurant_id, code);
 ```

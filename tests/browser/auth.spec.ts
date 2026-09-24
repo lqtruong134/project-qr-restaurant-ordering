@@ -8,7 +8,7 @@ test('internal login, role workspace, direct forbidden navigation and logout', a
   await page.locator('#password').fill(process.env.SEED_PASSWORD!);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await expect(page).toHaveURL(/workspace\/staff/);
-  await expect(page.getByText('Đã xác thực quyền truy cập')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Phục vụ' })).toBeVisible();
   await expect(
     page.getByRole('navigation').getByRole('link', { name: 'Không gian quản trị' }),
   ).toHaveCount(0);

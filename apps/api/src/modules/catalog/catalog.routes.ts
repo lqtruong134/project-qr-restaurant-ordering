@@ -80,11 +80,26 @@ export function registerCatalog(
       orderBy: { sort_order: 'asc' },
     }),
     products: (
-      await db.prisma.product.findMany({
-        where: { restaurant_id: restaurant },
-        orderBy: { name: 'asc' },
-      })
-    ).map((p) => ({ ...p, base_price: p.base_price.toString() })),
+      await db.pool.query(
+        `SELECT p.*,c.name AS category_name,
+          CASE WHEN p.availability_status<>'AVAILABLE' OR NOT EXISTS (
+            SELECT 1 FROM recipe_bom b WHERE b.product_id=p.id AND b.status='ACTIVE'
+              AND b.effective_from<=now() AND (b.effective_to IS NULL OR b.effective_to>now())
+          ) OR EXISTS (
+            SELECT 1 FROM recipe_bom b JOIN recipe_bom_item bi ON bi.recipe_bom_id=b.id
+            WHERE b.product_id=p.id AND b.status='ACTIVE' AND b.effective_from<=now()
+              AND (b.effective_to IS NULL OR b.effective_to>now())
+              AND NOT EXISTS (
+                SELECT 1 FROM inventory_balance ib JOIN stock_location sl ON sl.id=ib.location_id
+                WHERE ib.ingredient_id=bi.ingredient_id AND sl.restaurant_id=$1 AND sl.is_active
+                  AND ib.available_qty >= ceil((bi.quantity/b.yield_quantity)* (1+bi.waste_percent/100)*1000000)/1000000
+              )
+          ) THEN 'UNAVAILABLE' ELSE 'AVAILABLE' END AS availability_status
+         FROM product p JOIN menu_category c ON c.id=p.category_id
+         WHERE p.restaurant_id=$1 ORDER BY p.name`,
+        [restaurant],
+      )
+    ).rows.map((p) => ({ ...p, base_price: p.base_price.toString() })),
   }));
   app.post('/core/categories', { config: admin }, async (r) => {
     const b = object(r.body);
@@ -157,7 +172,11 @@ export function registerCatalog(
   app.get('/core/tables', { config: { permission: 'staff.workspace' } }, async () =>
     db.pool
       .query(
-        `SELECT t.*,a.name AS area_name,s.id AS session_id,s.verification_status,s.financial_status FROM dining_table t JOIN dining_area a ON a.id=t.area_id LEFT JOIN table_session s ON s.table_id=t.id AND s.session_status='ACTIVE' WHERE t.restaurant_id=$1 AND ((t.is_active AND a.is_active) OR s.id IS NOT NULL) ORDER BY a.sort_order,t.code`,
+        `SELECT t.*,a.name AS area_name,s.id AS session_id,s.verification_status,s.financial_status,s.opened_at,
+ (SELECT count(*)::int FROM payment_intent pi WHERE pi.session_id=s.id AND pi.status IN ('CREATED','PENDING') AND pi.expires_at>now()) AS pending_payments,
+ (SELECT COALESCE(sum(amount),0)::text FROM financial_charge f WHERE f.session_id=s.id AND f.status='ACTIVE') AS charge_total,
+ (SELECT outstanding_amount::text FROM session_financial_account f WHERE f.session_id=s.id) AS outstanding_amount
+ FROM dining_table t JOIN dining_area a ON a.id=t.area_id LEFT JOIN table_session s ON s.table_id=t.id AND s.session_status='ACTIVE' WHERE t.restaurant_id=$1 AND ((t.is_active AND a.is_active) OR s.id IS NOT NULL) ORDER BY a.sort_order,t.code`,
         [restaurant],
       )
       .then((v) => v.rows),

@@ -1,6 +1,7 @@
 'use client';
 import { useState, type FormEvent } from 'react';
 import { getAuthenticated } from '../../lib/api-client';
+import { Modal } from './primitives';
 export type Row = { id: string; [key: string]: string | number | boolean | null };
 export type Product = Row & {
   name: string;
@@ -61,6 +62,7 @@ const labels: Record<string, string> = {
   COMPLETED: 'Hoàn tất',
   REJECTED: 'Đã từ chối',
   CANCELLED: 'Đã hủy',
+  UNAVAILABLE: 'Tạm hết nguyên liệu hôm nay',
   ACTIVE: 'Đang hoạt động',
   DISABLED: 'Đã vô hiệu hóa',
   INACTIVE: 'Đã khóa tài khoản',
@@ -194,33 +196,55 @@ export function Action({
   confirm?: string;
 }) {
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState('');
+    [error, setError] = useState(''),
+    [confirming, setConfirming] = useState(false);
+  async function execute() {
+    setConfirming(false);
+    setBusy(true);
+    setError('');
+    try {
+      await run();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không kết nối được máy chủ.');
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
-    <span className="core-action">
-      <button
-        className="secondary-button"
-        disabled={busy}
-        onClick={async () => {
-          if (confirm && !window.confirm(confirm)) return;
-          setBusy(true);
-          setError('');
-          try {
-            await run();
-          } catch (e) {
-            setError(e instanceof Error ? e.message : 'Không kết nối được máy chủ.');
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        {busy ? 'Đang xử lý…' : children}
-      </button>
-      {error && (
-        <span role="alert" className="form-error">
-          {error}
-        </span>
+    <>
+      <span className="core-action">
+        <button
+          className="secondary-button"
+          disabled={busy}
+          onClick={() => (confirm ? setConfirming(true) : void execute())}
+        >
+          {busy ? 'Đang xử lý…' : children}
+        </button>
+        {error && (
+          <span role="alert" className="form-error">
+            {error}
+          </span>
+        )}
+      </span>
+      {confirming && (
+        <Modal title="Xác nhận thao tác" close={() => setConfirming(false)}>
+          <div className="confirm-dialog">
+            <div className="confirm-dialog-icon" aria-hidden="true">
+              !
+            </div>
+            <p>{confirm}</p>
+            <div className="confirm-dialog-actions">
+              <button className="secondary-button" onClick={() => setConfirming(false)}>
+                Hủy
+              </button>
+              <button className="primary-button" onClick={() => void execute()}>
+                Tiếp tục
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
-    </span>
+    </>
   );
 }
 export const options = (rows: Row[], field = 'name') =>

@@ -1,6 +1,6 @@
 # Đọc code theo chức năng
 
-Đọc README để chạy ứng dụng trước. Dự án hiện thống nhất 45 bảng; những tên test có `sprint1` vẫn giữ để bảo vệ phần nền cũ, không có một ứng dụng Sprint 1 độc lập.
+Đọc README để chạy ứng dụng trước. Dự án hiện thống nhất 53 bảng; những tên test có `sprint1` vẫn giữ để bảo vệ phần nền cũ, không có một ứng dụng Sprint 1 độc lập.
 
 ## Cây thư mục
 
