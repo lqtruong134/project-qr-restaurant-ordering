@@ -1890,3 +1890,20 @@ textarea {
 .order-card h3 {
   overflow-wrap: anywhere;
 }
+
+@media (min-width: 801px) {
+  .admin-layout {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .admin-layout > .core-tabs {
+    align-items: stretch;
+    gap: 6px;
+  }
+  .admin-layout > .core-tabs > button,
+  .admin-layout > .core-tabs > .core-action,
+  .admin-layout > .core-tabs > .core-action > button {
+    width: 100%;
+    text-align: left;
+    justify-content: flex-start;
+  }
+}
