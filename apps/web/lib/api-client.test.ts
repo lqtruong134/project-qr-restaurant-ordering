@@ -1,41 +1,73 @@
-import { it, expect, vi, afterEach } from 'vitest';
-import { getAuthenticated } from './api-client';
+import { it, expect, vi, afterEach, beforeEach } from 'vitest';
+beforeEach(() => vi.resetModules());
 afterEach(() => vi.unstubAllGlobals());
-it('shares one refresh when simultaneous GET requests receive 401', async () => {
-  let refreshCount = 0;
-  let release!: () => void;
-  const barrier = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const counts = new Map<string, number>();
+it.each(['GET', 'POST', 'PATCH', 'DELETE'])(
+  'blocks %s without refreshing or replaying mutations',
+  async (method) => {
+    const client = await import('./api-client');
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(
+        Response.json({ errorCode: 'SESSION_EXPIRED', userMessage: 'expired' }, { status: 401 }),
+      );
+    vi.stubGlobal('fetch', fetch);
+    const listener = vi.fn();
+    client.subscribeAuth(listener);
+    await client.requestApi('/core/orders', { method });
+    await client.requestApi('/core/payments', { method: 'POST' });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(client.getAuthFailure()?.errorCode).toBe('SESSION_EXPIRED');
+    expect(listener).toHaveBeenCalledTimes(1);
+  },
+);
+it('permission denial preserves session and subsequent requests', async () => {
+  const c = await import('./api-client');
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (url: string) => {
-      if (url.endsWith('/auth/refresh')) {
-        refreshCount++;
-        await barrier;
-        return new Response('{}', { status: 200 });
-      }
-      const count = (counts.get(url) ?? 0) + 1;
-      counts.set(url, count);
-      return new Response('{}', { status: count === 1 ? 401 : 200 });
-    }),
+    vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ errorCode: 'PERMISSION_DENIED' }, { status: 403 }))
+      .mockResolvedValueOnce(Response.json({ ok: true })),
   );
-  const first = getAuthenticated('/one'),
-    second = getAuthenticated('/two');
-  await vi.waitFor(() => expect(refreshCount).toBe(1));
-  release();
-  expect((await Promise.all([first, second])).map((r) => r.status)).toEqual([200, 200]);
-  expect(refreshCount).toBe(1);
+  await c.getAuthenticated('/core/reports');
+  expect(c.getAuthFailure()).toBeUndefined();
+  expect(c.getPermissionNotice()).toContain('không có quyền');
+  expect((await c.getAuthenticated('/core/tables')).ok).toBe(true);
 });
-it('does not refresh on 403 or repeat a rejected refresh', async () => {
-  const fetch = vi.fn().mockResolvedValueOnce(new Response('{}', { status: 403 }));
-  vi.stubGlobal('fetch', fetch);
-  expect((await getAuthenticated('/forbidden')).status).toBe(403);
-  expect(fetch).toHaveBeenCalledTimes(1);
-  fetch
-    .mockResolvedValueOnce(new Response('{}', { status: 401 }))
-    .mockResolvedValueOnce(new Response('{}', { status: 401 }));
-  expect((await getAuthenticated('/expired')).status).toBe(401);
-  expect(fetch).toHaveBeenCalledTimes(3);
+it('locked account is terminal; CSRF and network failures are not logout', async () => {
+  const c = await import('./api-client');
+  const f = vi
+    .fn()
+    .mockResolvedValueOnce(Response.json({ errorCode: 'CSRF_REJECTED' }, { status: 403 }))
+    .mockRejectedValueOnce(new TypeError('network'))
+    .mockResolvedValueOnce(
+      Response.json({ errorCode: 'ACCOUNT_LOCKED', userMessage: 'locked' }, { status: 403 }),
+    );
+  vi.stubGlobal('fetch', f);
+  await c.postApi('/core/orders', {});
+  expect(c.getAuthFailure()).toBeUndefined();
+  await expect(c.getAuthenticated('/core/tables')).rejects.toThrow('network');
+  expect(c.getAuthFailure()).toBeUndefined();
+  await c.getAuthenticated('/core/tables');
+  expect(c.getAuthFailure()?.errorCode).toBe('ACCOUNT_LOCKED');
+});
+it('late success cannot revive the screen after another request blocks it', async () => {
+  const c = await import('./api-client');
+  let finish!: (r: Response) => void;
+  vi.stubGlobal(
+    'fetch',
+    vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((r) => {
+            finish = r;
+          }),
+      )
+      .mockResolvedValueOnce(Response.json({ errorCode: 'SESSION_EXPIRED' }, { status: 401 })),
+  );
+  const late = c.getAuthenticated('/core/catalog');
+  await c.getAuthenticated('/core/tables');
+  finish(Response.json({ secret: 'old data' }));
+  expect((await late).status).toBe(401);
 });

@@ -27,10 +27,7 @@ export default function Workspace({ params }: { params: Promise<{ area: string }
       try {
         const res = await getAuthenticated('/workspaces/' + encodeURIComponent(area));
         if (!active) return;
-        if (res.status === 401) {
-          window.location.assign('/login');
-          return;
-        }
+        if (res.status === 401) return;
         const data = await res.json();
         if (active) {
           if (!res.ok) setError(data.userMessage ?? 'Không tìm thấy chức năng.');

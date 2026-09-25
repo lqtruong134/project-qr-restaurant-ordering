@@ -687,7 +687,9 @@ it('allows distinct employee IDs with the same name and revokes a disabled accou
     'PATCH',
   );
   expect(update.statusCode, update.body).toBe(200);
-  expect((await request('/workspaces/staff', 'disabledRegression')).statusCode).toBe(401);
+  const blocked = await request('/workspaces/staff', 'disabledRegression');
+  expect(blocked.statusCode).toBe(403);
+  expect(blocked.json().errorCode).toBe('ACCOUNT_LOCKED');
 });
 
 it('rejects expired or inactive-area QR while allowing an existing table session to finish', async () => {

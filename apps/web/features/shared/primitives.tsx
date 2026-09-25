@@ -88,11 +88,13 @@ export function Modal({
   children,
   close,
   wide = false,
+  blocking = false,
 }: {
   title: string;
   children: ReactNode;
   close: () => void;
   wide?: boolean;
+  blocking?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -111,15 +113,17 @@ export function Modal({
       className={'app-dialog' + (wide ? ' dialog-wide' : '')}
       onCancel={(e) => {
         e.preventDefault();
-        close();
+        if (!blocking) close();
       }}
       aria-label={title}
     >
       <div className="dialog-heading">
         <h2>{title}</h2>
-        <button className="icon-button" onClick={close} aria-label="Đóng">
-          <Icon name="close" />
-        </button>
+        {!blocking && (
+          <button className="icon-button" onClick={close} aria-label="Đóng">
+            <Icon name="close" />
+          </button>
+        )}
       </div>
       <div className="dialog-body">{children}</div>
     </dialog>

@@ -3,7 +3,7 @@ import cookie from '@fastify/cookie';
 import { jwtVerify } from 'jose';
 import { createSessionCookies, digest } from './session-cookies.js';
 import { createLoginLimiter } from './login-limiter.js';
-import { fail, unauthorized as invalid } from '../../shared/http-errors.js';
+import { fail, authMessages, unauthorized as invalid } from '../../shared/http-errors.js';
 import type { AuthOptions, Identity } from './types.js';
 import { hash, verify, argon2id, type Database } from '@thesis/database';
 import type { FastifyInstance } from 'fastify';
@@ -27,6 +27,26 @@ export async function registerAuth(app: FastifyInstance, db: Database, options: 
   });
   await app.register(cookie);
   const { clear, issue } = createSessionCookies(options, key, now);
+  const locked = (reply: import('fastify').FastifyReply) =>
+    fail(reply, 403, 'ACCOUNT_LOCKED', authMessages.ACCOUNT_LOCKED);
+  // HttpOnly cookies must be removed by the server, including failures on business routes.
+  app.addHook('onSend', async (_request, reply, payload) => {
+    if (_request.url.startsWith('/guest/') && reply.statusCode === 401)
+      reply.clearCookie('guest', {
+        httpOnly: true,
+        secure: options.secure,
+        sameSite: 'strict',
+        path: '/',
+      });
+    if (
+      reply.statusCode === 401 ||
+      (reply.statusCode === 403 &&
+        typeof payload === 'string' &&
+        payload.includes('"errorCode":"ACCOUNT_LOCKED"'))
+    )
+      clear(reply);
+    return payload;
+  });
   async function identity(userId: string, version: number): Promise<Identity | null> {
     const user = await db.prisma.app_user.findFirst({
       where: {
@@ -88,11 +108,16 @@ export async function registerAuth(app: FastifyInstance, db: Database, options: 
       /* Invalid/expired credentials are indistinguishable. */
     }
     if (!subject || version === undefined) return invalid(reply);
+    const state = await db.prisma.app_user.findFirst({
+      where: { id: subject, restaurant_id: options.restaurantId },
+      select: { status: true },
+    });
+    if (state && state.status !== 'ACTIVE') return locked(reply);
     const user = await identity(subject, version);
     if (!user) return invalid(reply);
     request.identity = user;
     if (config.permission ? !user.permissions.includes(config.permission) : !config.authenticated)
-      return fail(reply, 403, 'FORBIDDEN', 'Bạn không có quyền truy cập chức năng này.');
+      return fail(reply, 403, 'PERMISSION_DENIED', authMessages.PERMISSION_DENIED);
   });
   app.post<{ Body: { username: string; password: string } }>(
     '/auth/login',
@@ -121,8 +146,11 @@ export async function registerAuth(app: FastifyInstance, db: Database, options: 
         include: { restaurant: true },
       });
       const correct = await verify(user?.password_hash ?? dummy, request.body.password);
-      if (!user || !correct || user.status !== 'ACTIVE' || user.restaurant.status !== 'ACTIVE')
-        return invalid(reply);
+      if (!user || !correct)
+        return fail(reply, 401, 'INVALID_CREDENTIALS', authMessages.INVALID_CREDENTIALS);
+      if (user.status !== 'ACTIVE') return locked(reply);
+      if (user.restaurant.status !== 'ACTIVE')
+        return fail(reply, 403, 'PERMISSION_DENIED', authMessages.PERMISSION_DENIED);
       const refresh = randomBytes(32).toString('base64url');
       const expires = new Date(now() + 7 * 86400000);
       const changed = await db.prisma.app_user.updateMany({
@@ -150,6 +178,11 @@ export async function registerAuth(app: FastifyInstance, db: Database, options: 
       clear(reply);
       return invalid(reply);
     }
+    const owner = await db.prisma.app_user.findFirst({
+      where: { refresh_token_hash: digest(old), restaurant_id: options.restaurantId },
+      select: { status: true },
+    });
+    if (owner && owner.status !== 'ACTIVE') return locked(reply);
     const fresh = randomBytes(32).toString('base64url');
     // Atomic rotation: concurrent requests using the same old token cannot both win.
     const rows = await db.pool.query<{

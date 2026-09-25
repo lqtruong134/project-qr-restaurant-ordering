@@ -132,12 +132,12 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
     Unauthorized:
-      description: UNAUTHORIZED; missing, expired, revoked or invalid credentials
+      description: INVALID_CREDENTIALS (login) or SESSION_EXPIRED (missing, expired, revoked or invalid session)
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
     Forbidden:
-      description: FORBIDDEN or CSRF_REJECTED
+      description: ACCOUNT_LOCKED, PERMISSION_DENIED or CSRF_REJECTED
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}

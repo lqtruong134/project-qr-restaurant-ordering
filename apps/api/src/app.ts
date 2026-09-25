@@ -1,3 +1,4 @@
+import { fail, authMessages } from './shared/http-errors.js';
 import Fastify from 'fastify';
 import type { ServiceHealth } from '@thesis/contracts';
 export function buildApp(database: { ping(): Promise<void> }, logging = false) {
@@ -34,6 +35,12 @@ export function buildApp(database: { ping(): Promise<void> }, logging = false) {
     }),
   );
   app.setErrorHandler((error, request, reply) => {
+    if (error && typeof error === 'object' && 'statusCode' in error) {
+      if (error.statusCode === 401)
+        return fail(reply, 401, 'SESSION_EXPIRED', authMessages.SESSION_EXPIRED);
+      if (error.statusCode === 403)
+        return fail(reply, 403, 'PERMISSION_DENIED', authMessages.PERMISSION_DENIED);
+    }
     if (
       error &&
       typeof error === 'object' &&

@@ -24,6 +24,8 @@ test('internal login, role workspace, direct forbidden navigation and logout', a
   await page.getByRole('button', { name: 'Đăng xuất', exact: true }).click();
   await expect(page).toHaveURL(/login/);
   await page.goto('/workspace/staff');
+  await expect(page.getByRole('dialog')).toContainText('Phiên làm việc hết hạn');
+  await page.getByRole('button', { name: 'Về trang đăng nhập' }).click();
   await expect(page).toHaveURL(/login/);
   await page.screenshot({
     caret: 'initial',

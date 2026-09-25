@@ -292,7 +292,7 @@ it('disable and password change revoke refresh and access even after re-enabling
   await db.prisma.app_user.update({ where: { id: u.id }, data: { status: 'INACTIVE' } });
   expect(
     (await app.inject({ url: '/auth/me', headers: { cookie: cookies(first) } })).statusCode,
-  ).toBe(401);
+  ).toBe(403);
   await db.prisma.app_user.update({ where: { id: u.id }, data: { status: 'ACTIVE' } });
   expect(
     (
@@ -422,4 +422,41 @@ it('an authenticated route still enforces its declared permission', async () => 
     (await app.inject({ url: '/test-admin-only', headers: { cookie: cookies(manager) } }))
       .statusCode,
   ).toBe(200);
+});
+
+it('classifies credentials, permission, locked and expired failures and clears HttpOnly cookies', async () => {
+  const wrong = await app.inject({
+    method: 'POST',
+    url: '/auth/login',
+    headers,
+    payload: { username: accounts.staff, password: 'wrong' },
+  });
+  expect(wrong.json().errorCode).toBe('INVALID_CREDENTIALS');
+  const signed = await login();
+  const cookie = cookies(signed);
+  const denied = await app.inject({ url: '/workspaces/admin', headers: { cookie } });
+  expect(denied.statusCode).toBe(403);
+  expect(denied.json().errorCode).toBe('PERMISSION_DENIED');
+  expect(denied.cookies).toHaveLength(0);
+  const u = await db.prisma.app_user.findFirstOrThrow({ where: { username: accounts.staff } });
+  try {
+    await db.prisma.app_user.update({ where: { id: u.id }, data: { status: 'INACTIVE' } });
+    for (const url of ['/auth/me', '/workspaces/staff']) {
+      const blocked = await app.inject({ url, headers: { cookie } });
+      expect(blocked.statusCode).toBe(403);
+      expect(blocked.json().errorCode).toBe('ACCOUNT_LOCKED');
+      expect(
+        blocked.cookies
+          .filter((c) => ['access', 'refresh'].includes(c.name))
+          .every((c) => c.value === ''),
+      ).toBe(true);
+    }
+    const locked = await login();
+    expect(locked.json().errorCode).toBe('ACCOUNT_LOCKED');
+  } finally {
+    await db.prisma.app_user.update({ where: { id: u.id }, data: { status: 'ACTIVE' } });
+  }
+  const expired = await app.inject({ url: '/auth/me', headers: { cookie: 'access=invalid' } });
+  expect(expired.statusCode).toBe(401);
+  expect(expired.json().errorCode).toBe('SESSION_EXPIRED');
 });

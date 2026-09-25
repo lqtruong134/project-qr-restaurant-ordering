@@ -1,6 +1,6 @@
 'use client';
 import { useState, type FormEvent } from 'react';
-import { getAuthenticated } from '../../lib/api-client';
+import { requestApi } from '../../lib/api-client';
 import { Modal } from './primitives';
 export type Row = { id: string; [key: string]: string | number | boolean | null };
 export type Product = Row & {
@@ -98,17 +98,15 @@ export async function api<T>(
   method = body === undefined ? 'GET' : 'POST',
   guest = false,
 ): Promise<T> {
-  const response =
-    method === 'GET' && !guest
-      ? await getAuthenticated(path)
-      : await fetch('/api' + path, {
-          method,
-          headers: {
-            'X-CSRF-Protection': '1',
-            ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-          },
-          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        });
+  void guest; // All methods and both guest/internal screens share the same error boundary.
+  const response = await requestApi(path, {
+    method,
+    headers: {
+      'X-CSRF-Protection': '1',
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
   const data = await response.json();
   if (!response.ok)
     throw new ApiError(data.userMessage ?? 'Không thực hiện được yêu cầu.', response.status);
