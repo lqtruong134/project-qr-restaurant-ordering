@@ -50,7 +50,7 @@ export async function maintainCore(db: Database, restaurant: string) {
           [r.id],
         );
         await c.query(
-          "UPDATE order_item SET status='CANCELLED',cancel_reason='Hết thời gian chờ duyệt',cancelled_by_type='SYSTEM',version=version+1 WHERE order_batch_id=$1",
+          "UPDATE order_item SET status='CANCELLED',cancel_reason='Hết thời gian chờ duyệt',cancelled_by_type='SYSTEM',version=version+1 WHERE order_batch_id=$1 AND status='SUBMITTED'",
           [r.order_batch_id],
         );
         await c.query(

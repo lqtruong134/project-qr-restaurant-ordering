@@ -138,7 +138,7 @@ it('prevents concurrent overlapping assignments, cross-restaurant links and unau
   });
   expect(bad.statusCode).toBe(400);
 });
-it('records self attendance with server time and rejects another employee or duplicate check-in', async () => {
+it('records self attendance with server time and rejects another employee and safely replays check-in', async () => {
   const u = await worker('pv002');
   await db.pool.query(
     "UPDATE shift_assignment SET status='CANCELLED',cancellation_reason='Isolated clock test' WHERE user_id=$1 AND status='ASSIGNED'",
@@ -156,7 +156,7 @@ it('records self attendance with server time and rejects another employee or dup
   expect(entered.checked_in_at).toBeTruthy();
   expect(
     (await request('/core/workforce/assignments/' + a.id + '/check-in', 'pv002', {})).statusCode,
-  ).toBe(409);
+  ).toBe(200);
   await ok('/core/workforce/assignments/' + a.id + '/check-out', 'pv002', {});
   expect(
     (
@@ -269,7 +269,13 @@ it('snapshots approved pay, handles multiple shifts, locks payroll and keeps emp
   expect(
     (await request('/core/payroll/' + run.id + '/paid', 'quyettruong05', { reference: 'Lặp' }))
       .statusCode,
-  ).toBe(404);
+  ).toBe(200);
+  const paidDetail = await ok('/core/payroll/' + run.id);
+  expect(paidDetail.payments).toHaveLength(1);
+  expect(paidDetail.payments[0].amount).toBe(paidDetail.slips[0].total_amount);
+  await expect(
+    db.pool.query('DELETE FROM payroll_payment WHERE id=$1', [paidDetail.payments[0].id]),
+  ).rejects.toMatchObject({ code: '23514' });
   await expect(
     db.pool.query("UPDATE payroll_run SET status='DRAFT' WHERE id=$1", [run.id]),
   ).rejects.toMatchObject({ code: '23514' });
@@ -445,6 +451,16 @@ it('reverses an unavailable paid dish and freezes a printable final receipt afte
     reason: 'Bếp không thể thực hiện',
   });
   await ok('/core/refunds/' + refund.id + '/complete', 'pv001', { method: 'CASH' });
+  expect((await request('/core/sessions/' + s.id + '/close', 'pv001', {})).statusCode).toBe(409);
+  const alerts = (await ok('/core/alerts', 'pv001')).filter(
+    (a: { session_id: string }) => a.session_id === s.id,
+  );
+  for (const alert of alerts) {
+    await ok('/core/alerts/' + alert.id + '/acknowledge', 'pv001', {});
+    await ok('/core/alerts/' + alert.id + '/resolve', 'pv001', {
+      reason: 'Đã đối chiếu và hoàn đủ tiền',
+    });
+  }
   await ok('/core/sessions/' + s.id + '/close', 'pv001', {});
   const closed = await ok('/core/sessions/' + s.id + '/bill', 'pv001');
   expect(closed.session.receipt_number).toMatch(/^PT-/);

@@ -21,7 +21,8 @@ export default function UsersPanel({
         <span>
           <strong>{String(u.display_name)}</strong>
           <small>
-            {String(u.username)} · {label(u.status)}
+            Mã {String(u.staff_code ?? u.username)} · Đăng nhập {String(u.username)} ·{' '}
+            {label(u.status)}
           </small>
         </span>
       </summary>
@@ -29,6 +30,7 @@ export default function UsersPanel({
         title="Cập nhật tài khoản"
         fields={[
           { key: 'name', label: 'Tên hiển thị', value: String(u.display_name) },
+          { key: 'reason', label: 'Lý do cập nhật tài khoản / quyền' },
           { key: 'role', label: 'Vai trò', value: String(u.role), options: roles },
           {
             key: 'status',
@@ -57,6 +59,7 @@ export default function UsersPanel({
         <EntryForm
           title="Tạo tài khoản nhân viên"
           fields={[
+            { key: 'staffCode', label: 'Mã nhân viên (duy nhất, không đổi)' },
             { key: 'username', label: 'Tên đăng nhập' },
             { key: 'name', label: 'Tên hiển thị' },
             { key: 'password', label: 'Mật khẩu (ít nhất 16 ký tự)', type: 'password' },

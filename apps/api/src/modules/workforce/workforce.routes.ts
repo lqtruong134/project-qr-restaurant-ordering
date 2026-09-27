@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { readPolicy } from '../risk/policy.service.js';
 import type { Database } from '@thesis/database';
 import {
   idParam,
@@ -59,9 +60,14 @@ export function registerWorkforce(app: FastifyInstance, db: Database, restaurant
         start = timestamp(b.startsAt),
         end = timestamp(b.endsAt),
         breakMinutes = integer(b.breakMinutes, 0, 240);
+      const { policy } = await readPolicy(c, restaurant);
       const duration = (Date.parse(end) - Date.parse(start)) / 60000;
-      if (duration <= breakMinutes || duration > 960)
-        reject('Ca làm phải dài hơn giờ nghỉ và không quá 16 giờ.', 400);
+      if (
+        duration <= breakMinutes ||
+        duration > Number(policy.SHIFT_MAX_MINUTES) ||
+        breakMinutes > Number(policy.SHIFT_MAX_BREAK_MINUTES)
+      )
+        reject('Thời lượng ca hoặc giờ nghỉ vượt cấu hình nhà hàng.', 400);
       await assertOpenPeriod(c, restaurant, start);
       return one(
         c,
@@ -114,6 +120,10 @@ export function registerWorkforce(app: FastifyInstance, db: Database, restaurant
         (await c.query('SELECT id FROM attendance_record WHERE assignment_id=$1', [a.id])).rowCount
       )
         reject('Không thể hủy phân công đã chấm công hoặc đã hủy.');
+      await c.query(
+        "INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason) VALUES($1,$2,'CANCEL_ASSIGNMENT','SHIFT_ASSIGNMENT',$3,$4)",
+        [restaurant, r.identity!.id, a.id, text(object(r.body).reason, 500)],
+      );
       return one(
         c,
         "UPDATE shift_assignment SET status='CANCELLED',cancellation_reason=$2 WHERE id=$1 RETURNING *",
@@ -134,16 +144,22 @@ export function registerWorkforce(app: FastifyInstance, db: Database, restaurant
         const now = Date.now(),
           start = new Date(a.starts_at).getTime(),
           end = new Date(a.ends_at).getTime();
+        const { policy } = await readPolicy(c, restaurant);
+        const previous = (
+          await c.query('SELECT * FROM attendance_record WHERE assignment_id=$1', [a.id])
+        ).rows[0];
+        if (action === 'check-in' && previous?.checked_in_at) return previous;
+        if (action === 'check-out' && previous?.checked_out_at) return previous;
         if (action === 'check-in') {
-          if (now < start - 30 * 60000 || now > end)
-            reject('Chỉ vào ca từ 30 phút trước giờ bắt đầu đến giờ kết thúc.');
+          if (now < start - Number(policy.CLOCK_IN_EARLY_MINUTES) * 60000 || now > end)
+            reject('Chưa đến cửa sổ vào ca hoặc ca đã kết thúc.');
           return one(
             c,
             'INSERT INTO attendance_record(restaurant_id,assignment_id,checked_in_at) VALUES($1,$2,clock_timestamp()) RETURNING *',
             [restaurant, a.id],
           );
         }
-        if (now > end + 24 * 3600000)
+        if (now > end + Number(policy.CLOCK_OUT_LATE_MINUTES) * 60000)
           reject('Đã quá hạn tự ghi nhận ra ca. Hãy liên hệ quản trị để duyệt công.');
         return one(
           c,
@@ -191,6 +207,29 @@ export function registerWorkforce(app: FastifyInstance, db: Database, restaurant
       await assertOpenPeriod(c, restaurant, a.starts_at);
       const minutes = integer(b.minutes, 0, 960),
         note = text(b.note, 500);
+      const outcome =
+        b.outcome === undefined ? (minutes === 0 ? 'ABSENT' : 'MISSED_CLOCK') : text(b.outcome);
+      if (!['WORKED', 'ABSENT', 'LEAVE', 'MISSED_CLOCK'].includes(outcome))
+        reject('Chọn loại giờ công hợp lệ.', 400);
+      if (
+        (['ABSENT', 'LEAVE'].includes(outcome) && minutes !== 0) ||
+        (['WORKED', 'MISSED_CLOCK'].includes(outcome) && minutes === 0)
+      )
+        reject('Vắng/nghỉ cần 0 phút; làm việc hoặc bổ sung chấm công cần số phút lớn hơn 0.', 400);
+      const prior = (
+        await c.query('SELECT * FROM attendance_record WHERE assignment_id=$1', [a.id])
+      ).rows[0];
+      if (prior?.status === 'APPROVED') {
+        if (
+          prior.approved_minutes === minutes &&
+          prior.outcome === outcome &&
+          prior.review_note === note
+        )
+          return prior;
+        reject('Giờ công đã được duyệt; không được ghi đè.');
+      }
+      if (outcome === 'WORKED' && (!prior?.checked_in_at || !prior?.checked_out_at))
+        reject('Thiếu giờ vào/ra. Chọn bổ sung chấm công và ghi rõ lý do.', 400);
       const rate = await one(
         c,
         'SELECT hourly_rate FROM employee_pay_rate WHERE user_id=$1 AND effective_from<=$2 ORDER BY effective_from DESC LIMIT 1',
@@ -202,7 +241,7 @@ export function registerWorkforce(app: FastifyInstance, db: Database, restaurant
       );
       return one(
         c,
-        "UPDATE attendance_record SET status='APPROVED',approved_minutes=$2,hourly_rate_snapshot=$3,amount=$4,approved_by=$5,approved_at=now(),review_note=$6 WHERE assignment_id=$1 AND status='RECORDED' RETURNING *",
+        "UPDATE attendance_record SET status='APPROVED',approved_minutes=$2,hourly_rate_snapshot=$3,amount=$4,approved_by=$5,approved_at=now(),review_note=$6,outcome=$7 WHERE assignment_id=$1 AND status='RECORDED' RETURNING *",
         [
           a.id,
           minutes,
@@ -210,6 +249,7 @@ export function registerWorkforce(app: FastifyInstance, db: Database, restaurant
           ((BigInt(minutes) * BigInt(rate.hourly_rate) + 30n) / 60n).toString(),
           r.identity!.id,
           note,
+          outcome,
         ],
       );
     }),

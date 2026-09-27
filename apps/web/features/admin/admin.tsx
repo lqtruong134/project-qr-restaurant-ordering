@@ -1,4 +1,5 @@
 'use client';
+import { ProductImage } from './product-image';
 import { useCallback, useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import WorkforcePanel from '../workforce/workforce-panel';
@@ -191,7 +192,7 @@ export default function Admin() {
     [tab, setTab] = useState('overview'),
     [search, setSearch] = useState(''),
     [editTable, setEditTable] = useState<Row>(),
-    [qr, setQr] = useState<{ image: string; url: string; table: string }>(),
+    [qr, setQr] = useState<{ image: string; url: string; table: string; area?: string }>(),
     [copyMessage, setCopyMessage] = useState(''),
     [navCollapsed, setNavCollapsed] = useState(false);
   const refresh = useCallback(async () => {
@@ -392,6 +393,24 @@ export default function Admin() {
                           options: options(data.catalog.categories),
                         },
                         {
+                          key: 'stockManaged',
+                          label: 'Quản lý nguyên liệu theo công thức',
+                          value: 'true',
+                          options: [
+                            { value: 'true', label: 'Có' },
+                            { value: 'false', label: 'Không' },
+                          ],
+                        },
+                        {
+                          key: 'complimentary',
+                          label: 'Món miễn phí / tặng',
+                          value: 'false',
+                          options: [
+                            { value: 'false', label: 'Không' },
+                            { value: 'true', label: 'Có' },
+                          ],
+                        },
+                        {
                           key: 'price',
                           label: 'Giá bán (đồng)',
                           type: 'number',
@@ -399,7 +418,13 @@ export default function Admin() {
                           step: '1',
                         },
                       ]}
-                      onSubmit={(v) => save('/core/products', v)}
+                      onSubmit={(v) =>
+                        save('/core/products', {
+                          ...v,
+                          stockManaged: v.stockManaged !== 'false',
+                          complimentary: v.complimentary === 'true',
+                        })
+                      }
                     />
                   </div>
                 </details>
@@ -419,6 +444,22 @@ export default function Admin() {
                           </span>
                         </span>
                       </summary>
+                      <ProductImage
+                        save={(imageUrl) =>
+                          save(
+                            '/core/products/' + p.id,
+                            {
+                              name: p.name,
+                              price: p.base_price,
+                              active: p.is_active,
+                              availability: p.availability_status,
+                              version: p.version,
+                              imageUrl,
+                            },
+                            'PATCH',
+                          )
+                        }
+                      />
                       <EntryForm
                         key={p.version}
                         title="Chỉnh sửa món"
@@ -437,10 +478,22 @@ export default function Admin() {
                             optional: true,
                           },
                           {
-                            key: 'imageUrl',
-                            label: 'Địa chỉ ảnh HTTPS hoặc /menu/…',
-                            value: String(p.image_url ?? ''),
-                            optional: true,
+                            key: 'stockManaged',
+                            label: 'Quản lý nguyên liệu theo công thức',
+                            value: String(p.stock_managed),
+                            options: [
+                              { value: 'true', label: 'Có' },
+                              { value: 'false', label: 'Không' },
+                            ],
+                          },
+                          {
+                            key: 'complimentary',
+                            label: 'Món miễn phí / tặng',
+                            value: String(p.is_complimentary),
+                            options: [
+                              { value: 'false', label: 'Không' },
+                              { value: 'true', label: 'Có' },
+                            ],
                           },
                           {
                             key: 'price',
@@ -472,7 +525,13 @@ export default function Admin() {
                         onSubmit={(v) =>
                           save(
                             '/core/products/' + p.id,
-                            { ...v, active: v.active === 'true', version: p.version },
+                            {
+                              ...v,
+                              active: v.active === 'true',
+                              stockManaged: v.stockManaged === 'true',
+                              complimentary: v.complimentary === 'true',
+                              version: p.version,
+                            },
                             'PATCH',
                           )
                         }
@@ -531,6 +590,11 @@ export default function Admin() {
                               image: await QRCode.toDataURL(url, { width: 320, margin: 4 }),
                               url,
                               table: String(t.name),
+                              area: String(
+                                t.area_name ??
+                                  data?.areas.find((a) => a.id === t.area_id)?.name ??
+                                  '',
+                              ),
                             });
                           }}
                         >
@@ -553,6 +617,11 @@ export default function Admin() {
                               image: await QRCode.toDataURL(url, { width: 320, margin: 4 }),
                               url,
                               table: result.table ?? String(t.name),
+                              area: String(
+                                t.area_name ??
+                                  data?.areas.find((a) => a.id === t.area_id)?.name ??
+                                  '',
+                              ),
                             });
                             setError('');
                           }}
@@ -570,6 +639,7 @@ export default function Admin() {
                     <div className="core-qr">
                       <p className="eyebrow">MÃ BÀN DÀNH CHO KHÁCH</p>
                       <h2>Quyết Trường Bistro · {qr.table}</h2>
+                      {qr.area && <p>Khu vực: {qr.area}</p>}
                       <p>
                         Đặt mã QR ở vị trí dễ nhìn, phẳng và đủ sáng. Khách chỉ cần mở camera, quét
                         mã rồi chọn món tại bàn.

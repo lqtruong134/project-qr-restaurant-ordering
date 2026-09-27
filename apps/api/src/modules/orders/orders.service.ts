@@ -1,3 +1,4 @@
+import { readPolicy } from '../risk/policy.service.js';
 import {
   type Connection,
   type Actor,
@@ -58,7 +59,7 @@ export async function submit(
         `SELECT p.* FROM product p JOIN menu_category m ON m.id=p.category_id WHERE p.id=$1 AND p.restaurant_id=$2 AND p.is_active AND m.is_active AND p.availability_status='AVAILABLE' FOR SHARE OF p`,
         [uuid(row.productId), restaurant],
       );
-      const quantity = integer(row.quantity, 1, 100);
+      const quantity = integer(row.quantity, 1, 99);
       const amount = BigInt(p.base_price) * BigInt(quantity);
       if (actor.type === 'GUEST' && String(row.price) !== String(p.base_price))
         reject('Giá món đã thay đổi. Vui lòng chọn lại món với giá mới.');
@@ -71,23 +72,7 @@ export async function submit(
         note: row.note ? text(row.note, 300) : null,
       });
     }
-    const settings = (
-      await c.query(
-        'SELECT DISTINCT ON(config_key) config_key,value_json,version_no FROM risk_policy_config WHERE restaurant_id=$1 AND effective_from<=now() ORDER BY config_key,version_no DESC',
-        [restaurant],
-      )
-    ).rows;
-    const policy: Record<string, unknown> = {
-      FIRST_ORDER_REVIEW_ENABLED: true,
-      LINE_QTY_REVIEW: 5,
-      LINE_QTY_HARD_LIMIT: 20,
-      ORDER_TOTAL_QTY_REVIEW: 15,
-      ORDER_TOTAL_QTY_HARD_LIMIT: 50,
-      ORDER_AMOUNT_REVIEW_VND: 2000000,
-      ORDER_AMOUNT_HARD_LIMIT_VND: 10000000,
-      SESSION_AMOUNT_REVIEW_VND: 5000000,
-    };
-    for (const setting of settings) policy[setting.config_key] = setting.value_json;
+    const { policy, version } = await readPolicy(c, restaurant);
     const reasons: string[] = [];
     if (actor.type === 'GUEST') {
       if (
@@ -101,11 +86,7 @@ export async function submit(
         `SELECT count(*) FILTER(WHERE status NOT IN ('REJECTED','CANCELLED','PENDING_REVIEW'))::int AS count,COALESCE(sum(total_amount) FILTER(WHERE status NOT IN ('REJECTED','CANCELLED')),0) AS total,max(created_at) AS last FROM order_batch WHERE session_id=$1`,
         [sid],
       );
-      if (
-        policy.FIRST_ORDER_REVIEW_ENABLED &&
-        s.verification_status === 'UNVERIFIED' &&
-        metrics.count === 0
-      )
+      if (policy.FIRST_ORDER_REVIEW_ENABLED && s.verification_status === 'UNVERIFIED')
         reasons.push('FIRST_UNVERIFIED_ORDER');
       if (qty >= Number(policy.ORDER_TOTAL_QTY_REVIEW)) reasons.push('QUANTITY');
       if (lines.some((l) => l.quantity >= Number(policy.LINE_QTY_REVIEW)))
@@ -118,17 +99,24 @@ export async function submit(
         `SELECT count(*)::int AS count,count(*) FILTER(WHERE created_at>now()-interval '60 seconds')::int AS minute,max(created_at) AS last FROM order_batch WHERE created_by_participant_id=$1 AND created_at>now()-interval '5 minutes'`,
         [actor.id],
       );
-      if (recent.last && Date.now() - new Date(recent.last).getTime() < 3000)
-        reject('Vui lòng chờ ít nhất 3 giây giữa hai lượt gửi.', 429);
-      if (recent.count >= 5)
+      if (
+        recent.last &&
+        Date.now() - new Date(recent.last).getTime() <
+          Number(policy.ORDER_MIN_INTERVAL_SECONDS) * 1000
+      )
+        reject(
+          'Vui lòng chờ ít nhất ' + policy.ORDER_MIN_INTERVAL_SECONDS + ' giây giữa hai lượt gửi.',
+          429,
+        );
+      if (recent.count >= Number(policy.GUEST_5MIN_HARD_LIMIT))
         throw Object.assign(new Error('Quá nhiều lượt gọi trong 5 phút.'), { blockGuest: true });
-      if (recent.minute >= 2) reasons.push('GUEST_RATE');
+      if (recent.minute >= Number(policy.GUEST_MINUTE_REVIEW)) reasons.push('GUEST_RATE');
       const sessionRate = await one(
         c,
         "SELECT count(*)::int AS n FROM order_batch WHERE session_id=$1 AND created_at>now()-interval '60 seconds'",
         [sid],
       );
-      if (sessionRate.n >= 7) reasons.push('SESSION_RATE');
+      if (sessionRate.n >= Number(policy.SESSION_MINUTE_REVIEW)) reasons.push('SESSION_RATE');
       const duplicate = await c.query(
         `SELECT b.id FROM order_batch b WHERE b.session_id=$1 AND b.created_by_participant_id=$2 AND b.created_at>now()-interval '120 seconds' AND b.status NOT IN ('REJECTED','CANCELLED') AND (SELECT jsonb_agg(jsonb_build_object('id',i.product_id,'qty',i.quantity) ORDER BY i.product_id,i.quantity) FROM order_item i WHERE i.order_batch_id=b.id)=$3::jsonb`,
         [
@@ -157,13 +145,13 @@ export async function submit(
         status,
         total.toString(),
         review ? 'REVIEW' : 'ALLOW',
-        Math.max(1, ...settings.map((v) => Number(v.version_no))),
+        version,
       ],
     );
     for (const l of lines) {
       const item = await one(
         c,
-        `INSERT INTO order_item(order_batch_id,owner_participant_id,product_id,product_name_snapshot,quantity,unit_price_snapshot,line_total,note) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+        `INSERT INTO order_item(order_batch_id,owner_participant_id,product_id,product_name_snapshot,quantity,unit_price_snapshot,line_total,note,stock_managed_snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
         [
           batch.id,
           actor.type === 'GUEST' ? actor.id : null,
@@ -173,6 +161,7 @@ export async function submit(
           l.product.base_price,
           l.amount,
           l.note,
+          l.product.stock_managed,
         ],
       );
       await reserve(c, item.id, l.product.id, l.quantity, restaurant, review);
@@ -190,8 +179,8 @@ export async function submit(
     );
     if (review)
       await c.query(
-        "INSERT INTO order_review(order_batch_id,expires_at) VALUES($1,now()+interval '10 minutes')",
-        [batch.id],
+        "INSERT INTO order_review(order_batch_id,expires_at) VALUES($1,now()+$2::int*interval '1 minute')",
+        [batch.id, Number(policy.REVIEW_TTL_MINUTES)],
       );
     else await addCharges(c, batch.id, sid);
     await history(c, batch.id, null, null, status, actor);

@@ -1,6 +1,10 @@
 'use client';
+import { useState } from 'react';
+import Receipt, { type Bill } from '../workspace/receipt';
+import { Modal } from '../shared/primitives';
+import { OrderExceptions } from './order-exceptions';
 import type { AdminData, SaveAdmin } from './admin-types';
-import { EntryForm, vnd, label } from '../shared/components';
+import { Action, api, EntryForm, vnd, label, type Row } from '../shared/components';
 export default function ReportsPanel({
   data,
   save,
@@ -8,6 +12,7 @@ export default function ReportsPanel({
   data: Pick<AdminData, 'reports' | 'outstanding'>;
   save: SaveAdmin;
 }) {
+  const [detail, setDetail] = useState<{ bill: Bill; exceptions: Row[] } | null>(null);
   const totalSales = data.reports.sales.reduce(
     (sum, row) => sum + BigInt(String(row.sales ?? 0)),
     0n,
@@ -22,6 +27,86 @@ export default function ReportsPanel({
   );
   return (
     <>
+      {detail && (
+        <Modal title="Chi tiết đối soát phiên bàn" wide close={() => setDetail(null)}>
+          <Receipt bill={detail.bill} visible />
+          <h3>Lịch sử xử lý ngoại lệ</h3>
+          {detail.exceptions.length ? (
+            detail.exceptions.map((e, i) => (
+              <p key={i}>
+                {String(e.reason)} · {String(e.display_name)} ·{' '}
+                {new Date(String(e.created_at)).toLocaleString('vi-VN')}
+              </p>
+            ))
+          ) : (
+            <p>Không có xử lý ngoại lệ.</p>
+          )}
+        </Modal>
+      )}
+      <OrderExceptions />
+      <details className="core-card" open>
+        <summary>Đối chiếu theo từng phiên bàn · toàn bộ lịch sử</summary>
+        <p>
+          Còn phải thu = khoản phải thu − tiền đã thu + tiền đã hoàn − tổn thất đã chấp nhận. Số âm
+          thể hiện còn tiền cần hoàn. Tiền khách đưa và tiền thừa không cộng vào doanh số.
+        </p>
+        <div className="core-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Bàn / phiếu</th>
+                <th>Phải thu</th>
+                <th>Đã thu</th>
+                <th>Đã hoàn</th>
+                <th>Đã miễn/hủy</th>
+                <th>Write-off</th>
+                <th>Tổn thất nguyên liệu</th>
+                <th>Số dư đối chiếu</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data.reports.reconciliation ?? []).map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    {String(row.table_code)}
+                    <br />
+                    {String(row.receipt_number ?? row.id.slice(0, 8))}
+                    <Action
+                      run={async () =>
+                        setDetail(
+                          await api<{ bill: Bill; exceptions: Row[] }>(
+                            '/core/reports/sessions/' + row.id,
+                          ),
+                        )
+                      }
+                    >
+                      Xem đối soát
+                    </Action>
+                  </td>
+                  {[
+                    'payable',
+                    'collected',
+                    'refunded',
+                    'reversed',
+                    'written_off',
+                    'stock_loss',
+                  ].map((key) => (
+                    <td key={key}>{vnd(row[key])}</td>
+                  ))}
+                  <td>
+                    {vnd(
+                      BigInt(String(row.payable)) -
+                        BigInt(String(row.collected)) +
+                        BigInt(String(row.refunded)) -
+                        BigInt(String(row.written_off)),
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
       <section className="core-card report-receipt-header">
         <strong>{String(data.reports.store.name)}</strong>
         <span>{String(data.reports.store.address || 'Chưa cập nhật địa chỉ')}</span>
@@ -123,7 +208,7 @@ export default function ReportsPanel({
                 <EntryForm
                   title="Chốt xử lý"
                   fields={[{ key: 'reason', label: 'Lý do xử lý' }]}
-                  submit="Đóng hồ sơ"
+                  submit="Chấp nhận tổn thất (Write-off)"
                   onSubmit={(v) => save('/core/outstanding/' + r.id + '/write-off', v)}
                 />
               )}

@@ -117,7 +117,14 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
       path: info.outputPath('kitchen.png'),
       fullPage: true,
     });
-    await order.getByRole('button', { name: 'Đã mang ra bàn' }).click();
+    const readyGroup = staff!.locator('section.core-card').filter({
+      has: staff!.getByRole('heading', {
+        name: 'Bàn ' + code + ' · 1 món chờ mang',
+        exact: true,
+      }),
+    });
+    await readyGroup.getByLabel('Chọn tất cả món đang chờ').check();
+    await readyGroup.getByRole('button', { name: 'Đã phục vụ 1 món', exact: true }).click();
     await expect(guest!.getByText('Đã phục vụ', { exact: true })).toBeVisible();
     await guest!
       .getByRole('navigation', { name: 'Điều hướng khách' })
@@ -186,6 +193,17 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
         true,
       );
     }
+    await admin!.goto('/workspace/admin');
+    await admin!.getByRole('button', { name: 'Báo cáo', exact: true }).click();
+    await admin!
+      .getByRole('row')
+      .filter({ hasText: code })
+      .getByRole('button', { name: 'Xem đối soát' })
+      .click();
+    await expect(admin!.getByRole('dialog')).toContainText('PHIẾU THANH TOÁN');
+    await expect(admin!.getByRole('dialog')).toContainText('Giờ vào');
+    await expect(admin!.getByRole('dialog')).toContainText('21.000');
+    await admin!.screenshot({ path: info.outputPath('admin-reconciliation.png'), fullPage: true });
     expect(errors).toEqual([]);
   } finally {
     await Promise.all(contexts.map((c) => c.close()));

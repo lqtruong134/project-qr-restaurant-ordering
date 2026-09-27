@@ -20,7 +20,7 @@ Các kiểm thử kiểm tra đủ 24 món có thể giữ nguyên liệu cho m�
 
 ## Ảnh minh họa tạm
 
-Sáu ảnh SVG tự tạo trong `apps/web/public/menu/` tương ứng sáu nhóm món. Đây là tranh minh họa, nhiều món cùng nhóm dùng chung ảnh, không giả làm ảnh chụp món thật. Khi có ảnh riêng: đưa vào `public/menu/`, vào quản trị Thực đơn, chỉnh URL ảnh từng món (ví dụ `/menu/com-tam.jpg`). Cũng có thể dùng URL HTTPS. Không cần thay cấu trúc database. Lệnh seed chạy lại không ghi đè ảnh đã sửa.
+Sáu ảnh SVG tự tạo trong `apps/web/public/menu/` tương ứng sáu nhóm món. Đây là tranh minh họa, nhiều món cùng nhóm dùng chung ảnh, không giả làm ảnh chụp món thật. Khi có ảnh riêng: vào quản trị Thực đơn, chọn món và tải ảnh PNG/JPG/WebP tối đa 2 MB. Ảnh tải lên lưu tại vùng `var/menu-images`, cần sao lưu cùng dữ liệu khi triển khai. Ảnh minh họa có sẵn vẫn nằm trong `public/menu/`. Không cần thay cấu trúc database. Lệnh seed chạy lại không ghi đè ảnh đã sửa.
 
 ## Tham khảo cách tổ chức thực đơn
 

@@ -53,6 +53,6 @@ export async function employee(c: Connection, id: string, restaurant: string) {
   );
 }
 export const assignmentQuery = `SELECT a.*,s.name AS shift_name,s.break_minutes,u.username,u.display_name,d.name AS area_name,
- t.id AS attendance_id,t.checked_in_at,t.checked_out_at,t.status AS attendance_status,t.approved_minutes,t.hourly_rate_snapshot,t.amount,t.review_note
+ t.id AS attendance_id,t.checked_in_at,t.checked_out_at,t.status AS attendance_status,t.approved_minutes,t.hourly_rate_snapshot,t.amount,t.review_note,t.outcome
  FROM shift_assignment a JOIN work_shift s ON s.id=a.shift_id JOIN app_user u ON u.id=a.user_id
  LEFT JOIN dining_area d ON d.id=a.area_id LEFT JOIN attendance_record t ON t.assignment_id=a.id`;

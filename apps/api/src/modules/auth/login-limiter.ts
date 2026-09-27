@@ -1,6 +1,8 @@
 // In-memory, single API process only. Use shared storage before scaling to multiple instances.
-export function createLoginLimiter(limit: number, now: () => number) {
+export function createLoginLimiter(limit: number, now: () => number, windowMs = 60000) {
   if (!Number.isInteger(limit) || limit < 1) throw new Error('Invalid login limit');
+  if (!Number.isInteger(windowMs) || windowMs < 1000 || windowMs > 86400000)
+    throw new Error('Invalid login window');
   const attempts = new Map<string, { count: number; until: number }>();
   return {
     consume(username: string, ip: string) {
@@ -11,7 +13,7 @@ export function createLoginLimiter(limit: number, now: () => number) {
         return false;
       for (const key of keys) {
         const old = attempts.get(key);
-        attempts.set(key, { count: (old?.count ?? 0) + 1, until: old?.until ?? time + 60000 });
+        attempts.set(key, { count: (old?.count ?? 0) + 1, until: old?.until ?? time + windowMs });
       }
       return true;
     },

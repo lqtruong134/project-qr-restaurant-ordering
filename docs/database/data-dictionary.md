@@ -1,4 +1,4 @@
-# Từ điển dữ liệu vật lý — 53 bảng
+# Từ điển dữ liệu vật lý — 55 bảng
 
 Sinh từ metadata PostgreSQL bằng `pnpm docs:database`, không chứa bản ghi nghiệp vụ hay thông tin đăng nhập. Kiểu, giá trị mặc định và các ràng buộc bên dưới lấy trực tiếp từ database đã migrate.
 
@@ -22,6 +22,7 @@ Tài khoản nội bộ và trạng thái đăng nhập
 | auth_version | integer | Có |  | 0 | Tăng khi đăng nhập/thu hồi phiên |
 | created_at | timestamp with time zone | Có |  | now() | Thời điểm tạo UTC |
 | updated_at | timestamp with time zone | Có |  | now() | Thời điểm cập nhật UTC; trigger tự động |
+| staff_code | text | Có |  | — | — |
 
 ### Ràng buộc
 ```sql
@@ -36,6 +37,7 @@ app_user_display_name_not_null: NOT NULL display_name
 app_user_id_not_null: NOT NULL id
 app_user_password_hash_not_null: NOT NULL password_hash
 app_user_restaurant_id_not_null: NOT NULL restaurant_id
+app_user_staff_code_not_null: NOT NULL staff_code
 app_user_status_not_null: NOT NULL status
 app_user_updated_at_not_null: NOT NULL updated_at
 app_user_username_not_null: NOT NULL username
@@ -52,6 +54,7 @@ CREATE UNIQUE INDEX app_user_id_restaurant_key ON public.app_user USING btree (i
 CREATE UNIQUE INDEX app_user_pkey ON public.app_user USING btree (id);
 CREATE UNIQUE INDEX app_user_refresh_token_hash_key ON public.app_user USING btree (refresh_token_hash);
 CREATE UNIQUE INDEX app_user_restaurant_id_username_key ON public.app_user USING btree (restaurant_id, username);
+CREATE UNIQUE INDEX app_user_restaurant_staff_code ON public.app_user USING btree (restaurant_id, staff_code);
 ```
 
 ## attendance_record
@@ -74,9 +77,12 @@ CREATE UNIQUE INDEX app_user_restaurant_id_username_key ON public.app_user USING
 | review_note | text | Không |  | — | — |
 | created_at | timestamp with time zone | Có |  | now() | — |
 | updated_at | timestamp with time zone | Có |  | now() | — |
+| outcome | text | Có |  | 'WORKED'::text | — |
 
 ### Ràng buộc
 ```sql
+attendance_outcome_allowed: CHECK ((outcome = ANY (ARRAY['WORKED'::text, 'ABSENT'::text, 'LEAVE'::text, 'MISSED_CLOCK'::text])))
+attendance_outcome_minutes: CHECK (((status <> 'APPROVED'::text) OR ((outcome = ANY (ARRAY['ABSENT'::text, 'LEAVE'::text])) AND (approved_minutes = 0)) OR ((outcome = ANY (ARRAY['WORKED'::text, 'MISSED_CLOCK'::text])) AND (approved_minutes > 0))))
 attendance_record_amount_check: CHECK ((amount >= 0))
 attendance_record_approved_minutes_check: CHECK (((approved_minutes >= 0) AND (approved_minutes <= 960)))
 attendance_record_check: CHECK (((checked_out_at IS NULL) OR ((checked_in_at IS NOT NULL) AND (checked_out_at >= checked_in_at))))
@@ -90,6 +96,7 @@ attendance_record_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES res
 attendance_record_assignment_id_not_null: NOT NULL assignment_id
 attendance_record_created_at_not_null: NOT NULL created_at
 attendance_record_id_not_null: NOT NULL id
+attendance_record_outcome_not_null: NOT NULL outcome
 attendance_record_restaurant_id_not_null: NOT NULL restaurant_id
 attendance_record_status_not_null: NOT NULL status
 attendance_record_updated_at_not_null: NOT NULL updated_at
@@ -103,6 +110,45 @@ attendance_record_assignment_id_restaurant_id_key: UNIQUE (assignment_id, restau
 CREATE UNIQUE INDEX attendance_record_assignment_id_key ON public.attendance_record USING btree (assignment_id);
 CREATE UNIQUE INDEX attendance_record_assignment_id_restaurant_id_key ON public.attendance_record USING btree (assignment_id, restaurant_id);
 CREATE UNIQUE INDEX attendance_record_pkey ON public.attendance_record USING btree (id);
+```
+
+## business_audit_event
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| actor_id | uuid | Có | FK | — | — |
+| action | text | Có |  | — | — |
+| resource_type | text | Có |  | — | — |
+| resource_id | uuid | Có |  | — | — |
+| reason | text | Có |  | — | — |
+| details | jsonb | Có |  | '{}'::jsonb | — |
+| created_at | timestamp with time zone | Có |  | now() | — |
+
+### Ràng buộc
+```sql
+business_audit_event_reason_check: CHECK ((length(btrim(reason)) > 0))
+business_audit_event_actor_id_restaurant_id_fkey: FOREIGN KEY (actor_id, restaurant_id) REFERENCES app_user(id, restaurant_id)
+business_audit_event_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id)
+business_audit_event_action_not_null: NOT NULL action
+business_audit_event_actor_id_not_null: NOT NULL actor_id
+business_audit_event_created_at_not_null: NOT NULL created_at
+business_audit_event_details_not_null: NOT NULL details
+business_audit_event_id_not_null: NOT NULL id
+business_audit_event_reason_not_null: NOT NULL reason
+business_audit_event_resource_id_not_null: NOT NULL resource_id
+business_audit_event_resource_type_not_null: NOT NULL resource_type
+business_audit_event_restaurant_id_not_null: NOT NULL restaurant_id
+business_audit_event_pkey: PRIMARY KEY (id)
+```
+
+### Chỉ mục
+```sql
+CREATE UNIQUE INDEX business_audit_event_pkey ON public.business_audit_event USING btree (id);
+CREATE INDEX business_audit_resource ON public.business_audit_event USING btree (resource_type, resource_id, created_at);
 ```
 
 ## cart_item
@@ -345,6 +391,7 @@ CREATE UNIQUE INDEX pdm_item_charge ON public.financial_charge USING btree (orde
 | supplier_name_snapshot | text | Không |  | — | — |
 | created_at | timestamp(6) with time zone | Có |  | now() | — |
 | updated_at | timestamp(6) with time zone | Có |  | now() | — |
+| version | integer | Có |  | 1 | — |
 
 ### Ràng buộc
 ```sql
@@ -353,6 +400,7 @@ goods_receipt_receipt_no_check: CHECK ((length(btrim(receipt_no)) > 0))
 goods_receipt_status_check: CHECK ((status = ANY (ARRAY['DRAFT'::text, 'APPROVED'::text, 'CANCELLED'::text])))
 goods_receipt_status_check1: CHECK ((length(btrim(status)) > 0))
 goods_receipt_total_value_check: CHECK ((total_value >= 0))
+goods_receipt_version_check: CHECK ((version > 0))
 core_goods_receipt_f1: FOREIGN KEY (location_id) REFERENCES stock_location(id) ON UPDATE RESTRICT ON DELETE RESTRICT
 core_goods_receipt_f2: FOREIGN KEY (created_by) REFERENCES app_user(id) ON UPDATE RESTRICT ON DELETE RESTRICT
 core_goods_receipt_f3: FOREIGN KEY (approved_by) REFERENCES app_user(id) ON UPDATE RESTRICT ON DELETE RESTRICT
@@ -364,6 +412,7 @@ goods_receipt_receipt_no_not_null: NOT NULL receipt_no
 goods_receipt_status_not_null: NOT NULL status
 goods_receipt_total_value_not_null: NOT NULL total_value
 goods_receipt_updated_at_not_null: NOT NULL updated_at
+goods_receipt_version_not_null: NOT NULL version
 goods_receipt_pkey: PRIMARY KEY (id)
 core_tenant_check: TRIGGER DEFERRABLE
 goods_receipt_location_id_receipt_no_key: UNIQUE (location_id, receipt_no)
@@ -761,6 +810,8 @@ CREATE UNIQUE INDEX menu_category_restaurant_id_code_key ON public.menu_category
 | resolved_at | timestamp(6) with time zone | Không |  | — | — |
 | created_at | timestamp(6) with time zone | Có |  | now() | — |
 | updated_at | timestamp(6) with time zone | Có |  | now() | — |
+| resolution_note | text | Không |  | — | — |
+| resolved_by | uuid | Không | FK | — | — |
 
 ### Ràng buộc
 ```sql
@@ -775,6 +826,7 @@ operational_alert_status_check1: CHECK ((length(btrim(status)) > 0))
 core_operational_alert_f1: FOREIGN KEY (session_id) REFERENCES table_session(id) ON UPDATE RESTRICT ON DELETE RESTRICT
 core_operational_alert_f2: FOREIGN KEY (table_id) REFERENCES dining_table(id) ON UPDATE RESTRICT ON DELETE RESTRICT
 core_operational_alert_f3: FOREIGN KEY (acknowledged_by) REFERENCES app_user(id) ON UPDATE RESTRICT ON DELETE RESTRICT
+operational_alert_resolved_by_fkey: FOREIGN KEY (resolved_by) REFERENCES app_user(id) ON DELETE RESTRICT
 operational_alert_alert_type_not_null: NOT NULL alert_type
 operational_alert_created_at_not_null: NOT NULL created_at
 operational_alert_id_not_null: NOT NULL id
@@ -785,6 +837,7 @@ operational_alert_table_id_not_null: NOT NULL table_id
 operational_alert_updated_at_not_null: NOT NULL updated_at
 operational_alert_pkey: PRIMARY KEY (id)
 core_tenant_check: TRIGGER DEFERRABLE
+uat_alert_resolver_tenant: TRIGGER DEFERRABLE
 ```
 
 ### Chỉ mục
@@ -882,6 +935,11 @@ CREATE UNIQUE INDEX pdm_order_user_request ON public.order_batch USING btree (se
 | cancelled_by_participant_id | uuid | Không | FK | — | — |
 | created_at | timestamp(6) with time zone | Có |  | now() | — |
 | updated_at | timestamp(6) with time zone | Có |  | now() | — |
+| received_at | timestamp with time zone | Không |  | — | — |
+| preparation_started_at | timestamp with time zone | Không |  | — | — |
+| ready_at | timestamp with time zone | Không |  | — | — |
+| served_at | timestamp with time zone | Không |  | — | — |
+| stock_managed_snapshot | boolean | Có |  | true | — |
 
 ### Ràng buộc
 ```sql
@@ -909,6 +967,7 @@ order_item_product_id_not_null: NOT NULL product_id
 order_item_product_name_snapshot_not_null: NOT NULL product_name_snapshot
 order_item_quantity_not_null: NOT NULL quantity
 order_item_status_not_null: NOT NULL status
+order_item_stock_managed_snapshot_not_null: NOT NULL stock_managed_snapshot
 order_item_unit_price_snapshot_not_null: NOT NULL unit_price_snapshot
 order_item_updated_at_not_null: NOT NULL updated_at
 order_item_version_not_null: NOT NULL version
@@ -1474,6 +1533,44 @@ CREATE UNIQUE INDEX payroll_line_pkey ON public.payroll_line USING btree (id);
 CREATE INDEX payroll_line_slip_idx ON public.payroll_line USING btree (payroll_slip_id);
 ```
 
+## payroll_payment
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| payroll_slip_id | uuid | Có | FK | — | — |
+| amount | bigint | Có |  | — | — |
+| reference | text | Có |  | — | — |
+| paid_by | uuid | Có | FK | — | — |
+| paid_at | timestamp with time zone | Có |  | now() | — |
+
+### Ràng buộc
+```sql
+payroll_payment_amount_check: CHECK ((amount > 0))
+payroll_payment_reference_check: CHECK ((length(btrim(reference)) > 0))
+payroll_payment_paid_by_restaurant_id_fkey: FOREIGN KEY (paid_by, restaurant_id) REFERENCES app_user(id, restaurant_id)
+payroll_payment_payroll_slip_id_restaurant_id_fkey: FOREIGN KEY (payroll_slip_id, restaurant_id) REFERENCES payroll_slip(id, restaurant_id)
+payroll_payment_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id)
+payroll_payment_amount_not_null: NOT NULL amount
+payroll_payment_id_not_null: NOT NULL id
+payroll_payment_paid_at_not_null: NOT NULL paid_at
+payroll_payment_paid_by_not_null: NOT NULL paid_by
+payroll_payment_payroll_slip_id_not_null: NOT NULL payroll_slip_id
+payroll_payment_reference_not_null: NOT NULL reference
+payroll_payment_restaurant_id_not_null: NOT NULL restaurant_id
+payroll_payment_pkey: PRIMARY KEY (id)
+payroll_payment_payroll_slip_id_key: UNIQUE (payroll_slip_id)
+```
+
+### Chỉ mục
+```sql
+CREATE UNIQUE INDEX payroll_payment_payroll_slip_id_key ON public.payroll_payment USING btree (payroll_slip_id);
+CREATE UNIQUE INDEX payroll_payment_pkey ON public.payroll_payment USING btree (id);
+```
+
 ## payroll_run
 
 
@@ -1612,11 +1709,14 @@ Món ăn
 | version | integer | Có |  | 1 | Phiên bản optimistic locking |
 | created_at | timestamp with time zone | Có |  | now() | Thời điểm tạo UTC |
 | updated_at | timestamp with time zone | Có |  | now() | Thời điểm cập nhật UTC; trigger tự động |
+| stock_managed | boolean | Có |  | true | — |
+| is_complimentary | boolean | Có |  | false | — |
 
 ### Ràng buộc
 ```sql
 product_availability_status_check: CHECK ((availability_status = ANY (ARRAY['AVAILABLE'::text, 'UNAVAILABLE'::text])))
 product_base_price_check: CHECK ((base_price >= 0))
+product_free_price: CHECK (((base_price > 0) OR is_complimentary))
 product_version_check: CHECK ((version > 0))
 product_category_id_restaurant_id_fkey: FOREIGN KEY (category_id, restaurant_id) REFERENCES menu_category(id, restaurant_id) ON UPDATE RESTRICT ON DELETE RESTRICT
 product_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id) ON UPDATE RESTRICT ON DELETE RESTRICT
@@ -1627,8 +1727,10 @@ product_code_not_null: NOT NULL code
 product_created_at_not_null: NOT NULL created_at
 product_id_not_null: NOT NULL id
 product_is_active_not_null: NOT NULL is_active
+product_is_complimentary_not_null: NOT NULL is_complimentary
 product_name_not_null: NOT NULL name
 product_restaurant_id_not_null: NOT NULL restaurant_id
+product_stock_managed_not_null: NOT NULL stock_managed
 product_updated_at_not_null: NOT NULL updated_at
 product_version_not_null: NOT NULL version
 product_pkey: PRIMARY KEY (id)
@@ -1749,6 +1851,7 @@ CREATE UNIQUE INDEX recipe_bom_item_recipe_bom_id_ingredient_id_key ON public.re
 | evidence_ref | text | Không |  | — | — |
 | created_at | timestamp(6) with time zone | Có |  | now() | — |
 | updated_at | timestamp(6) with time zone | Có |  | now() | — |
+| request_key | text | Không |  | — | — |
 
 ### Ràng buộc
 ```sql
@@ -1779,6 +1882,7 @@ CREATE INDEX core_refund_case_fk3 ON public.refund_case USING btree (source_paym
 CREATE INDEX core_refund_case_fk4 ON public.refund_case USING btree (source_allocation_id);
 CREATE INDEX core_refund_case_fk5 ON public.refund_case USING btree (assigned_staff_id);
 CREATE UNIQUE INDEX refund_case_pkey ON public.refund_case USING btree (id);
+CREATE UNIQUE INDEX refund_case_request_key ON public.refund_case USING btree (session_id, request_key) WHERE (request_key IS NOT NULL);
 ```
 
 ## refund_transaction
@@ -1797,6 +1901,7 @@ CREATE UNIQUE INDEX refund_case_pkey ON public.refund_case USING btree (id);
 | processed_at | timestamp(6) with time zone | Không |  | — | — |
 | created_at | timestamp(6) with time zone | Có |  | now() | — |
 | updated_at | timestamp(6) with time zone | Có |  | now() | — |
+| request_key | text | Không |  | — | — |
 
 ### Ràng buộc
 ```sql
@@ -1822,9 +1927,9 @@ core_tenant_check: TRIGGER DEFERRABLE
 
 ### Chỉ mục
 ```sql
-CREATE UNIQUE INDEX core_refund_success ON public.refund_transaction USING btree (refund_case_id) WHERE (status = 'SUCCEEDED'::text);
 CREATE INDEX core_refund_transaction_fk1 ON public.refund_transaction USING btree (refund_case_id);
 CREATE INDEX core_refund_transaction_fk2 ON public.refund_transaction USING btree (processed_by);
+CREATE UNIQUE INDEX refund_request_once ON public.refund_transaction USING btree (refund_case_id, request_key) WHERE (request_key IS NOT NULL);
 CREATE UNIQUE INDEX refund_transaction_pkey ON public.refund_transaction USING btree (id);
 ```
 
@@ -2314,6 +2419,7 @@ Phiên phục vụ tại bàn
 | receipt_number | text | Không |  | — | — |
 | closed_by | uuid | Không | FK | — | — |
 | receipt_snapshot | jsonb | Không |  | — | — |
+| verified_by | uuid | Không | FK | — | — |
 
 ### Ràng buộc
 ```sql
@@ -2327,6 +2433,7 @@ table_session_verification_status_check: CHECK ((verification_status = ANY (ARRA
 table_session_version_check: CHECK ((version > 0))
 table_session_closed_by_fkey: FOREIGN KEY (closed_by) REFERENCES app_user(id)
 table_session_table_id_fkey: FOREIGN KEY (table_id) REFERENCES dining_table(id) ON UPDATE RESTRICT ON DELETE RESTRICT
+table_session_verified_by_fkey: FOREIGN KEY (verified_by) REFERENCES app_user(id) ON DELETE RESTRICT
 table_session_created_at_not_null: NOT NULL created_at
 table_session_financial_status_not_null: NOT NULL financial_status
 table_session_id_not_null: NOT NULL id
@@ -2339,6 +2446,7 @@ table_session_verification_status_not_null: NOT NULL verification_status
 table_session_version_not_null: NOT NULL version
 table_session_pkey: PRIMARY KEY (id)
 core_tenant_check: TRIGGER DEFERRABLE
+uat_verifier_tenant: TRIGGER DEFERRABLE
 table_session_receipt_number_key: UNIQUE (receipt_number)
 ```
 

@@ -30,6 +30,8 @@ export async function requestApi(path: string, init: RequestInit = {}): Promise<
       .catch(() => ({}));
     const code =
       data.errorCode ?? (response.status === 401 ? 'SESSION_EXPIRED' : 'PERMISSION_DENIED');
+    if (path.startsWith('/guest/') || (path === '/auth/login' && code === 'INVALID_CREDENTIALS'))
+      return response;
     if (response.status === 401 || code === 'ACCOUNT_LOCKED') {
       failure ??= { errorCode: code, userMessage: data.userMessage ?? expired };
       notify();

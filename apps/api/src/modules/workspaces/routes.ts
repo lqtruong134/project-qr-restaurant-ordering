@@ -7,8 +7,7 @@ export function registerWorkspaces(app: FastifyInstance) {
       async (request) => ({
         area,
         user: request.identity,
-        message:
-          'Bạn đã được cấp quyền truy cập. Chức năng vận hành sẽ được bổ sung trong các Sprint sau.',
+        message: 'Bạn đã được cấp quyền truy cập không gian làm việc.',
       }),
     );
   }

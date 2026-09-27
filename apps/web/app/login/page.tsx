@@ -68,7 +68,7 @@ export default function Login() {
             required
             maxLength={256}
           />
-          <div aria-live="polite" className="form-error">
+          <div role={error ? 'alert' : undefined} aria-live="polite" className="form-error">
             {error}
           </div>
           <button className="primary-button" disabled={busy}>

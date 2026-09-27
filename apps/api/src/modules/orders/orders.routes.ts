@@ -1,3 +1,4 @@
+import { transitionItem, cancelItems } from './item-lifecycle.service.js';
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '@thesis/database';
 import {
@@ -11,8 +12,9 @@ import {
   reject,
   session,
   transaction,
+  uuid,
 } from '../shared/core-persistence.js';
-import { consume, release, releaseItem } from '../inventory/inventory.service.js';
+import { release, releaseItem } from '../inventory/inventory.service.js';
 import { submit } from './orders.service.js';
 import { addCharges, recalculate } from '../finance/ledger.service.js';
 export function registerOrders(app: FastifyInstance, db: Database, restaurant: string) {
@@ -53,7 +55,7 @@ export function registerOrders(app: FastifyInstance, db: Database, restaurant: s
   app.get('/core/orders', { config: { permission: 'staff.workspace' } }, async () =>
     db.pool
       .query(
-        `SELECT b.*,t.code AS table_code,(SELECT jsonb_agg(i ORDER BY i.created_at) FROM order_item i WHERE i.order_batch_id=b.id) AS items FROM order_batch b JOIN table_session s ON s.id=b.session_id JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND s.session_status='ACTIVE' ORDER BY b.created_at`,
+        `SELECT b.*,t.code AS table_code,a.name AS area_name,(SELECT jsonb_agg(i ORDER BY i.created_at) FROM order_item i WHERE i.order_batch_id=b.id) AS items FROM order_batch b JOIN table_session s ON s.id=b.session_id JOIN dining_table t ON t.id=s.table_id JOIN dining_area a ON a.id=t.area_id WHERE t.restaurant_id=$1 AND s.session_status='ACTIVE' ORDER BY b.created_at`,
         [restaurant],
       )
       .then((v) => v.rows),
@@ -61,7 +63,7 @@ export function registerOrders(app: FastifyInstance, db: Database, restaurant: s
   app.get('/core/kitchen', { config: { permission: 'kitchen.workspace' } }, async () =>
     db.pool
       .query(
-        `SELECT b.*,t.code AS table_code,(SELECT jsonb_agg(i ORDER BY i.created_at) FROM order_item i WHERE i.order_batch_id=b.id) AS items FROM order_batch b JOIN table_session s ON s.id=b.session_id JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND b.status IN ('SUBMITTED','ACCEPTED','IN_PROGRESS') ORDER BY b.submitted_at`,
+        `SELECT b.*,t.code AS table_code,a.name AS area_name,(SELECT jsonb_agg(i ORDER BY i.created_at) FROM order_item i WHERE i.order_batch_id=b.id) AS items FROM order_batch b JOIN table_session s ON s.id=b.session_id JOIN dining_table t ON t.id=s.table_id JOIN dining_area a ON a.id=t.area_id WHERE t.restaurant_id=$1 AND b.status IN ('SUBMITTED','ACCEPTED','IN_PROGRESS') ORDER BY b.submitted_at`,
         [restaurant],
       )
       .then((v) => v.rows),
@@ -157,11 +159,11 @@ export function registerOrders(app: FastifyInstance, db: Database, restaurant: s
       if (approve && expired) reject('Yêu cầu duyệt đã hết hạn.');
       if (approve) {
         const invalid = await c.query(
-          `SELECT i.id FROM order_item i JOIN product p ON p.id=i.product_id JOIN menu_category m ON m.id=p.category_id WHERE i.order_batch_id=$1 AND (NOT p.is_active OR NOT m.is_active OR p.availability_status<>'AVAILABLE' OR p.base_price<>i.unit_price_snapshot)`,
+          `SELECT i.id FROM order_item i JOIN product p ON p.id=i.product_id JOIN menu_category m ON m.id=p.category_id WHERE i.order_batch_id=$1 AND i.status='SUBMITTED' AND (NOT p.is_active OR NOT m.is_active OR p.availability_status<>'AVAILABLE')`,
           [id],
         );
         if (invalid.rowCount)
-          reject('Món hoặc giá đã thay đổi. Từ chối lượt này và yêu cầu khách đặt lại.');
+          reject('Món đã ngừng phục vụ. Từ chối lượt này và yêu cầu khách chọn món khác.');
         await c.query(
           "UPDATE inventory_reservation SET status='ACTIVE',reservation_type='CONFIRMED',expires_at=NULL WHERE order_item_id IN (SELECT id FROM order_item WHERE order_batch_id=$1) AND status='PROVISIONAL'",
           [id],
@@ -170,7 +172,7 @@ export function registerOrders(app: FastifyInstance, db: Database, restaurant: s
       } else {
         await release(c, id);
         await c.query(
-          "UPDATE order_item SET status='CANCELLED',cancel_reason=$2,cancelled_by_type='USER',cancelled_by_user_id=$3,version=version+1 WHERE order_batch_id=$1",
+          "UPDATE order_item SET status='CANCELLED',cancel_reason=$2,cancelled_by_type='USER',cancelled_by_user_id=$3,version=version+1 WHERE order_batch_id=$1 AND status='SUBMITTED'",
           [id, text(b.reason, 300), r.identity!.id],
         );
       }
@@ -198,57 +200,77 @@ export function registerOrders(app: FastifyInstance, db: Database, restaurant: s
   app.post('/core/orders/:id/accept', { config: { permission: 'kitchen.workspace' } }, async (r) =>
     transaction(db, async (c) => {
       const id = idParam(r),
-        e = await one(c, 'SELECT session_id FROM order_batch WHERE id=$1', [id]);
-      await session(c, e.session_id, restaurant);
-      const batch = await one(c, 'SELECT * FROM order_batch WHERE id=$1 FOR UPDATE', [id]);
-      if (batch.status !== 'SUBMITTED') reject('Bếp chỉ tiếp nhận lượt đã được gửi duyệt hợp lệ.');
-      await c.query(
-        "UPDATE order_batch SET status='ACCEPTED',accepted_at=now(),version=version+1 WHERE id=$1",
-        [id],
-      );
-      await c.query(
-        "UPDATE order_item SET status='ACCEPTED',version=version+1 WHERE order_batch_id=$1 AND status='SUBMITTED'",
-        [id],
-      );
-      await history(c, id, null, 'SUBMITTED', 'ACCEPTED', { type: 'USER', id: r.identity!.id });
-      await event(c, id, 'ORDER_ACCEPTED');
+        batch = await one(c, 'SELECT session_id FROM order_batch WHERE id=$1', [id]);
+      await session(c, batch.session_id, restaurant);
+      const items = (
+        await c.query(
+          "SELECT id FROM order_item WHERE order_batch_id=$1 AND status='SUBMITTED' ORDER BY id",
+          [id],
+        )
+      ).rows;
+      if (!items.length) reject('Không còn món chờ bếp nhận.');
+      for (const i of items)
+        await transitionItem(c, i.id, restaurant, { type: 'USER', id: r.identity!.id }, 'accept');
+      await c.query('UPDATE order_batch SET accepted_at=COALESCE(accepted_at,now()) WHERE id=$1', [
+        id,
+      ]);
       return { status: 'ok' };
     }),
   );
-  for (const [action, permission, from, to] of [
-    ['prepare', 'kitchen.workspace', 'ACCEPTED', 'IN_PREPARATION'],
-    ['ready', 'kitchen.workspace', 'IN_PREPARATION', 'READY'],
-    ['serve', 'staff.workspace', 'READY', 'SERVED'],
-  ]) {
-    app.post('/core/items/:id/' + action, { config: { permission: permission! } }, async (r) =>
-      transaction(db, async (c) => {
-        const id = idParam(r),
-          i = await one(
-            c,
-            'SELECT i.*,b.session_id FROM order_item i JOIN order_batch b ON b.id=i.order_batch_id WHERE i.id=$1',
-            [id],
-          );
-        await session(c, i.session_id, restaurant);
-        const item = await one(c, 'SELECT * FROM order_item WHERE id=$1 FOR UPDATE', [id]);
-        if (item.status !== from) reject('Trạng thái món đã thay đổi.');
-        if (action === 'prepare') await consume(c, id, r.identity!.id);
-        await c.query('UPDATE order_item SET status=$2,version=version+1 WHERE id=$1', [id, to]);
-        const remaining = await one(
-          c,
-          "SELECT count(*)::int AS n FROM order_item WHERE order_batch_id=$1 AND status NOT IN ('SERVED','CANCELLED','UNAVAILABLE')",
-          [item.order_batch_id],
-        );
-        await c.query('UPDATE order_batch SET status=$2,version=version+1 WHERE id=$1', [
-          item.order_batch_id,
-          remaining.n === 0 ? 'COMPLETED' : 'IN_PROGRESS',
-        ]);
-        await history(c, item.order_batch_id, id, item.status, to!, {
-          type: 'USER',
-          id: r.identity!.id,
-        });
-        await event(c, item.order_batch_id, 'ITEM_' + to);
-        return { status: 'ok' };
-      }),
+  for (const action of ['accept', 'prepare', 'ready', 'serve']) {
+    app.post(
+      '/core/items/:id/' + action,
+      { config: { permission: action === 'serve' ? 'staff.workspace' : 'kitchen.workspace' } },
+      async (r) =>
+        transaction(db, (c) =>
+          transitionItem(c, idParam(r), restaurant, { type: 'USER', id: r.identity!.id }, action),
+        ),
     );
   }
+  app.post(
+    '/core/sessions/:id/serve-items',
+    { config: { permission: 'staff.workspace' } },
+    async (r) =>
+      transaction(db, async (c) => {
+        const sid = idParam(r),
+          b = object(r.body);
+        await session(c, sid, restaurant);
+        if (!Array.isArray(b.itemIds) || !b.itemIds.length || b.itemIds.length > 100)
+          reject('Chọn 1–100 món.', 400);
+        const ids = b.itemIds.map(uuid);
+        if (new Set(ids).size !== ids.length) reject('Món bị chọn trùng.', 400);
+        const rows = (
+          await c.query(
+            'SELECT i.id FROM order_item i JOIN order_batch b ON b.id=i.order_batch_id WHERE i.id=ANY($1::uuid[]) AND b.session_id=$2',
+            [ids, sid],
+          )
+        ).rows;
+        if (rows.length !== ids.length)
+          reject('Chỉ được phục vụ món thuộc phiên bàn đang chọn.', 400);
+        for (const id of ids.sort())
+          await transitionItem(c, id, restaurant, { type: 'USER', id: r.identity!.id }, 'serve');
+        return { status: 'ok', served: ids };
+      }),
+  );
+  for (const audience of ['core', 'guest'])
+    app.post(
+      '/' + audience + '/items/cancel',
+      { config: audience === 'guest' ? { public: true } : { permission: 'staff.workspace' } },
+      async (r) =>
+        transaction(db, async (c) => {
+          const b = object(r.body);
+          if (!Array.isArray(b.itemIds) || !b.itemIds.length || b.itemIds.length > 100)
+            reject('Chọn 1–100 món.', 400);
+          const ids = b.itemIds.map(uuid);
+          if (new Set(ids).size !== ids.length) reject('Món bị chọn trùng.', 400);
+          const p = audience === 'guest' ? await guest(c, r, restaurant) : null;
+          return cancelItems(
+            c,
+            ids,
+            restaurant,
+            p ? { type: 'GUEST', id: p.id } : { type: 'USER', id: r.identity!.id },
+            p ? (b.reason ? text(b.reason, 300) : 'Khách hủy món') : text(b.reason, 300),
+          );
+        }),
+    );
 }

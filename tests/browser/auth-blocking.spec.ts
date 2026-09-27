@@ -29,17 +29,18 @@ test('global locked screen removes business data, traps escape, and has a single
   await page.getByRole('button', { name: 'Về trang đăng nhập' }).click();
   await expect(page).toHaveURL(/login/);
 });
-test('incorrect login blocks and permission denial keeps authenticated workspace', async ({
+test('incorrect login preserves input and permission denial keeps authenticated workspace', async ({
   page,
 }) => {
   await page.goto('/login');
   await page.locator('#username').fill('pv003');
   await page.locator('#password').fill('incorrect');
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
-  await expect(page.getByRole('dialog')).toContainText(
-    'Tên đăng nhập hoặc mật khẩu không chính xác.',
-  );
-  await page.getByRole('button', { name: 'Về trang đăng nhập' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('#username')).toHaveValue('pv003');
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Tên đăng nhập hoặc mật khẩu không chính xác.' }),
+  ).toBeVisible();
   await page.locator('#username').fill('pv003');
   await page.locator('#password').fill(process.env.SEED_PASSWORD!);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();

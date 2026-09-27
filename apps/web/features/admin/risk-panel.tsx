@@ -14,8 +14,8 @@ export default function RiskPanel({
       <p>Các thay đổi áp dụng cho lượt gửi tiếp theo. Đơn cũ giữ kết quả đánh giá tại lúc gửi.</p>
       <div className="risk-intro-grid">
         <article className="core-card">
-          <h3>Duyệt lượt đầu</h3>
-          <p>Giảm rủi ro khách chưa xác minh gọi món bất thường trong lần đầu.</p>
+          <h3>Duyệt khi chưa xác minh</h3>
+          <p>Mọi lượt gửi khi bàn chưa xác minh đều cần xét duyệt nếu bật chính sách này.</p>
         </article>
         <article className="core-card">
           <h3>Ngưỡng cảnh báo</h3>
@@ -44,7 +44,17 @@ export default function RiskPanel({
                     { value: 'false', label: 'Tắt' },
                   ],
                 }
-              : { type: 'number', min: 1, step: '1' }),
+              : {
+                  type: 'number',
+                  min: [
+                    'SHIFT_MAX_BREAK_MINUTES',
+                    'CLOCK_IN_EARLY_MINUTES',
+                    'CLOCK_OUT_LATE_MINUTES',
+                  ].includes(key)
+                    ? 0
+                    : 1,
+                  step: '1',
+                }),
           }))}
           onSubmit={(v) =>
             save(

@@ -1,3 +1,4 @@
+import { readPolicy } from '../risk/policy.service.js';
 import { type Connection, one, reject } from '../shared/core-persistence.js';
 export async function reserve(
   c: Connection,
@@ -7,6 +8,9 @@ export async function reserve(
   restaurant: string,
   review: boolean,
 ) {
+  const p = await one(c, 'SELECT stock_managed FROM product WHERE id=$1', [product]);
+  if (!p.stock_managed) return;
+  const { policy } = await readPolicy(c, restaurant);
   const bomResult = await c.query(
     "SELECT * FROM recipe_bom WHERE product_id=$1 AND status='ACTIVE' AND effective_from<=now() AND (effective_to IS NULL OR effective_to>now()) FOR SHARE",
     [product],
@@ -35,7 +39,7 @@ export async function reserve(
       [balance.id, line.needed],
     );
     await c.query(
-      `INSERT INTO inventory_reservation(order_item_id,ingredient_id,location_id,reservation_type,quantity,status,expires_at) VALUES($1,$2,$3,$4,$5,$6,CASE WHEN $7 THEN now()+interval '10 minutes' ELSE NULL END)`,
+      `INSERT INTO inventory_reservation(order_item_id,ingredient_id,location_id,reservation_type,quantity,status,expires_at) VALUES($1,$2,$3,$4,$5,$6,CASE WHEN $7 THEN now()+($8::int * interval '1 minute') ELSE NULL END)`,
       [
         itemId,
         line.ingredient_id,
@@ -44,6 +48,7 @@ export async function reserve(
         line.needed,
         review ? 'PROVISIONAL' : 'ACTIVE',
         review,
+        Number(policy.REVIEW_TTL_MINUTES),
       ],
     );
     await c.query(
@@ -89,7 +94,11 @@ export async function consume(c: Connection, item: string, actor: string) {
       [item],
     )
   ).rows;
-  if (!rows.length) reject('Không có giữ kho hợp lệ cho dòng món.');
+  if (!rows.length) {
+    const i = await one(c, 'SELECT stock_managed_snapshot FROM order_item WHERE id=$1', [item]);
+    if (!i.stock_managed_snapshot) return;
+    reject('Không có giữ kho hợp lệ cho dòng món.');
+  }
   for (const row of rows) {
     const balance = await one(
       c,

@@ -1,16 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '@thesis/database';
 import { object, one, reject, transaction } from '../shared/core-persistence.js';
-export const riskDefaults = {
-  FIRST_ORDER_REVIEW_ENABLED: true,
-  LINE_QTY_REVIEW: 5,
-  LINE_QTY_HARD_LIMIT: 20,
-  ORDER_TOTAL_QTY_REVIEW: 15,
-  ORDER_TOTAL_QTY_HARD_LIMIT: 50,
-  ORDER_AMOUNT_REVIEW_VND: 2000000,
-  ORDER_AMOUNT_HARD_LIMIT_VND: 10000000,
-  SESSION_AMOUNT_REVIEW_VND: 5000000,
-};
+import { riskDefaults } from './policy.service.js';
 export function registerRisk(app: FastifyInstance, db: Database, restaurant: string) {
   const config = { permission: 'admin.workspace' };
   app.get('/core/risk', { config }, async () => ({
@@ -42,12 +33,37 @@ export function registerRisk(app: FastifyInstance, db: Database, restaurant: str
         } else if (
           typeof value !== 'number' ||
           !Number.isSafeInteger(value) ||
-          value < 1 ||
+          value <
+            ([
+              'SHIFT_MAX_BREAK_MINUTES',
+              'CLOCK_IN_EARLY_MINUTES',
+              'CLOCK_OUT_LATE_MINUTES',
+            ].includes(key)
+              ? 0
+              : 1) ||
           value > 100000000000
         )
           reject('Ngưỡng phải là số nguyên dương hợp lệ.', 400);
         current[key] = value;
       }
+      if (Number(current.TABLE_MAX_CAPACITY) > 30)
+        reject('Sức chứa tối đa trong phạm vi hiện tại là 30 chỗ.', 400);
+      if (
+        Number(current.LINE_QTY_HARD_LIMIT) > 99 ||
+        Number(current.REVIEW_TTL_MINUTES) > 120 ||
+        Number(current.PAYMENT_TTL_MINUTES) > 120
+      )
+        reject('Giới hạn một dòng tối đa 99; thời hạn yêu cầu tối đa 120 phút.', 400);
+      if (
+        Number(current.SHIFT_MAX_MINUTES) > 960 ||
+        Number(current.SHIFT_MAX_BREAK_MINUTES) > 240 ||
+        Number(current.CLOCK_IN_EARLY_MINUTES) > 240 ||
+        Number(current.CLOCK_OUT_LATE_MINUTES) > 1440
+      )
+        reject(
+          'Ca tối đa 960 phút; nghỉ và vào sớm tối đa 240 phút; ra muộn tối đa 1440 phút.',
+          400,
+        );
       for (const [review, hard] of [
         ['LINE_QTY_REVIEW', 'LINE_QTY_HARD_LIMIT'],
         ['ORDER_TOTAL_QTY_REVIEW', 'ORDER_TOTAL_QTY_HARD_LIMIT'],

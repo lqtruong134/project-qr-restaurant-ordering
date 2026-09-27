@@ -1,6 +1,6 @@
-# Phạm vi triển khai hiện tại — 24/09/2026
+# Phạm vi triển khai hiện tại — 27/09/2026
 
-Một repository `qr-ordering-thesis`, nhánh `main`; không còn hai ứng dụng Sprint 1/CORE độc lập. Các migration bổ sung nâng schema nền 14 bảng lên 53 bảng và giữ kiểm thử nâng cấp dữ liệu cũ.
+Một repository `qr-ordering-thesis`, nhánh `main`; không còn hai ứng dụng Sprint 1/CORE độc lập. Các migration bổ sung nâng schema nền 14 bảng lên 55 bảng và giữ kiểm thử nâng cấp dữ liệu cũ.
 
 | Nhóm | Chức năng hiện có |
 |---|---|
@@ -22,3 +22,5 @@ Giao diện Guest/Staff/Kitchen/Admin gọi cùng API và database. Các màn v�
 - Cam kết vận hành thương mại: cần kiểm tra trên điện thoại thật, nghiệm thu nhà hàng và chuẩn bị triển khai/giám sát/sao lưu.
 
 Kiểm chứng đợt rà soát ở [bằng chứng kiểm thử](../evidence/review-2026-09-24.md). Không suy ra chất lượng từ số lượng bảng; các trường hợp nghiệp vụ được kiểm tra bằng test và dùng thử.
+
+Đợt chuẩn hóa nghiệp vụ mới: [nghiệm thu v2](../uat-v2.md).

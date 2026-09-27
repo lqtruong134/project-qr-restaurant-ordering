@@ -14,6 +14,12 @@ export async function readBill(c: Connection, s: Record<string, unknown>, restau
         [s.id],
       )
     ).rows,
+    complimentaryItems: (
+      await c.query(
+        "SELECT i.id,i.product_name_snapshot,i.quantity FROM order_item i JOIN order_batch b ON b.id=i.order_batch_id WHERE b.session_id=$1 AND i.line_total=0 AND i.status NOT IN ('CANCELLED','REJECTED','UNAVAILABLE') ORDER BY i.created_at,i.id",
+        [s.id],
+      )
+    ).rows,
     intents: (
       await c.query('SELECT * FROM payment_intent WHERE session_id=$1 ORDER BY created_at DESC', [
         s.id,
@@ -26,9 +32,18 @@ export async function readBill(c: Connection, s: Record<string, unknown>, restau
       )
     ).rows,
     refunds: (
-      await c.query('SELECT * FROM refund_case WHERE session_id=$1 ORDER BY created_at DESC', [
-        s.id,
-      ])
+      await c.query(
+        "SELECT f.*,f.amount-COALESCE((SELECT sum(t.amount) FROM refund_transaction t WHERE t.refund_case_id=f.id AND t.status='SUCCEEDED'),0) AS remaining_amount FROM refund_case f WHERE session_id=$1 ORDER BY created_at DESC",
+        [s.id],
+      )
+    ).rows,
+    refundTransactions: (
+      await c.query(
+        `SELECT t.*,u.display_name AS processed_by_name FROM refund_transaction t
+       JOIN refund_case f ON f.id=t.refund_case_id LEFT JOIN app_user u ON u.id=t.processed_by
+       WHERE f.session_id=$1 AND t.status='SUCCEEDED' ORDER BY t.processed_at,t.id`,
+        [s.id],
+      )
     ).rows,
     closedBy: s.closed_by
       ? await one(c, 'SELECT display_name,username FROM app_user WHERE id=$1', [s.closed_by])

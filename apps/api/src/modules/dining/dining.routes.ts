@@ -8,6 +8,7 @@ import {
   session,
   text,
   transaction,
+  uuid,
 } from '../shared/core-persistence.js';
 import { freezeReceipt } from '../payments/receipt.service.js';
 import { recalculate } from '../finance/ledger.service.js';
@@ -24,8 +25,8 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
       if (t.table_status !== 'AVAILABLE') reject('Bàn chưa sẵn sàng mở phiên.');
       const s = await one(
         c,
-        "INSERT INTO table_session(table_id,verification_status,verified_at) VALUES($1,'VERIFIED',now()) RETURNING *",
-        [t.id],
+        "INSERT INTO table_session(table_id,verification_status,verified_at,verified_by) VALUES($1,'VERIFIED',now(),$2) RETURNING *",
+        [t.id, r.identity!.id],
       );
       await c.query('INSERT INTO session_cart(session_id) VALUES($1)', [s.id]);
       await c.query('INSERT INTO session_financial_account(session_id) VALUES($1)', [s.id]);
@@ -41,8 +42,8 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
       const s = await session(c, idParam(r), restaurant);
       return one(
         c,
-        "UPDATE table_session SET verification_status='VERIFIED',verified_at=now(),version=version+1 WHERE id=$1 RETURNING *",
-        [s.id],
+        "UPDATE table_session SET verification_status='VERIFIED',verified_at=COALESCE(verified_at,now()),verified_by=COALESCE(verified_by,$2),version=version+1 WHERE id=$1 RETURNING *",
+        [s.id, r.identity!.id],
       );
     }),
   );
@@ -79,6 +80,60 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
         );
       }),
     );
+  app.get(
+    '/core/support-assignees',
+    { config },
+    async () =>
+      (
+        await db.pool.query(
+          `SELECT DISTINCT u.id,u.username,u.display_name FROM app_user u
+      JOIN user_role ur ON ur.user_id=u.id AND ur.revoked_at IS NULL
+      JOIN role_permission rp ON rp.role_id=ur.role_id JOIN permission p ON p.id=rp.permission_id
+      WHERE u.restaurant_id=$1 AND u.status='ACTIVE' AND p.code='staff.workspace'
+      ORDER BY u.username`,
+          [restaurant],
+        )
+      ).rows,
+  );
+  app.post('/core/support/:id/reassign', { config }, async (r) =>
+    transaction(db, async (c) => {
+      const b = object(r.body),
+        target = uuid(b.userId),
+        reason = text(b.reason, 500);
+      const x = await one(
+        c,
+        `SELECT x.* FROM support_request x JOIN table_session s ON s.id=x.session_id
+      JOIN dining_table t ON t.id=s.table_id WHERE x.id=$1 AND t.restaurant_id=$2 FOR UPDATE OF x`,
+        [idParam(r), restaurant],
+      );
+      if (x.status !== 'ACKNOWLEDGED' || x.acknowledged_by !== r.identity!.id)
+        reject('Chỉ nhân viên đang tiếp nhận được bàn giao yêu cầu.', 403);
+      if (target === r.identity!.id) reject('Chọn một đồng nghiệp khác.', 400);
+      await one(
+        c,
+        `SELECT u.id FROM app_user u JOIN user_role ur ON ur.user_id=u.id AND ur.revoked_at IS NULL
+      JOIN role_permission rp ON rp.role_id=ur.role_id JOIN permission p ON p.id=rp.permission_id
+      WHERE u.id=$1 AND u.restaurant_id=$2 AND u.status='ACTIVE' AND p.code='staff.workspace' FOR SHARE OF u`,
+        [target, restaurant],
+      );
+      await c.query(
+        `INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason,details)
+      VALUES($1,$2,'SUPPORT_REASSIGN','SUPPORT_REQUEST',$3,$4,$5)`,
+        [
+          restaurant,
+          r.identity!.id,
+          x.id,
+          reason,
+          JSON.stringify({ from: r.identity!.id, to: target }),
+        ],
+      );
+      return one(
+        c,
+        'UPDATE support_request SET acknowledged_by=$2,acknowledged_at=now() WHERE id=$1 RETURNING *',
+        [x.id, target],
+      );
+    }),
+  );
   app.post('/core/orders/:id/cancel', { config }, async (r) =>
     transaction(db, (c) =>
       cancelBatch(
@@ -102,6 +157,12 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
         [s.id],
       );
       if (Number(pending.n)) reject('Còn đơn hoặc giao dịch chưa kết thúc.');
+      const tasks = await c.query(
+        "SELECT id FROM support_request WHERE session_id=$1 AND status IN ('NEW','ACKNOWLEDGED') UNION ALL SELECT id FROM operational_alert WHERE session_id=$1 AND status<>'RESOLVED'",
+        [s.id],
+      );
+      if (tasks.rowCount)
+        reject('Còn yêu cầu hỗ trợ hoặc cảnh báo chưa hoàn tất. Hãy xử lý trước khi đóng phiên.');
       const cases = await c.query(
         "SELECT id FROM outstanding_balance_case WHERE session_id=$1 AND status NOT IN ('RECOVERED','CANCELLED','WRITTEN_OFF')",
         [s.id],
@@ -168,8 +229,8 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
       }
       return one(
         c,
-        "UPDATE operational_alert SET status='RESOLVED',resolved_at=now() WHERE id=$1 AND status='ACKNOWLEDGED' RETURNING *",
-        [a.id],
+        "UPDATE operational_alert SET status='RESOLVED',resolved_at=now(),resolved_by=$2,resolution_note=$3 WHERE id=$1 AND status='ACKNOWLEDGED' RETURNING *",
+        [a.id, r.identity!.id, text(object(r.body).reason, 500)],
       );
     }),
   );

@@ -54,8 +54,37 @@ export function Cart({
             <span>{vnd(BigInt(i.unit_price_preview) * BigInt(i.quantity))}</span>
           </div>
           {i.note && <small>{String(i.note)}</small>}
+          {i.available === false && (
+            <p className="form-error">
+              Món hoặc danh mục hiện không còn phục vụ. Bạn có thể bỏ món này.
+            </p>
+          )}
+          {i.current_price !== undefined &&
+            String(i.current_price) !== String(i.unit_price_preview) &&
+            i.owner_participant_id === state.participant.id && (
+              <div>
+                <p className="form-error">
+                  Giá mới: {vnd(i.current_price)}. Xác nhận giá mới trước khi gửi.
+                </p>
+                <Action
+                  run={() =>
+                    mutate(
+                      '/guest/cart/' + i.id,
+                      {
+                        quantity: i.quantity,
+                        note: i.note ?? '',
+                        cartVersion: state.cart.cart_version,
+                      },
+                      'PATCH',
+                    )
+                  }
+                >
+                  Đồng ý giá mới
+                </Action>
+              </div>
+            )}
           {i.owner_participant_id !== state.participant.id ? (
-            <small>Người cùng bàn chọn</small>
+            <small>{String(i.owner_name ?? 'Người cùng bàn')} chọn</small>
           ) : (
             <>
               <Action
@@ -107,26 +136,32 @@ export function Cart({
           <strong>{vnd(total)}</strong>
         </div>
       )}
-      {mine.length > 0 && (
-        <Action
-          run={async () => {
-            await api(
-              '/guest/orders',
-              {
-                requestId: key,
-                cartVersion: state.cart.cart_version,
-                itemIds: mine.map((i) => i.id),
-              },
-              'POST',
-              true,
-            );
-            setKey(requestId());
-            await done();
-          }}
-        >
-          Gửi các món của tôi
-        </Action>
-      )}
+      {mine.length > 0 &&
+        mine.every(
+          (i) =>
+            i.available !== false &&
+            (i.current_price === undefined ||
+              String(i.current_price) === String(i.unit_price_preview)),
+        ) && (
+          <Action
+            run={async () => {
+              await api(
+                '/guest/orders',
+                {
+                  requestId: key,
+                  cartVersion: state.cart.cart_version,
+                  itemIds: mine.map((i) => i.id),
+                },
+                'POST',
+                true,
+              );
+              setKey(requestId());
+              await done();
+            }}
+          >
+            Gửi các món của tôi
+          </Action>
+        )}
     </>
   );
 }

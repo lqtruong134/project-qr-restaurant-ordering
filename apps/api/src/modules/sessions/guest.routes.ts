@@ -1,3 +1,4 @@
+import { readPolicy } from '../risk/policy.service.js';
 import { randomUUID } from 'node:crypto';
 import { cancelBatch } from '../orders/cancellation.service.js';
 import type { FastifyInstance } from 'fastify';
@@ -21,6 +22,41 @@ export function registerGuest(
   secure: boolean,
 ) {
   const config = { public: true };
+  app.post('/guest/qr-info', { config }, async (r) => {
+    const token = text(object(r.body).token, 128);
+    const result = await db.pool.query(
+      `SELECT t.name AS table_name,t.code AS table_code,a.name AS area_name,r.name AS restaurant_name FROM table_qr_token q JOIN dining_table t ON t.id=q.table_id JOIN dining_area a ON a.id=t.area_id JOIN restaurant r ON r.id=t.restaurant_id WHERE q.token_hash=$1 AND q.status='ACTIVE' AND (q.expires_at IS NULL OR q.expires_at>now()) AND t.restaurant_id=$2 AND t.is_active AND a.is_active AND r.status='ACTIVE'`,
+      [digest(token), restaurant],
+    );
+    if (!result.rows[0])
+      reject(
+        'Mã QR đã hết hiệu lực hoặc bàn ngừng phục vụ. Vui lòng quét mã hiện tại hoặc liên hệ nhân viên.',
+        410,
+      );
+    return result.rows[0];
+  });
+  app.patch('/guest/profile', { config }, async (r) =>
+    transaction(db, async (c) => {
+      const p = await guest(c, r, restaurant);
+      await c.query('UPDATE session_participant SET display_name=$2 WHERE id=$1', [
+        p.id,
+        text(object(r.body).name, 80),
+      ]);
+      return { status: 'ok' };
+    }),
+  );
+  app.post('/guest/leave', { config }, async (r, reply) =>
+    transaction(db, async (c) => {
+      const p = await guest(c, r, restaurant);
+      await c.query("UPDATE session_participant SET status='LEFT' WHERE id=$1", [p.id]);
+      await c.query('DELETE FROM cart_item WHERE owner_participant_id=$1', [p.id]);
+      await c.query('UPDATE session_cart SET cart_version=cart_version+1 WHERE session_id=$1', [
+        p.session_id,
+      ]);
+      reply.clearCookie('guest', { httpOnly: true, sameSite: 'strict', secure, path: '/' });
+      return { status: 'ok' };
+    }),
+  );
   app.post('/guest/orders/:id/cancel', { config }, async (r) =>
     transaction(db, async (c) => {
       const p = await guest(c, r, restaurant),
@@ -100,20 +136,20 @@ export function registerGuest(
         participant: { id: p.id, displayName: p.display_name },
         session: await one(
           c,
-          'SELECT s.*,t.name AS table_name FROM table_session s JOIN dining_table t ON t.id=s.table_id WHERE s.id=$1',
+          'SELECT s.*,t.name AS table_name,t.code AS table_code,a.name AS area_name FROM table_session s JOIN dining_table t ON t.id=s.table_id JOIN dining_area a ON a.id=t.area_id WHERE s.id=$1',
           [p.session_id],
         ),
         cart: await one(c, 'SELECT * FROM session_cart WHERE session_id=$1', [p.session_id]),
         items: (
           await c.query(
-            `SELECT i.*,p.name FROM cart_item i JOIN product p ON p.id=i.product_id JOIN session_cart c ON c.id=i.cart_id WHERE c.session_id=$1 ORDER BY i.created_at`,
+            `SELECT i.*,p.name,p.base_price AS current_price,(p.is_active AND mc.is_active AND p.availability_status='AVAILABLE') AS available,sp.display_name AS owner_name FROM cart_item i JOIN product p ON p.id=i.product_id JOIN menu_category mc ON mc.id=p.category_id JOIN session_participant sp ON sp.id=i.owner_participant_id JOIN session_cart c ON c.id=i.cart_id WHERE c.session_id=$1 ORDER BY i.created_at`,
             [p.session_id],
           )
         ).rows,
         products: (
           await c.query(
             `SELECT p.*,c.name AS category_name,
-              CASE WHEN p.availability_status<>'AVAILABLE' OR NOT EXISTS (
+              CASE WHEN p.availability_status<>'AVAILABLE' THEN 'UNAVAILABLE' WHEN NOT p.stock_managed THEN 'AVAILABLE' WHEN NOT EXISTS (
                 SELECT 1 FROM recipe_bom b WHERE b.product_id=p.id AND b.status='ACTIVE'
                   AND b.effective_from<=now() AND (b.effective_to IS NULL OR b.effective_to>now())
               ) OR EXISTS (
@@ -132,7 +168,7 @@ export function registerGuest(
         ).rows,
         orders: (
           await c.query(
-            'SELECT b.id,b.status,b.total_amount,b.created_at,b.created_by_participant_id,i.id AS item_id,i.product_name_snapshot,i.quantity,i.unit_price_snapshot,i.status AS item_status,i.cancel_reason AS item_reason FROM order_batch b JOIN order_item i ON i.order_batch_id=b.id WHERE b.session_id=$1 ORDER BY b.created_at DESC',
+            'SELECT b.id,b.status,b.total_amount,b.created_at,b.created_by_participant_id,i.id AS item_id,i.product_name_snapshot,i.quantity,i.unit_price_snapshot,i.status AS item_status,i.cancel_reason AS item_reason,i.owner_participant_id,i.note,i.ready_at,i.served_at FROM order_batch b JOIN order_item i ON i.order_batch_id=b.id WHERE b.session_id=$1 ORDER BY b.created_at DESC',
             [p.session_id],
           )
         ).rows,
@@ -172,7 +208,11 @@ export function registerGuest(
           cart.id,
           p.id,
           product.id,
-          integer(b.quantity),
+          integer(
+            b.quantity,
+            1,
+            Math.min(99, Number((await readPolicy(c, restaurant)).policy.LINE_QTY_HARD_LIMIT)),
+          ),
           b.note ? text(b.note, 300) : null,
           product.base_price,
         ],
@@ -209,10 +249,29 @@ export function registerGuest(
       ]);
       if (cart.cart_version !== integer(b.cartVersion, 1, 2147483646))
         reject('Giỏ đã thay đổi. Vui lòng tải lại.');
+      if (b.quantity === 0) {
+        await one(
+          c,
+          'DELETE FROM cart_item WHERE id=$1 AND cart_id=$2 AND owner_participant_id=$3 RETURNING id',
+          [id, cart.id, p.id],
+        );
+        await c.query('UPDATE session_cart SET cart_version=cart_version+1 WHERE id=$1', [cart.id]);
+        return { status: 'removed' };
+      }
       const item = await one(
         c,
         `UPDATE cart_item i SET quantity=$1,note=$2,unit_price_preview=p.base_price FROM product p WHERE i.product_id=p.id AND i.id=$3 AND i.cart_id=$4 AND i.owner_participant_id=$5 AND p.is_active AND EXISTS(SELECT 1 FROM menu_category mc WHERE mc.id=p.category_id AND mc.is_active) AND p.availability_status='AVAILABLE' RETURNING i.*`,
-        [integer(b.quantity), b.note ? text(b.note, 300) : null, id, cart.id, p.id],
+        [
+          integer(
+            b.quantity,
+            1,
+            Math.min(99, Number((await readPolicy(c, restaurant)).policy.LINE_QTY_HARD_LIMIT)),
+          ),
+          b.note ? text(b.note, 300) : null,
+          id,
+          cart.id,
+          p.id,
+        ],
       );
       await c.query('UPDATE session_cart SET cart_version=cart_version+1 WHERE id=$1', [cart.id]);
       return item;

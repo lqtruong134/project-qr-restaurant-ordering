@@ -199,7 +199,17 @@ export default function WorkforcePanel({ users, areas }: { users: Row[]; areas: 
                     <strong>
                       {String(a.approved_minutes)} phút · {vnd(a.amount)}
                     </strong>
-                    <p>{String(a.review_note)}</p>
+                    <p>
+                      {(
+                        {
+                          WORKED: 'Làm việc',
+                          ABSENT: 'Vắng mặt',
+                          LEAVE: 'Nghỉ phép',
+                          MISSED_CLOCK: 'Bổ sung chấm công',
+                        } as Record<string, string>
+                      )[String(a.outcome)] ?? String(a.outcome)}{' '}
+                      · {String(a.review_note)}
+                    </p>
                   </>
                 ) : (
                   a.status === 'ASSIGNED' && (
@@ -228,12 +238,23 @@ export default function WorkforcePanel({ users, areas }: { users: Row[]; areas: 
             {String(review.display_name)} · {String(review.username)}
           </p>
           <p>
-            Giờ vào/ra gốc được giữ nguyên. Nhập số phút được trả lương sau khi trừ giờ nghỉ; nhập 0
-            nếu vắng. Đây là quyết định duyệt công của quản trị.
+            Giờ vào/ra gốc được giữ nguyên. Chọn rõ làm việc, vắng/nghỉ hoặc bổ sung chấm công.
+            Vắng/nghỉ không phát sinh lương giờ; mọi điều chỉnh cần lý do.
           </p>
           <EntryForm
             title="Giờ công được duyệt"
             fields={[
+              {
+                key: 'outcome',
+                label: 'Kết quả ca làm',
+                value: review.checked_in_at && review.checked_out_at ? 'WORKED' : 'ABSENT',
+                options: [
+                  { value: 'WORKED', label: 'Làm việc, đủ giờ vào/ra' },
+                  { value: 'ABSENT', label: 'Vắng mặt' },
+                  { value: 'LEAVE', label: 'Nghỉ phép (không tính lương giờ)' },
+                  { value: 'MISSED_CLOCK', label: 'Bổ sung do thiếu chấm công' },
+                ],
+              },
               {
                 key: 'minutes',
                 label: 'Số phút được trả lương',

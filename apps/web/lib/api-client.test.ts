@@ -71,3 +71,20 @@ it('late success cannot revive the screen after another request blocks it', asyn
   finish(Response.json({ secret: 'old data' }));
   expect((await late).status).toBe(401);
 });
+
+it('keeps invalid login editable and guest expiry outside the employee auth boundary', async () => {
+  const c = await import('./api-client');
+  vi.stubGlobal(
+    'fetch',
+    vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ errorCode: 'INVALID_CREDENTIALS' }, { status: 401 }))
+      .mockResolvedValueOnce(Response.json({ errorCode: 'SESSION_EXPIRED' }, { status: 401 }))
+      .mockResolvedValueOnce(Response.json({ ok: true })),
+  );
+  await c.postApi('/auth/login', {});
+  expect(c.getAuthFailure()).toBeUndefined();
+  await c.getAuthenticated('/guest/state');
+  expect(c.getAuthFailure()).toBeUndefined();
+  expect((await c.getAuthenticated('/core/tables')).ok).toBe(true);
+});

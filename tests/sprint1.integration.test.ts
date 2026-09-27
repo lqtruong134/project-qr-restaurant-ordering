@@ -60,11 +60,11 @@ beforeEach(async () => {
 afterEach(async () => {
   await app.close();
 });
-it('migrates exactly 53 business tables and seed twice preserves counts and passwords', async () => {
+it('migrates exactly 55 business tables and seed twice preserves counts and passwords', async () => {
   const rows = await db.pool.query(
     "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'",
   );
-  expect(rows.rowCount).toBe(53);
+  expect(rows.rowCount).toBe(55);
   const before = await db.prisma.app_user.findMany({ orderBy: { username: 'asc' } });
   await seed(db, password);
   const after = await db.prisma.app_user.findMany({ orderBy: { username: 'asc' } });
@@ -355,13 +355,13 @@ it('database enforces unique, FK, tenant isolation, nonnegative VND and active Q
   await reject('INSERT INTO session_cart(session_id) VALUES($1)', [randomUUID()], '23503');
   await reject('UPDATE product SET base_price=-1 WHERE id=$1', [product.id], '23514');
   await reject(
-    'INSERT INTO product(restaurant_id,category_id,code,name,base_price) VALUES($1,$2,$3,$4,0)',
+    'INSERT INTO product(restaurant_id,category_id,code,name,base_price) VALUES($1,$2,$3,$4,1)',
     [restaurantId, product.category_id, product.code, 'duplicate'],
     '23505',
   );
   const other = await db.prisma.restaurant.create({ data: { name: 'Other tenant' } });
   await reject(
-    'INSERT INTO product(restaurant_id,category_id,code,name,base_price) VALUES($1,$2,$3,$4,0)',
+    'INSERT INTO product(restaurant_id,category_id,code,name,base_price) VALUES($1,$2,$3,$4,1)',
     [other.id, product.category_id, 'cross', 'cross'],
     '23503',
   );

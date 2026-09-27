@@ -2,6 +2,7 @@
 import { requestId } from '../shared/request-id';
 import { useCallback, useEffect, useState } from 'react';
 import { Action, api, EntryForm, options, vnd, type Product } from '../shared/components';
+import { confirmDiscard } from '../shared/primitives';
 import Receipt, { type Bill } from './receipt';
 export default function BillPanel({
   id,
@@ -16,7 +17,8 @@ export default function BillPanel({
 }) {
   const [bill, setBill] = useState<Bill>(),
     [error, setError] = useState(''),
-    [showReceipt, setShowReceipt] = useState(false);
+    [showReceipt, setShowReceipt] = useState(false),
+    [refundKey, setRefundKey] = useState(() => requestId());
   const refresh = useCallback(async () => {
     try {
       setBill(await api<Bill>('/core/sessions/' + id + '/bill'));
@@ -41,7 +43,12 @@ export default function BillPanel({
     <section className="core-bill">
       <div className="core-line">
         <h2>Chi tiết bàn</h2>
-        <button className="secondary-button" onClick={onClose}>
+        <button
+          className="secondary-button"
+          onClick={() => {
+            if (confirmDiscard()) onClose();
+          }}
+        >
           Đóng chi tiết
         </button>
       </div>
@@ -163,16 +170,26 @@ export default function BillPanel({
                     },
                     { key: 'reason', label: 'Lý do hoàn' },
                   ]}
-                  onSubmit={(v) => act('/core/sessions/' + id + '/refunds', v)}
+                  onSubmit={async (v) => {
+                    await act('/core/sessions/' + id + '/refunds', { ...v, requestId: refundKey });
+                    setRefundKey(requestId());
+                  }}
                 />
               )}
               {bill.refunds
                 .filter((r) => ['OPEN', 'IN_PROGRESS'].includes(String(r.status)))
                 .map((r) => (
                   <EntryForm
-                    key={r.id}
-                    title={'Hoàn lại ' + vnd(r.amount)}
+                    key={r.id + ':' + String(r.remaining_amount ?? r.amount)}
+                    title={'Còn phải hoàn ' + vnd(r.remaining_amount ?? r.amount)}
                     fields={[
+                      {
+                        key: 'amount',
+                        label: 'Số tiền hoàn lần này',
+                        type: 'number',
+                        min: 1,
+                        value: String(r.remaining_amount ?? r.amount),
+                      },
                       {
                         key: 'method',
                         label: 'Cách hoàn',
@@ -188,7 +205,12 @@ export default function BillPanel({
                       },
                     ]}
                     submit="Đã hoàn tiền cho khách"
-                    onSubmit={(v) => act('/core/refunds/' + r.id + '/complete', v)}
+                    onSubmit={(v) =>
+                      act('/core/refunds/' + r.id + '/complete', {
+                        ...v,
+                        requestId: 'refund:' + r.id + ':' + String(r.remaining_amount ?? r.amount),
+                      })
+                    }
                   />
                 ))}
               <div className="core-line">
@@ -245,7 +267,7 @@ function StaffOrder({
               products.filter((p) => p.is_active && p.availability_status === 'AVAILABLE'),
             ),
           },
-          { key: 'quantity', label: 'Số lượng', type: 'number', value: 1, min: 1, max: 100 },
+          { key: 'quantity', label: 'Số lượng', type: 'number', value: 1, min: 1, max: 99 },
           { key: 'note', label: 'Ghi chú', optional: true },
         ]}
         submit="Gửi bếp"

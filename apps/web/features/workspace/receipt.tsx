@@ -6,6 +6,8 @@ export type Bill = {
   intents: Row[];
   payments: Row[];
   refunds: Row[];
+  complimentaryItems?: Row[];
+  refundTransactions?: Row[];
   store: Row;
   generatedAt: string;
   closedBy: { display_name: string; username: string } | null;
@@ -68,6 +70,14 @@ export default function Receipt({ bill, visible }: { bill: Bill; visible: boolea
             </div>
           ))}
       </div>
+      {(bill.complimentaryItems ?? []).map((i) => (
+        <div className="receipt-row" key={i.id}>
+          <span>{String(i.product_name_snapshot)} (Món tặng)</span>
+          <span>{String(i.quantity)}</span>
+          <span>{vnd(0)}</span>
+          <strong>{vnd(0)}</strong>
+        </div>
+      ))}
       <div className="receipt-totals">
         <div>
           <span>Tổng phải thanh toán</span>
@@ -122,6 +132,34 @@ export default function Receipt({ bill, visible }: { bill: Bill; visible: boolea
           );
         })}
       </div>
+      {(bill.refundTransactions ?? []).length > 0 && (
+        <div className="receipt-payments">
+          <strong>Các lần hoàn tiền</strong>
+          {bill.refundTransactions!.map((t) => (
+            <div className="receipt-payment-entry" key={t.id}>
+              <p>
+                {t.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'} · {vnd(t.amount)}
+              </p>
+              <small>
+                {billTime(t.processed_at, zone)} · {String(t.processed_by_name ?? '')}
+              </small>
+              {t.reference && <small>Mã giao dịch: {String(t.reference)}</small>}
+            </div>
+          ))}
+        </div>
+      )}
+      {bill.charges.some((c) => c.status !== 'ACTIVE') && (
+        <div className="receipt-payments">
+          <strong>Khoản đã hủy / miễn thu (không cộng vào tổng)</strong>
+          {bill.charges
+            .filter((c) => c.status !== 'ACTIVE')
+            .map((c) => (
+              <p key={c.id}>
+                {String(c.product_name_snapshot ?? 'Khoản thu')} · {vnd(c.amount)}
+              </p>
+            ))}
+        </div>
+      )}
       <footer className="receipt-footer">
         {bill.session.close_reason === 'OUTSTANDING_WRITTEN_OFF' && (
           <p>Phiên đóng theo hồ sơ thiếu tiền; không phải đã thu đủ.</p>

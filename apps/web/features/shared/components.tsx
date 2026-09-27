@@ -22,6 +22,7 @@ export type Order = {
   id: string;
   session_id: string;
   table_code: string;
+  area_name?: string;
   status: string;
   total_amount: string;
   items: Item[];
@@ -134,6 +135,7 @@ export function EntryForm({
     setDone(false);
     try {
       await onSubmit(Object.fromEntries(new FormData(form).entries()) as Record<string, string>);
+      delete form.dataset.dirty;
       setDone(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Chưa kết nối được máy chủ.');
@@ -142,7 +144,13 @@ export function EntryForm({
     }
   }
   return (
-    <form className="core-form" onSubmit={save}>
+    <form
+      className="core-form"
+      onSubmit={save}
+      onChange={(e) => {
+        e.currentTarget.dataset.dirty = 'true';
+      }}
+    >
       <h3>{title}</h3>
       <div className="core-fields">
         {fields.map((f) => (

@@ -18,7 +18,8 @@ export async function registerAuth(app: FastifyInstance, db: Database, options: 
   const now = options.now ?? Date.now;
 
   const limit = options.loginLimit ?? 5;
-  const loginLimiter = createLoginLimiter(limit, now);
+  const windowSeconds = options.loginWindowSeconds ?? 60;
+  const loginLimiter = createLoginLimiter(limit, now, windowSeconds * 1000);
   const dummy = await hash(randomBytes(32), {
     type: argon2id,
     memoryCost: 19456,
@@ -39,7 +40,7 @@ export async function registerAuth(app: FastifyInstance, db: Database, options: 
         path: '/',
       });
     if (
-      reply.statusCode === 401 ||
+      (!_request.url.startsWith('/guest/') && reply.statusCode === 401) ||
       (reply.statusCode === 403 &&
         typeof payload === 'string' &&
         payload.includes('"errorCode":"ACCOUNT_LOCKED"'))
@@ -138,8 +139,17 @@ export async function registerAuth(app: FastifyInstance, db: Database, options: 
     async (request, reply) => {
       const username = request.body.username.toLowerCase();
       if (!loginLimiter.consume(username, request.ip)) {
-        reply.header('Retry-After', '60');
-        return fail(reply, 429, 'RATE_LIMITED', 'Bạn thử quá nhiều lần. Vui lòng chờ một phút.');
+        reply.header('Retry-After', String(windowSeconds));
+        request.log.warn(
+          { event: 'AUTH_RATE_LIMIT', accountFingerprint: digest(username) },
+          'Login rate limit reached',
+        );
+        return fail(
+          reply,
+          429,
+          'RATE_LIMITED',
+          'Bạn thử quá nhiều lần. Vui lòng chờ ' + windowSeconds + ' giây.',
+        );
       }
       const user = await db.prisma.app_user.findUnique({
         where: { restaurant_id_username: { restaurant_id: options.restaurantId, username } },

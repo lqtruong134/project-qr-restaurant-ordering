@@ -1,5 +1,6 @@
 'use client';
 import type { AdminData, SaveAdmin } from './admin-types';
+import { ReceiptEditor } from './receipt-editor';
 import { LinesForm } from './admin-forms';
 import { Action, EntryForm, options, vnd, type Field } from '../shared/components';
 import { matches } from '../shared/primitives';
@@ -129,7 +130,21 @@ export default function InventoryPanel({
           <strong>
             {String(r.receipt_no)} · {vnd(r.total_value)}
           </strong>
-          <p>{r.status === 'DRAFT' ? 'Nháp' : 'Đã nhập kho'}</p>
+          <p>
+            {r.status === 'DRAFT'
+              ? 'Nháp'
+              : r.status === 'CANCELLED'
+                ? 'Đã hủy nháp'
+                : 'Đã nhập kho'}
+          </p>
+          {r.status === 'DRAFT' && (
+            <ReceiptEditor
+              id={r.id}
+              ingredients={data.inventory.ingredients}
+              locations={data.inventory.locations}
+              save={save}
+            />
+          )}
           {r.status === 'DRAFT' && (
             <Action run={() => save('/core/receipts/' + r.id + '/approve', {})}>
               Duyệt nhập kho

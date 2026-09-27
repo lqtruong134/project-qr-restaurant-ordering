@@ -1,3 +1,4 @@
+import { readPolicy } from '../risk/policy.service.js';
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '@thesis/database';
 import {
@@ -38,10 +39,18 @@ async function intent(
       amount = money(b.amount);
     if (BigInt(amount) > BigInt(a.outstanding_amount) - BigInt(a.reserved_payment_amount))
       reject('Số tiền vượt số dư chưa được đặt thanh toán.');
+    const { policy } = await readPolicy(c, restaurant);
     const result = await one(
       c,
-      `INSERT INTO payment_intent(session_id,payer_participant_id,method,amount,currency,client_request_id,expires_at) VALUES($1,$2,$3,$4,'VND',$5,now()+interval '15 minutes') RETURNING *`,
-      [sid, actor.type === 'GUEST' ? actor.id : null, method, amount, key],
+      `INSERT INTO payment_intent(session_id,payer_participant_id,method,amount,currency,client_request_id,expires_at) VALUES($1,$2,$3,$4,'VND',$5,now()+$6::int*interval '1 minute') RETURNING *`,
+      [
+        sid,
+        actor.type === 'GUEST' ? actor.id : null,
+        method,
+        amount,
+        key,
+        Number(policy.PAYMENT_TTL_MINUTES),
+      ],
     );
     await recalculate(c, sid);
     return result;
@@ -104,6 +113,16 @@ export function registerFinance(app: FastifyInstance, db: Database, restaurant: 
       const amount = money(b.amount);
       if (amount !== pi.amount) reject('Số tiền xác nhận phải khớp yêu cầu thanh toán.');
       const reference = pi.method === 'BANK_TRANSFER' ? text(b.reference, 120) : null;
+      if (reference) {
+        await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+          restaurant + ':bank:' + reference,
+        ]);
+        const duplicate = await c.query(
+          "SELECT p.id FROM payment_transaction p JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND p.method='BANK_TRANSFER' AND p.status='SUCCEEDED' AND p.metadata->>'reference'=$2",
+          [restaurant, reference],
+        );
+        if (duplicate.rowCount) reject('Mã chuyển khoản đã được xác nhận cho một giao dịch khác.');
+      }
       const cashReceived = pi.method === 'CASH' ? money(b.receivedAmount ?? amount) : null;
       if (cashReceived !== null && BigInt(cashReceived) < BigInt(amount))
         reject('Tiền khách đưa chưa đủ số tiền xác nhận.', 400);
@@ -159,6 +178,8 @@ export function registerFinance(app: FastifyInstance, db: Database, restaurant: 
       const id = idParam(r),
         pi = await one(c, 'SELECT session_id FROM payment_intent WHERE id=$1', [id]);
       await session(c, pi.session_id, restaurant);
+      const current = await one(c, 'SELECT * FROM payment_intent WHERE id=$1 FOR UPDATE', [id]);
+      if (current.status === 'CANCELLED') return current;
       const result = await one(
         c,
         "UPDATE payment_intent SET status='CANCELLED',version=version+1 WHERE id=$1 AND status IN ('CREATED','PENDING') RETURNING *",
@@ -173,10 +194,28 @@ export function registerFinance(app: FastifyInstance, db: Database, restaurant: 
       const sid = idParam(r),
         b = object(r.body);
       await session(c, sid, restaurant, false);
+      const requestKey = b.requestId === undefined ? null : text(b.requestId, 100);
+      if (requestKey) {
+        const old = (
+          await c.query('SELECT * FROM refund_case WHERE session_id=$1 AND request_key=$2', [
+            sid,
+            requestKey,
+          ])
+        ).rows[0];
+        if (old) {
+          if (
+            String(old.amount) !== money(b.amount) ||
+            old.source_payment_transaction_id !== uuid(b.paymentId) ||
+            old.reason !== text(b.reason, 300)
+          )
+            reject('Mã gửi lại đã dùng cho nội dung hoàn tiền khác.');
+          return old;
+        }
+      }
       const a = await recalculate(c, sid);
       const pending = await one(
         c,
-        "SELECT COALESCE(sum(amount),0) AS amount FROM refund_case WHERE session_id=$1 AND status IN ('OPEN','IN_PROGRESS')",
+        "SELECT COALESCE(sum(f.amount-COALESCE((SELECT sum(t.amount) FROM refund_transaction t WHERE t.refund_case_id=f.id AND t.status='SUCCEEDED'),0)),0) AS amount FROM refund_case f WHERE session_id=$1 AND status IN ('OPEN','IN_PROGRESS')",
         [sid],
       );
       const amount = money(b.amount);
@@ -196,8 +235,8 @@ export function registerFinance(app: FastifyInstance, db: Database, restaurant: 
         reject('Hoàn vượt giao dịch gốc.');
       return one(
         c,
-        'INSERT INTO refund_case(session_id,source_payment_transaction_id,amount,reason,assigned_staff_id) VALUES($1,$2,$3,$4,$5) RETURNING *',
-        [sid, source.id, amount, text(b.reason, 300), r.identity!.id],
+        'INSERT INTO refund_case(session_id,source_payment_transaction_id,amount,reason,assigned_staff_id,request_key) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
+        [sid, source.id, amount, text(b.reason, 300), r.identity!.id, requestKey],
       );
     }),
   );
@@ -208,28 +247,84 @@ export function registerFinance(app: FastifyInstance, db: Database, restaurant: 
         e = await one(c, 'SELECT session_id FROM refund_case WHERE id=$1', [id]);
       await session(c, e.session_id, restaurant, false);
       const f = await one(c, 'SELECT * FROM refund_case WHERE id=$1 FOR UPDATE', [id]);
+      const key = b.requestId === undefined ? 'legacy-complete' : text(b.requestId, 100);
+      const old = (
+        await c.query(
+          'SELECT * FROM refund_transaction WHERE refund_case_id=$1 AND request_key=$2',
+          [id, key],
+        )
+      ).rows[0];
+      if (old) {
+        if (
+          (b.amount !== undefined && money(b.amount) !== String(old.amount)) ||
+          b.method !== old.method ||
+          (old.method === 'BANK_TRANSFER' && b.reference !== old.reference)
+        )
+          reject('Mã gửi lại đã dùng cho nội dung hoàn tiền khác.');
+        return old;
+      }
       if (['RESOLVED_CASH', 'RESOLVED_TRANSFER'].includes(f.status)) return f;
+      const totals = await one(
+        c,
+        "SELECT COALESCE(sum(amount),0) AS amount FROM refund_transaction WHERE refund_case_id=$1 AND status='SUCCEEDED'",
+        [id],
+      );
+      const remaining = BigInt(f.amount) - BigInt(totals.amount);
+      const amount = b.amount === undefined ? remaining.toString() : money(b.amount);
+      if (BigInt(amount) > remaining) reject('Số tiền vượt phần còn phải hoàn của hồ sơ.');
       if (!['OPEN', 'IN_PROGRESS'].includes(f.status)) reject('Hồ sơ hoàn đã đóng.');
       const a = await recalculate(c, f.session_id);
-      if (BigInt(f.amount) > BigInt(a.refund_due_amount)) reject('Số dư cần hoàn đã thay đổi.');
+      if (BigInt(amount) > BigInt(a.refund_due_amount)) reject('Số dư cần hoàn đã thay đổi.');
       const method = text(b.method);
       if (!['CASH', 'BANK_TRANSFER'].includes(method))
         reject('Chọn tiền mặt hoặc chuyển khoản.', 400);
       const reference = method === 'BANK_TRANSFER' ? text(b.reference, 120) : null;
       await c.query(
-        "INSERT INTO refund_transaction(refund_case_id,method,amount,reference,status,processed_by,processed_at) VALUES($1,$2,$3,$4,'SUCCEEDED',$5,now())",
-        [id, method, f.amount, reference, r.identity!.id],
+        "INSERT INTO refund_transaction(refund_case_id,method,amount,reference,status,processed_by,processed_at,request_key) VALUES($1,$2,$3,$4,'SUCCEEDED',$5,now(),$6)",
+        [id, method, amount, reference, r.identity!.id, key],
       );
       await c.query('UPDATE refund_case SET status=$2,resolution_method=$3 WHERE id=$1', [
         id,
-        method === 'CASH' ? 'RESOLVED_CASH' : 'RESOLVED_TRANSFER',
+        BigInt(amount) < remaining
+          ? 'IN_PROGRESS'
+          : method === 'CASH'
+            ? 'RESOLVED_CASH'
+            : 'RESOLVED_TRANSFER',
         method,
       ]);
       await recalculate(c, f.session_id);
       return { status: 'ok' };
     }),
   );
+  app.get('/core/reports/sessions/:id', { config: { permission: 'admin.workspace' } }, async (r) =>
+    transaction(db, async (c) => {
+      const s = await session(c, idParam(r), restaurant, false);
+      return {
+        bill: await readBill(c, s, restaurant),
+        exceptions: (
+          await c.query(
+            `SELECT e.action,e.reason,e.created_at,u.display_name FROM business_audit_event e LEFT JOIN app_user u ON u.id=e.actor_id WHERE e.restaurant_id=$2 AND (e.resource_id=$1 OR e.resource_id IN (SELECT i.id FROM order_item i JOIN order_batch b ON b.id=i.order_batch_id WHERE b.session_id=$1)) ORDER BY e.created_at`,
+            [s.id, restaurant],
+          )
+        ).rows,
+      };
+    }),
+  );
   app.get('/core/reports', { config: { permission: 'admin.workspace' } }, async () => ({
+    reconciliation: (
+      await db.pool.query(
+        `SELECT s.id,s.receipt_number,t.code AS table_code,s.opened_at,s.closed_at,
+      COALESCE((SELECT sum(amount) FROM financial_charge WHERE session_id=s.id AND status='ACTIVE'),0)::text AS payable,
+      COALESCE((SELECT sum(amount) FROM payment_transaction WHERE session_id=s.id AND status='SUCCEEDED'),0)::text AS collected,
+      COALESCE((SELECT sum(rt.amount) FROM refund_transaction rt JOIN refund_case f ON f.id=rt.refund_case_id WHERE f.session_id=s.id AND rt.status='SUCCEEDED'),0)::text AS refunded,
+      COALESCE((SELECT sum(outstanding_amount) FROM outstanding_balance_case WHERE session_id=s.id AND status='WRITTEN_OFF'),0)::text AS written_off,
+      COALESCE((SELECT sum(f.amount) FROM financial_charge f WHERE f.session_id=s.id AND f.status='REVERSED'),0)::text AS reversed,
+      COALESCE((SELECT sum((e.details->>'consumedCost')::bigint) FROM business_audit_event e JOIN order_item i ON i.id=e.resource_id JOIN order_batch b ON b.id=i.order_batch_id WHERE b.session_id=s.id AND e.action='LATE_CANCEL'),0)::text AS stock_loss
+      FROM table_session s JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 ORDER BY s.opened_at DESC`,
+        [restaurant],
+      )
+    ).rows,
+
     store: (await db.pool.query('SELECT name,address FROM restaurant WHERE id=$1', [restaurant]))
       .rows[0],
     sales: (

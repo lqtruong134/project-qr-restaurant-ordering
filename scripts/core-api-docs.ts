@@ -6,6 +6,14 @@ const db = createDatabase(process.env.DATABASE_URL!);
 const app = buildApp(db);
 const id = '00000000-0000-4000-8000-000000000001';
 const examples: Record<string, unknown> = {
+  'PATCH /guest/profile': { name: 'Tên khách mới' },
+  'POST /guest/items/cancel': { itemIds: [id] },
+  'POST /core/items/cancel': { itemIds: [id], reason: 'Khách đổi món trước chế biến' },
+  'POST /core/sessions/:id/serve-items': { itemIds: [id] },
+  'POST /core/support/:id/reassign': { userId: id, reason: 'Bàn giao ca phục vụ' },
+  'POST /core/items/:id/late-cancel': { reason: 'Món lỗi sau chế biến' },
+  'POST /core/items/:id/waive': { reason: 'Quản trị miễn khoản thu món lỗi' },
+
   'POST /core/sessions/:id/transfer': {
     tableId: id,
     fromTableId: id,
@@ -47,11 +55,17 @@ const examples: Record<string, unknown> = {
   },
   'POST /core/users': {
     username: 'pv005',
+    staffCode: 'NV005',
     name: 'Nhân viên mới',
     role: 'STAFF',
     password: 'THAY_BANG_MAT_KHAU_RIENG',
   },
-  'PATCH /core/users/:id': { name: 'Nhân viên', role: 'STAFF', status: 'ACTIVE' },
+  'PATCH /core/users/:id': {
+    name: 'Nhân viên',
+    role: 'STAFF',
+    status: 'ACTIVE',
+    reason: 'Cập nhật phân công nhân viên',
+  },
   'POST /core/risk': { LINE_QTY_REVIEW: 5 },
   'POST /core/units': { code: 'KG', name: 'Kilogram', dimension: 'MASS' },
   'POST /core/ingredients': { code: 'GAO', name: 'Gạo', unitId: id, minStock: '2' },

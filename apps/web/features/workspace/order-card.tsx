@@ -19,6 +19,7 @@ export default function OrderCard({
         </span>
       </div>
       <div className="order-meta">
+        {o.area_name && <span>{o.area_name} · </span>}
         <Icon name="clock" size={13} />
         {o.created_at
           ? new Date(o.created_at).toLocaleTimeString('vi-VN', {
@@ -33,6 +34,16 @@ export default function OrderCard({
             {i.quantity} × {i.product_name_snapshot}
           </strong>
           {i.note && <p>Ghi chú: {String(i.note)}</p>}
+          {i.status === 'READY' && i.ready_at && (
+            <small>
+              Chờ mang ra{' '}
+              {Math.max(
+                0,
+                Math.floor((Date.now() - new Date(String(i.ready_at)).getTime()) / 60000),
+              )}{' '}
+              phút
+            </small>
+          )}
           <p>
             <span className="status-pill" data-status={i.status}>
               {label(i.status)}
@@ -41,13 +52,27 @@ export default function OrderCard({
           {i.status === 'UNAVAILABLE' && i.cancel_reason && (
             <p className="form-error">Lý do: {String(i.cancel_reason)}</p>
           )}
+          {kitchen && i.status === 'SUBMITTED' && o.status !== 'PENDING_REVIEW' && (
+            <Action run={() => act('/core/items/' + i.id + '/accept')}>Nhận món này</Action>
+          )}
+          {!kitchen && ['SUBMITTED', 'ACCEPTED'].includes(i.status) && (
+            <details>
+              <summary>Hủy riêng món này</summary>
+              <EntryForm
+                title="Hủy món trước chế biến"
+                fields={[{ key: 'reason', label: 'Lý do hủy' }]}
+                submit="Xác nhận hủy món"
+                onSubmit={(v) => act('/core/items/cancel', { ...v, itemIds: [i.id] })}
+              />
+            </details>
+          )}
           {kitchen && i.status === 'ACCEPTED' && (
             <div className="order-item-actions">
               <Action run={() => act('/core/items/' + i.id + '/prepare')}>Bắt đầu chế biến</Action>
               <details className="rare-action">
-                <summary>Hủy món</summary>
+                <summary>Không thể phục vụ</summary>
                 <EntryForm
-                  title="Xác nhận hủy món"
+                  title="Không thể phục vụ món này"
                   fields={[
                     {
                       key: 'reason',
@@ -55,7 +80,7 @@ export default function OrderCard({
                       value: 'Nguyên liệu không đạt yêu cầu',
                     },
                   ]}
-                  submit="Xác nhận hủy món"
+                  submit="Xác nhận không thể phục vụ"
                   onSubmit={(v) => act('/core/items/' + i.id + '/unavailable', v)}
                 />
               </details>
@@ -73,9 +98,11 @@ export default function OrderCard({
         <span>Tổng lượt gọi</span>
         <strong>{vnd(o.total_amount)}</strong>
       </p>
-      {kitchen && o.status === 'SUBMITTED' && (
-        <Action run={() => act('/core/orders/' + o.id + '/accept')}>Bếp nhận cả lượt</Action>
-      )}
+      {kitchen &&
+        o.status !== 'PENDING_REVIEW' &&
+        o.items?.some((i) => i.status === 'SUBMITTED') && (
+          <Action run={() => act('/core/orders/' + o.id + '/accept')}>Bếp nhận cả lượt</Action>
+        )}
       {!kitchen && o.status === 'PENDING_REVIEW' && (
         <>
           <Action run={() => act('/core/orders/' + o.id + '/review', { approve: true })}>
@@ -89,9 +116,9 @@ export default function OrderCard({
           />
         </>
       )}
-      {!kitchen && ['SUBMITTED', 'ACCEPTED'].includes(o.status) && (
+      {!kitchen && o.items.some((i) => ['SUBMITTED', 'ACCEPTED'].includes(i.status)) && (
         <details>
-          <summary>Hủy lượt chưa chế biến</summary>
+          <summary>Hủy các món còn đủ điều kiện trong lượt</summary>
           <EntryForm
             title="Hủy lượt gọi"
             fields={[{ key: 'reason', label: 'Lý do hủy' }]}

@@ -1,3 +1,5 @@
+import { registerImages } from './images.routes.js';
+import { readPolicy } from '../risk/policy.service.js';
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '@thesis/database';
 import {
@@ -20,6 +22,7 @@ export function registerCatalog(
   restaurant: string,
   qrSecret = process.env.AUTH_SECRET ?? '',
 ) {
+  registerImages(app);
   const admin = { permission: 'admin.workspace' };
   for (const [path, table] of [
     ['categories', 'menu_category'],
@@ -66,7 +69,11 @@ export function registerCatalog(
         [
           text(b.name, 100),
           b.areaId,
-          integer(b.capacity, 1, 30),
+          integer(
+            b.capacity,
+            1,
+            Number((await readPolicy(c, restaurant)).policy.TABLE_MAX_CAPACITY),
+          ),
           b.active,
           id,
           integer(b.version, 1, 2147483646),
@@ -82,7 +89,7 @@ export function registerCatalog(
     products: (
       await db.pool.query(
         `SELECT p.*,c.name AS category_name,
-          CASE WHEN p.availability_status<>'AVAILABLE' OR NOT EXISTS (
+          CASE WHEN p.availability_status<>'AVAILABLE' THEN 'UNAVAILABLE' WHEN NOT p.stock_managed THEN 'AVAILABLE' WHEN NOT EXISTS (
             SELECT 1 FROM recipe_bom b WHERE b.product_id=p.id AND b.status='ACTIVE'
               AND b.effective_from<=now() AND (b.effective_to IS NULL OR b.effective_to>now())
           ) OR EXISTS (
@@ -116,14 +123,25 @@ export function registerCatalog(
       ]);
       return one(
         c,
-        `INSERT INTO product(restaurant_id,category_id,code,name,base_price) VALUES($1,$2,$3,$4,$5) RETURNING *`,
-        [restaurant, b.categoryId, text(b.code, 40), text(b.name, 120), money(b.price, true)],
+        `INSERT INTO product(restaurant_id,category_id,code,name,base_price,stock_managed,is_complimentary) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        [
+          restaurant,
+          b.categoryId,
+          text(b.code, 40),
+          text(b.name, 120),
+          money(b.price, b.complimentary === true),
+          b.stockManaged !== false,
+          b.complimentary === true,
+        ],
       );
     });
   });
   app.patch('/core/products/:id', { config: admin }, async (r) => {
     const b = object(r.body),
       id = idParam(r);
+    for (const key of ['stockManaged', 'complimentary'])
+      if (b[key] !== undefined && typeof b[key] !== 'boolean')
+        reject('Trạng thái món phải là bật hoặc tắt.', 400);
     const active = b.active;
     if (typeof active !== 'boolean') reject('Trạng thái không hợp lệ.', 400);
     const availability = text(b.availability);
@@ -140,13 +158,18 @@ export function registerCatalog(
         if (typeof b.imageUrl !== 'string' || b.imageUrl.length > 2000)
           reject('Địa chỉ ảnh không hợp lệ.', 400);
         image = b.imageUrl.trim() || null;
-        if (image && !image.startsWith('/menu/') && !/^https:\/\//.test(image))
+        if (
+          image &&
+          !/^\/api\/menu-images\/[a-f0-9-]{36}\.(png|jpg|webp)$/.test(image) &&
+          !image.startsWith('/menu/') &&
+          !/^https:\/\//.test(image)
+        )
           reject('Ảnh cần dùng HTTPS hoặc ảnh trong /menu/.', 400);
       }
       return one(
         c,
         `UPDATE product SET name=$1,base_price=$2,is_active=$3,availability_status=$4,version=version+1,
-        category_id=COALESCE($8::uuid,category_id),description=CASE WHEN $9 THEN $10 ELSE description END,image_url=CASE WHEN $11 THEN $12 ELSE image_url END
+        category_id=COALESCE($8::uuid,category_id),description=CASE WHEN $9 THEN $10 ELSE description END,image_url=CASE WHEN $11 THEN $12 ELSE image_url END,stock_managed=COALESCE($13,stock_managed),is_complimentary=COALESCE($14,is_complimentary)
         WHERE id=$5 AND restaurant_id=$6 AND version=$7 RETURNING *`,
         [
           text(b.name, 120),
@@ -165,6 +188,8 @@ export function registerCatalog(
               : reject('Mô tả tối đa 1000 ký tự.', 400),
           b.imageUrl !== undefined,
           image ?? null,
+          b.stockManaged ?? null,
+          b.complimentary ?? null,
         ],
       );
     });
@@ -176,7 +201,7 @@ export function registerCatalog(
  (SELECT count(*)::int FROM payment_intent pi WHERE pi.session_id=s.id AND pi.status IN ('CREATED','PENDING') AND pi.expires_at>now()) AS pending_payments,
  (SELECT COALESCE(sum(amount),0)::text FROM financial_charge f WHERE f.session_id=s.id AND f.status='ACTIVE') AS charge_total,
  (SELECT outstanding_amount::text FROM session_financial_account f WHERE f.session_id=s.id) AS outstanding_amount
- FROM dining_table t JOIN dining_area a ON a.id=t.area_id LEFT JOIN table_session s ON s.table_id=t.id AND s.session_status='ACTIVE' WHERE t.restaurant_id=$1 AND ((t.is_active AND a.is_active) OR s.id IS NOT NULL) ORDER BY a.sort_order,t.code`,
+ FROM dining_table t JOIN dining_area a ON a.id=t.area_id LEFT JOIN table_session s ON s.table_id=t.id AND s.session_status='ACTIVE' WHERE t.restaurant_id=$1 ORDER BY a.sort_order,t.code`,
         [restaurant],
       )
       .then((v) => v.rows),
@@ -205,7 +230,17 @@ export function registerCatalog(
       return one(
         c,
         `INSERT INTO dining_table(restaurant_id,area_id,code,name,capacity) VALUES($1,$2,$3,$4,$5) RETURNING *`,
-        [restaurant, b.areaId, text(b.code, 40), text(b.name, 100), integer(b.capacity, 1, 30)],
+        [
+          restaurant,
+          b.areaId,
+          text(b.code, 40),
+          text(b.name, 100),
+          integer(
+            b.capacity,
+            1,
+            Number((await readPolicy(c, restaurant)).policy.TABLE_MAX_CAPACITY),
+          ),
+        ],
       );
     });
   });

@@ -1,3 +1,4 @@
+import { registerOrderExceptions } from './orders/exception.routes.js';
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '@thesis/database';
 import { registerCatalog } from './catalog/catalog.routes.js';
@@ -26,6 +27,7 @@ export function registerModules(
   registerGuest(app, db, restaurant, secure);
   registerInventory(app, db, restaurant);
   registerOrders(app, db, restaurant);
+  registerOrderExceptions(app, db, restaurant);
   registerFinance(app, db, restaurant);
   registerOperations(app, db, restaurant);
   registerRisk(app, db, restaurant);

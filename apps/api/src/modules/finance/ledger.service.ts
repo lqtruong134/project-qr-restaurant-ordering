@@ -1,7 +1,7 @@
 import { type Connection, one } from '../shared/core-persistence.js';
 export async function addCharges(c: Connection, batch: string, sid: string) {
   await c.query(
-    `INSERT INTO financial_charge(session_id,order_item_id,charge_type,amount) SELECT $2,id,'ITEM',line_total FROM order_item WHERE order_batch_id=$1 AND status<>'CANCELLED' ON CONFLICT DO NOTHING`,
+    `INSERT INTO financial_charge(session_id,order_item_id,charge_type,amount) SELECT $2,id,'ITEM',line_total FROM order_item WHERE order_batch_id=$1 AND status<>'CANCELLED' AND line_total>0 ON CONFLICT DO NOTHING`,
     [batch, sid],
   );
   await recalculate(c, sid);

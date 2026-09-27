@@ -14,14 +14,14 @@ export function registerUsers(app: FastifyInstance, db: Database, restaurant: st
     async () =>
       (
         await db.pool.query(
-          `SELECT u.id,u.username,u.display_name,u.status,r.code AS role FROM app_user u LEFT JOIN user_role ur ON ur.user_id=u.id AND ur.revoked_at IS NULL LEFT JOIN role r ON r.id=ur.role_id WHERE u.restaurant_id=$1 ORDER BY u.username`,
+          `SELECT u.id,u.staff_code,u.username,u.display_name,u.status,r.code AS role FROM app_user u LEFT JOIN user_role ur ON ur.user_id=u.id AND ur.revoked_at IS NULL LEFT JOIN role r ON r.id=ur.role_id WHERE u.restaurant_id=$1 ORDER BY u.username`,
           [restaurant],
         )
       ).rows,
   );
   app.post('/core/users', { config }, async (r) => {
     const b = object(r.body),
-      username = text(b.username, 60),
+      username = text(b.username, 60).toLowerCase(),
       role = text(b.role);
     if (!/^[a-z0-9._-]{3,60}$/.test(username) || !['ADMIN', 'STAFF', 'KITCHEN'].includes(role))
       reject('Tên đăng nhập hoặc vai trò không hợp lệ.', 400);
@@ -30,8 +30,14 @@ export function registerUsers(app: FastifyInstance, db: Database, restaurant: st
       const rr = await one(c, 'SELECT id FROM role WHERE code=$1', [role]);
       const user = await one(
         c,
-        'INSERT INTO app_user(restaurant_id,username,password_hash,display_name) VALUES($1,$2,$3,$4) RETURNING id,username,display_name,status',
-        [restaurant, username, hashed, text(b.name, 100)],
+        'INSERT INTO app_user(restaurant_id,username,password_hash,display_name,staff_code) VALUES($1,$2,$3,$4,$5) RETURNING id,username,display_name,status',
+        [
+          restaurant,
+          username,
+          hashed,
+          text(b.name, 100),
+          b.staffCode ? text(b.staffCode, 60).toLowerCase() : username,
+        ],
       );
       await c.query('INSERT INTO user_role(user_id,role_id) VALUES($1,$2)', [user.id, rr.id]);
       return user;
@@ -49,10 +55,12 @@ export function registerUsers(app: FastifyInstance, db: Database, restaurant: st
     const hashed = b.password ? await passwordHash(b.password) : null;
     return transaction(db, async (c) => {
       await one(c, 'SELECT id FROM restaurant WHERE id=$1 FOR UPDATE', [restaurant]);
-      await one(c, 'SELECT id FROM app_user WHERE id=$1 AND restaurant_id=$2 FOR UPDATE', [
-        id,
-        restaurant,
-      ]);
+      const before = await one(
+        c,
+        `SELECT u.status,(SELECT ro.code FROM user_role ur JOIN role ro ON ro.id=ur.role_id WHERE ur.user_id=u.id AND ur.revoked_at IS NULL) AS role FROM app_user u WHERE u.id=$1 AND u.restaurant_id=$2 FOR UPDATE OF u`,
+        [id, restaurant],
+      );
+      if (before.status !== status || before.role !== role) text(b.reason, 500);
       const rr = await one(c, 'SELECT id FROM role WHERE code=$1', [role]);
       await c.query(
         'UPDATE user_role SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL AND role_id<>$2',
@@ -61,6 +69,16 @@ export function registerUsers(app: FastifyInstance, db: Database, restaurant: st
       await c.query(
         'INSERT INTO user_role(user_id,role_id) SELECT $1,$2 WHERE NOT EXISTS(SELECT 1 FROM user_role WHERE user_id=$1 AND revoked_at IS NULL)',
         [id, rr.id],
+      );
+      await c.query(
+        "INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason,details) VALUES($1,$2,'STAFF_ACCESS_CHANGE','APP_USER',$3,$4,$5)",
+        [
+          restaurant,
+          r.identity!.id,
+          id,
+          b.reason ? text(b.reason, 500) : 'Quản trị cập nhật tài khoản và quyền',
+          JSON.stringify({ role, status, name: text(b.name, 100) }),
+        ],
       );
       return one(
         c,

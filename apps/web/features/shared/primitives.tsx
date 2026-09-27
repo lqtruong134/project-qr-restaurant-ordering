@@ -83,6 +83,11 @@ export function Stat({
     </article>
   );
 }
+export function confirmDiscard(root: ParentNode | null = document.querySelector('dialog[open]')) {
+  return (
+    !root?.querySelector('form[data-dirty="true"]') || window.confirm('Bỏ những thay đổi chưa lưu?')
+  );
+}
 export function Modal({
   title,
   children,
@@ -113,14 +118,20 @@ export function Modal({
       className={'app-dialog' + (wide ? ' dialog-wide' : '')}
       onCancel={(e) => {
         e.preventDefault();
-        if (!blocking) close();
+        if (!blocking && confirmDiscard(ref.current)) close();
       }}
       aria-label={title}
     >
       <div className="dialog-heading">
         <h2>{title}</h2>
         {!blocking && (
-          <button className="icon-button" onClick={close} aria-label="Đóng">
+          <button
+            className="icon-button"
+            onClick={() => {
+              if (confirmDiscard(ref.current)) close();
+            }}
+            aria-label="Đóng"
+          >
             <Icon name="close" />
           </button>
         )}

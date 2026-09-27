@@ -1,6 +1,6 @@
 # QR Restaurant Ordering
 
-Ứng dụng gọi món bằng QR tại bàn cho **Quyết Trường Bistro** (nhà hàng demo). Một repository thống nhất gồm giao diện Next.js/React, API Fastify/TypeScript và PostgreSQL với **53 bảng nghiệp vụ**. Có bốn không gian: quản trị, phục vụ, bếp và khách.
+Ứng dụng gọi món bằng QR tại bàn cho **Quyết Trường Bistro** (nhà hàng demo). Một repository thống nhất gồm giao diện Next.js/React, API Fastify/TypeScript và PostgreSQL với **55 bảng nghiệp vụ**. Có bốn không gian: quản trị, phục vụ, bếp và khách.
 
 Đã có gọi món, duyệt đơn, chế biến/phục vụ, hỗ trợ tại bàn, chuyển bàn, thu tiền và hoàn tiền thủ công, báo cáo, công thức và kho. Quản trị có phân ca, chấm công, đơn giá giờ và bảng lương nội bộ; nhân viên xem lịch, ghi nhận vào/ra ca và phiếu lương đã chốt. **AI và tích hợp ngân hàng/cổng thanh toán online chưa triển khai.**
 
@@ -72,4 +72,6 @@ Cần nghiệm thu tại nhà hàng, HTTPS/origin/cookie phù hợp, backup và 
 
 ## Vận hành phục vụ và phiếu thanh toán
 
-Xem [luồng phục vụ, phiếu thanh toán, chuyển bàn và ca/lương](docs/service-and-receipts.md). Bản hiện tại gồm 53 bảng nghiệp vụ; giữ nguyên 45 bảng lõi và bổ sung 8 bảng nhân sự/chuyển bàn.
+Xem [luồng phục vụ, phiếu thanh toán, chuyển bàn và ca/lương](docs/service-and-receipts.md). Bản hiện tại gồm 55 bảng nghiệp vụ; giữ nguyên 45 bảng lõi và bổ sung 8 bảng nhân sự/chuyển bàn cùng 2 bảng thanh toán lương và nhật ký nghiệp vụ.
+
+Đợt chuẩn hóa nghiệp vụ mới: [nghiệm thu v2](docs/uat-v2.md).

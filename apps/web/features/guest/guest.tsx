@@ -7,7 +7,9 @@ import { Cart, PaymentForm, type GuestState } from './guest-panels';
 export default function Guest() {
   const [state, setState] = useState<GuestState>(),
     [error, setError] = useState(''),
+    [notice, setNotice] = useState(''),
     [token, setToken] = useState('');
+  const [qrInfo, setQrInfo] = useState<{ table_name: string; area_name: string }>();
   const [view, setView] = useState('menu'),
     [search, setSearch] = useState(''),
     [category, setCategory] = useState('Tất cả');
@@ -28,16 +30,47 @@ export default function Guest() {
     // A new QR must be joined explicitly; never silently show a previous table's session.
     setJoining(Boolean(qr));
     if (!qr) void refresh();
+    else
+      void api<{ table_name: string; area_name: string }>(
+        '/guest/qr-info',
+        { token: qr },
+        'POST',
+        true,
+      )
+        .then(setQrInfo)
+        .catch((e) => setError(e.message));
   }, [refresh]);
   useEffect(() => {
     if (joining) return;
     const timer = setInterval(() => {
       if (!document.hidden) void refresh();
     }, 3000);
-    return () => clearInterval(timer);
+    const resume = () => {
+      if (!document.hidden) void refresh();
+    };
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('online', resume);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('online', resume);
+    };
   }, [joining, refresh]);
   async function mutate(path: string, body: unknown, method = 'POST') {
-    await api(path, body, method, true);
+    const result = await api<{ skipped?: unknown[]; cancelled?: unknown[] }>(
+      path,
+      body,
+      method,
+      true,
+    );
+    if (result?.skipped?.length)
+      setNotice(
+        'Đã hủy ' +
+          (result.cancelled?.length ?? 0) +
+          ' món; ' +
+          result.skipped.length +
+          ' món đã đổi trạng thái nên được giữ lại.',
+      );
     await refresh();
   }
   const categories = [
@@ -67,16 +100,22 @@ export default function Guest() {
         {state && !joining && (
           <span className="guest-table">
             <Icon name="table" size={16} />
-            {String(state.session.table_name)} · {state.participant.displayName}
+            {String(state.session.table_name)} · {String(state.session.area_name)} ·{' '}
+            {state.participant.displayName}
           </span>
         )}
       </header>
       {!state || joining ? (
         <section className="guest-welcome">
           <p className="eyebrow">MỘT BỮA NGON, MỘT NIỀM VUI</p>
-          <h1>Mời bạn vào bàn.</h1>
+          <h1>{qrInfo ? qrInfo.table_name + ' · ' + qrInfo.area_name : 'Mời bạn vào bàn.'}</h1>
+          {error && token && (
+            <p role="alert" className="form-error">
+              {error}
+            </p>
+          )}
           <p>Nhập tên để cả bàn dễ nhận ra những món bạn chọn. Không cần tạo tài khoản.</p>
-          {token ? (
+          {token && qrInfo ? (
             <EntryForm
               title="Tham gia bàn"
               fields={[{ key: 'name', label: 'Tên của bạn' }]}
@@ -102,11 +141,30 @@ export default function Guest() {
         </section>
       ) : (
         <>
+          {notice && <p role="status">{notice}</p>}
           {error && (
             <p role="alert" className="form-error">
               {error} Vui lòng thử lại hoặc gọi nhân viên.
             </p>
           )}
+          <details className="core-card">
+            <summary>Tên của bạn và rời bàn</summary>
+            <EntryForm
+              title="Đổi tên hiển thị"
+              fields={[{ key: 'name', label: 'Tên của bạn', value: state.participant.displayName }]}
+              onSubmit={(v) => mutate('/guest/profile', v, 'PATCH')}
+            />
+            <Action
+              confirm="Rời bàn và bỏ các món chưa gửi của bạn? Món đã gọi vẫn được giữ trong hóa đơn."
+              run={async () => {
+                await api('/guest/leave', {}, 'POST', true);
+                setState(undefined);
+                setJoining(true);
+              }}
+            >
+              Rời bàn
+            </Action>
+          </details>
           {view === 'menu' && (
             <>
               <section className="guest-hero">
@@ -232,6 +290,16 @@ export default function Guest() {
                         <span className="status-pill" data-status={String(i.item_status)}>
                           {label(i.item_status)}
                         </span>
+                        {i.note && <small>Ghi chú: {String(i.note)}</small>}
+                        {i.owner_participant_id === state.participant.id &&
+                          i.item_status === 'SUBMITTED' && (
+                            <Action
+                              confirm="Hủy riêng món này?"
+                              run={() => mutate('/guest/items/cancel', { itemIds: [i.item_id] })}
+                            >
+                              Hủy món này
+                            </Action>
+                          )}
                         {i.item_reason && (
                           <small className="form-error">{String(i.item_reason)}</small>
                         )}
@@ -241,16 +309,16 @@ export default function Guest() {
                       Tổng lượt gọi <strong>{vnd(order.total_amount)}</strong>
                     </p>
                     {order.created_by_participant_id === state.participant.id &&
-                      ['SUBMITTED', 'PENDING_REVIEW'].includes(String(order.status)) && (
+                      state.orders.some((i) => i.id === id && i.item_status === 'SUBMITTED') && (
                         <Action
-                          confirm="Hủy toàn bộ món trong lượt gọi này?"
+                          confirm="Hủy những món của bạn chưa được bếp tiếp nhận trong lượt này?"
                           run={() =>
                             mutate('/guest/orders/' + id + '/cancel', {
                               reason: 'Khách yêu cầu hủy lượt trước khi bếp tiếp nhận',
                             })
                           }
                         >
-                          Hủy lượt gọi này
+                          Hủy các món còn chờ trong lượt
                         </Action>
                       )}
                   </article>

@@ -11,6 +11,11 @@ datasource db {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model app_user {
+  staff_code String @default(dbgenerated())
+  salary_payments payroll_payment[] @relation("salary_payer")
+  business_events business_audit_event[] @relation("business_actor")
+  verified_sessions table_session[] @relation("session_verifier")
+  resolved_alerts operational_alert[] @relation("alert_resolver")
   closed_sessions table_session[] @relation("session_closed_by")
 
   id                                                                      String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -140,6 +145,8 @@ model permission {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model product {
+  stock_managed Boolean @default(true)
+  is_complimentary Boolean @default(false)
   id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   restaurant_id       String        @db.Uuid
   category_id         String        @db.Uuid
@@ -166,6 +173,8 @@ model product {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model restaurant {
+  salary_payments payroll_payment[]
+  business_events business_audit_event[]
   id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                   String
   address                String?
@@ -283,6 +292,8 @@ model table_qr_token {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model table_session {
+  verified_by String? @db.Uuid
+  verifier app_user? @relation("session_verifier",fields:[verified_by],references:[id],onDelete:Restrict,onUpdate:NoAction)
   receipt_number String? @unique
   closed_by String? @db.Uuid
   receipt_snapshot Json?
@@ -377,6 +388,7 @@ model financial_charge {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model goods_receipt {
+  version Int @default(1)
   id                                           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   location_id                                  String               @db.Uuid
   receipt_no                                   String
@@ -554,6 +566,9 @@ model inventory_reservation {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model operational_alert {
+  resolution_note String?
+  resolved_by String? @db.Uuid
+  resolver app_user? @relation("alert_resolver",fields:[resolved_by],references:[id],onDelete:Restrict,onUpdate:NoAction)
   id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   session_id         String?        @db.Uuid
   table_id           String         @db.Uuid
@@ -612,6 +627,11 @@ model order_batch {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model order_item {
+  stock_managed_snapshot Boolean @default(true)
+  received_at DateTime? @db.Timestamptz(6)
+  preparation_started_at DateTime? @db.Timestamptz(6)
+  ready_at DateTime? @db.Timestamptz(6)
+  served_at DateTime? @db.Timestamptz(6)
   id                                                                              String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   order_batch_id                                                                  String                           @db.Uuid
   owner_participant_id                                                            String?                          @db.Uuid
@@ -912,6 +932,7 @@ model recipe_bom_item {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model refund_case {
+  request_key String?
   id                            String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   session_id                    String               @db.Uuid
   order_item_id                 String?              @db.Uuid
@@ -941,6 +962,7 @@ model refund_case {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model refund_transaction {
+  request_key String?
   id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   refund_case_id String      @db.Uuid
   method         String
@@ -1056,6 +1078,7 @@ model unit_of_measure {
 }
 
 model attendance_record {
+  outcome String @default("WORKED")
   id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   restaurant_id        String           @db.Uuid
   assignment_id        String           @unique @db.Uuid
@@ -1139,6 +1162,7 @@ model payroll_run {
 }
 
 model payroll_slip {
+  salary_payment payroll_payment[]
   id                     String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   restaurant_id          String         @db.Uuid
   payroll_run_id         String         @db.Uuid
@@ -1215,4 +1239,31 @@ model work_shift {
 
   @@unique([id, restaurant_id])
   @@unique([restaurant_id, code])
+}
+
+model payroll_payment {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ restaurant_id String @db.Uuid
+ payroll_slip_id String @unique @db.Uuid
+ amount BigInt
+ reference String
+ paid_by String @db.Uuid
+ paid_at DateTime @default(now()) @db.Timestamptz(6)
+ restaurant restaurant @relation(fields:[restaurant_id],references:[id],onDelete:NoAction,onUpdate:NoAction)
+ slip payroll_slip @relation(fields:[payroll_slip_id,restaurant_id],references:[id,restaurant_id],onDelete:NoAction,onUpdate:NoAction)
+ payer app_user @relation("salary_payer",fields:[paid_by,restaurant_id],references:[id,restaurant_id],onDelete:NoAction,onUpdate:NoAction)
+}
+model business_audit_event {
+ id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+ restaurant_id String @db.Uuid
+ actor_id String @db.Uuid
+ action String
+ resource_type String
+ resource_id String @db.Uuid
+ reason String
+ details Json @default("{}")
+ created_at DateTime @default(now()) @db.Timestamptz(6)
+ restaurant restaurant @relation(fields:[restaurant_id],references:[id],onDelete:NoAction,onUpdate:NoAction)
+ actor app_user @relation("business_actor",fields:[actor_id,restaurant_id],references:[id,restaurant_id],onDelete:NoAction,onUpdate:NoAction)
+ @@index([resource_type,resource_id,created_at],map:"business_audit_resource")
 }

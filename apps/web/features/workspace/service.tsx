@@ -4,6 +4,7 @@ import { Action, api, label, vnd, type Order, type Product, type Row } from '../
 import { Empty, Icon, Modal, Search, matches } from '../shared/primitives';
 import BillPanel from './bill-panel';
 import OrderCard from './order-card';
+import { ServeSelection } from './serve-selection';
 import TableTransferPanel from './table-transfer-panel';
 import { SupportActions, AlertActions } from './service-actions';
 
@@ -119,7 +120,15 @@ export default function Service({
     [],
   );
   async function act(path: string, body: unknown = {}) {
-    await api(path, body);
+    const result = await api<{ skipped?: unknown[]; cancelled?: unknown[] }>(path, body);
+    if (result?.skipped?.length)
+      setNotice(
+        'Đã hủy ' +
+          (result.cancelled?.length ?? 0) +
+          ' món; giữ lại ' +
+          result.skipped.length +
+          ' món không còn đủ điều kiện.',
+      );
     await refresh();
   }
   async function loadReceipts() {
@@ -147,7 +156,17 @@ export default function Service({
     if (items.some((i) => i.status === 'UNAVAILABLE')) list.push('Có món bếp không thể làm');
     return list;
   };
-  const attention = tables.filter((t) => needs(t).length),
+  const priority = (t: Row) =>
+    alerts.some((a) => a.session_id === t.session_id)
+      ? 4
+      : Number(t.pending_payments) > 0
+        ? 3
+        : related(t).some((o) => o.items.some((i) => i.status === 'READY'))
+          ? 2
+          : related(t).some((o) => o.status === 'PENDING_REVIEW')
+            ? 1
+            : 0;
+  const attention = tables.filter((t) => needs(t).length).sort((a, b) => priority(b) - priority(a)),
     ready = orders.flatMap((o) => o.items).filter((i) => i.status === 'READY').length;
   const current = tables.find((t) => t.session_id === selected);
   const visible = orders.filter((o) => matches(o.table_code, search));
@@ -290,7 +309,7 @@ export default function Service({
                           <div className="tile-top">
                             <h3>{String(t.name)}</h3>
                             <span className="status-pill" data-status={String(t.table_status)}>
-                              {label(t.table_status)}
+                              {t.is_active ? label(t.table_status) : 'Ngừng sử dụng'}
                             </span>
                           </div>
                           <p>
@@ -331,6 +350,8 @@ export default function Service({
                               >
                                 Mở chi tiết bàn
                               </button>
+                            ) : !t.is_active ? (
+                              <span className="small-note">Bàn tạm ngừng phục vụ</span>
                             ) : t.table_status === 'AVAILABLE' ? (
                               <Action run={() => act('/core/tables/' + t.id + '/open')}>
                                 Mở bàn
@@ -378,6 +399,7 @@ export default function Service({
       )}
       {!kitchen && tab === 'orders' && (
         <div className="core-grid">
+          <ServeSelection orders={visible} act={act} />
           {visible.length ? (
             visible.map((o) => <OrderCard key={o.id} o={o} kitchen={false} act={act} />)
           ) : (
@@ -466,6 +488,7 @@ export default function Service({
               </div>
               <section className="table-orders">
                 <h3>Các lượt gọi của bàn</h3>
+                <ServeSelection orders={selectedOrders} act={act} />
                 {selectedOrders.map((o) => (
                   <OrderCard key={o.id} o={o} kitchen={false} act={act} />
                 ))}

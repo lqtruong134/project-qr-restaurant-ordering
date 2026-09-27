@@ -202,7 +202,7 @@ export async function seed(db: Database, password: string) {
               supplier_name_snapshot: 'Nhà cung cấp mô phỏng · dữ liệu demo',
               created_by: actor.id,
               approved_by: actor.id,
-              status: 'APPROVED',
+              status: 'DRAFT',
               received_at: new Date(),
               total_value: BigInt(missing.reduce((s, i) => s + Math.round(i[3] * i[4]), 0)),
             },
@@ -243,6 +243,10 @@ export async function seed(db: Database, password: string) {
               },
             });
           }
+          await tx.goods_receipt.update({
+            where: { id: receipt.id },
+            data: { status: 'APPROVED' },
+          });
         }
       }
       for (const dish of demoMenu) {

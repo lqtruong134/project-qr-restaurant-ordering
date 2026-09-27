@@ -5,6 +5,7 @@ export interface AuthOptions {
   origins: string[];
   secure: boolean;
   loginLimit?: number;
+  loginWindowSeconds?: number;
   now?: () => number;
 }
 export interface Identity {

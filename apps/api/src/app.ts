@@ -49,7 +49,10 @@ export function buildApp(database: { ping(): Promise<void> }, logging = false) {
     )
       return reply.code(400).send({
         errorCode: 'INVALID_INPUT',
-        userMessage: 'Vui lòng kiểm tra thông tin đã nhập.',
+        userMessage:
+          'publicMessage' in error && typeof error.publicMessage === 'string'
+            ? error.publicMessage
+            : 'Vui lòng kiểm tra thông tin đã nhập.',
         correlationId: request.id,
       });
     if (

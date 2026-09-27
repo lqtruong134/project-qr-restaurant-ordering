@@ -1,5 +1,5 @@
 # CORE45 — Rehearsal evidence
-2026-09-24T06:34:44.812Z
+2026-09-27T16:19:55.470Z
 Each run creates its own empty database; existing development data is untouched.
 ## Run 1 — PASS
 - Empty DB migrate: PASS
@@ -10,6 +10,7 @@ Each run creates its own empty database; existing development data is untouched.
 {
   "app_user": 8,
   "attendance_record": 0,
+  "business_audit_event": 0,
   "cart_item": 0,
   "dining_area": 3,
   "dining_table": 16,
@@ -37,6 +38,7 @@ Each run creates its own empty database; existing development data is untouched.
   "payment_transaction": 0,
   "payment_webhook_event": 0,
   "payroll_line": 0,
+  "payroll_payment": 0,
   "payroll_run": 0,
   "payroll_slip": 0,
   "permission": 3,
@@ -72,6 +74,7 @@ Each run creates its own empty database; existing development data is untouched.
 {
   "app_user": 8,
   "attendance_record": 0,
+  "business_audit_event": 0,
   "cart_item": 0,
   "dining_area": 3,
   "dining_table": 16,
@@ -99,6 +102,7 @@ Each run creates its own empty database; existing development data is untouched.
   "payment_transaction": 0,
   "payment_webhook_event": 0,
   "payroll_line": 0,
+  "payroll_payment": 0,
   "payroll_run": 0,
   "payroll_slip": 0,
   "permission": 3,

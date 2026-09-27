@@ -12,6 +12,7 @@ await registerAuth(app, database, {
   origins: (process.env.APP_ORIGINS ?? '').split(','),
   secure: process.env.NODE_ENV === 'production',
   loginLimit: Number(process.env.LOGIN_LIMIT ?? 5),
+  loginWindowSeconds: Number(process.env.LOGIN_WINDOW_SECONDS ?? 60),
 });
 registerModules(
   app,

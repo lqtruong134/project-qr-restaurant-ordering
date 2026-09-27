@@ -119,7 +119,7 @@ it('executes a reviewed guest order, stock consumption, split payment, snapshot 
         "SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='public' AND tablename<>'_prisma_migrations'",
       )
     ).rows[0].n,
-  ).toBe(53);
+  ).toBe(55);
   const unit = await ok('/core/units', 'quyettruong05', {
     code: 'CORE-KG',
     name: 'Kilogram',
@@ -181,6 +181,8 @@ it('executes a reviewed guest order, stock consumption, split payment, snapshot 
     (await request('/core/orders/' + batch.id + '/review', 'bep001', { approve: true })).statusCode,
   ).toBe(403);
   await ok('/core/orders/' + batch.id + '/review', 'pv001', { approve: true });
+  // Approving food is separate from verifying the table.
+  await ok('/core/sessions/' + sid + '/verify', 'pv001', {});
   const nextState = await ok('/guest/state', 'guest');
   const nextItem = await ok('/guest/cart', 'guest', {
     productId: product.id,
@@ -328,6 +330,16 @@ it('cancels a paid unprepared order and refunds once with a reconciled zero bala
       )
     ).rows[0].n,
   ).toBe(1);
+  expect((await request('/core/sessions/' + t.sid + '/close', 'pv001', {})).statusCode).toBe(409);
+  const alerts = (await ok('/core/alerts', 'pv001')).filter(
+    (a: { session_id: string }) => a.session_id === t.sid,
+  );
+  for (const alert of alerts) {
+    await ok('/core/alerts/' + alert.id + '/acknowledge', 'pv001', {});
+    await ok('/core/alerts/' + alert.id + '/resolve', 'pv001', {
+      reason: 'Đã đối chiếu và hoàn đủ tiền',
+    });
+  }
   await ok('/core/sessions/' + t.sid + '/close', 'pv001', {});
 });
 it('expires reviews and payments, releases stock and publishes the committed outbox', async () => {
@@ -438,7 +450,9 @@ it('enforces guest ownership and version conflicts, stock rollback, revoked QR a
     request('/core/support/' + support.id + '/claim', 'pv001', {}),
   ]);
   expect(claims.map((r) => r.statusCode).sort()).toEqual([200, 409]);
-  await ok('/core/support/' + support.id + '/resolve', 'pv001', {});
+  await ok('/core/support/' + support.id + '/resolve', 'pv001', {
+    reason: 'Đã đối chiếu và xử lý xong',
+  });
   const cart = (await db.prisma.session_cart.findUnique({ where: { session_id: a.sid } }))!;
   await expect(
     db.pool.query(
@@ -472,7 +486,7 @@ it('versions policies and staff roles while never exposing password hashes', asy
   await ok(
     '/core/users/' + user.id,
     'quyettruong05',
-    { name: 'Bếp mới', role: 'KITCHEN', status: 'ACTIVE' },
+    { name: 'Bếp mới', role: 'KITCHEN', reason: 'Kiểm thử chuyển vai trò', status: 'ACTIVE' },
     'PATCH',
   );
   expect((await db.prisma.user_role.findMany({ where: { user_id: user.id } })).length).toBe(2);
@@ -632,7 +646,9 @@ it('restricts debt write-off to admin and only after the kitchen has finished', 
   );
   const alert = (await db.prisma.operational_alert.findFirst({ where: { session_id: t.sid } }))!;
   await ok('/core/alerts/' + alert.id + '/acknowledge', 'pv001', {});
-  await ok('/core/alerts/' + alert.id + '/resolve', 'pv001', {});
+  await ok('/core/alerts/' + alert.id + '/resolve', 'pv001', {
+    reason: 'Đã đối chiếu và xử lý xong',
+  });
 });
 it('lets guests withdraw their own pending batch and closes only truly idle empty sessions', async () => {
   const t = await openTable(),
@@ -683,7 +699,12 @@ it('allows distinct employee IDs with the same name and revokes a disabled accou
   const update = await request(
     '/core/users/' + employee.id,
     'quyettruong05',
-    { name: 'Nguyễn Minh Anh', role: 'STAFF', status: 'INACTIVE' },
+    {
+      name: 'Nguyễn Minh Anh',
+      role: 'STAFF',
+      status: 'INACTIVE',
+      reason: 'Khóa tài khoản kiểm thử',
+    },
     'PATCH',
   );
   expect(update.statusCode, update.body).toBe(200);
@@ -792,4 +813,310 @@ it('can reserve one serving of every seeded dish without adding ingredients or r
     (await db.pool.query('SELECT id,on_hand_qty,reserved_qty FROM inventory_balance ORDER BY id'))
       .rows,
   ).toEqual(before.rows);
+});
+
+it('UAT v2: item ownership, partial cancellation, individual acceptance and atomic same-session serving', async () => {
+  const area = await ok('/core/areas', 'quyettruong05', {
+    code: 'V2-ITEMS',
+    name: 'Khu kiểm thử v2',
+  });
+  const table = await ok('/core/tables', 'quyettruong05', {
+    areaId: area.id,
+    code: 'V2-ITEMS',
+    name: 'Bàn v2',
+    capacity: 4,
+  });
+  const qr = await ok('/core/tables/' + table.id + '/qr', 'quyettruong05', {});
+  const joined = await request('/guest/join', '', {
+    token: qr.joinPath.split('#')[1],
+    name: 'Khách v2',
+  });
+  expect(joined.statusCode).toBe(200);
+  const cookie = cookies(joined),
+    sid = joined.json().sessionId;
+  const products = (await ok('/guest/state', cookie)).products.filter(
+    (p: { availability_status: string }) => p.availability_status === 'AVAILABLE',
+  );
+  expect(products.length).toBeGreaterThan(0);
+  const ids = [];
+  for (let n = 0; n < 3; n++) {
+    const state = await ok('/guest/state', cookie);
+    ids.push(
+      (
+        await ok('/guest/cart', cookie, {
+          productId: products[0].id,
+          quantity: 1,
+          note: 'Riêng ' + n,
+          cartVersion: state.cart.cart_version,
+        })
+      ).id,
+    );
+  }
+  const state = await ok('/guest/state', cookie);
+  const batch = await ok('/guest/orders', cookie, {
+    requestId: randomUUID(),
+    itemIds: ids,
+    cartVersion: state.cart.cart_version,
+  });
+  if (batch.status === 'PENDING_REVIEW')
+    await ok('/core/orders/' + batch.id + '/review', 'pv001', { approve: true });
+  const rows = (
+    await db.pool.query('SELECT id FROM order_item WHERE order_batch_id=$1 ORDER BY id', [batch.id])
+  ).rows;
+  await ok('/core/items/' + rows[0].id + '/accept', 'bep001', {});
+  const partial = await ok('/guest/items/cancel', cookie, { itemIds: [rows[0].id, rows[1].id] });
+  expect(partial.cancelled).toEqual([rows[1].id]);
+  expect(partial.skipped).toEqual([rows[0].id]);
+  const retry = await ok('/guest/items/cancel', cookie, { itemIds: [rows[1].id] });
+  expect(retry.cancelled).toEqual([]);
+  expect(retry.alreadyCancelled).toEqual([rows[1].id]);
+  await ok('/core/orders/' + batch.id + '/accept', 'bep001', {});
+  for (const i of [rows[0], rows[2]]) {
+    await ok('/core/items/' + i.id + '/prepare', 'bep001', {});
+    expect(
+      (
+        await request('/core/items/cancel', 'pv001', {
+          itemIds: [i.id],
+          reason: 'Không được hủy như món chưa nấu',
+        })
+      ).statusCode,
+    ).toBe(409);
+    await ok('/core/items/' + i.id + '/ready', 'bep001', {});
+  }
+  expect(
+    (await request('/core/sessions/' + sid + '/serve-items', 'bep001', { itemIds: [rows[0].id] }))
+      .statusCode,
+  ).toBe(403);
+  const other = await ok('/core/tables', 'quyettruong05', {
+    areaId: area.id,
+    code: 'V2-OTHER',
+    name: 'Bàn khác',
+    capacity: 4,
+  });
+  const opened = await ok('/core/tables/' + other.id + '/open', 'pv001', {});
+  const otherSid = opened.id;
+  expect(
+    (
+      await request('/core/sessions/' + otherSid + '/serve-items', 'pv001', {
+        itemIds: [rows[0].id],
+      })
+    ).statusCode,
+  ).toBe(400);
+  const results = await Promise.all(
+    [1, 2].map(() =>
+      request('/core/sessions/' + sid + '/serve-items', 'pv001', {
+        itemIds: [rows[0].id, rows[2].id],
+      }),
+    ),
+  );
+  expect(results.map((x) => x.statusCode).sort()).toEqual([200, 409]);
+  const served = (await db.pool.query('SELECT * FROM order_item WHERE id=$1', [rows[0].id]))
+    .rows[0];
+  expect(served.received_at).toBeTruthy();
+  expect(served.preparation_started_at).toBeTruthy();
+  expect(served.ready_at).toBeTruthy();
+  expect(served.served_at).toBeTruthy();
+  expect(
+    (
+      await db.pool.query(
+        "SELECT count(*)::int AS n FROM order_status_history WHERE order_item_id=$1 AND new_status='SERVED'",
+        [rows[0].id],
+      )
+    ).rows[0].n,
+  ).toBe(1);
+  expect(
+    (
+      await db.pool.query(
+        "SELECT count(*)::int AS n FROM financial_charge WHERE order_item_id=$1 AND status='ACTIVE'",
+        [rows[1].id],
+      )
+    ).rows[0].n,
+  ).toBe(0);
+});
+
+it('UAT v2: unmanaged menu, late cancellation retains stock and money, explicit waiver and partial refund', async () => {
+  const catalog = await ok('/core/catalog', 'quyettruong05');
+  expect(
+    (
+      await request('/core/products', 'quyettruong05', {
+        categoryId: catalog.categories[0].id,
+        code: 'V2-ZERO-BAD',
+        name: 'Giá không hợp lệ',
+        price: '0',
+      })
+    ).statusCode,
+  ).toBe(400);
+  const product = await ok('/core/products', 'quyettruong05', {
+    categoryId: catalog.categories[0].id,
+    code: 'V2-UNMANAGED',
+    name: 'Dịch vụ không quản lý nguyên liệu',
+    price: '100000',
+    stockManaged: false,
+  });
+  const t = await openTable();
+  const order = await ok('/core/sessions/' + t.sid + '/orders', 'pv001', {
+    requestId: randomUUID(),
+    lines: [{ productId: product.id, quantity: 1 }],
+  });
+  const item = (await db.pool.query('SELECT * FROM order_item WHERE order_batch_id=$1', [order.id]))
+    .rows[0];
+  await ok('/core/items/' + item.id + '/accept', 'bep001', {});
+  await ok('/core/items/' + item.id + '/prepare', 'bep001', {});
+  const intent = await ok('/core/sessions/' + t.sid + '/payments', 'pv001', {
+    requestId: randomUUID(),
+    method: 'CASH',
+    amount: '100000',
+  });
+  const pay = await ok('/core/payments/' + intent.id + '/confirm', 'pv001', { amount: '100000' });
+  expect(
+    (
+      await request('/core/items/' + item.id + '/late-cancel', 'pv001', {
+        reason: 'Không được vượt quyền',
+      })
+    ).statusCode,
+  ).toBe(403);
+  await ok('/core/items/' + item.id + '/late-cancel', 'quyettruong05', {
+    reason: 'Khách không sử dụng sau khi thực hiện',
+  });
+  expect((await ok('/core/sessions/' + t.sid + '/bill', 'pv001')).account.charge_total).toBe(
+    '100000',
+  );
+  await ok('/core/items/' + item.id + '/waive', 'quyettruong05', {
+    reason: 'Quản trị đồng ý miễn riêng khoản thu',
+  });
+  const f = await ok('/core/sessions/' + t.sid + '/refunds', 'pv001', {
+    paymentId: pay.id,
+    amount: '100000',
+    reason: 'Miễn khoản thu',
+  });
+  const key = randomUUID();
+  await ok('/core/refunds/' + f.id + '/complete', 'pv001', {
+    requestId: key,
+    amount: '40000',
+    method: 'CASH',
+  });
+  await ok('/core/refunds/' + f.id + '/complete', 'pv001', {
+    requestId: key,
+    amount: '40000',
+    method: 'CASH',
+  });
+  expect((await ok('/core/sessions/' + t.sid + '/bill', 'pv001')).account.refund_due_amount).toBe(
+    '60000',
+  );
+  expect(
+    (
+      await request('/core/refunds/' + f.id + '/complete', 'pv001', {
+        requestId: randomUUID(),
+        amount: '70000',
+        method: 'CASH',
+      })
+    ).statusCode,
+  ).toBe(409);
+  await ok('/core/refunds/' + f.id + '/complete', 'pv001', {
+    requestId: randomUUID(),
+    amount: '60000',
+    method: 'CASH',
+  });
+  expect(
+    (
+      await db.pool.query(
+        'SELECT count(*)::int AS n FROM refund_transaction WHERE refund_case_id=$1',
+        [f.id],
+      )
+    ).rows[0].n,
+  ).toBe(2);
+  expect((await ok('/core/sessions/' + t.sid + '/bill', 'pv001')).account.refund_due_amount).toBe(
+    '0',
+  );
+  expect((await ok('/core/sessions/' + t.sid + '/bill', 'pv001')).refundTransactions).toHaveLength(
+    2,
+  );
+  const free = await ok('/core/products', 'quyettruong05', {
+    categoryId: catalog.categories[0].id,
+    code: 'V2-GIFT',
+    name: 'Món tặng',
+    price: '0',
+    stockManaged: false,
+    complimentary: true,
+  });
+  const gift = await ok('/core/sessions/' + t.sid + '/orders', 'pv001', {
+    requestId: randomUUID(),
+    lines: [{ productId: free.id, quantity: 1 }],
+  });
+  expect(gift.total_amount).toBe('0');
+});
+
+it('hands support over only by its owner, validates service permission and records the handover', async () => {
+  const t = await openTable();
+  const g = t.cookie;
+  const support = await ok('/guest/support', g, { type: 'OTHER', content: 'Cần bàn giao hỗ trợ' });
+  await ok('/core/support/' + support.id + '/claim', 'pv001', {});
+  const target = (await ok('/core/support-assignees', 'pv001')).find(
+    (x: { username: string }) => x.username === 'pv002',
+  );
+  expect(target).toBeTruthy();
+  expect(
+    (await request('/core/support/' + support.id + '/reassign', 'pv001', { userId: target.id }))
+      .statusCode,
+  ).toBe(400);
+  await ok('/core/support/' + support.id + '/reassign', 'pv001', {
+    userId: target.id,
+    reason: 'Kết thúc ca, bàn giao đồng nghiệp',
+  });
+  expect((await request('/core/support/' + support.id + '/resolve', 'pv001', {})).statusCode).toBe(
+    403,
+  );
+  users.pv002 = cookies(await request('/auth/login', '', { username: 'pv002', password }));
+  await ok('/core/support/' + support.id + '/resolve', 'pv002', {});
+  expect(
+    (
+      await db.pool.query(
+        "SELECT count(*)::int n FROM business_audit_event WHERE resource_id=$1 AND action='SUPPORT_REASSIGN'",
+        [support.id],
+      )
+    ).rows[0].n,
+  ).toBe(1);
+});
+
+it('edits draft stock receipts with version guards and cancels without posting stock', async () => {
+  const inv = await ok('/core/inventory', 'quyettruong05');
+  const line = { ingredientId: inv.ingredients[0].id, quantity: '2', unitCost: '1000' };
+  const body = { locationId: inv.locations[0].id, number: 'DRAFT-' + randomUUID(), lines: [line] };
+  expect(
+    (await request('/core/receipts', 'quyettruong05', { ...body, lines: [line, line] })).statusCode,
+  ).toBe(400);
+  const receipt = await ok('/core/receipts', 'quyettruong05', body);
+  const change = {
+    ...body,
+    lines: [{ ...line, quantity: '3' }],
+    reason: 'Sửa số lượng kiểm đếm',
+    expectedVersion: receipt.version,
+  };
+  const updated = await ok('/core/receipts/' + receipt.id, 'quyettruong05', change, 'PATCH');
+  expect(updated.total_value).toBe('3000');
+  expect(
+    (await request('/core/receipts/' + receipt.id, 'quyettruong05', change, 'PATCH')).statusCode,
+  ).toBe(409);
+  await ok('/core/receipts/' + receipt.id + '/cancel', 'quyettruong05', {
+    reason: 'Không nhận hàng',
+  });
+  await ok('/core/receipts/' + receipt.id + '/cancel', 'quyettruong05', { reason: 'Gửi lại' });
+  expect(
+    (await request('/core/receipts/' + receipt.id + '/approve', 'quyettruong05', {})).statusCode,
+  ).toBe(409);
+  expect(
+    (
+      await db.pool.query(
+        'SELECT count(*)::int n FROM inventory_movement WHERE goods_receipt_id=$1',
+        [receipt.id],
+      )
+    ).rows[0].n,
+  ).toBe(0);
+  expect(
+    (
+      await db.pool.query('SELECT count(*)::int n FROM business_audit_event WHERE resource_id=$1', [
+        receipt.id,
+      ])
+    ).rows[0].n,
+  ).toBe(2);
 });

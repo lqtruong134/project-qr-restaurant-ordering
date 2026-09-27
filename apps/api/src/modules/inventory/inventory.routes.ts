@@ -103,6 +103,8 @@ export function registerInventory(app: FastifyInstance, db: Database, restaurant
       );
       if (!Array.isArray(b.lines) || !b.lines.length || b.lines.length > 100)
         reject('Cần 1–100 dòng nhập kho.', 400);
+      if (new Set(b.lines.map((raw) => uuid(object(raw).ingredientId))).size !== b.lines.length)
+        reject('Mỗi nguyên liệu chỉ xuất hiện một dòng trong phiếu nhập.', 400);
       const receipt = await one(
         c,
         'INSERT INTO goods_receipt(location_id,receipt_no,total_value,created_by,supplier_name_snapshot) VALUES($1,$2,0,$3,$4) RETURNING *',
@@ -135,6 +137,102 @@ export function registerInventory(app: FastifyInstance, db: Database, restaurant
         c,
         'UPDATE goods_receipt SET total_value=(SELECT round(sum(base_quantity*unit_cost))::bigint FROM goods_receipt_item WHERE receipt_id=$1) WHERE id=$1 RETURNING *',
         [receipt.id],
+      );
+    }),
+  );
+  app.get('/core/receipts/:id', { config }, async (r) =>
+    transaction(db, async (c) => {
+      const g = await one(
+        c,
+        'SELECT g.* FROM goods_receipt g JOIN stock_location l ON l.id=g.location_id WHERE g.id=$1 AND l.restaurant_id=$2',
+        [idParam(r), restaurant],
+      );
+      return {
+        ...g,
+        lines: (
+          await c.query(
+            'SELECT * FROM goods_receipt_item WHERE receipt_id=$1 ORDER BY created_at,id',
+            [g.id],
+          )
+        ).rows,
+      };
+    }),
+  );
+  app.patch('/core/receipts/:id', { config }, async (r) =>
+    transaction(db, async (c) => {
+      const b = object(r.body),
+        g = await one(
+          c,
+          'SELECT g.* FROM goods_receipt g JOIN stock_location l ON l.id=g.location_id WHERE g.id=$1 AND l.restaurant_id=$2 FOR UPDATE OF g',
+          [idParam(r), restaurant],
+        );
+      if (g.status !== 'DRAFT') reject('Chỉ được sửa phiếu nhập nháp.');
+      if (b.expectedVersion !== g.version)
+        reject('Phiếu đã được sửa ở nơi khác. Hãy tải lại trước khi lưu.');
+      const reason = text(b.reason, 500);
+      if (!Array.isArray(b.lines) || !b.lines.length || b.lines.length > 100)
+        reject('Cần 1–100 dòng nhập kho.', 400);
+      if (new Set(b.lines.map((raw) => uuid(object(raw).ingredientId))).size !== b.lines.length)
+        reject('Mỗi nguyên liệu chỉ xuất hiện một dòng trong phiếu nhập.', 400);
+      await one(c, 'SELECT id FROM stock_location WHERE id=$1 AND restaurant_id=$2 AND is_active', [
+        uuid(b.locationId),
+        restaurant,
+      ]);
+      const previous = (
+        await c.query('SELECT * FROM goods_receipt_item WHERE receipt_id=$1', [g.id])
+      ).rows;
+      await c.query('DELETE FROM goods_receipt_item WHERE receipt_id=$1', [g.id]);
+      for (const raw of b.lines) {
+        const line = object(raw),
+          i = await one(
+            c,
+            'SELECT * FROM ingredient WHERE id=$1 AND restaurant_id=$2 AND is_active',
+            [uuid(line.ingredientId), restaurant],
+          );
+        await c.query(
+          'INSERT INTO goods_receipt_item(receipt_id,ingredient_id,quantity,unit_id,base_quantity,unit_cost) VALUES($1,$2,$3,$4,$3,$5)',
+          [g.id, i.id, decimal(line.quantity), i.base_unit_id, decimal(line.unitCost, true)],
+        );
+      }
+      const updated = await one(
+        c,
+        'UPDATE goods_receipt SET version=version+1,location_id=$2,receipt_no=$3,supplier_name_snapshot=$4,total_value=(SELECT round(sum(base_quantity*unit_cost))::bigint FROM goods_receipt_item WHERE receipt_id=$1) WHERE id=$1 RETURNING *',
+        [g.id, b.locationId, text(b.number, 80), b.supplier ? text(b.supplier, 120) : null],
+      );
+      await c.query(
+        "INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason,details) VALUES($1,$2,'EDIT_DRAFT_RECEIPT','GOODS_RECEIPT',$3,$4,$5)",
+        [
+          restaurant,
+          r.identity!.id,
+          g.id,
+          reason,
+          JSON.stringify({
+            before: { ...g, lines: previous },
+            after: { ...updated, lines: b.lines },
+          }),
+        ],
+      );
+      return updated;
+    }),
+  );
+  app.post('/core/receipts/:id/cancel', { config }, async (r) =>
+    transaction(db, async (c) => {
+      const reason = text(object(r.body).reason, 500),
+        g = await one(
+          c,
+          'SELECT g.* FROM goods_receipt g JOIN stock_location l ON l.id=g.location_id WHERE g.id=$1 AND l.restaurant_id=$2 FOR UPDATE OF g',
+          [idParam(r), restaurant],
+        );
+      if (g.status === 'CANCELLED') return g;
+      if (g.status !== 'DRAFT') reject('Phiếu đã nhập kho không được hủy như phiếu nháp.');
+      await c.query(
+        "INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason) VALUES($1,$2,'CANCEL_DRAFT_RECEIPT','GOODS_RECEIPT',$3,$4)",
+        [restaurant, r.identity!.id, g.id, reason],
+      );
+      return one(
+        c,
+        "UPDATE goods_receipt SET version=version+1,status='CANCELLED' WHERE id=$1 RETURNING *",
+        [g.id],
       );
     }),
   );
@@ -181,7 +279,7 @@ export function registerInventory(app: FastifyInstance, db: Database, restaurant
       }
       return one(
         c,
-        "UPDATE goods_receipt SET status='APPROVED',approved_by=$2,received_at=now() WHERE id=$1 RETURNING *",
+        "UPDATE goods_receipt SET version=version+1,status='APPROVED',approved_by=$2,received_at=now() WHERE id=$1 RETURNING *",
         [g.id, r.identity!.id],
       );
     }),
