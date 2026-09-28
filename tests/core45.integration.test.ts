@@ -1120,3 +1120,106 @@ it('edits draft stock receipts with version guards and cancels without posting s
     ).rows[0].n,
   ).toBe(2);
 });
+
+it('records counted stock and waste exactly once, rejects stale stock and protects reserved quantities', async () => {
+  const balance = (
+    await db.pool.query(
+      'SELECT * FROM inventory_balance WHERE available_qty>10 ORDER BY id LIMIT 1',
+    )
+  ).rows[0];
+  const body = {
+    balanceId: balance.id,
+    expectedVersion: balance.version,
+    requestId: randomUUID(),
+    mode: 'WASTE',
+    quantity: '1',
+    reason: 'Nguyên liệu hỏng khi kiểm tra đầu ca',
+  };
+  const result = await ok('/core/inventory/adjustments', 'quyettruong05', body);
+  expect(result.movement_type).toBe('WASTE');
+  expect((await ok('/core/inventory/adjustments', 'quyettruong05', body)).id).toBe(result.id);
+  expect(
+    (await request('/core/inventory/adjustments', 'quyettruong05', { ...body, quantity: '2' }))
+      .statusCode,
+  ).toBe(409);
+  expect(
+    (await request('/core/inventory/adjustments', 'pv001', { ...body, requestId: randomUUID() }))
+      .statusCode,
+  ).toBe(403);
+  expect(
+    (
+      await request('/core/inventory/adjustments', 'quyettruong05', {
+        ...body,
+        requestId: randomUUID(),
+      })
+    ).statusCode,
+  ).toBe(409);
+  const updated = (await db.pool.query('SELECT * FROM inventory_balance WHERE id=$1', [balance.id]))
+    .rows[0];
+  expect(Number(updated.on_hand_qty)).toBeCloseTo(Number(balance.on_hand_qty) - 1, 6);
+  expect(
+    (
+      await request('/core/inventory/adjustments', 'quyettruong05', {
+        ...body,
+        expectedVersion: updated.version,
+        requestId: randomUUID(),
+        quantity: String(Number(updated.on_hand_qty) + 1),
+      })
+    ).statusCode,
+  ).toBe(409);
+  const counted = await ok('/core/inventory/adjustments', 'quyettruong05', {
+    ...body,
+    expectedVersion: updated.version,
+    requestId: randomUUID(),
+    mode: 'COUNT',
+    quantity: String(Number(updated.on_hand_qty) + 2),
+  });
+  expect(counted.movement_type).toBe('ADJUSTMENT_IN');
+  expect(Number(counted.quantity)).toBe(2);
+  expect(
+    (
+      await db.pool.query(
+        "SELECT id FROM business_audit_event WHERE resource_id=$1 AND action='ADJUST_STOCK'",
+        [result.id],
+      )
+    ).rowCount,
+  ).toBe(1);
+});
+
+it('prevents counted stock below reserved stock and concurrent adjustments from stale observations', async () => {
+  const b = (
+    await db.pool.query(
+      'SELECT * FROM inventory_balance WHERE available_qty>10 ORDER BY id LIMIT 1',
+    )
+  ).rows[0];
+  await db.pool.query(
+    'UPDATE inventory_balance SET reserved_qty=reserved_qty+1,available_qty=available_qty-1,version=version+1 WHERE id=$1',
+    [b.id],
+  );
+  const next = (await db.pool.query('SELECT * FROM inventory_balance WHERE id=$1', [b.id])).rows[0];
+  const payload = {
+    balanceId: b.id,
+    expectedVersion: next.version,
+    requestId: randomUUID(),
+    mode: 'COUNT',
+    quantity: '0',
+    reason: 'Kiểm kê thử',
+  };
+  expect((await request('/core/inventory/adjustments', 'quyettruong05', payload)).statusCode).toBe(
+    409,
+  );
+  const concurrent = await Promise.all([
+    request('/core/inventory/adjustments', 'quyettruong05', {
+      ...payload,
+      mode: 'WASTE',
+      quantity: '1',
+    }),
+    request('/core/inventory/adjustments', 'quyettruong05', {
+      ...payload,
+      requestId: randomUUID(),
+      mode: 'WASTE',
+      quantity: '2',
+    }),
+  ]);
+  expect(concurrent.map((x) => x.statusCode).sort()).toEqual([200, 409]);
+});

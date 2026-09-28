@@ -75,3 +75,7 @@ Cần nghiệm thu tại nhà hàng, HTTPS/origin/cookie phù hợp, backup và 
 Xem [luồng phục vụ, phiếu thanh toán, chuyển bàn và ca/lương](docs/service-and-receipts.md). Bản hiện tại gồm 55 bảng nghiệp vụ; giữ nguyên 45 bảng lõi và bổ sung 8 bảng nhân sự/chuyển bàn cùng 2 bảng thanh toán lương và nhật ký nghiệp vụ.
 
 Đợt chuẩn hóa nghiệp vụ mới: [nghiệm thu v2](docs/uat-v2.md).
+
+## Chấm công và kho
+
+[Chấm công và kho: nghiệp vụ, lý do thiết kế, cách kiểm thử](docs/attendance-and-inventory.md).

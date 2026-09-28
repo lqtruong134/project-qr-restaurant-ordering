@@ -515,6 +515,8 @@ model inventory_balance {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model inventory_movement {
+  request_key String?
+  reason String?
   id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   location_id      String         @db.Uuid
   ingredient_id    String         @db.Uuid

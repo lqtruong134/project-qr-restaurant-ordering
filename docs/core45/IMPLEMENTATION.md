@@ -24,3 +24,5 @@ Giao diện Guest/Staff/Kitchen/Admin gọi cùng API và database. Các màn v�
 Kiểm chứng đợt rà soát ở [bằng chứng kiểm thử](../evidence/review-2026-09-24.md). Không suy ra chất lượng từ số lượng bảng; các trường hợp nghiệp vụ được kiểm tra bằng test và dùng thử.
 
 Đợt chuẩn hóa nghiệp vụ mới: [nghiệm thu v2](../uat-v2.md).
+
+Ngày 28/09/2026: bổ sung kiểm kê/xuất hủy có lý do, phiên bản tồn và chống gửi trùng; sổ biến động kho trên giao diện; gợi ý công trong khung ca và duyệt giờ ngoại lệ riêng. Xem [thiết kế chấm công và kho](../attendance-and-inventory.md). Các giới hạn về lô/hạn dùng, chuyển kho và lương làm thêm được nêu rõ tại đó.

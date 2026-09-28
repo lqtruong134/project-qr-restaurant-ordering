@@ -56,3 +56,32 @@ export const assignmentQuery = `SELECT a.*,s.name AS shift_name,s.break_minutes,
  t.id AS attendance_id,t.checked_in_at,t.checked_out_at,t.status AS attendance_status,t.approved_minutes,t.hourly_rate_snapshot,t.amount,t.review_note,t.outcome
  FROM shift_assignment a JOIN work_shift s ON s.id=a.shift_id JOIN app_user u ON u.id=a.user_id
  LEFT JOIN dining_area d ON d.id=a.area_id LEFT JOIN attendance_record t ON t.assignment_id=a.id`;
+
+// Suggest only time actually present inside the scheduled shift. Approval remains explicit.
+export function attendanceSummary(a: Record<string, unknown>) {
+  const start = new Date(String(a.starts_at)).getTime(),
+    end = new Date(String(a.ends_at)).getTime();
+  const planned = Math.max(0, Math.floor((end - start) / 60000) - Number(a.break_minutes));
+  const complete = a.checked_in_at && a.checked_out_at;
+  const inside = complete
+    ? Math.max(
+        0,
+        Math.floor(
+          (Math.min(end, new Date(String(a.checked_out_at)).getTime()) -
+            Math.max(start, new Date(String(a.checked_in_at)).getTime())) /
+            60000,
+        ),
+      )
+    : 0;
+  return {
+    ...a,
+    scheduled_minutes: planned,
+    suggested_minutes: Math.max(0, inside - Number(a.break_minutes)),
+    late_minutes: a.checked_in_at
+      ? Math.max(0, Math.ceil((new Date(String(a.checked_in_at)).getTime() - start) / 60000))
+      : null,
+    early_leave_minutes: a.checked_out_at
+      ? Math.max(0, Math.ceil((end - new Date(String(a.checked_out_at)).getTime()) / 60000))
+      : null,
+  };
+}

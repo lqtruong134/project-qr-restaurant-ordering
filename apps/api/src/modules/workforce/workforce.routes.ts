@@ -12,6 +12,7 @@ import {
   uuid,
 } from '../shared/core-persistence.js';
 import {
+  attendanceSummary,
   assertOpenPeriod,
   assignmentQuery,
   employee,
@@ -40,7 +41,11 @@ export function registerWorkforce(app: FastifyInstance, db: Database, restaurant
         [restaurant],
       ),
     ]);
-    return { shifts: shifts.rows, assignments: assignments.rows, rates: rates.rows };
+    return {
+      shifts: shifts.rows,
+      assignments: assignments.rows.map(attendanceSummary),
+      rates: rates.rows,
+    };
   });
   app.get('/core/workforce/me', self, async (r) => {
     if (r.identity!.role === 'ADMIN') return { assignments: [] };
@@ -51,7 +56,7 @@ export function registerWorkforce(app: FastifyInstance, db: Database, restaurant
             ' WHERE a.restaurant_id=$1 AND a.user_id=$2 ORDER BY a.starts_at DESC LIMIT 200',
           [restaurant, r.identity!.id],
         )
-      ).rows,
+      ).rows.map(attendanceSummary),
     };
   });
   app.post('/core/workforce/shifts', admin, async (r) =>
@@ -150,7 +155,15 @@ export function registerWorkforce(app: FastifyInstance, db: Database, restaurant
         ).rows[0];
         if (action === 'check-in' && previous?.checked_in_at) return previous;
         if (action === 'check-out' && previous?.checked_out_at) return previous;
+        if (previous?.status === 'APPROVED')
+          reject('Giờ công đã được duyệt; không thể bổ sung dấu chấm công gốc.');
         if (action === 'check-in') {
+          const open = await c.query(
+            "SELECT t.id FROM attendance_record t JOIN shift_assignment x ON x.id=t.assignment_id WHERE x.user_id=$1 AND t.status='RECORDED' AND t.checked_in_at IS NOT NULL AND t.checked_out_at IS NULL AND x.id<>$2",
+            [a.user_id, a.id],
+          );
+          if (open.rowCount)
+            reject('Bạn còn ca chưa ghi nhận ra. Hãy ra ca hoặc nhờ quản trị xử lý công trước.');
           if (now < start - Number(policy.CLOCK_IN_EARLY_MINUTES) * 60000 || now > end)
             reject('Chưa đến cửa sổ vào ca hoặc ca đã kết thúc.');
           return one(
@@ -230,6 +243,29 @@ export function registerWorkforce(app: FastifyInstance, db: Database, restaurant
       }
       if (outcome === 'WORKED' && (!prior?.checked_in_at || !prior?.checked_out_at))
         reject('Thiếu giờ vào/ra. Chọn bổ sung chấm công và ghi rõ lý do.', 400);
+      const summary = attendanceSummary({ ...a, ...prior });
+      const limit = outcome === 'WORKED' ? summary.suggested_minutes : summary.scheduled_minutes;
+      if (minutes > limit && b.approveExtra !== true)
+        reject(
+          'Số phút vượt thời gian trong ca. Cần xác nhận duyệt giờ ngoại lệ và ghi rõ lý do.',
+          400,
+        );
+      await c.query(
+        "INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason,details) VALUES($1,$2,'APPROVE_ATTENDANCE','SHIFT_ASSIGNMENT',$3,$4,$5)",
+        [
+          restaurant,
+          r.identity!.id,
+          a.id,
+          note,
+          JSON.stringify({
+            minutes,
+            outcome,
+            suggestedMinutes: summary.suggested_minutes,
+            scheduledMinutes: summary.scheduled_minutes,
+            extraApproved: minutes > limit,
+          }),
+        ],
+      );
       const rate = await one(
         c,
         'SELECT hourly_rate FROM employee_pay_rate WHERE user_id=$1 AND effective_from<=$2 ORDER BY effective_from DESC LIMIT 1',

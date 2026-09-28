@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { EntryForm, options, type Row } from '../shared/components';
+import { EntryForm, type Row } from '../shared/components';
 export const roles = [
   { value: 'STAFF', label: 'Nhân viên phục vụ' },
   { value: 'KITCHEN', label: 'Nhân viên bếp' },
@@ -49,7 +49,14 @@ export function LinesForm({
       <EntryForm
         title="Thêm dòng nguyên liệu"
         fields={[
-          { key: 'ingredientId', label: 'Nguyên liệu', options: options(ingredients) },
+          {
+            key: 'ingredientId',
+            label: 'Nguyên liệu',
+            options: ingredients.map((i) => ({
+              value: i.id,
+              label: String(i.name) + ' · ' + String(i.unit_code ?? 'đơn vị cơ sở'),
+            })),
+          },
           {
             key: 'quantity',
             label: 'Số lượng theo đơn vị cơ sở',
@@ -85,7 +92,8 @@ export function LinesForm({
       {lines.map((l, i) => (
         <div className="core-line" key={i}>
           <span>
-            {String(ingredients.find((x) => x.id === l.ingredientId)?.name)} · {l.quantity}
+            {String(ingredients.find((x) => x.id === l.ingredientId)?.name)} · {l.quantity}{' '}
+            {String(ingredients.find((x) => x.id === l.ingredientId)?.unit_code ?? '')}
           </span>
           <button
             className="secondary-button"

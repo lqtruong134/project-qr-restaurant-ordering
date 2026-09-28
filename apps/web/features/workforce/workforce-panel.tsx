@@ -241,6 +241,11 @@ export default function WorkforcePanel({ users, areas }: { users: Row[]; areas: 
             Giờ vào/ra gốc được giữ nguyên. Chọn rõ làm việc, vắng/nghỉ hoặc bổ sung chấm công.
             Vắng/nghỉ không phát sinh lương giờ; mọi điều chỉnh cần lý do.
           </p>
+          <p>
+            Gợi ý trong ca: {String(review.suggested_minutes)} phút; lịch làm sau nghỉ:{' '}
+            {String(review.scheduled_minutes)} phút. Giờ đến sớm/về muộn không tự cộng lương. Nghỉ
+            thực tế khác lịch cần ghi rõ trong lý do duyệt.
+          </p>
           <EntryForm
             title="Giờ công được duyệt"
             fields={[
@@ -261,17 +266,16 @@ export default function WorkforcePanel({ users, areas }: { users: Row[]; areas: 
                 type: 'number',
                 min: 0,
                 max: 960,
-                value:
-                  review.checked_in_at && review.checked_out_at
-                    ? Math.max(
-                        0,
-                        Math.floor(
-                          (new Date(String(review.checked_out_at)).getTime() -
-                            new Date(String(review.checked_in_at)).getTime()) /
-                            60000,
-                        ) - Number(review.break_minutes),
-                      )
-                    : 0,
+                value: Number(review.suggested_minutes ?? 0),
+              },
+              {
+                key: 'approveExtra',
+                label: 'Duyệt giờ vượt gợi ý trong ca',
+                value: 'false',
+                options: [
+                  { value: 'false', label: 'Không — duyệt trong ca' },
+                  { value: 'true', label: 'Có — giờ ngoại lệ đã được quản trị xác nhận' },
+                ],
               },
               { key: 'note', label: 'Giải thích giờ công / xử lý quên chấm công' },
             ]}
@@ -279,6 +283,7 @@ export default function WorkforcePanel({ users, areas }: { users: Row[]; areas: 
               await save('assignments/' + review.id + '/approve', {
                 ...v,
                 minutes: Number(v.minutes),
+                approveExtra: v.approveExtra === 'true',
               });
               setReview(undefined);
             }}

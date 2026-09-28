@@ -6,6 +6,14 @@ const db = createDatabase(process.env.DATABASE_URL!);
 const app = buildApp(db);
 const id = '00000000-0000-4000-8000-000000000001';
 const examples: Record<string, unknown> = {
+  'POST /core/inventory/adjustments': {
+    balanceId: id,
+    expectedVersion: 1,
+    requestId: 'MA_MOI_MOI_LAN_DIEU_CHINH',
+    mode: 'WASTE',
+    quantity: '0.5',
+    reason: 'Nguyên liệu hỏng, kiểm tra đầu ca',
+  },
   'PATCH /guest/profile': { name: 'Tên khách mới' },
   'POST /guest/items/cancel': { itemIds: [id] },
   'POST /core/items/cancel': { itemIds: [id], reason: 'Khách đổi món trước chế biến' },

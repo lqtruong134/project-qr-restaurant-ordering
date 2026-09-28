@@ -209,3 +209,22 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
     await Promise.all(contexts.map((c) => c.close()));
   }
 });
+
+test('admin records stock waste with reason and sees immutable movement history', async ({
+  page,
+}, info) => {
+  await login(page, 'quyettruong05', 'admin');
+  await page.getByRole('button', { name: 'Kho & công thức', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Tồn kho', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Kiểm kê / xuất hủy' }).first().click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('combobox', { name: 'Loại ghi nhận', exact: true }).selectOption('WASTE');
+  await dialog.getByLabel('Số lượng theo đơn vị cơ sở', { exact: true }).fill('0.000001');
+  const reason = 'Kiểm tra xuất hủy ' + info.project.name + ' ' + Date.now();
+  await dialog.getByLabel('Lý do / biên bản kiểm kê hoặc hư hỏng', { exact: true }).fill(reason);
+  await dialog.getByRole('button', { name: 'Ghi nhận vào sổ kho', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText(reason, { exact: false })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('stock-ledger.png'), fullPage: false });
+});

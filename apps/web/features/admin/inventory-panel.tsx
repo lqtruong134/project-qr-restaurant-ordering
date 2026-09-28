@@ -1,5 +1,6 @@
 'use client';
 import type { AdminData, SaveAdmin } from './admin-types';
+import { StockAdjustment } from './stock-adjustment';
 import { ReceiptEditor } from './receipt-editor';
 import { LinesForm } from './admin-forms';
 import { Action, EntryForm, options, vnd, type Field } from '../shared/components';
@@ -7,7 +8,7 @@ import { matches } from '../shared/primitives';
 const quantity = (value: unknown) => {
   const n = Number(value ?? 0);
   if (!Number.isFinite(n)) return '—';
-  return n.toLocaleString('vi-VN', { maximumFractionDigits: 3 });
+  return n.toLocaleString('vi-VN', { maximumFractionDigits: 6 });
 };
 export default function InventoryPanel({
   data,
@@ -101,6 +102,7 @@ export default function InventoryPanel({
               <th>Hiện có</th>
               <th>Đang giữ</th>
               <th>Có thể dùng</th>
+              <th>Ghi nhận</th>
             </tr>
           </thead>
           <tbody>
@@ -119,8 +121,58 @@ export default function InventoryPanel({
                   <td>
                     {quantity(b.available_qty)} {String(b.unit)}
                   </td>
+                  <td>
+                    <StockAdjustment balance={b} save={save} />
+                  </td>
                 </tr>
               ))}
+          </tbody>
+        </table>
+      </div>
+      <h2>Sổ biến động kho gần nhất</h2>
+      <p>
+        Nhập, tiêu hao và điều chỉnh đều lưu lịch sử; không sửa trực tiếp con số tồn. Số dương là
+        tăng, số âm là giảm. Hiển thị tối đa 100 dòng mới nhất.
+      </p>
+      <div className="core-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Thời điểm</th>
+              <th>Nguyên liệu / kho</th>
+              <th>Nghiệp vụ</th>
+              <th>Số lượng</th>
+              <th>Giá trị</th>
+              <th>Người / lý do</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.inventory.movements.map((m) => (
+              <tr key={m.id}>
+                <td>{new Date(String(m.occurred_at)).toLocaleString('vi-VN')}</td>
+                <td>
+                  {String(m.ingredient_name)} · {String(m.location_name)}
+                </td>
+                <td>
+                  {(
+                    {
+                      RECEIPT: 'Nhập kho',
+                      CONSUMPTION: 'Tiêu hao chế biến',
+                      WASTE: 'Xuất hủy',
+                      ADJUSTMENT_IN: 'Kiểm kê tăng',
+                      ADJUSTMENT_OUT: 'Kiểm kê giảm',
+                    } as Record<string, string>
+                  )[String(m.movement_type)] ?? String(m.movement_type)}
+                </td>
+                <td>
+                  {quantity(m.quantity)} {String(m.unit)}
+                </td>
+                <td>{vnd(m.value)}</td>
+                <td>
+                  {String(m.actor_name ?? 'Hệ thống')} · {String(m.reason ?? 'Theo chứng từ gốc')}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

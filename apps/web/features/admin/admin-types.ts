@@ -4,6 +4,7 @@ export type Inventory = {
   ingredients: Row[];
   locations: Row[];
   balances: Row[];
+  movements: Row[];
   receipts: Row[];
 };
 export type AdminData = {

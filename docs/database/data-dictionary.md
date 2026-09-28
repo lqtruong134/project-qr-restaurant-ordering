@@ -662,6 +662,8 @@ CREATE UNIQUE INDEX inventory_balance_pkey ON public.inventory_balance USING btr
 | goods_receipt_id | uuid | Không | FK | — | — |
 | order_item_id | uuid | Không | FK | — | — |
 | created_at | timestamp(6) with time zone | Có |  | now() | — |
+| request_key | text | Không |  | — | — |
+| reason | text | Không |  | — | — |
 
 ### Ràng buộc
 ```sql
@@ -700,6 +702,7 @@ CREATE INDEX core_inventory_movement_fk2 ON public.inventory_movement USING btre
 CREATE INDEX core_inventory_movement_fk4 ON public.inventory_movement USING btree (location_id);
 CREATE INDEX core_inventory_movement_fk5 ON public.inventory_movement USING btree (ingredient_id);
 CREATE INDEX core_inventory_movement_fk6 ON public.inventory_movement USING btree (created_by);
+CREATE UNIQUE INDEX inventory_manual_request_key ON public.inventory_movement USING btree (location_id, request_key) WHERE (request_key IS NOT NULL);
 CREATE UNIQUE INDEX inventory_movement_pkey ON public.inventory_movement USING btree (id);
 ```
 

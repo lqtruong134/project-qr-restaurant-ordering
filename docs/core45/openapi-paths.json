@@ -2513,6 +2513,68 @@
       }
     }
   },
+  "/core/inventory/adjustments": {
+    "post": {
+      "tags": [
+        "admin.workspace"
+      ],
+      "summary": "POST /core/inventory/adjustments",
+      "operationId": "core_post__core_inventory_adjustments",
+      "description": "Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.",
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {
+              "balanceId": "00000000-0000-4000-8000-000000000001",
+              "expectedVersion": 1,
+              "requestId": "MA_MOI_MOI_LAN_DIEU_CHINH",
+              "mode": "WASTE",
+              "quantity": "0.5",
+              "reason": "Nguyên liệu hỏng, kiểm tra đầu ca"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
   "/core/units": {
     "post": {
       "tags": [

@@ -1,3 +1,4 @@
+import { attendanceSummary } from '../apps/api/src/modules/workforce/workforce.service.js';
 import { beforeAll, afterAll, it, expect } from 'vitest';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -482,4 +483,63 @@ it('reverses an unavailable paid dish and freezes a printable final receipt afte
   expect((await ok('/core/receipts', 'pv001')).some((row: { id: string }) => row.id === s.id)).toBe(
     true,
   );
+});
+
+it('suggests paid attendance only inside the scheduled overnight shift and separates breaks', () => {
+  const a = {
+    starts_at: '2026-01-10T22:00:00+07:00',
+    ends_at: '2026-01-11T06:00:00+07:00',
+    break_minutes: 30,
+    checked_in_at: '2026-01-10T21:45:00+07:00',
+    checked_out_at: '2026-01-11T06:30:00+07:00',
+  };
+  expect(attendanceSummary(a)).toMatchObject({
+    suggested_minutes: 450,
+    scheduled_minutes: 450,
+    late_minutes: 0,
+    early_leave_minutes: 0,
+  });
+  expect(
+    attendanceSummary({
+      ...a,
+      checked_in_at: '2026-01-10T22:15:00+07:00',
+      checked_out_at: '2026-01-11T05:45:00+07:00',
+    }),
+  ).toMatchObject({ suggested_minutes: 420, late_minutes: 15, early_leave_minutes: 15 });
+  expect(attendanceSummary({ ...a, checked_out_at: null }).suggested_minutes).toBe(0);
+});
+
+it('requires explicit exceptional-hours approval and retains original attendance and audit', async () => {
+  const u = await worker(),
+    s = await shift('2026-03-18T09:00:00+07:00', '2026-03-18T15:00:00+07:00'),
+    a = await assign(s.id, u);
+  await db.pool.query(
+    "INSERT INTO attendance_record(restaurant_id,assignment_id,checked_in_at,checked_out_at) VALUES($1,$2,'2026-03-18T08:45:00+07:00','2026-03-18T15:30:00+07:00')",
+    [restaurantId, a.id],
+  );
+  const payload = {
+    minutes: 360,
+    outcome: 'WORKED',
+    note: 'Quản trị xác nhận thêm 30 phút bàn giao ca',
+  };
+  expect(
+    (await request('/core/workforce/assignments/' + a.id + '/approve', 'quyettruong05', payload))
+      .statusCode,
+  ).toBe(400);
+  const approved = await ok('/core/workforce/assignments/' + a.id + '/approve', 'quyettruong05', {
+    ...payload,
+    approveExtra: true,
+  });
+  expect(approved.approved_minutes).toBe(360);
+  expect(new Date(approved.checked_in_at).toISOString()).toBe('2026-03-18T01:45:00.000Z');
+  await ok('/core/workforce/assignments/' + a.id + '/approve', 'quyettruong05', {
+    ...payload,
+    approveExtra: true,
+  });
+  const audit = await db.pool.query(
+    "SELECT details FROM business_audit_event WHERE action='APPROVE_ATTENDANCE' AND resource_id=$1",
+    [a.id],
+  );
+  expect(audit.rowCount).toBe(1);
+  expect(audit.rows[0].details).toMatchObject({ extraApproved: true, suggestedMinutes: 330 });
 });
