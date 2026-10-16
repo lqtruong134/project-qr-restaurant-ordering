@@ -1,7 +1,15 @@
-import type { AssistantDecision, AssistantMode, AssistantProviderInput } from '@thesis/contracts';
+import type {
+  AssistantDecision,
+  AssistantMode,
+  AssistantProviderInput,
+  AssistantTools,
+} from '@thesis/contracts';
 import { assistantCategoryIncludes } from '@thesis/contracts';
 export interface AssistantProvider {
-  suggest(input: AssistantProviderInput, options: { signal: AbortSignal }): Promise<unknown>;
+  suggest(
+    input: AssistantProviderInput,
+    options: { signal: AbortSignal; tools: AssistantTools },
+  ): Promise<unknown>;
 }
 export type MenuAssistantConfig = {
   mode: AssistantMode;
@@ -43,12 +51,61 @@ export function readMenuAssistantConfig(env: NodeJS.ProcessEnv = process.env): M
     maxInFlight: Number(env.MENU_ASSISTANT_MAX_IN_FLIGHT ?? defaults.maxInFlight),
   });
 }
-/** Explicit deterministic fixture. This is not a model or a quality evaluation. */
+/** Explicit fixture of the AI domain, including its own dialogue and tool use.
+ * This is not a language model or evidence of recommendation quality.
+ */
 export const mockAssistantProvider: AssistantProvider = {
-  async suggest({ request, context }) {
+  async suggest({ request }, { tools }) {
+    const empty = (kind: AssistantDecision['kind'], message: string): AssistantDecision => ({
+      kind,
+      message,
+      products: [],
+      totalAmount: '0',
+      clarificationFields: [],
+      warnings: [],
+    });
+    const normalized = request.message
+      .normalize('NFKD')
+      .replace(/\p{M}/gu, '')
+      .toLowerCase()
+      .replace(/đ/g, 'd')
+      .replace(/[^a-z0-9]+/g, ' ');
+    const preferences = request.preferences;
+    if (
+      /\b(di ung|allerg\w*|chay|vegetarian|vegan|khong cay|tranh|avoid|without)\b/.test(
+        normalized,
+      ) ||
+      preferences?.allergies?.length ||
+      preferences?.avoidIngredients?.length ||
+      preferences?.diet ||
+      preferences?.spice ||
+      preferences?.proteins?.length ||
+      preferences?.mealStyle
+    )
+      return empty(
+        'REFER_STAFF',
+        'Thông tin chế độ ăn và dị ứng chưa được xác minh đầy đủ. Vui lòng hỏi nhân viên; tên nguyên liệu không xác nhận món an toàn dị ứng.',
+      );
+    const missing: AssistantDecision['clarificationFields'] = [];
+    if (request.people === undefined) missing.push('PEOPLE');
+    if (request.budgetAmount === undefined) missing.push('BUDGET');
+    if (missing.length)
+      return {
+        ...empty(
+          'CLARIFY',
+          'Bạn dự kiến dùng cho bao nhiêu người và tổng ngân sách khoảng bao nhiêu?',
+        ),
+        clarificationFields: missing,
+      };
+    const result = await tools.call('searchMenu', {
+      availableOnly: true,
+      maxUnitPrice: request.budgetAmount,
+      limit: 30,
+    });
+    if (!('products' in result)) throw new Error('Unexpected read tool result');
     const choices: AssistantDecision['products'] = [];
     let remaining = BigInt(request.budgetAmount!);
-    const available = context.menu
+    const available = result.products
       .filter((p) => p.available)
       .sort((a, b) =>
         BigInt(a.unitPrice) < BigInt(b.unitPrice)
@@ -57,26 +114,26 @@ export const mockAssistantProvider: AssistantProvider = {
             ? 1
             : a.productId.localeCompare(b.productId),
       );
-    for (const include of request.preferences?.include ?? []) {
+    const add = (product: (typeof available)[number], reason: string) => {
+      choices.push({
+        productId: product.productId,
+        name: product.name,
+        quantity: 1,
+        unitPrice: product.unitPrice,
+        lineTotal: product.unitPrice,
+        reason,
+      });
+      remaining -= BigInt(product.unitPrice);
+    };
+    for (const include of preferences?.include ?? []) {
       const product = available.find(
         (p) =>
           assistantCategoryIncludes(p, include) &&
           !choices.some((c) => c.productId === p.productId) &&
           BigInt(p.unitPrice) <= remaining,
       );
-      if (!product) return { kind: 'NO_MATCH', products: [], clarificationFields: [] };
-      choices.push({
-        productId: product.productId,
-        quantity: 1,
-        reasonCode: (
-          {
-            VEGETABLE: 'REQUESTED_VEGETABLE',
-            DRINK: 'REQUESTED_DRINK',
-            DESSERT: 'REQUESTED_DESSERT',
-          } as const
-        )[include],
-      });
-      remaining -= BigInt(product.unitPrice);
+      if (!product) return empty('NO_MATCH', 'Chưa tìm được lựa chọn trong dữ liệu vừa đọc.');
+      add(product, 'Một món thuộc nhóm bạn yêu cầu.');
     }
     const ordinary = available.filter(
       (p) => !['DO-UONG', 'TRANG-MIENG', 'RAU-DAU-HU'].includes(p.categoryCode),
@@ -84,7 +141,7 @@ export const mockAssistantProvider: AssistantProvider = {
     for (const product of [...ordinary, ...available]) {
       if (
         choices.length >=
-        Math.min(6, Math.max(request.people!, (request.preferences?.include?.length ?? 0) + 1))
+        Math.min(6, Math.max(request.people!, (preferences?.include?.length ?? 0) + 1))
       )
         break;
       if (
@@ -92,13 +149,21 @@ export const mockAssistantProvider: AssistantProvider = {
         BigInt(product.unitPrice) > remaining
       )
         continue;
-      choices.push({ productId: product.productId, quantity: 1, reasonCode: 'BUDGET_FIT' });
-      remaining -= BigInt(product.unitPrice);
+      add(product, 'Lựa chọn tham khảo theo ngân sách và giá vừa đọc.');
     }
+    if (!choices.length) return empty('NO_MATCH', 'Chưa tìm được lựa chọn trong dữ liệu vừa đọc.');
     return {
-      kind: choices.length ? 'RECOMMEND' : 'NO_MATCH',
+      kind: 'RECOMMEND',
+      message: 'Đề xuất của provider mô phỏng, chưa phải kết quả từ mô hình AI.',
       products: choices,
+      totalAmount: (BigInt(request.budgetAmount!) - remaining).toString(),
       clarificationFields: [],
-    };
+      warnings: [
+        'Giá thực đơn đã gồm VAT, chưa áp dụng giảm giá; gợi ý không giữ kho.',
+        'Thông tin công thức chưa xác nhận an toàn dị ứng; vui lòng hỏi nhân viên.',
+        'Số lượng gợi ý chưa xác nhận đủ khẩu phần cho cả nhóm.',
+        ...(result.truncated ? ['Provider mô phỏng chỉ đọc một trang thực đơn.'] : []),
+      ],
+    } satisfies AssistantDecision;
   },
 };

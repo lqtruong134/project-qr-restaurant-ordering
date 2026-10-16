@@ -1,4 +1,9 @@
-import { restaurantPolicy, assistantRequestSchema } from '../packages/contracts/src/index.js';
+import {
+  restaurantPolicy,
+  assistantRequestSchema,
+  assistantDecisionSchema,
+  assistantToolNames,
+} from '../packages/contracts/src/index.js';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { buildApp } from '../apps/api/src/app.js';
 import { registerAuth } from '../apps/api/src/auth.js';
@@ -55,9 +60,79 @@ const promotionChoice = {
 };
 const assistantDescriptions: Record<string, string> = {
   'GET /guest/menu-assistant/capabilities':
-    'Khách có cookie guest hợp lệ xem khả năng trợ lý. Mặc định OFF; MOCK chỉ là fixture có chủ đích, chưa có model thật. Không cập nhật heartbeat, giỏ, đơn, kho hoặc tiền.',
+    'Khách có cookie guest hợp lệ xem contractVersion=2, trạng thái bật/tắt, advisoryOnly và tên ba công cụ đọc. Mặc định OFF; MOCK chỉ là fixture, chưa có model thật. Không cập nhật heartbeat, giỏ, đơn, kho hoặc tiền. Công cụ đọc chỉ được provider gọi trong một lượt tư vấn, không phải endpoint SQL công khai.',
   'POST /guest/menu-assistant/recommendations':
-    'Tư vấn tùy chọn, cần guest cookie, Origin và CSRF. message tối đa 1000 ký tự; people 1–20, budgetAmount là chuỗi số nguyên VND. Provider chỉ trả ID/số lượng/reasonCode; backend xác minh lại menu/giá/khả dụng/tổng nhu cầu kho/ngân sách và dựng nội dung. Dị ứng/chay/cay/khẩu phần chưa xác minh thì nhờ nhân viên. HTTP 200 vẫn cần đọc status: UNAVAILABLE không phải danh sách món. Không thêm giỏ hoặc đặt đơn. Chưa có UI AI/model thật.',
+    'Tư vấn chỉ đọc v2, cần guest cookie, Origin và CSRF; body tối đa 32 KiB. message tối đa 1000 ký tự; people/budgetAmount/preferences là gợi ý tùy chọn, history tối đa 8 tin user/assistant, mỗi tin 1000 ký tự. AI tự hiểu câu hỏi, chủ động gọi listCategories/searchMenu/getProducts để đọc menu realtime, chọn món, cân đối ngân sách, giải thích và hỏi lại. API chỉ bảo vệ auth/tenant, quota/concurrency/deadline, kích thước và schema; không sửa ID/tên/giá/tổng/lý do, không chặn lỗi tư vấn về ngân sách/sở thích/khả dụng/kho để làm model luôn đúng. decision là raw advisory, chưa có giá trị đặt món hoặc giao dịch; core kiểm tra lại khi thêm giỏ/gửi đơn. Dị ứng chưa có metadata xác minh: policy yêu cầu AI nói giới hạn và đề nghị hỏi nhân viên. HTTP 200: AVAILABLE có decision; UNAVAILABLE có decision=null và vẫn chọn món thủ công được. Mặc định OFF; chưa model/UI AI thật.',
+};
+const assistantResponseSchemas: Record<string, unknown> = {
+  'GET /guest/menu-assistant/capabilities': {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'contractVersion',
+      'mode',
+      'enabled',
+      'advisoryOnly',
+      'semanticMetadata',
+      'maxPeople',
+      'maxProducts',
+      'supportsAllergySafetyConfirmation',
+      'readTools',
+    ],
+    properties: {
+      contractVersion: { type: 'integer', enum: [2] },
+      mode: { type: 'string', enum: ['OFF', 'MOCK', 'CUSTOM'] },
+      enabled: { type: 'boolean' },
+      advisoryOnly: { type: 'boolean', enum: [true] },
+      semanticMetadata: { type: 'string', enum: ['UNREVIEWED'] },
+      maxPeople: { type: 'integer', enum: [20] },
+      maxProducts: { type: 'integer', enum: [6] },
+      supportsAllergySafetyConfirmation: { type: 'boolean', enum: [false] },
+      readTools: {
+        type: 'array',
+        maxItems: 3,
+        items: { type: 'string', enum: assistantToolNames },
+      },
+    },
+  },
+  'POST /guest/menu-assistant/recommendations': {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'contractVersion',
+      'mode',
+      'status',
+      'code',
+      'message',
+      'advisoryOnly',
+      'decision',
+      'checkedAt',
+    ],
+    properties: {
+      contractVersion: { type: 'integer', enum: [2] },
+      mode: { type: 'string', enum: ['OFF', 'MOCK', 'CUSTOM'] },
+      status: { type: 'string', enum: ['AVAILABLE', 'UNAVAILABLE'] },
+      code: { type: 'string' },
+      message: {
+        type: 'string',
+        description:
+          'Thông điệp kỹ thuật của API. Lời tư vấn của AI nằm nguyên trong decision.message.',
+      },
+      advisoryOnly: { type: 'boolean', enum: [true] },
+      decision: {
+        ...assistantDecisionSchema,
+        nullable: true,
+        description:
+          'Đầu ra AI được kiểm tra định dạng; không được API sửa nội dung hoặc tính lại. UNAVAILABLE trả null. Giá/tổng/tên/lý do là lời khẳng định tư vấn, core không dùng làm căn cứ giao dịch.',
+      },
+      checkedAt: {
+        type: 'string',
+        format: 'date-time',
+        description:
+          'Thời điểm tạo envelope; không có nghĩa đã kiểm tra lại giá hoặc tồn kho của decision.',
+      },
+    },
+  },
 };
 const pricingDescriptions: Record<string, string> = {
   'GET /core/admin/discount-programs':
@@ -298,8 +373,7 @@ for (const path of ['/core/sessions/:id/promotion', '/guest/promotion']) {
 const examples: Record<string, unknown> = {
   'POST /guest/menu-assistant/recommendations': {
     message: 'Tôi đi 3 người, ngân sách 500.000đ và muốn có một món rau.',
-    people: 3,
-    budgetAmount: '500000',
+    history: [{ role: 'user', content: 'Tôi muốn chọn món cho bữa trưa.' }],
     preferences: { include: ['VEGETABLE'] },
   },
   'POST /core/admin/discount-programs': discountProgram,
@@ -554,7 +628,14 @@ app.addHook('onRoute', (r) => {
           },
         }),
     responses: {
-      '200': { description: 'Thành công' },
+      '200': {
+        description: assistantDescriptions[operationKey]
+          ? 'Xem status/advisoryOnly; HTTP 200 không xác nhận chất lượng tư vấn hoặc tạo giao dịch.'
+          : 'Thành công',
+        ...(assistantResponseSchemas[operationKey]
+          ? { content: { 'application/json': { schema: assistantResponseSchemas[operationKey] } } }
+          : {}),
+      },
       '400': { description: 'Dữ liệu không hợp lệ' },
       '401': { description: 'Chưa xác thực' },
       '403': { description: 'Không được phép' },

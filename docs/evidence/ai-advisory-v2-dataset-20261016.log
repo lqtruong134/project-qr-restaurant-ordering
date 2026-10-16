@@ -1,0 +1,108 @@
+$ node --import tsx scripts/menu-assistant-data.ts validate
+{
+  "validationType": "SCHEMA_SPLIT_TOOL_TRAJECTORY_AND_GOLD_FACT_CHECKS_ONLY",
+  "modelQualityMeasured": false,
+  "valid": true,
+  "counts": {
+    "train": 24,
+    "validation": 6,
+    "evaluation": 6
+  },
+  "issues": []
+}
+{
+  "contractVersion": 2,
+  "contractPolicyChecked": true,
+  "modelQualityMeasured": false,
+  "splits": {
+    "train": {
+      "count": 24,
+      "assistantTurns": 41,
+      "sha256": "426d1917f5a4400b54d1204e60adec7e0e7d4de8dde0324dab4f3e4542111337",
+      "kinds": {
+        "RECOMMEND": 13,
+        "CLARIFY": 5,
+        "REFER_STAFF": 1,
+        "NO_MATCH": 5
+      },
+      "scenarios": {
+        "budget_fit": 1,
+        "runtime_price_change": 1,
+        "runtime_stock_change": 1,
+        "include_vegetable": 1,
+        "include_drink": 1,
+        "include_dessert": 1,
+        "include_all": 1,
+        "exact_budget_boundary": 1,
+        "clarify_people": 1,
+        "history_budget_reuse": 1,
+        "clarify_people_budget": 1,
+        "clarify_diet": 1,
+        "clarify_spice": 1,
+        "advisory_protein": 1,
+        "advisory_light": 1,
+        "advisory_shared": 1,
+        "clarify_avoid_ingredient": 1,
+        "staff_allergy": 1,
+        "out_of_scope": 1,
+        "user_prompt_injection": 1,
+        "no_affordable_products": 1,
+        "no_available_products": 1,
+        "unknown_requested_product": 1,
+        "menu_prompt_injection": 1
+      }
+    },
+    "validation": {
+      "count": 6,
+      "assistantTurns": 9,
+      "sha256": "cb1f885d6d35f39d13ec3adcdf4bf425cdb6b042cdfaee691004d6c7d33b9f83",
+      "kinds": {
+        "RECOMMEND": 2,
+        "CLARIFY": 2,
+        "NO_MATCH": 2
+      },
+      "scenarios": {
+        "budget_fit": 1,
+        "include_vegetable_drink": 1,
+        "clarify_people": 1,
+        "clarify_diet_natural_language": 1,
+        "no_available_products": 1,
+        "user_prompt_injection": 1
+      }
+    },
+    "evaluation": {
+      "count": 6,
+      "assistantTurns": 9,
+      "sha256": "c741d87a8e0dc35dfe9d7b7808f7afc782218456a639d62c8278af3cb8d3334d",
+      "kinds": {
+        "RECOMMEND": 2,
+        "NO_MATCH": 2,
+        "CLARIFY": 1,
+        "REFER_STAFF": 1
+      },
+      "scenarios": {
+        "budget_fit": 1,
+        "runtime_price_stock_change": 1,
+        "include_unavailable_category": 1,
+        "clarify_budget": 1,
+        "staff_allergy_natural_language": 1,
+        "out_of_scope": 1
+      }
+    }
+  },
+  "systemPolicySha256": "a4054bff32f30820273150031ac2a7b48f7574ae8df28c697c281f7488104973",
+  "total": 36,
+  "checks": [
+    "public fields and protocol",
+    "approved tool arguments",
+    "tool trajectories versus independent truth",
+    "gold claim/price/budget consistency",
+    "group/ID/scenario/menu separation",
+    "allergy referral wording proxy"
+  ],
+  "limitations": [
+    "TypeScript validator remains authoritative",
+    "synthetic consistency is not model quality",
+    "free-text safety and recommendation quality need human review"
+  ]
+}

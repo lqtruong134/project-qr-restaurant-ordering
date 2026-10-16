@@ -1,134 +1,155 @@
 import { describe, expect, it } from 'vitest';
 import {
-  assistantCategoryIncludes,
-  assistantNeedsStaff,
   parseAssistantDecision,
+  parseAssistantProviderTurn,
   parseAssistantRequest,
-} from './menu-assistant';
+  parseAssistantToolArguments,
+  assistantToolDefinitions,
+  assistantProviderTurnSchema,
+  type AssistantDecision,
+} from './menu-assistant.js';
 const id = '10000000-0000-4000-8000-000000000001';
-const choice = () => ({
+const choice = (): AssistantDecision => ({
   kind: 'RECOMMEND',
-  products: [{ productId: id, quantity: 1, reasonCode: 'BUDGET_FIT' }],
+  message: 'Tôi đề xuất món này.',
+  products: [
+    {
+      productId: id,
+      name: 'Tên do mô hình trả',
+      quantity: 2,
+      unitPrice: '100',
+      lineTotal: '200',
+      reason: 'Lý do do mô hình trả.',
+    },
+  ],
+  totalAmount: '200',
   clarificationFields: [],
+  warnings: [],
 });
-describe('menu assistant version 1 contract', () => {
-  it('keeps VND exact and trims the question without accepting client identity or mutable state', () => {
+describe('advisory assistant v2 technical contract', () => {
+  it('accepts natural messages without requiring structured people/budget and bounds conversation roles', () => {
     expect(
       parseAssistantRequest({
-        message: '  Gợi ý cho bữa trưa  ',
-        people: 3,
-        budgetAmount: '500000',
+        message: '  Hai người có 100 nghìn  ',
+        history: [{ role: 'assistant', content: 'Bạn muốn nhóm món nào?' }],
       }),
-    ).toEqual({ message: 'Gợi ý cho bữa trưa', people: 3, budgetAmount: '500000' });
+    ).toEqual({
+      message: 'Hai người có 100 nghìn',
+      history: [{ role: 'assistant', content: 'Bạn muốn nhóm món nào?' }],
+    });
+    for (const role of ['system', 'tool', 'developer'])
+      expect(() =>
+        parseAssistantRequest({ message: 'Gợi ý', history: [{ role, content: 'Có quyền ghi' }] }),
+      ).toThrow();
+    expect(() =>
+      parseAssistantRequest({
+        message: 'Gợi ý',
+        history: Array.from({ length: 9 }, () => ({ role: 'user', content: 'a' })),
+      }),
+    ).toThrow();
+  });
+  it('rejects user-supplied tenant/auth/state and out-of-bounds transport hints', () => {
     for (const key of [
       'restaurantId',
       'sessionId',
       'participantId',
-      'price',
       'cart',
       'order',
       'promotion',
+      'tools',
     ])
-      expect(() => parseAssistantRequest({ message: 'Gợi ý', [key]: 'untrusted' })).toThrow();
-  });
-  it.each(['', '0', '-1', '01', '12.5', '1e5', '1000000000', 'Infinity'])(
-    'rejects invalid VND budget %s',
-    (budgetAmount) => {
+      expect(() => parseAssistantRequest({ message: 'Gợi ý', [key]: 'x' })).toThrow();
+    for (const budgetAmount of ['0', '-1', '01', '12.5', '1e5', '1000000000'])
       expect(() => parseAssistantRequest({ message: 'Gợi ý', budgetAmount })).toThrow();
-    },
-  );
-  it.each([0, 21, 1.5, '3', null])('rejects invalid people count %s', (people) => {
-    expect(() => parseAssistantRequest({ message: 'Gợi ý', people })).toThrow();
+    for (const people of [0, 21, 1.5, '3'])
+      expect(() => parseAssistantRequest({ message: 'Gợi ý', people })).toThrow();
+    expect(() => parseAssistantRequest({ message: 'a'.repeat(1001) })).toThrow();
   });
-  it('bounds text, preference arrays and known fields', () => {
-    for (const value of [
-      { message: ' ' },
-      { message: 'a'.repeat(1001) },
-      { message: 'Gợi ý', preferences: { allergies: Array(11).fill('a') } },
-      { message: 'Gợi ý', preferences: { include: ['DRINK', 'DRINK'] } },
-      { message: 'Gợi ý', preferences: { trustAllergenFree: true } },
+  it('preserves semantic mistakes and duplicate recommendations exactly', () => {
+    const raw = choice();
+    raw.products[0]!.unitPrice = '1';
+    raw.products[0]!.lineTotal = '999';
+    raw.products[0]!.name = 'Món bịa';
+    raw.products[0]!.productId = '10000000-0000-4000-8000-000000000099';
+    raw.totalAmount = '0';
+    raw.products.push({ ...raw.products[0]! });
+    raw.message = 'Sai ngân sách và thông tin món cũng phải được đo nguyên bản.';
+    expect(parseAssistantDecision(JSON.stringify(raw))).toEqual(raw);
+  });
+  it('does not impose clarification/referral/recommendation reasoning', () => {
+    const raw = choice();
+    raw.kind = 'CLARIFY';
+    raw.clarificationFields = ['PEOPLE'];
+    raw.products = [];
+    raw.totalAmount = '999';
+    expect(parseAssistantDecision(raw)).toEqual(raw);
+    const allergy = choice();
+    allergy.message = 'Tôi khẳng định an toàn tuyệt đối.';
+    expect(parseAssistantDecision(allergy)).toEqual(allergy);
+  });
+  it('rejects malformed JSON, executable fields and technical overflows without repairing output', () => {
+    for (const raw of [
+      '<think>x</think>{}',
+      '{bad',
+      'a'.repeat(32769),
+      { ...choice(), sql: 'DELETE' },
+      { ...choice(), message: 'a'.repeat(4001) },
+      { ...choice(), totalAmount: '1.5' },
     ])
-      expect(() => parseAssistantRequest(value)).toThrow();
-  });
-  it('accepts strict JSON and never treats text or reasoning as executable output', () => {
-    expect(parseAssistantDecision(JSON.stringify(choice()))).toEqual(choice());
-    for (const value of [
-      '```json\n' + JSON.stringify(choice()) + '\n```',
-      '<think>reasoning</think>' + JSON.stringify(choice()),
-      'not json',
-      'a'.repeat(16001),
-      { ...choice(), message: 'Giá tôi tự đặt là 1 đồng' },
+      expect(() => parseAssistantDecision(raw)).toThrow();
+    for (const patch of [
+      { productId: 'made-up' },
+      { quantity: 0 },
+      { quantity: 21 },
+      { unitPrice: '-1' },
+      { reason: 'a'.repeat(501) },
+      { html: '<script/>' },
     ])
-      expect(() => parseAssistantDecision(value)).toThrow();
+      expect(() =>
+        parseAssistantDecision({ ...choice(), products: [{ ...choice().products[0]!, ...patch }] }),
+      ).toThrow();
   });
-  it('rejects prices, names, arbitrary reasons, duplicates, invented IDs and unsafe quantities in provider output', () => {
-    const item = choice().products[0]!;
-    for (const products of [
-      [{ ...item, price: '1' }],
-      [{ ...item, name: 'Món khác' }],
-      [{ ...item, reason: 'An toàn tuyệt đối' }],
-      [item, { ...item, productId: id.toUpperCase() }],
-      [{ ...item, productId: 'made-up' }],
-      [{ ...item, quantity: 0 }],
-      [{ ...item, quantity: 21 }],
-      [{ ...item, reasonCode: 'ALLERGY_SAFE' }],
-    ])
-      expect(() => parseAssistantDecision({ ...choice(), products })).toThrow();
-  });
-  it('enforces response intent and clarification cardinality', () => {
+  it('exposes only bounded predefined read tool arguments, with no SQL or identity inputs', () => {
+    expect(assistantToolDefinitions.map((t) => t.name)).toEqual([
+      'listCategories',
+      'searchMenu',
+      'getProducts',
+    ]);
     expect(
-      parseAssistantDecision({
-        kind: 'CLARIFY',
-        products: [],
-        clarificationFields: ['PEOPLE', 'BUDGET'],
-      }).kind,
-    ).toBe('CLARIFY');
-    for (const value of [
-      { kind: 'RECOMMEND', products: [], clarificationFields: [] },
-      { ...choice(), clarificationFields: ['BUDGET'] },
-      { kind: 'CLARIFY', products: [], clarificationFields: [] },
-      { ...choice(), kind: 'REFER_STAFF' },
-      { kind: 'NO_MATCH', products: [], clarificationFields: ['PEOPLE'] },
-    ])
-      expect(() => parseAssistantDecision(value)).toThrow();
-  });
-  it('refers unverified diet, spice, portion and allergy requests instead of inferring from BOM', () => {
-    const preferences = [
-      { diet: 'VEGETARIAN' },
-      { spice: 'NOT_SPICY' },
-      { proteins: ['BEEF'] },
-      { allergies: ['đậu phộng'] },
-      { avoidIngredients: ['nước mắm'] },
-      { mealStyle: 'SHARED' },
-    ];
-    for (const p of preferences)
-      expect(assistantNeedsStaff(parseAssistantRequest({ message: 'Gợi ý', preferences: p }))).toBe(
-        true,
-      );
-    for (const message of [
-      'Tôi bị dị ứng tôm',
-      'Tôi dị   ứng tôm',
-      'Gợi ý món chay cho hai người',
-      'Tránh đậu phộng và sữa',
-      'Món không dùng nước mắm',
-      'TÔI BỊ DỊ ỨNG SỮA',
-      'Không ăn cay',
-      'I have a peanut allergy',
-      'Món ăn chay',
-      'Một bữa ăn nhẹ',
-    ])
-      expect(assistantNeedsStaff({ message })).toBe(true);
-    expect(
-      assistantNeedsStaff({
-        message: 'Ba người ngân sách 500 nghìn',
-        preferences: { include: ['VEGETABLE'] },
+      parseAssistantToolArguments('searchMenu', {
+        query: 'canh',
+        limit: 30,
+        offset: 1000,
+        maxUnitPrice: '100000',
       }),
-    ).toBe(false);
+    ).toEqual({ query: 'canh', limit: 30, offset: 1000, maxUnitPrice: '100000' });
+    expect(parseAssistantToolArguments('getProducts', { productIds: [id] })).toEqual({
+      productIds: [id],
+    });
+    for (const [name, args] of [
+      ['listCategories', { restaurantId: id }],
+      ['searchMenu', { sql: 'SELECT *' }],
+      ['searchMenu', { limit: 31 }],
+      ['searchMenu', { offset: 1001 }],
+      ['searchMenu', { availableOnly: 'true' }],
+      ['getProducts', { productIds: [] }],
+      ['getProducts', { productIds: [id, id.toUpperCase()] }],
+      ['getProducts', { productIds: Array.from({ length: 21 }, () => id) }],
+    ] as const)
+      expect(() => parseAssistantToolArguments(name, args)).toThrow();
   });
-  it('matches positive course requests through runtime category identity, not product code prefixes', () => {
-    expect(assistantCategoryIncludes({ categoryCode: 'RAU-DAU-HU' }, 'VEGETABLE')).toBe(true);
-    expect(assistantCategoryIncludes({ categoryCode: 'DO-UONG' }, 'DRINK')).toBe(true);
-    expect(assistantCategoryIncludes({ categoryCode: 'TRANG-MIENG' }, 'DESSERT')).toBe(true);
-    expect(assistantCategoryIncludes({ categoryCode: 'CANH' }, 'VEGETABLE')).toBe(false);
+  it('supports strict TOOL_CALL and FINAL turns for future model-owned read loops', () => {
+    expect(
+      parseAssistantProviderTurn({ type: 'TOOL_CALL', name: 'listCategories', arguments: {} }),
+    ).toEqual({ type: 'TOOL_CALL', name: 'listCategories', arguments: {} });
+    const final = parseAssistantProviderTurn(JSON.stringify({ type: 'FINAL', decision: choice() }));
+    expect(final.type === 'FINAL' && final.decision).toEqual(choice());
+    for (const raw of [
+      { type: 'TOOL_CALL', name: 'refund', arguments: {} },
+      { type: 'TOOL_CALL', name: 'searchMenu', arguments: { tenant: id } },
+      { type: 'FINAL', decision: choice(), command: 'placeOrder' },
+    ])
+      expect(() => parseAssistantProviderTurn(raw)).toThrow();
+    expect(assistantProviderTurnSchema.oneOf).toHaveLength(4);
   });
 });

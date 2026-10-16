@@ -79,7 +79,7 @@ async function main() {
     console.log(
       JSON.stringify(
         {
-          validationType: 'SCHEMA_SPLIT_AND_GOLD_GUARDS_ONLY',
+          validationType: 'SCHEMA_SPLIT_TOOL_TRAJECTORY_AND_GOLD_FACT_CHECKS_ONLY',
           modelQualityMeasured: false,
           valid: validation.valid,
           counts: validation.counts,

@@ -1,8 +1,8 @@
 # Học và làm chủ hệ thống gọi món QR
 
-## Nền tảng AI Menu Assistant — 15/10/2026
+## Nền tảng AI Menu Assistant v2 — 16/10/2026
 
-Đã chuẩn bị API tư vấn chỉ đọc, provider thay thế được, dữ liệu SFT/evaluation và notebook QLoRA. Mặc định tắt; chưa chạy model, train hoặc mở UI AI. Đọc [bài 14](14-mo-rong.md) để hiểu audit dữ liệu, phần đã làm và lộ trình Qwen3-4B → adapter → GGUF/Ollama; [bài 15](15-doi-chieu.md) ghi bằng chứng kiểm thử.
+AI sở hữu việc đọc tools thực đơn, hiểu câu hỏi, tư vấn và hội thoại. API kiểm tra bảo mật/kỹ thuật và trả nguyên decision; core vẫn kiểm tra đầy đủ khi khách thêm giỏ/gửi đơn thật. Mặc định OFF, chưa có model, huấn luyện hoặc UI AI. Đọc [bài 14](14-mo-rong.md) về ranh giới read-only, contract v2 và lộ trình model; [bài 15](15-doi-chieu.md) ghi bằng chứng kiểm thử. Dữ liệu/tool trajectory và notebook chỉ ở mức scaffold nghiên cứu, không phải benchmark model.
 
 ## Đã đủ ảnh thực đơn — 15/10/2026
 
@@ -76,7 +76,7 @@ Ví dụ “bếp bắt đầu chế biến”: người có quyền bếp → m
 
 ## Cách đọc bằng chứng
 
-Các đoạn `apps/...` là đường dẫn tính từ gốc repository. Trong bản HTML, khối “Mở mã nguồn” trỏ tới bản tệp WSL trên máy. API ở tài liệu dùng đường dẫn backend; trên trình duyệt web chúng có tiền tố `/api`.
+Các đoạn `apps/...` là đường dẫn tính từ gốc repository. Liên kết mã nguồn trong bản HTML mặc định trỏ GitHub main; thay đổi chưa push cần xem tại kho WSL trên máy và đối chiếu bài 15. API ở tài liệu dùng đường dẫn backend; trên trình duyệt web chúng có tiền tố `/api`.
 
 **Đã thấy trong code** khác với **đã kiểm thử thành công**. Danh sách test cho biết ý định kiểm thử; kết quả thực sự của lần làm tài liệu nằm trong [15 — Hồ sơ đối chiếu](15-doi-chieu.md). Tài liệu này không biến một bản demo thành hệ thống đã được chứng nhận vận hành thực tế.
 

@@ -4194,7 +4194,7 @@
       ],
       "summary": "GET /guest/menu-assistant/capabilities",
       "operationId": "core_get__guest_menu_assistant_capabilities",
-      "description": "Khách có cookie guest hợp lệ xem khả năng trợ lý. Mặc định OFF; MOCK chỉ là fixture có chủ đích, chưa có model thật. Không cập nhật heartbeat, giỏ, đơn, kho hoặc tiền.",
+      "description": "Khách có cookie guest hợp lệ xem contractVersion=2, trạng thái bật/tắt, advisoryOnly và tên ba công cụ đọc. Mặc định OFF; MOCK chỉ là fixture, chưa có model thật. Không cập nhật heartbeat, giỏ, đơn, kho hoặc tiền. Công cụ đọc chỉ được provider gọi trong một lượt tư vấn, không phải endpoint SQL công khai.",
       "parameters": [],
       "security": [
         {
@@ -4203,7 +4203,87 @@
       ],
       "responses": {
         "200": {
-          "description": "Thành công"
+          "description": "Xem status/advisoryOnly; HTTP 200 không xác nhận chất lượng tư vấn hoặc tạo giao dịch.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "contractVersion",
+                  "mode",
+                  "enabled",
+                  "advisoryOnly",
+                  "semanticMetadata",
+                  "maxPeople",
+                  "maxProducts",
+                  "supportsAllergySafetyConfirmation",
+                  "readTools"
+                ],
+                "properties": {
+                  "contractVersion": {
+                    "type": "integer",
+                    "enum": [
+                      2
+                    ]
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "OFF",
+                      "MOCK",
+                      "CUSTOM"
+                    ]
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "advisoryOnly": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  },
+                  "semanticMetadata": {
+                    "type": "string",
+                    "enum": [
+                      "UNREVIEWED"
+                    ]
+                  },
+                  "maxPeople": {
+                    "type": "integer",
+                    "enum": [
+                      20
+                    ]
+                  },
+                  "maxProducts": {
+                    "type": "integer",
+                    "enum": [
+                      6
+                    ]
+                  },
+                  "supportsAllergySafetyConfirmation": {
+                    "type": "boolean",
+                    "enum": [
+                      false
+                    ]
+                  },
+                  "readTools": {
+                    "type": "array",
+                    "maxItems": 3,
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "listCategories",
+                        "searchMenu",
+                        "getProducts"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
         },
         "400": {
           "description": "Dữ liệu không hợp lệ"
@@ -4233,7 +4313,7 @@
       ],
       "summary": "POST /guest/menu-assistant/recommendations",
       "operationId": "core_post__guest_menu_assistant_recommendations",
-      "description": "Tư vấn tùy chọn, cần guest cookie, Origin và CSRF. message tối đa 1000 ký tự; people 1–20, budgetAmount là chuỗi số nguyên VND. Provider chỉ trả ID/số lượng/reasonCode; backend xác minh lại menu/giá/khả dụng/tổng nhu cầu kho/ngân sách và dựng nội dung. Dị ứng/chay/cay/khẩu phần chưa xác minh thì nhờ nhân viên. HTTP 200 vẫn cần đọc status: UNAVAILABLE không phải danh sách món. Không thêm giỏ hoặc đặt đơn. Chưa có UI AI/model thật.",
+      "description": "Tư vấn chỉ đọc v2, cần guest cookie, Origin và CSRF; body tối đa 32 KiB. message tối đa 1000 ký tự; people/budgetAmount/preferences là gợi ý tùy chọn, history tối đa 8 tin user/assistant, mỗi tin 1000 ký tự. AI tự hiểu câu hỏi, chủ động gọi listCategories/searchMenu/getProducts để đọc menu realtime, chọn món, cân đối ngân sách, giải thích và hỏi lại. API chỉ bảo vệ auth/tenant, quota/concurrency/deadline, kích thước và schema; không sửa ID/tên/giá/tổng/lý do, không chặn lỗi tư vấn về ngân sách/sở thích/khả dụng/kho để làm model luôn đúng. decision là raw advisory, chưa có giá trị đặt món hoặc giao dịch; core kiểm tra lại khi thêm giỏ/gửi đơn. Dị ứng chưa có metadata xác minh: policy yêu cầu AI nói giới hạn và đề nghị hỏi nhân viên. HTTP 200: AVAILABLE có decision; UNAVAILABLE có decision=null và vẫn chọn món thủ công được. Mặc định OFF; chưa model/UI AI thật.",
       "parameters": [
         {
           "$ref": "#/components/parameters/Csrf"
@@ -4259,6 +4339,31 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 1000
+                },
+                "history": {
+                  "type": "array",
+                  "maxItems": 8,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "role",
+                      "content"
+                    ],
+                    "properties": {
+                      "role": {
+                        "enum": [
+                          "user",
+                          "assistant"
+                        ]
+                      },
+                      "content": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    }
+                  }
                 },
                 "people": {
                   "type": "integer",
@@ -4341,8 +4446,12 @@
             },
             "example": {
               "message": "Tôi đi 3 người, ngân sách 500.000đ và muốn có một món rau.",
-              "people": 3,
-              "budgetAmount": "500000",
+              "history": [
+                {
+                  "role": "user",
+                  "content": "Tôi muốn chọn món cho bữa trưa."
+                }
+              ],
               "preferences": {
                 "include": [
                   "VEGETABLE"
@@ -4354,7 +4463,165 @@
       },
       "responses": {
         "200": {
-          "description": "Thành công"
+          "description": "Xem status/advisoryOnly; HTTP 200 không xác nhận chất lượng tư vấn hoặc tạo giao dịch.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "contractVersion",
+                  "mode",
+                  "status",
+                  "code",
+                  "message",
+                  "advisoryOnly",
+                  "decision",
+                  "checkedAt"
+                ],
+                "properties": {
+                  "contractVersion": {
+                    "type": "integer",
+                    "enum": [
+                      2
+                    ]
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "OFF",
+                      "MOCK",
+                      "CUSTOM"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "AVAILABLE",
+                      "UNAVAILABLE"
+                    ]
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string",
+                    "description": "Thông điệp kỹ thuật của API. Lời tư vấn của AI nằm nguyên trong decision.message."
+                  },
+                  "advisoryOnly": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  },
+                  "decision": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "kind",
+                      "message",
+                      "products",
+                      "totalAmount",
+                      "clarificationFields",
+                      "warnings"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "RECOMMEND",
+                          "CLARIFY",
+                          "REFER_STAFF",
+                          "NO_MATCH"
+                        ]
+                      },
+                      "message": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 4000
+                      },
+                      "products": {
+                        "type": "array",
+                        "maxItems": 6,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "productId",
+                            "name",
+                            "quantity",
+                            "unitPrice",
+                            "lineTotal",
+                            "reason"
+                          ],
+                          "properties": {
+                            "productId": {
+                              "type": "string",
+                              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            },
+                            "quantity": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 20
+                            },
+                            "unitPrice": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,8})$"
+                            },
+                            "lineTotal": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]{0,11})$"
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            }
+                          }
+                        }
+                      },
+                      "totalAmount": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9][0-9]{0,11})$"
+                      },
+                      "clarificationFields": {
+                        "type": "array",
+                        "maxItems": 3,
+                        "uniqueItems": true,
+                        "items": {
+                          "enum": [
+                            "PEOPLE",
+                            "BUDGET",
+                            "PREFERENCES"
+                          ]
+                        }
+                      },
+                      "warnings": {
+                        "type": "array",
+                        "maxItems": 6,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        }
+                      }
+                    },
+                    "nullable": true,
+                    "description": "Đầu ra AI được kiểm tra định dạng; không được API sửa nội dung hoặc tính lại. UNAVAILABLE trả null. Giá/tổng/tên/lý do là lời khẳng định tư vấn, core không dùng làm căn cứ giao dịch."
+                  },
+                  "checkedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Thời điểm tạo envelope; không có nghĩa đã kiểm tra lại giá hoặc tồn kho của decision."
+                  }
+                }
+              }
+            }
+          }
         },
         "400": {
           "description": "Dữ liệu không hợp lệ"

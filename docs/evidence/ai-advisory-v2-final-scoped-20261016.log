@@ -1,0 +1,14 @@
+
+ RUN  v4.1.11 /home/quyettruong05/projects/qr-ordering-thesis
+
+ ✓ packages/contracts/src/menu-assistant.test.ts (7 tests) 9ms
+ ✓ packages/contracts/src/menu-assistant-evaluation.test.ts (14 tests) 67ms
+
+ Test Files  2 passed (2)
+      Tests  21 passed (21)
+   Start at  17:22:34
+   Duration  272ms (transform 124ms, setup 0ms, import 156ms, tests 76ms, environment 0ms)
+
+Checking formatting...
+All matched files use Prettier code style!
+$ tsc --noEmit

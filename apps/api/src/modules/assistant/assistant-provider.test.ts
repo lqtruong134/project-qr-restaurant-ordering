@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import type { AssistantProviderInput, AssistantMenuProduct } from '@thesis/contracts';
+import { describe, expect, it, vi } from 'vitest';
+import type {
+  AssistantProviderInput,
+  AssistantMenuProduct,
+  AssistantTools,
+} from '@thesis/contracts';
+import { assistantToolDefinitions } from '@thesis/contracts';
 import {
   readMenuAssistantConfig,
   mockAssistantProvider,
@@ -47,49 +52,88 @@ describe('assistant optional provider configuration', () => {
     );
   });
 });
-describe('deterministic mock fixture', () => {
-  function input(menu: AssistantMenuProduct[], budgetAmount = '50000'): AssistantProviderInput {
+describe('deterministic advisory provider fixture', () => {
+  function input(budgetAmount = '50000'): AssistantProviderInput {
     return {
       request: { message: 'Gợi ý món', people: 2, budgetAmount },
       context: {
-        menu,
         currency: 'VND',
         priceIncludesVat: true,
+        pricingBasis: 'MENU_BEFORE_DISCOUNTS',
         semanticMetadata: 'UNREVIEWED',
-        catalogTruncated: false,
       },
+      tools: assistantToolDefinitions,
     };
   }
   const signal = new AbortController().signal;
-  it('uses current prices and excludes unavailable products', async () => {
-    const request = input([product('A', '20000'), { ...product('B', '1'), available: false }]);
-    expect(await mockAssistantProvider.suggest(request, { signal })).toEqual({
+  const toolsFor = (menu: AssistantMenuProduct[]) => {
+    const call = vi.fn(async () => ({
+      products: menu,
+      truncated: false,
+      asOf: '2026-10-16T00:00:00Z',
+    }));
+    return { tools: { call } satisfies AssistantTools, call };
+  };
+  it('actively reads current prices and chooses available products inside the provider', async () => {
+    const { tools, call } = toolsFor([
+      product('A', '20000'),
+      { ...product('B', '1'), available: false },
+    ]);
+    const result = await mockAssistantProvider.suggest(input(), { signal, tools });
+    expect(call).toHaveBeenCalledWith('searchMenu', {
+      availableOnly: true,
+      maxUnitPrice: '50000',
+      limit: 30,
+    });
+    expect(result).toMatchObject({
       kind: 'RECOMMEND',
-      products: [{ productId: 'A', quantity: 1, reasonCode: 'BUDGET_FIT' }],
+      products: [{ productId: 'A', unitPrice: '20000', quantity: 1 }],
+      totalAmount: '20000',
       clarificationFields: [],
     });
   });
-  it('covers requested categories only when affordable', async () => {
-    const request = input([product('A', '20000'), product('B', '10000', 'DO-UONG')]);
+  it('covers requested categories only when affordable as fixture behavior', async () => {
+    const { tools } = toolsFor([product('A', '20000'), product('B', '10000', 'DO-UONG')]);
+    const request = input();
     request.request.preferences = { include: ['DRINK'] };
-    const result = await mockAssistantProvider.suggest(request, { signal });
-    expect(result).toMatchObject({
+    expect(await mockAssistantProvider.suggest(request, { signal, tools })).toMatchObject({
       kind: 'RECOMMEND',
-      products: expect.arrayContaining([
-        { productId: 'B', quantity: 1, reasonCode: 'REQUESTED_DRINK' },
-      ]),
+      products: expect.arrayContaining([expect.objectContaining({ productId: 'B' })]),
     });
     request.request.budgetAmount = '5000';
-    expect(await mockAssistantProvider.suggest(request, { signal })).toMatchObject({
+    expect(await mockAssistantProvider.suggest(request, { signal, tools })).toMatchObject({
       kind: 'NO_MATCH',
     });
   });
-  it('returns no match when menu is empty or all prices exceed budget', async () => {
-    expect(await mockAssistantProvider.suggest(input([]), { signal })).toMatchObject({
-      kind: 'NO_MATCH',
+  it('owns clarification rather than requiring API preprocessing', async () => {
+    const { tools, call } = toolsFor([]);
+    const request = input();
+    request.request = { message: 'Gợi ý món' };
+    expect(await mockAssistantProvider.suggest(request, { signal, tools })).toMatchObject({
+      kind: 'CLARIFY',
+      clarificationFields: ['PEOPLE', 'BUDGET'],
     });
+    expect(call).not.toHaveBeenCalled();
+  });
+  it('does not claim allergy safety when semantic metadata is unreviewed', async () => {
+    const { tools, call } = toolsFor([]);
+    const request = input();
+    request.request.preferences = { allergies: ['sữa'] };
+    expect(await mockAssistantProvider.suggest(request, { signal, tools })).toMatchObject({
+      kind: 'REFER_STAFF',
+      products: [],
+    });
+    expect(call).not.toHaveBeenCalled();
+  });
+  it('returns no match when menu is empty or all prices exceed budget', async () => {
     expect(
-      await mockAssistantProvider.suggest(input([product('A', '999999999')]), { signal }),
+      await mockAssistantProvider.suggest(input(), { signal, tools: toolsFor([]).tools }),
+    ).toMatchObject({ kind: 'NO_MATCH' });
+    expect(
+      await mockAssistantProvider.suggest(input(), {
+        signal,
+        tools: toolsFor([product('A', '999999999')]).tools,
+      }),
     ).toMatchObject({ kind: 'NO_MATCH' });
   });
 });

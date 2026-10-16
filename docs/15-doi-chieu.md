@@ -1,5 +1,42 @@
 # 15. Hồ sơ đối chiếu và giới hạn xác minh
 
+## AI advisory v2 — 16/10/2026
+
+Đã thay ranh giới v1: provider chủ động đọc ba tools thực đơn và sở hữu hiểu câu hỏi, lựa chọn, ngân sách, giải thích/hội thoại. API chỉ giữ guard kỹ thuật/bảo mật và trả nguyên decision đúng định dạng. Giá/tổng sai, UUID bịa hợp cú pháp, vượt ngân sách, sai sở thích, món hết, dòng trùng và Unicode không bị backend sửa. Core giỏ/đơn/kho/tiền hiện có tiếp tục authoritative khi thực hiện hành động thật. [Thiết kế và giới hạn](14-mo-rong.md).
+
+| Kiểm tra | Kết quả bản v2 |
+| --- | --- |
+| Mã nguồn | `pnpm check` đạt format/lint/TypeScript và **210 unit tests / 33 suite**; sau review số học/notebook, 21 ca contracts/evaluation cùng kiểm tra format/lint/type phạm vi sửa đạt. Các ca v1 yêu cầu sửa nội dung đã được thay bằng ca kiểm raw v2 |
+| Tích hợp toàn dự án | **373/373 ca / 26 suite** trên database tạm, gồm **41 ca AI** (29 API và 12 read surface) |
+| Đọc và bảo mật | Explicit public fields; tenant/guest/CSRF; xác thực từng read và sau inference; READ ONLY từ chối DML/DDL; không đổi last_seen; clone đối số trước validate/await; call/byte/deadline/concurrency/revoke đạt |
+| Core authority | AI lỗi vẫn đọc menu/state/payment và đặt món hợp lệ; món lạ, giá/version đổi và thiếu kho vẫn bị core chặn khi có hành động |
+| Dataset | **24 train / 6 validation / 6 evaluation** tách nhóm/ID; 41 assistant turns huấn luyện. TypeScript và Python CPU preflight đạt; raw/facts/tool trace tách riêng |
+| Notebook | **7 code cell** parse/chạy với cờ ML tắt. Test double CPU xác nhận model chọn lượt đọc khác gold, không đưa facts/gold vào initial prompt, giữ raw final sai và từ chối tool ghi; không chạy model hoặc GPU |
+| Build và dịch vụ | Production build **7 route** đạt với cache riêng; web, API live/ready HTTP200; generator **177 business / 186 total route** |
+| Bảo toàn | Hash **597 tệp được bảo vệ** và `.env` không đổi; core, schema/migrations, seed, tests ngoài AI giữ nguyên. Không chạy migration/seed/ghi nghiệp vụ trên database đang dùng |
+
+Read surface là capability trong API dùng query tĩnh có tham số và transaction READ ONLY; **chưa có PostgreSQL login ACL riêng hoặc sandbox chống adapter Node độc hại**. SQL đã gửi có thể tiếp tục đến statement timeout sau khi tools bị thu hồi. Tài liệu ghi rõ giới hạn này thay vì coi một role mới đã được triển khai.
+
+Lượt gọi Vitest trực tiếp đầu tiên thiếu nạp môi trường nên dừng ở setup, không chạy ca nào; lượt cuối bằng launcher có `.env` đạt các kết quả trên. Review độc lập phát hiện và sửa nguy cơ đổi đối số tool trong lúc chờ; notebook cũng giữ các special token thừa của model, chỉ loại EOS kết thúc theo quy ước framing. Evaluator không cho các câu không đề xuất món làm tăng metric giá/grounding/số học. Dự đoán thiếu được kiểm tra như fixture âm, không coi đó là benchmark model.
+
+Không train, tải model, gọi inference thật, bật Ollama, UI AI hoặc production; không có kết quả chất lượng model/base-vs-adapter. Chưa GPU/tokenizer-validated, chưa chạy lại browser/coverage trong task này vì không đổi UI hoặc core. `MENU_ASSISTANT_MODE` mặc định OFF. Biên bản kiểm thử được ghi trước bước công bố mã nguồn. Bước hoàn tất chỉ commit/push mã AI v2 cùng tài liệu lên main theo yêu cầu, không thực hiện deployment; dùng commit chứa tài liệu này để đối chiếu phiên bản.
+
+[Biên bản v2](reference/ai-advisory-v2-20261016.json) · [Mã nguồn](evidence/ai-advisory-v2-check-20261016.log) · [373 ca tích hợp](evidence/ai-advisory-v2-integration-20261016.log) · [Build](evidence/ai-advisory-v2-build-20261016.log) · [Dataset](evidence/ai-advisory-v2-dataset-20261016.log) · [Notebook CPU](evidence/ai-advisory-v2-notebook-cpu-20261016.json) · [Bảo toàn](evidence/ai-advisory-v2-preservation-20261016.json).
+
+### Đối chiếu unit test 225 → 210
+
+| Tệp unit test | Trước | Sau | Chênh lệch |
+| --- | --- | --- | --- |
+| `packages/contracts/src/menu-assistant.test.ts` | 20 | 7 | −13 |
+| `packages/contracts/src/menu-assistant-evaluation.test.ts` | 18 | 14 | −4 |
+| `apps/api/src/modules/assistant/assistant-provider.test.ts` | 11 | 13 | +2 |
+| 30 tệp ngoài AI | 176 | 176 | 0 |
+| Tổng, vẫn 33 tệp suite | 225 | 210 | −15 |
+
+Contract gộp các ca tham số budget/people vào vòng lặp, thay kiểm tra từ chối tên/giá/nội dung/trùng bằng kiểm tra giữ nguyên raw, bỏ blanket staff gate và thêm tool protocol. Evaluator gộp kiểm tra schema/nguồn/split và mẫu số thiếu prediction, chuyển các guard sửa nội dung sang chấm facts/trajectory độc lập. Provider giữ 8 ca cấu hình, điều chỉnh 3 fixture đọc và thêm 2 ca hỏi lại/dị ứng. Không xóa tệp suite hoặc sửa 176 unit test ngoài AI.
+
+Đây không phải tập assertion hoàn toàn giống nhau chỉ đổi cách đếm: một số literal biên cũ không còn liệt kê riêng. Không phục hồi ca chỉ để tăng số lượng. [Danh sách tên ca hiện tại, các nhóm cũ được gộp/thay/bỏ và giới hạn đối chiếu](reference/ai-advisory-v2-unit-accounting-20261016.json).
+
 ## Công bố toàn bộ mã nguồn — 16/10/2026
 
 Sau hai commit công bố tài liệu, bản cập nhật này đưa mã nguồn ứng dụng, migration, tài nguyên ảnh cài đặt, kiểm thử và nền tảng trợ lý vào cùng repository. Tài khoản Git đã xác thực là `TruongB2306646`; email tác giả commit được cấu hình theo chủ dự án là `truongb2306646@student.ctu.edu.vn`. Không công bố `.env`, database đang vận hành, ảnh tải lên, chứng từ riêng, cache, mô hình AI hoặc thư mục xử lý ảnh trung gian.
@@ -21,25 +58,11 @@ Môi trường đang dùng tiếp tục có web/API HTTP200; không reset databa
 [Biên bản](reference/code-publication-20261016.json) · [Kiểm tra mã](evidence/code-publication-check-20261016.log) · [Coverage](evidence/code-publication-coverage-20261016.log) · [Phụ thuộc](evidence/code-publication-dependency-audit-20261016.log) · [Build](evidence/code-publication-build-20261016.log) · [Cài mới](evidence/code-publication-rehearsal-20261016.log) · [CORE ba trình duyệt](evidence/code-publication-core-browser-20261016.log).
 
 
-## Nền tảng AI Menu Assistant — 15/10/2026
+## Hồ sơ nền tảng AI v1 — 15/10/2026, chỉ để đối chiếu lịch sử
 
-Đã audit dữ liệu và chuẩn bị API tư vấn guest chỉ đọc, provider thay thế được, structured output có xác minh, dữ liệu SFT/evaluation và notebook QLoRA ở mức scaffold. Cấu hình đang dùng **OFF**; không sửa .env, migration, seed hoặc bảng dữ liệu nghiệp vụ. Không tải model, chạy GPU/train/inference hoặc triển khai Ollama; chưa thêm giao diện AI.
+Bản v1 dùng contract productId/quantity/reasonCode và backend dựng, kiểm tra lại đề xuất. Thiết kế đó **đã được thay bằng v2 ngày 16/10**, mô tả ở đầu bài và [bài 14](14-mo-rong.md). Những kết quả/guard v1 trong biên bản cũ là bằng chứng lịch sử, không phải yêu cầu hoặc mô tả runtime hiện hành. Không sửa các log/biên bản đã lưu để biến chúng thành kết quả v2.
 
-| Kiểm tra | Kết quả |
-| --- | --- |
-| Mã nguồn | `pnpm check`: format, lint, mọi package TypeScript và **225 unit tests / 33 suite** đạt |
-| Tích hợp | **367 integration tests / 25 suite** đạt trên database tạm; có **35 ca trợ lý** |
-| An toàn trợ lý | Tenant/guest/CSRF, tái xác thực sau inference, READ ONLY, không đổi last_seen, input clone, ID giả/trùng, giá tự tạo, giá/stock đổi, ngân sách, số lượng và nguyên liệu dùng chung, timeout/provider lỗi/rate/concurrency đạt |
-| Guard cuối | “món chay”, dị ứng có nhiều khoảng trắng và tránh nguyên liệu được chuyển nhân viên; ID không khả dụng trong context gốc bị từ chối dù vừa mở bán lại |
-| Dataset | **24 train / 6 validation / 6 evaluation**, schema/group/prompt kiểm tra đạt; không có dữ liệu khách hàng thật |
-| Bộ chấm | Dự đoán thiếu vẫn nằm trong mẫu số: kiểm tra 6 mẫu không có dự đoán cho kết quả 0/6; không lấy gold làm prediction; kiểm tra ID/schema/budget/preference/allergy và bảo vệ file nguồn |
-| Notebook | 7 code cell AST hợp lệ và chạy toàn bộ với cờ tắt: không import thư viện ML, không model/GPU; có nhánh BASE và ADAPTER riêng, chưa GPU-validated |
-| Production | Build **7 route** đạt; health web/API HTTP200; endpoint trợ lý không có guest trả401 |
-| Phạm vi | Không thêm UI nên không tạo browser AI giả; không đo chất lượng model hoặc tuyên bố fine-tune tốt hơn base |
-
-[Hướng dẫn và audit chi tiết](14-mo-rong.md) · [Bằng chứng tổng hợp](reference/ai-menu-foundation-20261015.json) · [Kiểm tra source](evidence/ai-menu-foundation-check-20261015.log) · [367 ca tích hợp](evidence/ai-menu-foundation-integration-20261015.log) · [Build](evidence/ai-menu-foundation-build-20261015.log) · [Dữ liệu](evidence/ai-menu-dataset-20261015.log) · [Notebook CPU](evidence/ai-menu-notebook-20261015.json).
-
-Các lần guard review đã phát hiện và sửa hai khoảng hở trước khi chạy lần cuối. Các cảnh báo pg về query đồng thời trong một số bài lịch sử cũ không làm hỏng test và chưa được sửa ngoài phạm vi; trước nâng pg cần rà riêng. Bộ profile ML được ghi là ứng viên chưa thử GPU, không coi AST/CPU preflight là bằng chứng train/export hoạt động.
+[Biên bản v1](reference/ai-menu-foundation-20261015.json) · [225 unit tests thời điểm v1](evidence/ai-menu-foundation-check-20261015.log) · [367 tích hợp thời điểm v1](evidence/ai-menu-foundation-integration-20261015.log) · [Build v1](evidence/ai-menu-foundation-build-20261015.log) · [Dữ liệu v1](evidence/ai-menu-dataset-20261015.log) · [Notebook CPU v1](evidence/ai-menu-notebook-20261015.json).
 
 ## Thông báo thao tác 5 giây — 15/10/2026
 

@@ -3,6 +3,8 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { createDatabase, type Database } from '../packages/database/src/index.js';
 import { buildApp } from '../apps/api/src/app.js';
+import { registerGuest } from '../apps/api/src/modules/sessions/guest.routes.js';
+import { registerOrders } from '../apps/api/src/modules/orders/orders.routes.js';
 import { registerAuth } from '../apps/api/src/auth.js';
 import {
   registerMenuAssistant,
@@ -12,6 +14,7 @@ import {
 import type {
   AssistantDecision,
   AssistantProviderInput,
+  AssistantTools,
 } from '../packages/contracts/src/menu-assistant.js';
 
 const databaseName = 'thesis_assistant_' + randomBytes(6).toString('hex');
@@ -31,15 +34,10 @@ const config = {
   windowMs: 60000,
   maxInFlight: 4,
 };
-let host: Database,
-  db: Database,
-  participant: string,
-  session: string,
-  dish: string,
-  second: string;
-let ingredient: string, location: string, drink: string;
+let host: Database, db: Database, participant: string, session: string, dish: string;
+let ingredient: string, location: string;
 const apps: Awaited<ReturnType<typeof buildApp>>[] = [];
-async function app(options: MenuAssistantOptions = {}, restaurant = tenant) {
+async function app(options: MenuAssistantOptions = {}, restaurant = tenant, core = false) {
   const result = buildApp(db);
   await registerAuth(result, db, {
     secret: 'a'.repeat(96),
@@ -48,15 +46,33 @@ async function app(options: MenuAssistantOptions = {}, restaurant = tenant) {
     secure: false,
   });
   registerMenuAssistant(result, db, restaurant, options);
+  if (core) {
+    registerGuest(result, db, restaurant, false);
+    registerOrders(result, db, restaurant);
+  }
   apps.push(result);
   return result;
 }
 function decision(
   lines: AssistantDecision['products'] = [
-    { productId: dish, quantity: 1, reasonCode: 'BUDGET_FIT' as const },
+    {
+      productId: dish,
+      name: 'AI proposed dish',
+      quantity: 1,
+      unitPrice: '18000',
+      lineTotal: '18000',
+      reason: 'AI explanation',
+    },
   ],
 ): AssistantDecision {
-  return { kind: 'RECOMMEND', products: lines, clarificationFields: [] };
+  return {
+    kind: 'RECOMMEND',
+    message: 'AI message',
+    products: lines,
+    totalAmount: '18000',
+    clarificationFields: [],
+    warnings: ['AI warning'],
+  };
 }
 async function custom(
   suggest: AssistantProvider['suggest'] = async () => decision(),
@@ -93,6 +109,7 @@ beforeAll(async () => {
     data: { restaurant_id: tenant, area_id: area.id, code: 'T', name: 'T', capacity: 4 },
   });
   session = (await db.prisma.table_session.create({ data: { table_id: table.id } })).id;
+  await db.prisma.session_cart.create({ data: { session_id: session } });
   participant = (
     await db.prisma.session_participant.create({
       data: {
@@ -155,20 +172,17 @@ beforeAll(async () => {
       },
     });
     if (code === 'A') dish = product.id;
-    else second = product.id;
   }
-  drink = (
-    await db.prisma.product.create({
-      data: {
-        restaurant_id: tenant,
-        category_id: drinks.id,
-        code: 'D',
-        name: 'Nước thử',
-        base_price: 5000n,
-        stock_managed: false,
-      },
-    })
-  ).id;
+  await db.prisma.product.create({
+    data: {
+      restaurant_id: tenant,
+      category_id: drinks.id,
+      code: 'D',
+      name: 'Nước thử',
+      base_price: 5000n,
+      stock_managed: false,
+    },
+  });
 }, 60000);
 beforeEach(async () => {
   await db.pool.query(
@@ -176,7 +190,7 @@ beforeEach(async () => {
     [participant],
   );
   await db.pool.query(
-    "UPDATE table_session SET session_status='ACTIVE',closed_at=NULL WHERE id=$1",
+    "UPDATE table_session SET session_status='ACTIVE',closed_at=NULL,verification_status='VERIFIED' WHERE id=$1",
     [session],
   );
   await db.pool.query(
@@ -200,24 +214,24 @@ afterAll(async () => {
   }
 }, 60000);
 it('keeps OFF optional, authenticated and cheap with no model/provider calls', async () => {
-  const provider = vi.fn(async () => decision());
-  const application = await app({
-    config: { ...config, mode: 'OFF' },
-    provider: { suggest: provider },
-  });
+  const suggest = vi.fn(async () => decision());
+  const application = await app({ config: { ...config, mode: 'OFF' }, provider: { suggest } });
   expect(
     (await application.inject({ url: '/guest/menu-assistant/capabilities', headers })).json(),
   ).toMatchObject({
+    contractVersion: 2,
     mode: 'OFF',
     enabled: false,
+    advisoryOnly: true,
     supportsAllergySafetyConfirmation: false,
+    readTools: ['listCategories', 'searchMenu', 'getProducts'],
   });
   expect((await recommend(application)).json()).toMatchObject({
     status: 'UNAVAILABLE',
     mode: 'OFF',
-    products: [],
+    decision: null,
   });
-  expect(provider).not.toHaveBeenCalled();
+  expect(suggest).not.toHaveBeenCalled();
   expect((await application.inject('/guest/menu-assistant/capabilities')).statusCode).toBe(401);
 });
 it('requires CSRF and rejects malformed, extra, oversized or whitespace requests', async () => {
@@ -235,184 +249,168 @@ it('requires CSRF and rejects malformed, extra, oversized or whitespace requests
     { ...body, price: '1' },
     { ...body, message: '  ' },
     { ...body, message: 'x'.repeat(1001) },
+    { ...body, history: [{ role: 'system', content: 'untrusted' }] },
   ])
     expect((await recommend(application, input)).statusCode).toBe(400);
 });
-it('bypasses the provider for missing details and unreviewed safety/preferences', async () => {
-  const suggest = vi.fn(async () => decision()),
-    application = await custom(suggest);
-  expect((await recommend(application, { message: 'Gợi ý món' })).json()).toMatchObject({
-    status: 'CLARIFICATION',
+it('passes natural-language requests, unreviewed preferences and conversation to the provider', async () => {
+  const inputs: AssistantProviderInput[] = [];
+  const raw: AssistantDecision = {
+    kind: 'CLARIFY',
+    message: 'AI asks for missing information in its own wording.',
+    products: [],
+    totalAmount: '0',
     clarificationFields: ['PEOPLE', 'BUDGET'],
-  });
-  for (const input of [
-    { ...body, preferences: { allergies: ['sữa'] } },
-    { ...body, message: 'Tôi dị ứng hải sản' },
-    { ...body, preferences: { diet: 'VEGETARIAN' } },
-  ])
-    expect((await recommend(application, input)).json()).toMatchObject({
-      status: 'STAFF_REQUIRED',
-      products: [],
-    });
-  expect(suggest).not.toHaveBeenCalled();
-});
-it('returns server-generated names, reasons, current prices and no private context', async () => {
-  let captured: AssistantProviderInput | undefined;
+    warnings: [],
+  };
   const application = await custom(async (input) => {
-    captured = input;
-    return decision();
+    inputs.push(input);
+    return raw;
+  });
+  const request = {
+    message: 'Ba nguoi, hai tram nghin, khong an cay',
+    preferences: { spice: 'NOT_SPICY' },
+    history: [
+      { role: 'user', content: 'Toi muon an trua' },
+      { role: 'assistant', content: 'Ban thich mon gi?' },
+    ],
+  };
+  expect((await recommend(application, request)).json()).toMatchObject({
+    status: 'AVAILABLE',
+    decision: raw,
+  });
+  expect(inputs[0]?.request).toEqual(request);
+  expect(inputs[0]?.context).toEqual({
+    currency: 'VND',
+    priceIncludesVat: true,
+    pricingBasis: 'MENU_BEFORE_DISCOUNTS',
+    semanticMetadata: 'UNREVIEWED',
+  });
+  expect(inputs[0]?.tools.map((tool) => tool.name)).toEqual([
+    'listCategories',
+    'searchMenu',
+    'getProducts',
+  ]);
+  expect(JSON.stringify(inputs)).not.toMatch(
+    /Private guest|credential|sessionId|session_id|unit_cost|available_qty|last_seen|payment/,
+  );
+  expect(inputs[0]?.context).not.toHaveProperty('menu');
+});
+it('lets the provider actively read current menu and return its own explanation unchanged', async () => {
+  const raw = decision();
+  let retained: AssistantTools | undefined;
+  const application = await custom(async (_input, { tools }) => {
+    retained = tools;
+    expect(Object.keys(tools)).toEqual(['call']);
+    const read = await tools.call('getProducts', { productIds: [dish] });
+    expect(read).toMatchObject({
+      products: [{ productId: dish, unitPrice: '18000', ingredients: ['Nguyên liệu thử'] }],
+    });
+    return raw;
   });
   const result = (await recommend(application)).json();
   expect(result).toMatchObject({
-    status: 'RECOMMENDATIONS',
-    totalAmount: '18000',
-    products: [
-      { productId: dish, name: 'Món thử A', quantity: 1, unitPrice: '18000', lineTotal: '18000' },
-    ],
+    contractVersion: 2,
+    status: 'AVAILABLE',
+    advisoryOnly: true,
+    decision: raw,
   });
-  expect(result.warnings.join(' ')).toMatch(/dị ứng/);
-  expect(JSON.stringify(captured)).not.toMatch(
-    /Private guest|credential|sessionId|session_id|unit_cost|available_qty|last_seen|payment/,
-  );
-  expect(captured!.context.menu.find((p) => p.productId === dish)!.ingredients).toEqual([
-    'Nguyên liệu thử',
-  ]);
+  expect(result.decision).toEqual(raw);
+  await expect(retained!.call('searchMenu', {})).rejects.toMatchObject({ code: 'TOOLS_CLOSED' });
 });
 it.each([
   ['malformed JSON', () => '{'],
-  ['arbitrary prose', () => 'Bạn nên gọi món A'],
+  ['arbitrary prose', () => 'Ban nen goi mon A'],
+  ['oversized bytes', () => 'x'.repeat(32769)],
+  ['extra executable field', () => ({ ...decision(), sql: 'DELETE FROM product' })],
   [
-    'unknown ID',
-    () => decision([{ productId: randomUUID(), quantity: 1, reasonCode: 'BUDGET_FIT' }]),
+    'invalid identifier syntax',
+    () => ({ ...decision(), products: [{ ...decision().products[0]!, productId: 'not-a-uuid' }] }),
   ],
-  [
-    'duplicate case-insensitive ID',
-    () => ({
-      ...decision(),
-      products: [
-        { productId: dish, quantity: 1, reasonCode: 'BUDGET_FIT' },
-        { productId: dish.toUpperCase(), quantity: 1, reasonCode: 'BUDGET_FIT' },
-      ],
-    }),
-  ],
-  [
-    'invented price',
-    () => ({ ...decision(), products: [{ ...decision().products[0], price: '1' }] }),
-  ],
-  ['invented message', () => ({ ...decision(), message: 'FREE' })],
   [
     'negative quantity',
-    () => decision([{ productId: dish, quantity: -1, reasonCode: 'BUDGET_FIT' }]),
+    () => ({ ...decision(), products: [{ ...decision().products[0]!, quantity: -1 }] }),
   ],
-  [
-    'wrong reason',
-    () => decision([{ productId: dish, quantity: 1, reasonCode: 'REQUESTED_DRINK' }]),
-  ],
-  [
-    'already-known clarification',
-    () => ({ kind: 'CLARIFY', products: [], clarificationFields: ['BUDGET'] }),
-  ],
-])('fails closed for provider output: %s', async (_name, output) => {
+  ['wrong money type', () => ({ ...decision(), totalAmount: 18000 })],
+])('handles technically malformed provider output safely: %s', async (_name, output) => {
   const application = await custom(async () => output());
   expect((await recommend(application)).json()).toMatchObject({
     status: 'UNAVAILABLE',
-    products: [],
+    code: 'INVALID_PROVIDER_OUTPUT',
+    decision: null,
   });
 });
-it('normalizes uppercase IDs after validating uniqueness', async () => {
-  const application = await custom(async () =>
-    decision([{ productId: dish.toUpperCase(), quantity: 1, reasonCode: 'BUDGET_FIT' }]),
-  );
+it('preserves exact Unicode, whitespace, ID case and duplicate model claims', async () => {
+  const raw = decision();
+  raw.message = '  Gợi ý riêng: bữa trưa 🍲\nKhông chuẩn hóa lời tư vấn.  '.normalize('NFD');
+  raw.products[0]!.name = '  Món Việt 🥗  '.normalize('NFD');
+  raw.products[0]!.productId = dish.toUpperCase();
+  raw.products[0]!.reason = '  Lý do do AI viết.  ';
+  raw.products.push({ ...raw.products[0]! });
+  const application = await custom(async () => JSON.stringify(raw));
+  expect((await recommend(application)).json().decision).toEqual(raw);
+});
+it('preserves hallucinated identifiers, names, advisory prices, totals and preference mistakes', async () => {
+  const raw = decision([
+    {
+      productId: randomUUID().toUpperCase(),
+      name: 'A dish invented by the provider',
+      quantity: 20,
+      unitPrice: '999999',
+      lineTotal: '1',
+      reason: 'Wrongly claims to be a requested drink',
+    },
+    {
+      productId: dish,
+      name: 'Wrong name for a real dish',
+      quantity: 2,
+      unitPrice: '1',
+      lineTotal: '777',
+      reason: 'Provider explanation, not a server template',
+    },
+  ]);
+  raw.totalAmount = '999999999';
+  raw.message = 'Raw recommendation remains measurable.';
+  const application = await custom(async () => raw);
+  const result = (
+    await recommend(application, {
+      ...body,
+      budgetAmount: '100',
+      preferences: { include: ['DRINK'] },
+    })
+  ).json();
+  expect(result.status).toBe('AVAILABLE');
+  expect(result.decision).toEqual(raw);
+});
+it('does not rewrite model claims after menu price or availability changes during inference', async () => {
+  const raw = decision();
+  const application = await custom(async (_input, { tools }) => {
+    await tools.call('getProducts', { productIds: [dish] });
+    await db.pool.query(
+      "UPDATE product SET base_price=19000,availability_status='UNAVAILABLE',is_active=false WHERE id=$1",
+      [dish],
+    );
+    await db.pool.query(
+      'UPDATE inventory_balance SET on_hand_qty=0,available_qty=0 WHERE ingredient_id=$1',
+      [ingredient],
+    );
+    return raw;
+  });
   expect((await recommend(application)).json()).toMatchObject({
-    status: 'RECOMMENDATIONS',
-    products: [{ productId: dish }],
+    status: 'AVAILABLE',
+    decision: raw,
   });
 });
-it('requires a requested category in the final proposal and matches reason codes', async () => {
-  const application = await custom();
-  expect(
-    (await recommend(application, { ...body, preferences: { include: ['DRINK'] } })).json(),
-  ).toMatchObject({ status: 'UNAVAILABLE', products: [] });
-  const valid = await custom(async () =>
-    decision([{ productId: drink, quantity: 1, reasonCode: 'REQUESTED_DRINK' }]),
-  );
-  expect(
-    (await recommend(valid, { ...body, preferences: { include: ['DRINK'] } })).json(),
-  ).toMatchObject({ status: 'RECOMMENDATIONS' });
-  const wrong = await custom(async () =>
-    decision([{ productId: dish, quantity: 1, reasonCode: 'REQUESTED_DRINK' }]),
-  );
-  expect(
-    (await recommend(wrong, { ...body, preferences: { include: ['DRINK'] } })).json(),
-  ).toMatchObject({ status: 'UNAVAILABLE' });
-});
-it('refreshes price after inference and refuses an increased price above budget', async () => {
-  const application = await custom(async () => {
-    await db.pool.query('UPDATE product SET base_price=110000 WHERE id=$1', [dish]);
-    return decision();
-  });
-  expect((await recommend(application)).json()).toMatchObject({
-    status: 'UNAVAILABLE',
-    code: 'BUDGET_EXCEEDED',
-    products: [],
-  });
-});
-it('uses an updated affordable database price in its cards', async () => {
-  const application = await custom(async () => {
-    await db.pool.query('UPDATE product SET base_price=19000 WHERE id=$1', [dish]);
-    return decision();
-  });
-  expect((await recommend(application)).json()).toMatchObject({
-    status: 'RECOMMENDATIONS',
-    totalAmount: '19000',
-    products: [{ unitPrice: '19000' }],
-  });
-});
-it.each(['INACTIVE', 'UNAVAILABLE', 'STOCK'] as const)(
-  'rechecks catalog %s after inference',
-  async (kind) => {
-    const application = await custom(async () => {
-      if (kind === 'INACTIVE')
-        await db.pool.query('UPDATE product SET is_active=false WHERE id=$1', [dish]);
-      if (kind === 'UNAVAILABLE')
-        await db.pool.query("UPDATE product SET availability_status='UNAVAILABLE' WHERE id=$1", [
-          dish,
-        ]);
-      if (kind === 'STOCK')
-        await db.pool.query(
-          'UPDATE inventory_balance SET on_hand_qty=0,available_qty=0 WHERE ingredient_id=$1',
-          [ingredient],
-        );
-      return decision();
-    });
-    expect((await recommend(application)).json()).toMatchObject({
-      status: 'UNAVAILABLE',
-      products: [],
-    });
-  },
-);
-it('checks requested quantity together and aggregates shared ingredients without reserving', async () => {
+it('preserves an over-stock or over-budget proposal instead of rebuilding it', async () => {
   await db.pool.query(
     'UPDATE inventory_balance SET on_hand_qty=1,available_qty=1 WHERE ingredient_id=$1',
     [ingredient],
   );
-  const quantity = await custom(async () =>
-    decision([{ productId: dish, quantity: 2, reasonCode: 'BUDGET_FIT' }]),
+  const raw = decision([{ ...decision().products[0]!, quantity: 20, lineTotal: '360000' }]);
+  const application = await custom(async () => raw);
+  expect((await recommend(application, { ...body, budgetAmount: '1000' })).json().decision).toEqual(
+    raw,
   );
-  expect((await recommend(quantity)).json()).toMatchObject({
-    status: 'UNAVAILABLE',
-    code: 'STOCK_CHANGED',
-  });
-  const shared = await custom(async () =>
-    decision([
-      { productId: dish, quantity: 1, reasonCode: 'BUDGET_FIT' },
-      { productId: second, quantity: 1, reasonCode: 'BUDGET_FIT' },
-    ]),
-  );
-  expect((await recommend(shared)).json()).toMatchObject({
-    status: 'UNAVAILABLE',
-    code: 'STOCK_CHANGED',
-  });
   expect(
     (
       await db.prisma.inventory_balance.findFirstOrThrow({ where: { ingredient_id: ingredient } })
@@ -455,38 +453,53 @@ it('rejects cross-tenant credentials and malformed guest cookies before provider
   ).toBe(401);
   expect(suggest).not.toHaveBeenCalled();
 });
-it('aborts deadlines, hides provider failures and bounds abandoned work', async () => {
+it('aborts deadlines, revokes tools, hides failures and bounds abandoned work', async () => {
   let signal: AbortSignal | undefined;
+  let retained: AssistantTools | undefined;
+  let settle: ((value: unknown) => void) | undefined;
   const application = await custom(
     async (_input, options) => {
       signal = options.signal;
-      return new Promise(() => {});
+      retained = options.tools;
+      return new Promise((resolve) => {
+        settle = resolve;
+      });
     },
     { timeoutMs: 10, maxInFlight: 1 },
   );
   expect((await recommend(application)).json()).toMatchObject({ status: 'UNAVAILABLE' });
   expect(signal!.aborted).toBe(true);
+  await expect(retained!.call('searchMenu', {})).rejects.toMatchObject({ code: 'TOOLS_CLOSED' });
   expect((await recommend(application)).json()).toMatchObject({ code: 'ASSISTANT_RATE_LIMITED' });
+  settle!(decision());
   const failure = await custom(async () => {
     throw Error('PRIVATE_PROVIDER_ERROR');
   });
   const response = await recommend(failure);
-  expect(response.json()).toMatchObject({ status: 'UNAVAILABLE' });
+  expect(response.json()).toMatchObject({ status: 'UNAVAILABLE', decision: null });
   expect(response.body).not.toContain('PRIVATE_PROVIDER_ERROR');
 });
-it('limits participant/IP requests before loading another provider input', async () => {
+it('limits participant/IP requests before starting another provider', async () => {
   const suggest = vi.fn(async () => decision()),
     application = await custom(suggest, { rateLimit: 1 });
-  expect((await recommend(application)).json()).toMatchObject({ status: 'RECOMMENDATIONS' });
+  expect((await recommend(application)).json()).toMatchObject({ status: 'AVAILABLE' });
   expect((await recommend(application)).json()).toMatchObject({
     status: 'UNAVAILABLE',
     code: 'ASSISTANT_RATE_LIMITED',
   });
   expect(suggest).toHaveBeenCalledTimes(1);
 });
-it('MOCK is explicit and CUSTOM without a provider remains unavailable', async () => {
+it('MOCK owns its reads and dialogue; CUSTOM without provider remains unavailable', async () => {
   const mock = await app({ config: { ...config, mode: 'MOCK' } });
-  expect((await recommend(mock)).json()).toMatchObject({ status: 'RECOMMENDATIONS', mode: 'MOCK' });
+  expect((await recommend(mock)).json()).toMatchObject({
+    status: 'AVAILABLE',
+    mode: 'MOCK',
+    decision: { kind: 'RECOMMEND' },
+  });
+  expect((await recommend(mock, { message: 'Goi y mon' })).json()).toMatchObject({
+    status: 'AVAILABLE',
+    decision: { kind: 'CLARIFY', clarificationFields: ['PEOPLE', 'BUDGET'] },
+  });
   const absent = await app({ config });
   expect((await recommend(absent)).json()).toMatchObject({
     status: 'UNAVAILABLE',
@@ -518,26 +531,28 @@ it('performs no business writes, including guest last_seen or expired-block upda
       rows[table] = (await db.pool.query('SELECT * FROM ' + table + ' ORDER BY id')).rows;
     return JSON.stringify(rows);
   }
-  const application = await custom(),
-    before = await snapshot();
-  expect((await recommend(application)).json()).toMatchObject({ status: 'RECOMMENDATIONS' });
+  const application = await custom(async (_input, { tools }) => {
+    await tools.call('searchMenu', {});
+    return decision();
+  });
+  const before = await snapshot();
+  expect((await recommend(application)).json()).toMatchObject({ status: 'AVAILABLE' });
   expect(await snapshot()).toBe(before);
 });
-
-it('does not allow an injected provider to mutate trusted request or allowed catalog IDs', async () => {
-  const unknown = randomUUID();
+it('detaches trusted requests and returned raw objects from provider mutation', async () => {
+  const raw = decision();
   const application = await custom(async (input) => {
     input.request.budgetAmount = '999999999';
-    input.context.menu.push({ ...input.context.menu[0]!, productId: unknown });
-    return decision([{ productId: dish, quantity: 10, reasonCode: 'BUDGET_FIT' }]);
+    return raw;
   });
-  expect((await recommend(application, { ...body, budgetAmount: '20000' })).json()).toMatchObject({
-    status: 'UNAVAILABLE',
-    code: 'BUDGET_EXCEEDED',
-  });
+  const sent = { ...body };
+  const result = (await recommend(application, sent)).json();
+  expect(sent).toEqual(body);
+  expect(result.decision).toEqual(raw);
+  raw.products[0]!.name = 'Changed after the response';
+  expect(result.decision.products[0].name).toBe('AI proposed dish');
 });
-it('releases the provider admission slot when failed work has settled', async () => {
-  // A provider failure followed by a valid call proves errors do not strand settled work.
+it('releases admission when failed provider work has settled', async () => {
   let calls = 0;
   const application = await custom(
     async () => {
@@ -547,37 +562,97 @@ it('releases the provider admission slot when failed work has settled', async ()
     { maxInFlight: 1 },
   );
   expect((await recommend(application)).json()).toMatchObject({ status: 'UNAVAILABLE' });
-  expect((await recommend(application)).json()).toMatchObject({ status: 'RECOMMENDATIONS' });
+  expect((await recommend(application)).json()).toMatchObject({ status: 'AVAILABLE' });
 });
-
 it.each(['Gợi ý món chay cho hai người', 'Tôi dị   ứng tôm', 'Tránh đậu phộng và sữa'])(
-  'refers ordinary unreviewed dietary wording without calling a provider: %s',
+  'leaves dietary and allergy dialogue to the provider: %s',
   async (message) => {
-    const suggest = vi.fn(async () => decision());
-    const application = await custom(suggest);
-    expect((await recommend(application, { ...body, message })).json()).toMatchObject({
-      status: 'STAFF_REQUIRED',
+    const raw: AssistantDecision = {
+      kind: 'REFER_STAFF',
+      message: 'Provider: dữ liệu chưa xác nhận dị ứng; vui lòng hỏi nhân viên.',
       products: [],
+      totalAmount: '0',
+      clarificationFields: [],
+      warnings: [],
+    };
+    const suggest = vi.fn(async () => raw),
+      application = await custom(suggest);
+    expect((await recommend(application, { ...body, message })).json()).toMatchObject({
+      status: 'AVAILABLE',
+      decision: raw,
     });
-    expect(suggest).not.toHaveBeenCalled();
+    expect(suggest).toHaveBeenCalledTimes(1);
   },
 );
-it('rejects a provider selection unavailable in its supplied context even when reopened during inference', async () => {
-  await db.prisma.product.update({
-    where: { id: dish },
-    data: { availability_status: 'UNAVAILABLE' },
+it('keeps menu, cart, order and payment reads independent of AI failure and core actions authoritative', async () => {
+  const raw = decision([{ ...decision().products[0]!, unitPrice: '1', lineTotal: '1' }]);
+  let fail = false;
+  const application = await app(
+    {
+      config,
+      provider: {
+        suggest: async () => {
+          if (fail) throw Error('provider unavailable');
+          return raw;
+        },
+      },
+    },
+    tenant,
+    true,
+  );
+  const core = (
+    url: string,
+    payload?: Record<string, unknown>,
+    method: 'GET' | 'POST' | 'PATCH' = payload ? 'POST' : 'GET',
+  ) => application.inject({ method, url, headers, payload });
+  const currentCart = async () =>
+    (await db.pool.query('SELECT * FROM session_cart WHERE session_id=$1', [session])).rows[0]!;
+  expect((await recommend(application)).json().decision).toEqual(raw);
+  const unknown = await core('/guest/cart', {
+    productId: randomUUID(),
+    quantity: 1,
+    cartVersion: (await currentCart()).cart_version,
   });
-  const application = await custom(async (input) => {
-    expect(input.context.menu.find((p) => p.productId === dish)?.available).toBe(false);
-    await db.prisma.product.update({
-      where: { id: dish },
-      data: { availability_status: 'AVAILABLE' },
+  expect(unknown.statusCode).toBe(404);
+  const added = await core('/guest/cart', {
+    productId: dish,
+    quantity: 2,
+    cartVersion: (await currentCart()).cart_version,
+  });
+  expect(added.statusCode).toBe(200);
+  const item = added.json();
+  expect(String(item.unit_price_preview)).toBe('18000');
+  await db.pool.query('UPDATE product SET base_price=19000 WHERE id=$1', [dish]);
+  const submit = async () =>
+    core('/guest/orders', {
+      requestId: randomUUID(),
+      cartVersion: (await currentCart()).cart_version,
+      itemIds: [item.id],
     });
-    return decision();
-  });
-  expect((await recommend(application)).json()).toMatchObject({
-    status: 'UNAVAILABLE',
-    code: 'MENU_CHANGED',
-    products: [],
-  });
+  expect((await submit()).statusCode).toBe(409);
+  const updated = await core(
+    '/guest/cart/' + item.id,
+    { quantity: 2, cartVersion: (await currentCart()).cart_version },
+    'PATCH',
+  );
+  expect(updated.statusCode).toBe(200);
+  expect(String(updated.json().unit_price_preview)).toBe('19000');
+  await db.pool.query(
+    'UPDATE inventory_balance SET on_hand_qty=1,available_qty=1 WHERE ingredient_id=$1',
+    [ingredient],
+  );
+  expect((await submit()).statusCode).toBe(409);
+  expect((await db.pool.query('SELECT count(*)::int AS n FROM order_batch')).rows[0]?.n).toBe(0);
+  fail = true;
+  expect((await recommend(application)).json()).toMatchObject({ status: 'UNAVAILABLE' });
+  const state = await core('/guest/state');
+  expect(state.statusCode).toBe(200);
+  expect(state.json().products.some((p: { id: string }) => p.id === dish)).toBe(true);
+  expect(state.json().payments).toEqual([]);
+  await db.pool.query(
+    'UPDATE inventory_balance SET on_hand_qty=100,available_qty=100 WHERE ingredient_id=$1',
+    [ingredient],
+  );
+  expect((await submit()).statusCode).toBe(200);
+  expect((await db.pool.query('SELECT count(*)::int AS n FROM order_batch')).rows[0]?.n).toBe(1);
 });

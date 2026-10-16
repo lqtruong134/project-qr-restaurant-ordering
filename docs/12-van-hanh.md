@@ -1,10 +1,14 @@
 # 12. Mở dự án, chạy và xử lý lỗi
 
-## Trợ lý thực đơn tùy chọn — 15/10/2026
+## Trợ lý thực đơn tùy chọn — 16/10/2026
 
-Giữ `MENU_ASSISTANT_MODE=OFF` khi deploy web giai đoạn này. `MOCK` là bộ gợi ý xác định để kiểm tra cơ chế, không phải model AI; `CUSTOM` cần provider được inject phía server. Timeout mặc định 8000ms, 6 lượt/60000ms theo khách/IP, tối đa 4 tác vụ. Cấu hình sai tắt riêng trợ lý. Các biến chỉ ở backend, không dùng NEXT_PUBLIC; chưa có khóa model hoặc Ollama bắt buộc.
+Giữ `MENU_ASSISTANT_MODE=OFF` khi deploy giai đoạn này. `MOCK` chỉ là provider xác định kiểm tra contract/tools; chưa hiểu đầy đủ câu tự nhiên. `CUSTOM` cần adapter tin cậy được inject phía server, hiện chưa có adapter model thật. Timeout provider/tools mặc định 8000ms, 6 lượt/60000ms theo khách/IP, tối đa 4 tác vụ inference. Cấu hình sai tắt riêng trợ lý. Các biến chỉ ở backend, không dùng NEXT_PUBLIC; không cần Ollama để chạy nhà hàng.
 
-`pnpm ai:data:validate` kiểm tra 36 mẫu JSONL bằng CPU; `pnpm ai:evaluate --predictions <jsonl> --output <json>` chấm dự đoán được cung cấp từ bên ngoài, không tạo kết quả model. Không đặt report đè dữ liệu hoặc file predictions. Notebook Python chỉ dùng ở môi trường nghiên cứu Colab/Kaggle, không là dependency ứng dụng. `.env` hiện tại không bị sửa, không có migration/seed cho đợt này. Hướng dẫn chi tiết ở [bài 14](14-mo-rong.md).
+V2 để AI tự đọc ba tools được phép và tự viết decision; API chỉ kiểm tra bảo mật, schema và giới hạn. `AVAILABLE` không xác nhận giá/ngân sách/sở thích chính xác. Hành động giỏ/đơn thật vẫn qua core hiện hành. Mỗi tool dùng transaction READ ONLY, xác thực lại guest, chỉ đọc trường thực đơn công khai; không có SQL tự do, thông tin kho/giá vốn, lương, khách hoặc tiền riêng. Tối đa 12 lượt thử/request, 2 lượt đồng thời/request và 2 lượt đọc tool trên mỗi Database; statement timeout 3s, kết quả 64KiB/lượt và 256KiB cộng dồn. Thu hồi tools không hủy tức thì SQL đã gửi.
+
+`pnpm ai:data:validate` kiểm tra 36 mẫu JSONL bằng CPU. `pnpm ai:evaluate --predictions <jsonl> --output <json>` chấm raw predictions được cung cấp bên ngoài; không tạo kết quả model và không ghi đè nguồn. Facts/trajectory dành cho chấm độc lập, không dùng gold làm prediction. Notebook chỉ là scaffold nghiên cứu Colab/Kaggle, không là dependency ứng dụng và chưa GPU-validated. Không train, tải model, seed hoặc chạy migration để kiểm tra phần này.
+
+Không có PostgreSQL login/role mới hoặc secrets AI trong repo. Đây là capability boundary trong API, không phải sandbox cho adapter JavaScript độc hại. Nếu tách dịch vụ AI sau này, cấp quyền trên surface duyệt riêng bằng bootstrap deployment, không GRANT toàn bộ bảng. `.env`, database nghiệp vụ và core không đổi trong đợt v2. Hướng dẫn kiến trúc, giới hạn và dị ứng ở [bài 14](14-mo-rong.md); kết quả kiểm tra ở [bài 15](15-doi-chieu.md).
 
 ## Cấu hình và vận hành payOS — 14/10/2026
 

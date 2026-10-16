@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "QR Ordering — hệ thống hiện hành",
-    "version": "2026-10-15",
+    "version": "2026-10-16",
     "description": "Tài liệu đối chiếu mã nguồn; thao tác Execute tác động backend thật."
   },
   "servers": [

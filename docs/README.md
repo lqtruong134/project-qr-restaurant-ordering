@@ -16,11 +16,11 @@ GitHub hiển thị trực tiếp các tệp `.md`. Các tệp `.html` được 
 
 Nếu công cụ AI cần nội dung thô, dùng [bản Markdown bắt đầu](https://raw.githubusercontent.com/lqtruong134/project-qr-restaurant-ordering/main/docs/00-bat-dau.md) hoặc [bài AI Menu Assistant](https://raw.githubusercontent.com/lqtruong134/project-qr-restaurant-ordering/main/docs/14-mo-rong.md). Khả năng truy cập liên kết vẫn phụ thuộc công cụ AI có hỗ trợ đọc web hay không.
 
-## Phạm vi bản công bố ngày 16/10/2026
+## Mã nguồn và tài liệu AI v2 — 16/10/2026
 
-Tài liệu mô tả mã nguồn hiện hành, gồm các lần đối chiếu đến ngày 15/10/2026. Hai commit `88ba324` và `bd3fcac` ban đầu chỉ công bố tài liệu. Bản cập nhật mã nguồn tiếp theo đưa ứng dụng, migration, tài nguyên ảnh cài đặt, kiểm thử và nền tảng AI tương ứng vào cùng repository. Khi đối chiếu, chọn mã nguồn và tài liệu ở cùng commit; checkout các mốc cũ hơn có thể chưa có các tệp/chức năng mới. Dữ liệu PostgreSQL, `.env`, ảnh tải lên khi vận hành, cache và mô hình AI không được công bố cùng mã nguồn.
+Phần AI v2 cập nhật ngày 16/10/2026, lưu cùng mã nguồn và tài liệu trong commit tương ứng; bản HTML Windows được xuất từ cùng nguồn. Biên bản kiểm thử ghi trạng thái trước khi công bố. Khi đọc GitHub, đối chiếu theo commit đang mở. Các phần đối chiếu PostgreSQL giữ mốc 15/10/2026. Hai commit `88ba324` và `bd3fcac` ban đầu chỉ công bố tài liệu. Bản cập nhật mã nguồn tiếp theo đưa ứng dụng, migration, tài nguyên ảnh cài đặt, kiểm thử và nền tảng AI tương ứng vào cùng repository. Khi đối chiếu, chọn mã nguồn và tài liệu ở cùng commit; checkout các mốc cũ hơn có thể chưa có các tệp/chức năng mới. Dữ liệu PostgreSQL, `.env`, ảnh tải lên khi vận hành, cache và mô hình AI không được công bố cùng mã nguồn.
 
-Kết quả kiểm tra có ngày và phạm vi riêng ở [bài 15](15-doi-chieu.md); không coi các số liệu cũ là kết quả của phiên bản khác. Nền tảng trợ lý thực đơn đang **OFF**, chưa chạy huấn luyện/GPU hoặc nghiệm thu mô hình thật. Tài liệu không thay thế mã nguồn, dữ liệu cấu hình triển khai hoặc xác nhận nghiệp vụ thực tế.
+Kết quả kiểm tra có ngày và phạm vi riêng ở [bài 15](15-doi-chieu.md); không coi các số liệu cũ là kết quả của phiên bản khác. Nền tảng trợ lý thực đơn v2 đang **OFF**: AI tự đọc surface được phép và sở hữu tư vấn; API giữ bảo mật/schema, core giữ nghiệp vụ giao dịch. Chưa chạy model/huấn luyện/GPU hoặc UI AI. Tài liệu không thay thế mã nguồn, dữ liệu cấu hình triển khai hoặc xác nhận nghiệp vụ thực tế.
 
 ## Mục lục
 

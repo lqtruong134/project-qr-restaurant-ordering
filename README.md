@@ -2,7 +2,7 @@
 
 Ứng dụng hiện hành gồm giao diện khách, phục vụ, bếp và quản trị; quản lý gọi món, khuyến mãi/VAT, thanh toán tiền mặt/chuyển khoản và payOS, kho và nhân sự. Đã tích hợp payOS với QR, webhook xác minh và đối soát; nền tảng AI Menu Assistant có API chỉ đọc và provider tùy chọn, mặc định tắt; chưa có model thật.
 
-Bắt đầu học tại [docs/00-bat-dau.md](docs/00-bat-dau.md), hoặc mở [sổ tay HTML](docs/00-BAT-DAU.html). Bộ tài liệu được đối chiếu code và PostgreSQL ngày 15/10/2026, có lộ trình 12 buổi, hướng dẫn nghiệp vụ, mã nguồn, 67 bảng/786 cột và 186 thao tác API. [Hồ sơ xác minh](docs/15-doi-chieu.md) nêu rõ những gì đã kiểm tra.
+Bắt đầu học tại [docs/00-bat-dau.md](docs/00-bat-dau.md), hoặc mở [sổ tay HTML](docs/00-BAT-DAU.html). Bộ tài liệu có lộ trình 12 buổi và hướng dẫn nghiệp vụ/mã nguồn; ảnh chụp PostgreSQL ngày 15/10/2026 ghi nhận 67 bảng/786 cột. Kiến trúc AI v2 cập nhật ngày 16/10/2026; generator xác nhận 186 thao tác API. [Hồ sơ xác minh](docs/15-doi-chieu.md) nêu rõ những gì đã kiểm tra.
 
 ## Cài từ bản clone mới
 
@@ -58,4 +58,4 @@ Markdown trong docs là nguồn chính. Chạy `node docs/tools/export-html.mjs`
 
 ## Nền tảng AI Menu Assistant
 
-Xem [audit, contract, giới hạn và lộ trình model thật](docs/14-mo-rong.md). API mặc định OFF; không sửa cart/order/payment, không cần Ollama để chạy hệ thống. `pnpm ai:data:validate` kiểm tra bộ 36 mẫu dữ liệu; notebook chỉ là scaffold, chưa train/GPU-validated. [Dữ liệu và notebook nghiên cứu](ai/menu-assistant/README.md).
+Xem [ranh giới AI advisory v2, tools chỉ đọc và core transactional](docs/14-mo-rong.md). Provider chủ động đọc thực đơn được phép, tự tư vấn và hỏi lại; API trả nguyên decision đúng schema, không sửa giá/ngân sách/sở thích cho model. Core tiếp tục kiểm tra đầy đủ khi thực hiện giỏ/đơn thật. Mặc định OFF, không cần Ollama để chạy nhà hàng. `pnpm ai:data:validate` kiểm tra 36 mẫu tool trajectory; evaluator chấm raw predictions bằng facts độc lập. Notebook chỉ là scaffold, chưa có model/train/GPU hoặc UI AI. [Dữ liệu và notebook nghiên cứu](ai/menu-assistant/README.md).

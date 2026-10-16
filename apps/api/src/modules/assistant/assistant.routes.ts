@@ -25,7 +25,7 @@ export function registerMenuAssistant(
   app.get('/guest/menu-assistant/capabilities', { config }, (r) => assistant.capabilities(r));
   app.post(
     '/guest/menu-assistant/recommendations',
-    { config, bodyLimit: 8192, schema: { body: assistantRequestSchema } },
+    { config, bodyLimit: 32768, schema: { body: assistantRequestSchema } },
     async (request) => {
       try {
         return await assistant.recommend(request, parseAssistantRequest(request.body));

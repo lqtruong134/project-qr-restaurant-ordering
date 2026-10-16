@@ -1,0 +1,15 @@
+{
+  "qaType": "CPU_ONLY_SCAFFOLD_TEST_DOUBLES_NOT_MODEL_PREDICTIONS",
+  "codeCellsParsedAndDisabledExecuted": 7,
+  "modelImports": false,
+  "datasetScenarios": 36,
+  "trainAssistantTurnSamples": 41,
+  "toolLoopUsesActualRequestedReads": true,
+  "rawWrongFinalPreserved": true,
+  "specialTokensAndWhitespacePreserved": true,
+  "onlyOneTerminalEosRemoved": true,
+  "unknownMutationToolNotExecuted": true,
+  "factsNotInitialPrompt": true,
+  "noWeightsDownloadedOrTrainingRun": true,
+  "tokenizerOrGPUCompatibilityMeasured": false
+}

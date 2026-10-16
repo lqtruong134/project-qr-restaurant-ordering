@@ -1,0 +1,134 @@
+{
+  "baselineCommit": "68b64efd281476f0fe9a32ec55145c230cce431c",
+  "before": {
+    "tests": 225,
+    "suiteFiles": 33
+  },
+  "after": {
+    "tests": 210,
+    "suiteFiles": 33
+  },
+  "unchangedOtherUnits": {
+    "tests": 176,
+    "suiteFiles": 30
+  },
+  "noUnitSuiteFilesDeleted": true,
+  "suiteChanges": [
+    {
+      "path": "packages/contracts/src/menu-assistant.test.ts",
+      "before": 20,
+      "after": 7,
+      "delta": -13,
+      "changes": [
+        "8 parameterized invalid-budget and 5 invalid-people cases now use loops within one transport/identity/hints test, with input/history constraints in another test.",
+        "Old rejection of AI names/prices/prose/duplicates and intent consistency is replaced by exact preservation of semantic mistakes and no imposed clarification/referral reasoning.",
+        "Strict JSON, executable/extra fields, UUID syntax, quantity, amount and size overflows remain technical checks.",
+        "Blanket assistantNeedsStaff keyword/diet/spice/portion test is removed because that backend policy is gone; category/preference quality belongs to offline evaluation.",
+        "Added bounded read-tool argument and TOOL_CALL/FINAL protocol cases."
+      ],
+      "oldPlainTestDeclarations": [
+        "keeps VND exact and trims the question without accepting client identity or mutable state",
+        "bounds text, preference arrays and known fields",
+        "accepts strict JSON and never treats text or reasoning as executable output",
+        "rejects prices, names, arbitrary reasons, duplicates, invented IDs and unsafe quantities in provider output",
+        "enforces response intent and clarification cardinality",
+        "refers unverified diet, spice, portion and allergy requests instead of inferring from BOM",
+        "matches positive course requests through runtime category identity, not product code prefixes"
+      ],
+      "currentCollectedTestNames": [
+        "advisory assistant v2 technical contract > accepts natural messages without requiring structured people/budget and bounds conversation roles",
+        "advisory assistant v2 technical contract > rejects user-supplied tenant/auth/state and out-of-bounds transport hints",
+        "advisory assistant v2 technical contract > preserves semantic mistakes and duplicate recommendations exactly",
+        "advisory assistant v2 technical contract > does not impose clarification/referral/recommendation reasoning",
+        "advisory assistant v2 technical contract > rejects malformed JSON, executable fields and technical overflows without repairing output",
+        "advisory assistant v2 technical contract > exposes only bounded predefined read tool arguments, with no SQL or identity inputs",
+        "advisory assistant v2 technical contract > supports strict TOOL_CALL and FINAL turns for future model-owned read loops"
+      ]
+    },
+    {
+      "path": "packages/contracts/src/menu-assistant-evaluation.test.ts",
+      "before": 18,
+      "after": 14,
+      "delta": -4,
+      "changes": [
+        "Schema/source/policy/leakage/context checks regrouped into five public-context and tool-trajectory tests.",
+        "Unknown/unavailable/price/category checks replaced by raw hallucination, actual quoted price/total/budget, availability-versus-identity, required read evidence and duplicate/preference checks.",
+        "Forced missing-hint clarification and universal staff referral replaced by natural-language fact annotations and a limited allergy proxy.",
+        "Missing predictions and allergy denominator cases merged into explicit applicable-denominator checks, including recommendation-only arithmetic.",
+        "Duplicate/unexpected IDs and malformed model turns additionally check fabricated tool observations."
+      ],
+      "oldPlainTestDeclarations": [
+        "validates strict curated records without claiming model quality",
+        "rejects empty splits and repeated prompts within the same split",
+        "allows preference clarification but never repeats already supplied people or budget",
+        "checks UUIDs, money, availability, context fields, and duplicate menu products",
+        "rejects unavailable or invented product IDs and duplicate recommendations",
+        "rejects invented prices and other extra output fields instead of trusting them",
+        "uses exact deterministic integer arithmetic at the budget boundary",
+        "clarifies exactly the missing people and budget, with the staff guard taking priority",
+        "requires positive category matches and checks requested reason codes",
+        "refers every unreviewed diet, spice, protein, style, and avoidance request to staff",
+        "rejects invalid gold answers and noncurated or policy-modified records",
+        "detects ID, group, and canonicalized full prompt leakage across splits",
+        "checks menu facts independently of gold product choices",
+        "counts missing predictions as failures in every full-split denominator",
+        "rejects duplicate and unexpected IDs, and handles malformed records without crashing",
+        "does not confuse schema and grounding success with intent or clarification correctness",
+        "keeps missing allergy predictions in the applicable allergy denominator",
+        "counts whitespace-normalized allergy wording in safety metrics"
+      ],
+      "currentCollectedTestNames": [
+        "v2 curated tool trajectories > validates36 separated curated scenarios without measuring a model",
+        "v2 curated tool trajectories > rejects prefed/private context, changed tools and fabricated tool observations",
+        "v2 curated tool trajectories > rejects changed policy and private product fields",
+        "v2 curated tool trajectories > detects repeated IDs/groups/prompts/menu families across splits",
+        "v2 curated tool trajectories > replays only approved read filters with timestamped public values",
+        "raw external prediction quality checks > scores a terminal raw model turn and keeps semantic review unmeasured",
+        "raw external prediction quality checks > preserves wrong claims at runtime and exposes hallucinations/prices/totals/budget offline",
+        "raw external prediction quality checks > separates existing unavailable products from hallucinated IDs",
+        "raw external prediction quality checks > requires actual read evidence rather than accepting fixture knowledge as observation",
+        "raw external prediction quality checks > does not silently repair duplicate choices or preference violations",
+        "raw external prediction quality checks > counts missing/malformed cases with explicit applicable denominators",
+        "raw external prediction quality checks > rejects duplicate/unexpected IDs, malformed model turns and invented read observations",
+        "raw external prediction quality checks > uses a limited allergy wording/referral proxy, never a safety certification",
+        "raw external prediction quality checks > checks clarification against natural-language facts rather than missing structured hints"
+      ]
+    },
+    {
+      "path": "apps/api/src/modules/assistant/assistant-provider.test.ts",
+      "before": 11,
+      "after": 13,
+      "delta": 2,
+      "changes": [
+        "All 8 configuration cases retained (default OFF, six invalid configurations, explicit MOCK/CUSTOM).",
+        "Three recommendation fixtures adapted to provider-controlled tool reads.",
+        "Added owns clarification rather than requiring API preprocessing.",
+        "Added does not claim allergy safety when semantic metadata is unreviewed."
+      ],
+      "oldPlainTestDeclarations": [
+        "defaults to OFF without credentials or network configuration",
+        "permits explicit MOCK and injected CUSTOM modes",
+        "uses current prices and excludes unavailable products",
+        "covers requested categories only when affordable",
+        "returns no match when menu is empty or all prices exceed budget"
+      ],
+      "currentCollectedTestNames": [
+        "assistant optional provider configuration > defaults to OFF without credentials or network configuration",
+        "assistant optional provider configuration > fails closed for invalid optional settings {\"MENU_ASSISTANT_MODE\":\"OLLAMA\"}",
+        "assistant optional provider configuration > fails closed for invalid optional settings {\"MENU_ASSISTANT_TIMEOUT_MS\":\"NaN\"}",
+        "assistant optional provider configuration > fails closed for invalid optional settings {\"MENU_ASSISTANT_TIMEOUT_MS\":\"30001\"}",
+        "assistant optional provider configuration > fails closed for invalid optional settings {\"MENU_ASSISTANT_RATE_LIMIT\":\"0\"}",
+        "assistant optional provider configuration > fails closed for invalid optional settings {\"MENU_ASSISTANT_WINDOW_MS\":\"999\"}",
+        "assistant optional provider configuration > fails closed for invalid optional settings {\"MENU_ASSISTANT_MAX_IN_FLIGHT\":\"21\"}",
+        "assistant optional provider configuration > permits explicit MOCK and injected CUSTOM modes",
+        "deterministic advisory provider fixture > actively reads current prices and chooses available products inside the provider",
+        "deterministic advisory provider fixture > covers requested categories only when affordable as fixture behavior",
+        "deterministic advisory provider fixture > owns clarification rather than requiring API preprocessing",
+        "deterministic advisory provider fixture > does not claim allergy safety when semantic metadata is unreviewed",
+        "deterministic advisory provider fixture > returns no match when menu is empty or all prices exceed budget"
+      ]
+    }
+  ],
+  "explanation": "Only the three AI unit files were rewritten. Parameterized cases were grouped; v1 semantic correction/blanket referral assertions were replaced with v2 raw-output and independent offline scoring assertions. This is not restoration merely to preserve a count.",
+  "precision": "Assertion sets are not identical: Infinity/null and several preference-array literals, and the standalone evaluator 999999999 boundary, are not retained verbatim. Technical parser guards remain implemented; no unrelated test file was changed."
+}

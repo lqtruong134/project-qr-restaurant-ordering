@@ -1,0 +1,115 @@
+{
+  "date": "2026-10-16",
+  "scope": "AI Menu Assistant advisory v2; local working tree, not committed or pushed in this task",
+  "architecture": {
+    "aiOwns": [
+      "READ",
+      "REASON",
+      "RECOMMEND",
+      "CONVERSE"
+    ],
+    "readTools": [
+      "listCategories",
+      "searchMenu",
+      "getProducts"
+    ],
+    "apiGuards": "authentication, tenant/session, CSRF, quota/deadline/concurrency, byte limits and structural validation only",
+    "rawSemanticClaimsPreserved": true,
+    "coreTransactionalAuthorityUnchanged": true,
+    "databaseIsolation": "private parameterized SELECTs in READ ONLY transactions behind finite tools; shared trusted API process",
+    "dedicatedPostgresLoginOrNodeSandboxImplemented": false
+  },
+  "checks": {
+    "check": {
+      "command": "pnpm check",
+      "unitTests": 210,
+      "suites": 33,
+      "passed": true
+    },
+    "integration": {
+      "command": "pnpm test:integration",
+      "tests": 373,
+      "suites": 26,
+      "passed": true,
+      "database": "isolated test databases"
+    },
+    "focusedAIIntegration": {
+      "tests": 41,
+      "suites": 2,
+      "passed": true,
+      "includedInFullIntegration": true
+    },
+    "postReviewContractEvaluation": {
+      "tests": 21,
+      "suites": 2,
+      "passed": true,
+      "note": "Focused final rerun after arithmetic denominator and notebook decoding review fixes"
+    },
+    "build": {
+      "command": "NEXT_DIST_DIR=.next-ai-advisory-v2-build pnpm build",
+      "routes": 7,
+      "passed": true
+    },
+    "dataset": {
+      "train": 24,
+      "validation": 6,
+      "evaluation": 6,
+      "trainAssistantTurns": 41,
+      "typescriptAndPythonPreflightPassed": true,
+      "modelQualityMeasured": false
+    },
+    "notebook": {
+      "qaType": "CPU_ONLY_SCAFFOLD_TEST_DOUBLES_NOT_MODEL_PREDICTIONS",
+      "codeCellsParsedAndDisabledExecuted": 7,
+      "modelImports": false,
+      "datasetScenarios": 36,
+      "trainAssistantTurnSamples": 41,
+      "toolLoopUsesActualRequestedReads": true,
+      "rawWrongFinalPreserved": true,
+      "specialTokensAndWhitespacePreserved": true,
+      "onlyOneTerminalEosRemoved": true,
+      "unknownMutationToolNotExecuted": true,
+      "factsNotInitialPrompt": true,
+      "noWeightsDownloadedOrTrainingRun": true,
+      "tokenizerOrGPUCompatibilityMeasured": false
+    },
+    "preservation": {
+      "protectedTrackedFiles": 597,
+      "protectedFilesChanged": [],
+      "environmentUnchanged": true,
+      "headUnchanged": true,
+      "schemaMigrationsCoreAndUnrelatedTestsUnchanged": true,
+      "liveDatabaseMigrationSeedOrBusinessWritePerformed": false,
+      "note": "File fingerprints verify source preservation; live business-write statement describes task actions, not a before/after database hash audit."
+    },
+    "health": {
+      "web": 200,
+      "apiLive": 200,
+      "apiReady": 200
+    },
+    "coverageOrBrowserRerunForThisTask": false
+  },
+  "notDone": [
+    "real model download/inference/training",
+    "GPU/tokenizer compatibility validation",
+    "Ollama serving/export validation",
+    "AI UI",
+    "production activation",
+    "model quality benchmark",
+    "RAG/vector DB",
+    "live DB migration/seed/business mutation",
+    "git commit/push"
+  ],
+  "evidence": [
+    "evidence/ai-advisory-v2-check-20261016.log",
+    "evidence/ai-advisory-v2-integration-20261016.log",
+    "evidence/ai-advisory-v2-focused-integration-20261016.log",
+    "evidence/ai-advisory-v2-final-scoped-20261016.log",
+    "evidence/ai-advisory-v2-build-20261016.log",
+    "evidence/ai-advisory-v2-dataset-20261016.log",
+    "evidence/ai-advisory-v2-notebook-cpu-20261016.json",
+    "evidence/ai-advisory-v2-preservation-20261016.json"
+  ],
+  "capturePhase": "PRE_PUBLICATION_VERIFICATION_SNAPSHOT",
+  "publicationNote": "Original notDone/scope fields describe the verification task before publication; see the containing Git commit and final publication response."
+}

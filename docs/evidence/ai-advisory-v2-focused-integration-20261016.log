@@ -1,0 +1,11 @@
+
+ RUN  v4.1.11 /home/quyettruong05/projects/qr-ordering-thesis
+
+ ✓ tests/menu-assistant.integration.test.ts (29 tests) 2945ms
+ ✓ tests/assistant-read-surface.integration.test.ts (12 tests) 1132ms
+
+ Test Files  2 passed (2)
+      Tests  41 passed (41)
+   Start at  17:11:53
+   Duration  5.17s (transform 524ms, setup 0ms, import 848ms, tests 4.08s, environment 0ms)
+

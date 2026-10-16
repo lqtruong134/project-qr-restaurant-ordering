@@ -1,11 +1,13 @@
-# Run only after exporting and checking the merged model on the same held-out cases.
+# Manual handoff only: export/check a complete merged model first.
 FROM ./merged-q4_k_m.gguf
-PARAMETER num_ctx 4096
-PARAMETER num_predict 512
+PARAMETER num_ctx 8192
+PARAMETER num_predict 1536
 PARAMETER temperature 0
 PARAMETER seed 3407
 PARAMETER stop "<|im_end|>"
-# The application supplies assistantSystemPolicy and runtime menu context per request.
-# Verify the imported Qwen3 template/EOS and thinking metadata with ollama show.
-# The future API request must send format: assistantDecisionSchema and think: false.
-# This file imports merged weights. It does not import a LoRA adapter.
+# A future adapter supplies assistantSystemPolicy and assistantProviderTurnSchema.
+# It starts with public static context/tool definitions, then executes approved read tools.
+# Return the model-authored FINAL decision unchanged after technical validation.
+# Do not reprice, substitute products, rebalance budgets or rewrite explanations.
+# Verify actual Qwen template/EOS/thinking controls and serving parity before use.
+# This file imports merged weights; it does not import a LoRA adapter or enable production.

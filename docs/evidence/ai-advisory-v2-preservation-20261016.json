@@ -1,0 +1,9 @@
+{
+  "protectedTrackedFiles": 597,
+  "protectedFilesChanged": [],
+  "environmentUnchanged": true,
+  "headUnchanged": true,
+  "schemaMigrationsCoreAndUnrelatedTestsUnchanged": true,
+  "liveDatabaseMigrationSeedOrBusinessWritePerformed": false,
+  "note": "File fingerprints verify source preservation; live business-write statement describes task actions, not a before/after database hash audit."
+}

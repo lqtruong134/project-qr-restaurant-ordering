@@ -41,28 +41,4 @@ export type {
   UnmatchedPaymentWebhook,
 } from './payments-online';
 
-export {
-  MENU_ASSISTANT_CONTRACT_VERSION,
-  assistantIncludes,
-  assistantReasonCodes,
-  assistantClarificationFields,
-  assistantRequestSchema,
-  assistantDecisionSchema,
-  AssistantContractError,
-  parseAssistantRequest,
-  parseAssistantDecision,
-  assistantNeedsStaff,
-  assistantCategoryIncludes,
-  assistantSystemPolicy,
-  type AssistantInclude,
-  type AssistantReasonCode,
-  type AssistantClarificationField,
-  type AssistantRequest,
-  type AssistantDecision,
-  type AssistantMenuProduct,
-  type AssistantContext,
-  type AssistantProviderInput,
-  type AssistantMode,
-  type AssistantResponse,
-  type AssistantCapabilities,
-} from './menu-assistant';
+export * from './menu-assistant';

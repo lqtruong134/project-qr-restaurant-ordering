@@ -2,7 +2,7 @@
 
 ## Phạm vi hiện tại
 
-Thanh toán payOS đã tích hợp ở bản 14/10/2026. Phần code, migration và kiểm thử local hoàn tất; kết nối merchant thật và nghiệm thu HTTPS thuộc bước triển khai theo [bài 12](12-van-hanh.md). Bản 15/10 đã có API nền tảng AI Menu Assistant tùy chọn, mặc định OFF; chưa có model hoặc giao diện AI thật.
+Thanh toán payOS đã tích hợp ở bản 14/10/2026. Phần code, migration và kiểm thử local hoàn tất; kết nối merchant thật và nghiệm thu HTTPS thuộc bước triển khai theo [bài 12](12-van-hanh.md). Bản 16/10 điều chỉnh nền tảng AI Menu Assistant sang AI tự đọc tools và sở hữu nội dung tư vấn; mặc định OFF, chưa có model hoặc giao diện AI thật.
 
 ## Thanh toán online: phần nào đã có?
 
@@ -18,114 +18,87 @@ Cấu hình khóa riêng/URL HTTPS, đăng ký webhook trên đúng kênh payOS,
 
 Đợt payOS không triển khai chi hộ tự động hoặc hóa đơn điện tử thuế; phần trợ lý mới chỉ ở nền tảng tùy chọn. [Nghiệp vụ payOS](06-thanh-toan.md) và [kết quả kiểm tra](15-doi-chieu.md) phân biệt phần đã thử với phần chưa thử.
 
-## AI Menu Assistant: nền tảng đã chuẩn bị — 15/10/2026
+## AI Menu Assistant: ranh giới tư vấn v2 — 16/10/2026
 
-Trợ lý chỉ tư vấn chọn món; không phải agent điều khiển hệ thống. Mặc định `MENU_ASSISTANT_MODE=OFF`; chưa gọi model thật, chưa train hoặc triển khai Ollama. Giao diện khách chưa thêm nút AI để tránh giới thiệu một tính năng chưa sẵn sàng. Không có migration, bảng AI, vector database hoặc framework agent mới. Ứng dụng chính vẫn là TypeScript; Python chỉ ở notebook/công cụ nghiên cứu huấn luyện, không tham gia server gọi món.
+Trợ lý là miền tư vấn chỉ đọc. AI sở hữu hiểu câu tự nhiên, chủ động tìm dữ liệu thực đơn, cân đối người/ngân sách, lựa chọn, giải thích và hỏi lại. API giữ các giới hạn kỹ thuật và bảo mật; không tính lại đề xuất để làm câu trả lời của model thành đúng. Mặc định `MENU_ASSISTANT_MODE=OFF`. Chưa chạy model thật, train, Ollama hoặc xây giao diện AI; Python chỉ phục vụ nghiên cứu offline.
 
-### Audit dữ liệu hiện tại
+### Ai chịu trách nhiệm cho việc gì?
 
-Audit chỉ đọc xác nhận 91 sản phẩm (86 món và 5 combo), 11 danh mục, 113 nguyên liệu, 91 công thức hiệu lực và 630 dòng BOM. Năm combo có 16 dòng thành phần. Tất cả sản phẩm có mô tả; dữ liệu giá/tên/mô tả của bộ danh mục khớp database tại thời điểm audit. Đây là dữ liệu vận hành mô phỏng của dự án, không tự coi là dữ liệu nhà hàng thực tế hoặc bảo đảm chất lượng học máy.
+| Miền | Trách nhiệm |
+| --- | --- |
+| AI advisory | Đọc qua tools được phép; hiểu câu hỏi/lịch sử; tìm và lọc món; suy luận số người, ngân sách, sở thích; đưa tên, giá, số lượng, tổng, lời giải thích và câu hỏi tiếp theo |
+| API kỹ thuật/bảo mật | Xác thực guest, phiên và nhà hàng; CSRF; giới hạn lượt, thời gian, đồng thời, kích thước; kiểm tra JSON/schema; xử lý provider unavailable |
+| Core transactional | Khi khách thực hiện hành động thật: kiểm tra sản phẩm, phiên, giá/version, khả dụng, số lượng và kho; thêm giỏ/gửi đơn/bếp; khuyến mãi, tiền, hoàn và đóng phiên |
 
-| Nhu cầu | Có thể dùng ngay | Còn thiếu hoặc cần thận trọng |
-| --- | --- | --- |
-| Ngân sách | Giá VND hiện tại từ database, nhân số lượng và cộng bằng BigInt | Không dùng giá poster/model; tổng gợi ý là giá menu đã gồm VAT, trước giảm giá |
-| Số người | Có đầu vào people; 34/91 mô tả có số người | 57 món chưa ghi số người; không có servings chuẩn, không cam kết vài món đủ no cho cả nhóm |
-| Rau, đồ uống, tráng miệng | Danh mục runtime: Rau & đậu hũ, 9 thức uống, 13 tráng miệng | Thuộc nhóm rau không đồng nghĩa đã xác nhận món chay |
-| Độ cay | BOM có ớt/tương ớt ở 16 sản phẩm; chỉ hai mô tả nói rõ cay | Chưa biết mức cay hoặc có thể bỏ ớt không |
-| Món chay | Có các món cần quản trị rà soát | Không có trường xác nhận chay; nước mắm, nước dùng, gelatin và sốt phức hợp có thể làm suy luận từ tên sai |
-| Hải sản/loại thịt | Có tên nguyên liệu chính trong BOM, thành phần combo | Không coi danh sách nguyên liệu kho là hồ sơ thành phần đầy đủ hoặc bằng chứng không có hải sản |
-| Ăn nhẹ/chia sẻ | 19 mô tả ghi dùng chung | Chưa có định nghĩa món nhẹ, khẩu phần chia sẻ hoặc dinh dưỡng đã xác minh |
-| Thành phần/dị ứng | Có BOM hiệu lực và 25 mô tả ghi chú một số thành phần | Chưa có hồ sơ allergen, nhà cung cấp, thành phần sốt/nước dùng hoặc lây nhiễm chéo; không xác nhận an toàn dị ứng |
-
-Mức bổ sung tối thiểu sau này: trường khẩu phần tối thiểu/tối đa và dùng chung; vai trò món; mức cay và khả năng điều chỉnh; chế độ ăn; tags protein/ăn nhẹ có định nghĩa; chất gây dị ứng đã công bố và trạng thái rà soát. Mỗi xác nhận cần người/thời điểm/căn cứ và fingerprint phiên bản sản phẩm/công thức để vô hiệu khi công thức đổi. Nên quản lý các trường này qua ADMIN và lưu cùng nguồn dữ liệu dùng cho món nhập mới; không duy trì một bảng giá hoặc danh sách chay riêng trong model. Chưa thêm những trường này trong task hiện tại vì chưa có dữ liệu đã xác minh để điền.
-
-### Kiến trúc và quyền
+AI không được gọi công cụ ghi, tạo giỏ/đơn, giữ hoặc trừ kho, đổi món/giá, áp ưu đãi, thu/hoàn tiền hoặc thay tài khoản. Giá AI nêu chỉ là tư vấn theo giá menu đã gồm VAT, trước giảm giá; không phải báo giá được giữ chỗ. Core hiện có không dùng giá hoặc tổng do AI nêu để ghi giao dịch.
 
 ```text
-Khách có phiên bàn hợp lệ
-    → API trợ lý riêng, chỉ đọc
-    → AssistantProvider.suggest(input, { signal })
-    → quyết định JSON với productId / quantity / reasonCode
-    → backend đọc lại database, xác minh và dựng card
-    → khách tự xem/chọn; giỏ và gửi món vẫn dùng luồng hiện có
+Guest hợp lệ → API giới hạn kỹ thuật
+  → provider nhận câu hỏi + history + metadata công khai + định nghĩa tools
+  → provider chủ động gọi listCategories / searchMenu / getProducts
+  → mỗi lượt đọc xác thực lại guest, SELECT trong transaction READ ONLY
+  → provider tự suy luận, trả decision JSON
+  → API kiểm tra cấu trúc/kích thước, xác thực lại guest, trả nguyên decision
+
+Khách tự chọn thực hiện hành động → API giỏ/đơn hiện hành → core kiểm tra đầy đủ
 ```
 
-API không dùng lại `/guest/state` hoặc hàm `guest()` vì các luồng đó có cập nhật heartbeat/tính tài chính. Module mới xác thực guest bằng SELECT trong transaction READ ONLY, ràng buộc đúng nhà hàng, trạng thái khách và phiên bàn. Không nhận restaurantId/sessionId/participantId từ body. Không gửi credential, mã vào bàn, tên khách khác, giá vốn, số lượng kho hoặc dữ liệu tài chính tới provider. Kết nối database được trả trước khi chờ provider; sau đó xác thực lại guest và đọc lại các dữ kiện cần thiết.
+### Vùng dữ liệu đọc tối thiểu
 
-Context chứa tối đa 120 sản phẩm với ID, tên, mô tả, danh mục, giá hiện tại, version, trạng thái khả dụng, tên nguyên liệu và thành phần combo. Nếu bị giới hạn thì có cờ và cảnh báo; không coi đó là toàn bộ thực đơn. Khả dụng được đọc bằng cùng hàm SQL hiện hành của menu. Kiểm tra cuối cộng nhu cầu nguyên liệu cho cả tập món/số lượng, làm tròn theo quy tắc giữ kho; không giữ hoặc trừ kho. Kiểm tra này bảo thủ: cần một vị trí kho đủ cho từng nguyên liệu, nên có thể từ chối khi hàng rải nhiều kho. Luồng đặt món hiện hành vẫn xác minh lần cuối và là nơi giữ kho thật.
+Không gửi sẵn toàn thực đơn và không giao SQL, Prisma, pool, mật khẩu hoặc connection string cho model. `AssistantProvider.suggest(input, { signal, tools })` nhận một capability chỉ có `tools.call(name, arguments)`. Provider sau này lựa chọn lượt đọc dựa trên câu hỏi và kết quả trước đó. Ba tên tool là allowlist; thêm SQL hoặc tenant/session vào đối số bị từ chối.
 
-### API và structured output
+| Tool | Đối số | Kết quả được phép |
+| --- | --- | --- |
+| `listCategories` | Object rỗng | Mã và tên danh mục đang hoạt động |
+| `searchMenu` | Câu tìm, mã danh mục, loại món/combo, khoảng giá, chỉ lấy khả dụng, limit/offset | Các món đang hoạt động trong danh mục đang hoạt động; có phân trang |
+| `getProducts` | Tối đa 20 UUID sản phẩm | Chi tiết sản phẩm thuộc cùng vùng được phép; không trả món tenant khác hoặc đã tắt |
 
-Backend: `GET /guest/menu-assistant/capabilities` và `POST /guest/menu-assistant/recommendations`. Qua frontend thêm tiền tố `/api`. Cả hai cần cookie guest của phiên đang hoạt động; POST còn cần Origin/CSRF theo cơ chế hiện hành. Xem schema và ví dụ trong [danh mục API](17-api.md).
+Sản phẩm chỉ gồm ID, mã, tên, mô tả, mã/tên danh mục, giá VND hiện tại, loại DISH/COMBO, version, khả dụng công khai, **tên** nguyên liệu của công thức hiệu lực và ID/tên/số lượng món thành phần combo. Không có giá vốn, định lượng BOM, hao hụt, tồn/giữ kho thực tế, vị trí kho, khách khác, nhân sự/lương, thông tin thanh toán, audit hoặc secrets. `asOf` ghi mốc đọc; `truncated` báo trang hoặc trường/danh sách bị giới hạn. Khả dụng công khai của một sản phẩm không bảo đảm đủ kho cho toàn bộ tập món/số lượng được tư vấn.
 
-```json
-{
-  "message": "Tôi đi 3 người, ngân sách 500.000đ và muốn có một món rau.",
-  "people": 3,
-  "budgetAmount": "500000",
-  "preferences": { "include": ["VEGETABLE"] }
-}
-```
+Mỗi lượt dùng truy vấn tĩnh có tham số, kiểm tra cookie guest bằng SELECT và ràng buộc nhà hàng từ server. Không nhận restaurantId/sessionId/participantId từ body. Không dùng helper guest có heartbeat hoặc tính tài chính; `last_seen` không đổi. Mỗi lượt trả kết nối trước khi AI suy luận tiếp. Một request có nhiều lượt đọc nên giá/kho có thể thay đổi giữa các lượt; đây không phải snapshot giữ nguyên cả hội thoại.
 
-`message` tối đa 1.000 ký tự; people 1–20; tiền là chuỗi VND nguyên; danh sách và số lượng đều có giới hạn. Không lưu hội thoại hoặc hồ sơ dị ứng. Bản foundation yêu cầu people/budget ở trường có cấu trúc; nếu chỉ viết con số trong câu tự nhiên thì hỏi lại. Chưa có bước trích xuất ý định tự nhiên trong mock. Khi thêm model thật, có thể bổ sung bước trích xuất và cho khách xác nhận các trường này trước khi tư vấn; backend không lấy số tiền do model đoán làm ngân sách đã được xác nhận.
+Giới hạn hiện hành: 12 lần thử gọi tool/request, 2 lượt đồng thời/request, tối đa 2 lượt đọc tool đồng thời trên mỗi đối tượng Database của tiến trình. Search mặc định 20, tối đa 30 dòng, offset tối đa 1000; danh mục tối đa 100, mỗi món tối đa 40 tên nguyên liệu và 20 thành phần combo. Mỗi kết quả tối đa 65.536 byte UTF-8, cộng dồn 262.144 byte. Đối số được clone trước validate/await để provider không đổi limit/ID trong lúc chờ kết nối. Chuỗi và danh sách đều có giới hạn ở contract/runtime.
 
-Provider chỉ được trả ba khóa: `kind`, `products`, `clarificationFields`. kind là RECOMMEND, CLARIFY, REFER_STAFF hoặc NO_MATCH. Mỗi dòng đề xuất có productId, quantity và reasonCode thuộc enum; không nhận tên món, giá, lời khẳng định dị ứng hoặc đoạn văn tùy ý do model trả. Các khóa giá/thông điệp tự tạo bị từ chối. Backend dựng tên, giá, tổng và lời giải thích từ dữ kiện/khung câu của hệ thống. Cách này hạn chế nội dung bịa giá ngay từ contract, thay vì để frontend đoán món qua text.
+### Security boundary và lựa chọn PostgreSQL
 
-ID phải thuộc các món khả dụng trong context đã cấp và vẫn còn hợp lệ lúc đọc lại. ID trùng/không tồn tại, món ngừng bán, giá mới vượt ngân sách, thiếu loại món được yêu cầu hoặc thiếu nguyên liệu đều không tạo card gợi ý. HTTP 200 vẫn phải đọc status: RECOMMENDATIONS, CLARIFICATION, STAFF_REQUIRED, NO_MATCH hoặc UNAVAILABLE. Thiếu model, timeout hay dữ liệu provider sai trả fallback an toàn; không làm hỏng menu/giỏ/đơn/bếp/thanh toán.
+Phương án tối thiểu phù hợp hiện tại là **capability đọc trong API + transaction PostgreSQL READ ONLY**, không tạo login/role trong Prisma migration. Provider/model chỉ thấy ba tools; helper database và câu SQL nằm trong module tin cậy. Transaction đặt `REPEATABLE READ READ ONLY` và `statement_timeout=3s`. Kiểm thử PostgreSQL thực xác nhận các lệnh INSERT/UPDATE/DELETE/CREATE/ALTER/DROP, kể cả CREATE TEMP TABLE, bị từ chối trong helper này.
 
-Các yêu cầu chay/cay/protein/ăn nhẹ/chia sẻ/tránh thành phần/dị ứng được chuyển nhân viên khi metadata chưa được xác minh. Guard câu chữ được chuẩn hóa và xử lý một số cách nói phổ biến, không phải một bộ hiểu ngôn ngữ hoàn chỉnh hoặc chứng nhận y khoa. Mọi đề xuất đều nhắc giới hạn dị ứng và chưa giữ kho; không có câu “an toàn tuyệt đối”.
+Đây không phải tài khoản PostgreSQL có ACL riêng và không phải sandbox chống JavaScript adapter độc hại trong cùng tiến trình. Chủ triển khai phải tin cậy adapter được inject, vì mã Node tùy ý trong tiến trình vẫn có khả năng đọc môi trường/import module. Model không được nhận quyền đó. Nếu sau này tách dịch vụ AI có kết nối DB riêng, cần bootstrap một login không sở hữu bảng và chỉ GRANT trên views/functions đã duyệt, REVOKE quyền không cần thiết; không `SELECT ON ALL TABLES`, không commit credential. Cần kiểm tra ACL của lần triển khai đó riêng. [READ ONLY PostgreSQL](https://www.postgresql.org/docs/current/sql-set-transaction.html) và [quyền đối tượng](https://www.postgresql.org/docs/current/ddl-priv.html).
 
-### Những phần code và cấu hình đã có
+Deadline provider/tools mặc định 8 giây, cấu hình tối đa 30 giây. Khi hoàn tất/lỗi/hết hạn, capability bị thu hồi; không gọi mới hoặc nhận kết quả đọc sau thu hồi. SQL đã gửi có thể còn chạy đến statement timeout, không bị hủy tức thì bởi AbortSignal. Adapter không chịu abort giữ admission slot đến khi promise kết thúc, tránh tác vụ mồ côi làm vượt giới hạn. Xác thực trước/sau inference là kiểm tra bảo mật riêng, không nằm trong cam kết tổng HTTP đúng 8 giây.
 
-| Phần | Vị trí và vai trò |
-| --- | --- |
-| Contract | `packages/contracts/src/menu-assistant.ts`: schema, parser, kiểu và policy version 1 |
-| Backend | `apps/api/src/modules/assistant/`: đọc context, abstraction provider, service và route |
-| Mock | Provider xác định theo dữ liệu đầu vào; chỉ để kiểm tra cơ chế, không giả làm model AI |
-| Dữ liệu và notebook | `ai/menu-assistant/`: JSONL, preflight, notebook QLoRA, profile dependency và Modelfile minh họa |
-| Validator/evaluator | `scripts/menu-assistant-data.ts` và helper contract; chỉ đọc dữ liệu cục bộ, không truy cập DB/model |
-| Tests | Contract/evaluator/provider unit và integration PostgreSQL cô lập |
+### API v2 và nội dung trả nguyên
 
-Không có HTTP client Ollama/Qwen/OpenAI/Gemini, API key mới hoặc dependency ML trong Node runtime. Provider thật sẽ được inject qua options ở server; không sửa nghiệp vụ chính. Cấu hình sai tắt riêng trợ lý thay vì làm server gọi món không khởi động. `.env` đang dùng không bị sửa; biến mới chỉ nằm trong `.env.example` và mặc định OFF.
+`GET /guest/menu-assistant/capabilities` và `POST /guest/menu-assistant/recommendations` cần cookie guest của phiên hoạt động. Trên web thêm tiền tố `/api`; POST dùng Origin/CSRF hiện hành. `contractVersion: 2` phân biệt với contract ID/reasonCode cũ. [Schema API](17-api.md).
 
-Rate limit hiện 6 lượt/60 giây theo khách/IP, tối đa 4 tác vụ inference, timeout mặc định 8 giây; giá trị có ràng buộc. Provider phải tôn trọng AbortSignal. Provider bỏ qua abort tiếp tục chiếm slot tới khi kết thúc để không tạo vô hạn tác vụ mồ côi. Các bộ đếm nằm trong bộ nhớ tiến trình; nhiều API instance cần cơ chế giới hạn chung trước khi mở AI ra Internet. Không log câu hỏi, dữ liệu dị ứng, context hoặc output thô.
+Request bắt buộc `message` tối đa 1.000 ký tự; `history` tùy chọn tối đa 8 dòng user/assistant, mỗi dòng 1.000 ký tự. `people` 1–20, `budgetAmount` chuỗi VND và `preferences` là gợi ý có cấu trúc tùy chọn, không bắt buộc người dùng phải nhập lại con số đã nói trong câu. Model chịu trách nhiệm hiểu và hỏi khi chưa rõ; history và nội dung thực đơn đều là dữ liệu không tin cậy, không thay system policy. Không lưu hội thoại hoặc hồ sơ dị ứng vào DB trong task này.
 
-### Dataset SFT và evaluation
+Decision có `kind` RECOMMEND/CLARIFY/REFER_STAFF/NO_MATCH; `message`; tối đa 6 dòng `products` với productId, name, quantity, unitPrice, lineTotal, reason; `totalAmount`, `clarificationFields` và `warnings`. Số lượng 1–20, tiền là chuỗi VND nguyên không âm (đơn giá tối đa 9 chữ số, thành tiền/tổng tối đa 12 chữ số), ID phải đúng cú pháp UUID. Body request và decision tối đa 32 KiB. Schema, enum, khóa lạ, kiểu và kích thước được kiểm tra; việc này không chứng minh nội dung đúng.
 
-Có 36 mẫu CURATED_SYNTHETIC, chia **24 train / 6 validation / 6 evaluation**. Mỗi dòng JSONL có id, groupId, scenario, source và messages theo system/user/assistant. User chứa JSON của request và runtime context; assistant chứa JSON quyết định. Giá/tồn trong context là fixture thay đổi theo tình huống, không phải kiến thức cố định cần học thuộc. Không trích khách hàng/giao dịch thật vào dataset.
+Wrapper `AVAILABLE / ADVISORY_RESULT` có nghĩa **đã nhận được decision đúng cấu trúc**, không chứng nhận lời tư vấn chính xác. API không tra ID đầu ra để dựng tên/giá, không cộng tổng, không đổi lý do/thông điệp, không kiểm lại ngân sách/sở thích hoặc kho để từ chối một decision đúng định dạng. ID bịa nhưng đúng UUID, giá/tổng sai, vượt ngân sách, món hết, dòng trùng và nội dung Unicode được giữ nguyên để đánh giá chất lượng thật. Output sai cấu trúc/quá lớn hoặc provider lỗi trả UNAVAILABLE an toàn; core vẫn hoạt động.
 
-Train dùng để tối ưu, validation chọn cấu hình, evaluation giữ riêng để so sánh cuối. Các biến thể cùng nhóm không sang split khác; ID, prompt chuẩn hóa và menu fixture được đối chiếu chống trùng/rò rỉ. Cặp evaluation đổi giá và trạng thái còn bán để buộc model dựa vào context. Bộ nhỏ chỉ là chuẩn cấu trúc/hành vi; chưa đủ chứng minh fine-tune có ích hoặc accuracy cao.
+Mặc định giới hạn 6 lượt/60 giây theo guest và IP, một tác vụ cùng guest, tối đa 4 tác vụ inference. Limiter trong bộ nhớ một tiến trình; Wi-Fi dùng chung IP có thể dùng chung quota, nhiều API instance cần cơ chế phân tán sau này. OFF hoặc thiếu CUSTOM provider chỉ tắt trợ lý, không chặn menu/giỏ/đơn/thanh toán.
 
-```bash
-pnpm ai:data:validate
-pnpm ai:evaluate --predictions var/ai/base-predictions.jsonl --output var/ai/base-report.json
-pnpm ai:evaluate --predictions var/ai/lora-predictions.jsonl --output var/ai/lora-report.json
-```
+### Dữ liệu ngữ nghĩa và dị ứng
 
-Tệp dự đoán do model thật sinh sau này, mỗi dòng `{ "id": "evaluation-001", "output": "chuỗi JSON thô model trả" }`. Bộ chấm không tự lấy đáp án mẫu làm dự đoán. Kiểm tra format, grounding ID/khả dụng, cấm giá tự tạo, ngân sách, nhóm món, hỏi lại và xử lý dị ứng; điểm kind/clarification đối chiếu đáp án, còn giá/ID kiểm bằng context. Mẫu thiếu hoặc sai vẫn nằm trong mẫu số; ID lạ/trùng không làm tăng điểm. Chưa có phép đo độ nhất quán lặp nhiều lần vì một dự đoán/mẫu chưa đủ; khi so sánh cần giữ seed, decoding, revision và chạy nhiều lượt có nhãn riêng.
+Audit ngày 15/10 ghi nhận 91 sản phẩm (86 món, 5 combo), 11 danh mục, 113 nguyên liệu, 91 công thức hiệu lực, 630 dòng BOM và 16 thành phần combo. Đây là ảnh chụp dữ liệu vận hành mô phỏng để phát triển, không phải chứng từ nhà hàng hoặc bằng chứng chất lượng model. Database chưa có metadata chay/cay/protein/khẩu phần/allergen được xác minh đầy đủ; capabilities công bố `semanticMetadata: UNREVIEWED`, `supportsAllergySafetyConfirmation: false`.
 
-### Notebook và lộ trình model thật
+Tên món/danh mục và BOM không chứng minh không có nước mắm, thành phần sốt, nước dùng hoặc lây nhiễm chéo. Policy và dataset yêu cầu AI nói rõ giới hạn và đề nghị nhân viên khi không xác nhận được dị ứng; không được khẳng định an toàn tuyệt đối. API không dùng keyword gate để thay câu trả lời của model. Câu ăn chay/ít cay/tránh nguyên liệu có thể cần hỏi lại hoặc tư vấn có điều kiện; trách nhiệm này thuộc AI. Evaluator kiểm tra hành vi và rubric thủ công, không tự coi bộ dò từ khóa là chứng nhận an toàn.
 
-Notebook là scaffold, chưa được chạy với GPU. Các cờ install/train/generate/export mặc định False. Kiểm tra dữ liệu dùng Python standard library trước mọi bước tải; notebook không nằm trong luồng production. Profile dependency là ứng viên theo nguồn chính thức, chưa phải môi trường GPU đã được chứng nhận tương thích.
+Sau này nên bổ sung metadata có người/thời điểm/căn cứ xác minh, fingerprint công thức để hết hiệu lực khi đổi BOM: khẩu phần, dùng chung, chế độ ăn, mức cay/khả năng điều chỉnh, protein và allergen công bố. Quản trị và dữ liệu khởi tạo phải dùng cùng nguồn; không giữ bảng giá hoặc danh sách chay riêng trong model. Task này chưa thêm metadata/schema hoặc tự gán nhãn thực đơn đang dùng.
 
-1. Giữ cấu trúc data/training và chạy validator TypeScript trước khi đưa lên Colab/Kaggle. Rà/mở rộng dữ liệu theo nhóm, giữ evaluation độc lập.
-2. Chọn NVIDIA GPU, kiểm tra RAM/VRAM/disk và ghi exact revision của checkpoint Qwen3-4B; chủ động bật cell cài dependency rồi kiểm tra/restart kernel nếu cần.
-3. Chạy riêng BASE để tạo dự đoán bằng checkpoint 4 bit chưa có LoRA, không bật training/export; lưu nhãn run riêng.
-4. Chạy ADAPTER với QLoRA, rank 16, prompt/completion, completion_only_loss và validation riêng. Xem nhãn token để chắc prompt bị mask; mẫu vượt context phải báo lỗi, không cắt mất đáp án.
-5. Lưu adapter/tokenizer cùng manifest môi trường, dữ liệu, template, cấu hình và revision. Tạo dự đoán held-out của adapter rồi chấm cùng evaluator với base. Không coi loss giảm là đã tư vấn tốt.
-6. Sau khi kiểm tra mới merge 16 bit và export GGUF q4_k_m. Không commit weights/adapter vào Git; thư mục artifacts/outputs và các đuôi model đã được ignore.
-7. Nhập complete merged GGUF vào Ollama bằng Modelfile minh họa; kiểm tra template/EOS/thinking và chạy lại evaluation để đo sai khác sau quantization/export. Không mặc định một adapter LoRA có thể được nạp trực tiếp bằng mọi phiên bản Ollama.
-8. Viết adapter server thật: gửi shared JSON Schema, không-thinking và timeout/output/context có giới hạn; tôn trọng abort, không cấp tools ghi dữ liệu. Inject provider, kiểm thử trên staging, rồi mới bật cho khách và thêm UI chọn món có xác nhận.
+### Dataset, đánh giá raw và model thật
 
-Đối chiếu [Qwen3-4B chính chủ](https://huggingface.co/Qwen/Qwen3-4B), [TRL 0.22.2 SFT](https://huggingface.co/docs/trl/v0.22.2/en/sft_trainer), [Unsloth export GGUF](https://unsloth.ai/docs/basics/inference-and-deployment/saving-to-gguf), [Ollama structured output](https://docs.ollama.com/capabilities/structured-outputs). Bản scaffold dùng prompt non-thinking và kiểm tra JSON cuối; không coi Qwen có khả năng agent là quyền để điều khiển nhà hàng.
+36 mẫu tách 24 train / 6 validation / 6 evaluation theo nhóm; không dùng gold làm predictions. V2 có câu hỏi tự nhiên, history, các bước TOOL_CALL/FINAL và kết quả tools ghi lại. Facts độc lập phục vụ chấm, không đưa đáp án hoặc toàn menu riêng vào prompt. Chi tiết định dạng, các lệnh CPU, rubric và giới hạn nằm trong [README nghiên cứu](../ai/menu-assistant/README.md).
 
-Context runtime 91–120 món có thể vượt 4.096 token của profile notebook, trong khi fixture chỉ tối đa tám món. Provider thật phải đo token trước khi gửi, đặt giới hạn phù hợp tài nguyên hoặc chọn tập ứng viên có quy tắc; không cắt âm thầm thông tin hoặc giả coi tập bị cắt là toàn menu.
+Bộ chấm đọc raw decision/trajectory và ghi lỗi; không sửa tên, giá hoặc tổng trước khi chấm. Phân biệt structured-output, ID bịa/menu grounding, giá theo facts, phép nhân/cộng, ngân sách tính bằng giá facts độc lập, khả dụng, sở thích có facts đã rà soát, hỏi lại và hành vi dị ứng. Thiếu prediction vẫn tính trong mẫu số; nhãn chưa đủ không được biến thành preference pass. Chất lượng hữu ích, khẩu phần và an toàn cần rubric/người rà soát; vài quy tắc tự động không thay đánh giá người dùng.
 
-### Việc để sau deployment và rủi ro còn lại
+`MOCK` là provider xác định để kiểm tra contract/tools; nó tự quyết định trong miền AI, không phải model hiểu tiếng Việt. Nó vẫn cần hints people/budget và còn xử lý sở thích đơn giản. CUSTOM là điểm inject provider tin cậy, chưa có adapter model/HTTP inference thật. Chuẩn bị dataset không có nghĩa chức năng NLP đã hoàn thành hoặc fine-tune tốt hơn base.
 
-Ưu tiên deploy web/API/database/kho ảnh, HTTPS, sao lưu, luồng gọi món/thanh toán và giám sát trước. Sau đó bổ sung metadata do quản trị xác minh, dữ liệu hội thoại được đồng ý/ẩn danh, evaluation lớn hơn, adapter thật, đo latency/tải/tài nguyên và UX xác nhận. Chưa thêm conversation memory, telemetry câu hỏi, embeddings, vector database hoặc RAG framework vì 91 sản phẩm chưa cần các tầng này.
+Notebook QLoRA là scaffold: cờ install/train/generate/export tắt, chưa tải checkpoint, chưa chạy GPU/BASE/ADAPTER, chưa export GGUF/Ollama. Profile dependency là ứng viên chưa GPU-validated. Khi triển khai model: pin revision, kiểm tra môi trường/token budget và prompt/completion masking, chạy BASE và ADAPTER held-out riêng, lưu raw tool trajectory + manifest, chấm cùng evaluator, kiểm tra lại sau export/quantization. Adapter phải chuyển đúng TOOL_CALL qua capability và FINAL qua contract; giới hạn context/output/turns và abort. Không được chạy mỗi một FINAL từ context rỗng rồi coi đã kiểm tra truy xuất realtime.
 
-Giới hạn hiện tại: chỉ MOCK/OFF hoạt động sẵn; NLP và UI AI chưa có; một số câu hỏi tự nhiên chưa được hiểu; metadata đang UNREVIEWED; kiểm kho không giữ chỗ; context tối đa 120 món; limiter chưa phân tán và quota IP có thể dùng chung giữa nhiều khách cùng Wi-Fi; dependency/notebook chưa GPU-tested; bộ evaluation nhỏ chưa đo chất lượng hoặc độ nhất quán model. [Hồ sơ kiểm tra](15-doi-chieu.md) tách rõ kiểm thử phần mềm và việc chưa train/model thật.
+Tài liệu tham khảo: [Qwen3-4B](https://huggingface.co/Qwen/Qwen3-4B), [TRL SFT](https://huggingface.co/docs/trl/v0.22.2/en/sft_trainer), [Unsloth GGUF](https://unsloth.ai/docs/basics/inference-and-deployment/saving-to-gguf), [Ollama structured output](https://docs.ollama.com/capabilities/structured-outputs). Chưa thêm vector DB, RAG/agent framework, telemetry câu hỏi hoặc memory production. [Bài 15](15-doi-chieu.md) ghi kiểm thử phần mềm đã chạy, tách khỏi benchmark model chưa có.
+
 ## Giới hạn hiện tại cần hiểu trước khi mở rộng
 
 | Quan sát từ code                                                                                    | Hệ quả cần kiểm chứng                                                                                                  |

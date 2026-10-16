@@ -1,8 +1,50 @@
 # 17. Danh mục API hiện hành
 
-## API trợ lý thực đơn — 15/10/2026
+## API trợ lý thực đơn v2 — 16/10/2026
 
-Đã thêm GET `/guest/menu-assistant/capabilities` và POST `/guest/menu-assistant/recommendations`, đều yêu cầu guest cookie; POST cần Origin/CSRF. Bản đăng ký hiện hành có **177 thao tác nghiệp vụ / 186 route tổng**, gồm 7 auth/workspace và 2 health (không tính HEAD tự sinh). Nền tảng mặc định OFF, không gọi model hoặc ghi giỏ/đơn/kho/tiền. Trong phản hồi HTTP 200 phải kiểm tra status; UNAVAILABLE là fallback, không phải món được đề xuất. [Contract và nghiệp vụ](14-mo-rong.md), schema request trong Swagger được sinh từ contract dùng chung.
+GET `/guest/menu-assistant/capabilities` và POST `/guest/menu-assistant/recommendations` đều yêu cầu cookie `guest` hợp lệ trong nhà hàng/phiên đang mở; POST cần Origin được phép và `X-CSRF-Protection: 1`. Trên web thêm tiền tố `/api`. Generator đăng ký mã nguồn hiện hành đếm **177 thao tác nghiệp vụ / 186 route tổng**, gồm 7 auth/workspace và 2 health, không tính HEAD tự sinh. Schema request và decision trong Swagger lấy trực tiếp từ contract dùng chung.
+
+**AI advisory domain** sở hữu hiểu câu hỏi, truy xuất thực đơn realtime, lựa chọn món, cân đối ngân sách, giải thích và hội thoại. **Core transactional domain** tiếp tục sở hữu giỏ, đơn, kho, bếp, khuyến mãi, thu/hoàn tiền. Một kết quả tư vấn không thêm giỏ, đặt món, giữ kho, áp ưu đãi hoặc tạo giao dịch.
+
+### Request: câu hỏi và gợi ý tùy chọn
+
+```json
+{
+  "message": "Ba người ăn trưa, khoảng 500 nghìn, muốn có thêm rau và nước.",
+  "history": [
+    { "role": "user", "content": "Tôi muốn chọn món cho cả nhóm." },
+    { "role": "assistant", "content": "Nhóm mình muốn dùng bữa như thế nào?" }
+  ]
+}
+```
+
+Chỉ `message` bắt buộc, tối đa 1.000 ký tự. `people` 1–20, `budgetAmount` là chuỗi số nguyên VND dương và `preferences` là các gợi ý có cấu trúc tùy chọn; API không bắt khách nhập lại số người/ngân sách trước khi gọi provider. Provider chịu trách nhiệm hiểu số liệu trong câu tự nhiên và hỏi lại khi cần. `history` tối đa 8 tin, mỗi tin tối đa 1.000 ký tự, chỉ cho `user`/`assistant`; đây là dữ liệu khách gửi, không phải thông điệp hệ thống đáng tin. Toàn body tối đa 32 KiB nên tổng các trường cũng phải nằm trong giới hạn này. Không nhận `restaurantId`, `sessionId` hoặc giá giao dịch do khách quyết định.
+
+### Provider chủ động đọc dữ liệu
+
+Provider nhận câu hỏi/lịch sử, metadata công khai tĩnh và định nghĩa ba tools `listCategories`, `searchMenu`, `getProducts`. Chỉ khi provider gọi tool, hệ thống mới đọc phần thực đơn được yêu cầu. Đây là capability nội bộ, **không phải ba endpoint HTTP và không có chỗ nhập SQL tùy ý**.
+
+| Tool | Dữ liệu và điều kiện |
+| --- | --- |
+| `listCategories({})` | Mã/tên danh mục đang dùng, tối đa 100 nhóm |
+| `searchMenu(...)` | Từ khóa, mã danh mục, DISH/COMBO, khoảng giá, `availableOnly`; trang 1–30 món, offset 0–1.000 |
+| `getProducts({ productIds })` | 1–20 ID khác nhau; thông tin món công khai, giá, category, nguyên liệu từ BOM hiệu lực và thành phần combo |
+
+Kết quả tool có `asOf` và `truncated` để AI biết mốc đọc và giới hạn dữ liệu. Giá là giá thực đơn đã gồm VAT, trước giảm giá. Các lần đọc là transaction ngắn riêng; không giữ một connection/snapshot xuyên suốt quá trình suy luận. Không trả lượng tồn cụ thể, giá vốn, tài khoản, mật khẩu, lương, dữ liệu khách hàng hoặc giao dịch riêng. Guest/tenant được kiểm tra lại ở từng lần đọc. Tối đa 12 calls/lượt, 2 reads đồng thời/lượt và 2 reads toàn hệ thống dùng chung một đối tượng Database; kết quả tối đa 64 KiB/lần, 256 KiB/lượt. Tools bị thu hồi khi lượt tư vấn kết thúc hoặc hết hạn; SQL đã gửi có thể còn chạy đến statement timeout 3 giây.
+
+### Response: giữ nguyên lời tư vấn của AI
+
+Envelope HTTP 200 có `contractVersion: 2`, `mode`, `status`, `code`, `message`, `advisoryOnly: true`, `decision`, `checkedAt`. `message` ngoài envelope là thông điệp kỹ thuật; nội dung do AI viết nằm trong `decision.message`. `checkedAt` là lúc tạo envelope, **không xác nhận đã kiểm tra lại giá hoặc tồn kho của lời tư vấn**.
+
+`status: AVAILABLE` trả nguyên decision đã đạt kiểm tra định dạng. Decision có `kind` RECOMMEND/CLARIFY/REFER_STAFF/NO_MATCH, thông điệp, danh sách `{ productId, name, quantity, unitPrice, lineTotal, reason }`, `totalAmount`, `clarificationFields`, `warnings`. Các số tiền là chuỗi số nguyên VND. `status: UNAVAILABLE` trả `decision: null`; khách vẫn dùng thực đơn và đặt món theo luồng hiện có.
+
+API chỉ kiểm tra định dạng/kích thước, xác thực, tenant, rate/concurrency/deadline và lỗi provider. **Không dựng lại tên/giá/lý do, không tính lại tổng, không thay món hoặc chặn sai ngân sách/sở thích/khả dụng/kho để làm AI luôn đúng.** UUID đúng định dạng nhưng bịa, tên/giá/tổng sai, món lặp hoặc tư vấn chưa tốt vẫn là đầu ra AI để đo menu grounding, hallucination, budget/preference compliance và quality bằng evaluation. Đạt schema không có nghĩa tư vấn đúng nghiệp vụ hoặc an toàn dị ứng.
+
+Khi khách thực hiện hành động thật, core lấy giá hiện tại từ database và kiểm tra đầy đủ quyền/sở hữu, session, product, quantity, availability, price/version, stock và các invariant giao dịch tại đúng bước. Lời khẳng định trong decision không thay thế dữ liệu authoritative. Không đưa output AI thành SQL, HTML hoặc lệnh thực thi.
+
+Dị ứng là giới hạn an toàn trong policy/provider: BOM chưa phải hồ sơ allergen hoàn chỉnh. Khi không thể xác nhận, AI phải nói rõ thiếu dữ liệu và đề nghị hỏi nhân viên; không khẳng định an toàn tuyệt đối. API không tự viết lại lời tư vấn để che lỗi hành vi; evaluation cần đo raw output về tình huống này.
+
+Mặc định `MENU_ASSISTANT_MODE=OFF`. `MOCK` chỉ là fixture kiểm tra tool/lifecycle, dùng thuật toán đơn giản và tự hỏi lại khi thiếu các hint; không chứng minh hiểu ngôn ngữ tự nhiên hoặc chất lượng model. `CUSTOM` là điểm gắn provider, chưa có adapter model/deployment thật, chưa mở AI production/UI. [Kiến trúc và giới hạn](14-mo-rong.md) · [Bằng chứng kiểm tra](15-doi-chieu.md) · [Contract](../packages/contracts/src/menu-assistant.ts) · [Service](../apps/api/src/modules/assistant/assistant.service.ts) · [Tools](../apps/api/src/modules/assistant/assistant-tools.ts).
 
 ## API thanh toán payOS — 14/10/2026
 
