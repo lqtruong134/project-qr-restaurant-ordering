@@ -1,3 +1,4 @@
+import { productTaxSnapshot } from '../finance/pricing.service.js';
 import { readPolicy } from '../risk/policy.service.js';
 import {
   type Connection,
@@ -13,6 +14,7 @@ import {
   event,
 } from '../shared/core-persistence.js';
 import { reserve } from '../inventory/inventory.service.js';
+import { orderedComboContents } from '../catalog/combo.service.js';
 import { addCharges } from '../finance/ledger.service.js';
 import { idempotent } from '../shared/idempotency.js';
 export async function submit(
@@ -40,7 +42,7 @@ export async function submit(
       if (new Set(ids).size !== ids.length) reject('Dòng món bị lặp.', 400);
       requested = (
         await c.query(
-          'SELECT product_id AS "productId",quantity,note,unit_price_preview AS price,id FROM cart_item WHERE cart_id=$1 AND owner_participant_id=$2 AND id=ANY($3::uuid[]) ORDER BY id FOR UPDATE',
+          'SELECT product_id AS "productId",quantity,note,unit_price_preview AS price,product_version_preview,id FROM cart_item WHERE cart_id=$1 AND owner_participant_id=$2 AND id=ANY($3::uuid[]) ORDER BY id FOR UPDATE',
           [cart.id, actor.id, ids],
         )
       ).rows;
@@ -60,16 +62,36 @@ export async function submit(
         [uuid(row.productId), restaurant],
       );
       const quantity = integer(row.quantity, 1, 99);
+      if (
+        actor.type === 'USER' &&
+        p.product_kind === 'COMBO' &&
+        row.productVersion !== undefined &&
+        integer(row.productVersion, 1, 2147483646) !== p.version
+      )
+        reject('Combo đã thay đổi. Tải lại thực đơn và kiểm tra thành phần trước khi gửi.');
+      const components = await orderedComboContents(c, p);
       const amount = BigInt(p.base_price) * BigInt(quantity);
       if (actor.type === 'GUEST' && String(row.price) !== String(p.base_price))
         reject('Giá món đã thay đổi. Vui lòng chọn lại món với giá mới.');
+      if (
+        actor.type === 'GUEST' &&
+        p.product_kind === 'COMBO' &&
+        row.product_version_preview !== p.version
+      )
+        reject('Combo đã thay đổi. Vui lòng chọn lại để xem thành phần mới.');
       total += amount;
-      qty += quantity;
+      qty +=
+        quantity *
+        (components.length
+          ? components.reduce((sum, member) => sum + Number(member.quantity), 0)
+          : 1);
       lines.push({
         product: p,
+        tax: await productTaxSnapshot(c, restaurant, p),
         quantity,
         amount: amount.toString(),
         note: row.note ? text(row.note, 300) : null,
+        components,
       });
     }
     const { policy, version } = await readPolicy(c, restaurant);
@@ -151,7 +173,7 @@ export async function submit(
     for (const l of lines) {
       const item = await one(
         c,
-        `INSERT INTO order_item(order_batch_id,owner_participant_id,product_id,product_name_snapshot,quantity,unit_price_snapshot,line_total,note,stock_managed_snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+        `INSERT INTO order_item(order_batch_id,owner_participant_id,product_id,product_name_snapshot,quantity,unit_price_snapshot,line_total,note,stock_managed_snapshot,product_kind_snapshot,combo_components_snapshot,tax_snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb) RETURNING id`,
         [
           batch.id,
           actor.type === 'GUEST' ? actor.id : null,
@@ -162,6 +184,9 @@ export async function submit(
           l.amount,
           l.note,
           l.product.stock_managed,
+          l.product.product_kind,
+          JSON.stringify(l.components),
+          JSON.stringify(l.tax),
         ],
       );
       await reserve(c, item.id, l.product.id, l.quantity, restaurant, review);

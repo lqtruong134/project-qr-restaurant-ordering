@@ -1,3 +1,6 @@
+import { parseReason } from './reasons.js';
+import { aggregateBatch } from './item-lifecycle.service.js';
+import { recordItemAudit } from './issue.routes.js';
 import { transitionItem, cancelItems } from './item-lifecycle.service.js';
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '@thesis/database';
@@ -16,7 +19,7 @@ import {
 } from '../shared/core-persistence.js';
 import { release, releaseItem } from '../inventory/inventory.service.js';
 import { submit } from './orders.service.js';
-import { addCharges, recalculate } from '../finance/ledger.service.js';
+import { addCharges, reverseItemCharge } from '../finance/ledger.service.js';
 export function registerOrders(app: FastifyInstance, db: Database, restaurant: string) {
   app.post('/guest/orders', { config: { public: true } }, async (r) => {
     const result = await transaction(db, async (c) => {
@@ -74,71 +77,86 @@ export function registerOrders(app: FastifyInstance, db: Database, restaurant: s
     async (r) =>
       transaction(db, async (c) => {
         const id = idParam(r),
-          b = object(r.body);
-        const item = await one(
+          reason = parseReason(object(r.body), 'KITCHEN_UNAVAILABLE');
+        const source = await one(
           c,
-          'SELECT i.*,b.session_id FROM order_item i JOIN order_batch b ON b.id=i.order_batch_id WHERE i.id=$1',
+          'SELECT b.session_id FROM order_item i JOIN order_batch b ON b.id=i.order_batch_id WHERE i.id=$1',
           [id],
         );
-        await session(c, item.session_id, restaurant);
-        const current = await one(c, 'SELECT status FROM order_item WHERE id=$1 FOR UPDATE', [id]);
-        const batch = await one(c, 'SELECT status FROM order_batch WHERE id=$1 FOR UPDATE', [
-          item.order_batch_id,
-        ]);
-        if (current.status !== 'ACCEPTED')
-          reject('Chỉ có thể báo hết nguyên liệu cho món bếp đã tiếp nhận.');
-        const reason = text(b.reason, 300);
+        const activeSession = await session(c, source.session_id, restaurant);
+        const item = await one(c, 'SELECT * FROM order_item WHERE id=$1 FOR UPDATE', [id]);
+        if (
+          item.status === 'UNAVAILABLE' &&
+          item.cancel_reason_code === reason.code &&
+          item.cancel_reason === reason.text
+        )
+          return { status: 'ok', alreadyProcessed: true };
+        if (item.status !== 'ACCEPTED')
+          reject(
+            'Món đã thay đổi trạng thái. Chỉ dừng theo cách này khi bếp đã nhận và chưa chế biến.',
+          );
+
+        await c.query(
+          "UPDATE product SET availability_status='UNAVAILABLE',version=version+1 WHERE id=$1 AND restaurant_id=$2 AND availability_status='AVAILABLE'",
+          [item.product_id, restaurant],
+        );
         await releaseItem(c, id);
         await c.query(
-          "UPDATE order_item SET status='UNAVAILABLE',cancel_reason=$2,cancelled_by_type='USER',cancelled_by_user_id=$3,version=version+1 WHERE id=$1",
-          [id, reason, r.identity!.id],
+          "UPDATE order_item SET status='UNAVAILABLE',cancel_reason=$2,cancel_reason_code=$3,cancelled_by_type='USER',cancelled_by_user_id=$4,version=version+1 WHERE id=$1",
+          [id, reason.text, reason.code, r.identity!.id],
         );
-        const remaining = await one(
+        const actor = { type: 'USER' as const, id: r.identity!.id };
+        await history(c, item.order_batch_id, id, 'ACCEPTED', 'UNAVAILABLE', actor, reason.text);
+        await aggregateBatch(c, item.order_batch_id, actor);
+        const result = await reverseItemCharge(c, id, source.session_id);
+        await recordItemAudit(c, restaurant, r.identity!.id, id, 'ITEM_UNAVAILABLE', reason.text, {
+          reasonCode: reason.code,
+          amount: result.amount,
+          chargeRetained: false,
+        });
+        // Reserve release is not a physical stock adjustment. Admin must inspect the discrepancy.
+        const inspection = await one(
           c,
-          "SELECT count(*)::int AS n FROM order_item WHERE order_batch_id=$1 AND status NOT IN ('SERVED','CANCELLED','UNAVAILABLE')",
-          [item.order_batch_id],
+          "INSERT INTO operational_alert(session_id,table_id,alert_type,severity) VALUES($1,$2,'OTHER','WARNING') RETURNING id",
+          [source.session_id, activeSession.table_id],
         );
-        if (remaining.n === 0)
-          await c.query("UPDATE order_batch SET status='COMPLETED',version=version+1 WHERE id=$1", [
-            item.order_batch_id,
-          ]);
-        if (remaining.n === 0)
-          await history(c, item.order_batch_id, null, batch.status, 'COMPLETED', {
-            type: 'USER',
-            id: r.identity!.id,
-          });
-        await history(
+        const notice = await one(
           c,
-          item.order_batch_id,
+          "INSERT INTO operational_alert(session_id,table_id,alert_type,severity) VALUES($1,$2,'OTHER','WARNING') RETURNING id",
+          [source.session_id, activeSession.table_id],
+        );
+        await recordItemAudit(
+          c,
+          restaurant,
+          r.identity!.id,
           id,
-          'ACCEPTED',
-          'UNAVAILABLE',
+          'KITCHEN_UNAVAILABLE_REPORTED',
+          reason.text,
           {
-            type: 'USER',
-            id: r.identity!.id,
+            reasonCode: reason.code,
+            alertId: inspection.id,
+            productId: item.product_id,
+            chargeRetained: false,
           },
-          reason,
         );
-        await c.query(
-          "UPDATE financial_charge SET status='REVERSED',reversed_at=now() WHERE order_item_id=$1 AND status='ACTIVE'",
-          [id],
+        await recordItemAudit(
+          c,
+          restaurant,
+          r.identity!.id,
+          id,
+          'KITCHEN_ISSUE_GUEST_NOTICE',
+          reason.text,
+          {
+            reasonCode: reason.code,
+            alertId: notice.id,
+            adminAlertId: inspection.id,
+            beforePreparation: true,
+          },
         );
-        await c.query(
-          'UPDATE payment_allocation SET reversed_amount=allocated_amount WHERE financial_charge_id IN (SELECT id FROM financial_charge WHERE order_item_id=$1)',
-          [id],
-        );
-        await c.query(
-          "UPDATE payment_intent SET status='CANCELLED',version=version+1 WHERE session_id=$1 AND status IN ('CREATED','PENDING')",
-          [item.session_id],
-        );
-        const balance = await recalculate(c, item.session_id);
-        if (BigInt(balance.refund_due_amount) > 0n)
-          await c.query(
-            "INSERT INTO operational_alert(session_id,table_id,alert_type,severity,outstanding_amount) SELECT id,table_id,'REFUND_REQUIRED','WARNING',$2 FROM table_session WHERE id=$1",
-            [item.session_id, balance.refund_due_amount],
-          );
+        // Stop further orders for this dish, without fabricating an inventory count.
+
         await event(c, item.order_batch_id, 'ITEM_UNAVAILABLE');
-        return { status: 'ok', reason };
+        return { status: 'ok' };
       }),
   );
   app.post('/core/orders/:id/review', { config: { permission: 'staff.workspace' } }, async (r) =>
@@ -159,7 +177,12 @@ export function registerOrders(app: FastifyInstance, db: Database, restaurant: s
       if (approve && expired) reject('Yêu cầu duyệt đã hết hạn.');
       if (approve) {
         const invalid = await c.query(
-          `SELECT i.id FROM order_item i JOIN product p ON p.id=i.product_id JOIN menu_category m ON m.id=p.category_id WHERE i.order_batch_id=$1 AND i.status='SUBMITTED' AND (NOT p.is_active OR NOT m.is_active OR p.availability_status<>'AVAILABLE')`,
+          `SELECT i.id FROM order_item i JOIN product p ON p.id=i.product_id JOIN menu_category m ON m.id=p.category_id WHERE i.order_batch_id=$1 AND i.status='SUBMITTED' AND (NOT p.is_active OR NOT m.is_active OR p.availability_status<>'AVAILABLE' OR EXISTS(
+            SELECT 1 FROM jsonb_array_elements(i.combo_components_snapshot) component
+            JOIN product child ON child.id=(component->>'product_id')::uuid
+            JOIN menu_category child_category ON child_category.id=child.category_id
+            WHERE NOT child.is_active OR NOT child_category.is_active OR child.availability_status<>'AVAILABLE'
+          ))`,
           [id],
         );
         if (invalid.rowCount)
@@ -264,12 +287,14 @@ export function registerOrders(app: FastifyInstance, db: Database, restaurant: s
           const ids = b.itemIds.map(uuid);
           if (new Set(ids).size !== ids.length) reject('Món bị chọn trùng.', 400);
           const p = audience === 'guest' ? await guest(c, r, restaurant) : null;
+          const reason = parseReason(b, p ? 'GUEST_CANCEL' : 'STAFF_CANCEL');
           return cancelItems(
             c,
             ids,
             restaurant,
             p ? { type: 'GUEST', id: p.id } : { type: 'USER', id: r.identity!.id },
-            p ? (b.reason ? text(b.reason, 300) : 'Khách hủy món') : text(b.reason, 300),
+            reason.text,
+            reason.code,
           );
         }),
     );

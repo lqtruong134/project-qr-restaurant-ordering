@@ -1,0 +1,221 @@
+.online-payment-wrap {
+  margin: 20px 0;
+  min-width: 0;
+}
+.online-payment-card {
+  padding: 22px;
+  background: #fff;
+  border: 1px solid #bfd6cd;
+  border-radius: 16px;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.online-payment-card p {
+  margin: 0;
+}
+.online-payment-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.online-payment-heading > div {
+  min-width: 0;
+}
+.online-payment-heading h3 {
+  margin: 6px 0 0;
+  font-size: 1.15rem;
+}
+.online-payment-provider {
+  color: #456f59;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.online-payment-amount {
+  font-size: 1.3rem;
+  white-space: nowrap;
+}
+.online-payment-detail {
+  color: #4a6259;
+  line-height: 1.6;
+}
+.online-payment-instructions {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+}
+.online-payment-qr {
+  padding: 0;
+  background: white;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+}
+.online-payment-qr img {
+  width: min(100%, 300px);
+  height: auto;
+  aspect-ratio: 1;
+  display: block;
+  border-radius: 0;
+}
+.online-payment-facts {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.online-payment-facts p {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.online-payment-facts span {
+  color: #526c60;
+  font-size: 0.85rem;
+}
+.online-payment-facts strong {
+  overflow-wrap: anywhere;
+}
+.online-checkout-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+.online-payment-actions {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+}
+.online-payment-wrap > button {
+  margin-top: 12px;
+}
+.online-paid {
+  background: #effaf3;
+  border-color: #a7cdb2;
+}
+.online-expired,
+.online-cancelled {
+  background: #f4f6f5;
+  border-color: #cbd4cf;
+}
+.online-review,
+.online-error {
+  background: #fff7eb;
+  border-color: #dfc092;
+}
+.online-payment-received {
+  color: #365546;
+}
+.online-reconciliation-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.online-reconciliation-toolbar label {
+  display: grid;
+  gap: 6px;
+}
+.online-reconciliation-card {
+  padding: 22px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.online-reconciliation-card h3,
+.online-reconciliation-card p {
+  margin: 0;
+}
+.online-reconciliation-list {
+  display: grid;
+  gap: 16px;
+}
+.online-reconciliation-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.online-reconciliation-facts > div {
+  min-width: 0;
+  background: #f3f6f4;
+  border-radius: 10px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+.online-reconciliation-facts span {
+  font-size: 0.85rem;
+  color: #5b6d61;
+}
+.online-reconciliation-facts strong {
+  overflow-wrap: anywhere;
+}
+.online-reconciliation-card .entry-form {
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .online-payment-card,
+  .online-reconciliation-card {
+    padding: 14px;
+  }
+  .online-payment-heading {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .online-payment-instructions {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .online-payment-qr img {
+    max-width: 300px;
+  }
+  .online-payment-facts {
+    gap: 12px;
+  }
+  .online-reconciliation-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media print {
+  .online-payment-wrap,
+  .online-payment-card,
+  .online-reconciliation-list {
+    display: none !important;
+  }
+}
+.online-reconciliation-card .core-form,
+.online-reconciliation-card .core-fields,
+.online-reconciliation-card .core-fields > label {
+  min-width: 0;
+  max-width: 100%;
+}
+.online-reconciliation-card input,
+.online-reconciliation-card select,
+.online-reconciliation-card textarea {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+@media (max-width: 640px) {
+  .online-reconciliation-card .core-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.online-reconciliation-card select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 38px;
+  background-image: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2716%27 height=%2716%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23456359%27 stroke-width=%272%27%3E%3Cpath d=%27m6 9 6 6 6-6%27/%3E%3C/svg%3E');
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

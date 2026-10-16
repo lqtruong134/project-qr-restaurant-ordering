@@ -71,23 +71,37 @@ export async function transaction<T>(db: Database, fn: (c: Connection) => Promis
   }
 }
 export async function session(c: Connection, id: string, restaurant: string, active = true) {
-  const row = await one(
+  // Check the tenant before locking, then lock the stable session identity.
+  // A JOIN on mutable table_id can lose its row during PostgreSQL's recheck
+  // when another transfer commits while this request waits for the lock.
+  await one(
     c,
-    `SELECT s.*,t.restaurant_id,t.code AS table_code FROM table_session s JOIN dining_table t ON t.id=s.table_id WHERE s.id=$1 AND t.restaurant_id=$2 FOR UPDATE OF s`,
+    'SELECT s.id FROM table_session s JOIN dining_table t ON t.id=s.table_id WHERE s.id=$1 AND t.restaurant_id=$2',
     [id, restaurant],
   );
+  const locked = await one(c, 'SELECT * FROM table_session WHERE id=$1 FOR UPDATE', [id]);
+  const table = await one(
+    c,
+    'SELECT restaurant_id,code AS table_code FROM dining_table WHERE id=$1 AND restaurant_id=$2',
+    [locked.table_id, restaurant],
+  );
+  const row = { ...locked, ...table };
   if (active && row.session_status !== 'ACTIVE') reject('Phiên bàn đã kết thúc.');
   return row;
 }
 export async function guest(c: Connection, r: FastifyRequest, restaurant: string) {
   const credential = r.cookies.guest;
   if (!credential || credential.length > 128) reject('Vui lòng quét QR để tham gia bàn.', 401);
-  const row = await one(
-    c,
-    `SELECT p.*,t.restaurant_id FROM session_participant p JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE p.credential_hash=$1 AND t.restaurant_id=$2`,
-    [digest(credential), restaurant],
-  );
-  await session(c, row.session_id, restaurant);
+  const row = (
+    await c.query(
+      `SELECT p.*,t.restaurant_id FROM session_participant p JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE p.credential_hash=$1 AND t.restaurant_id=$2`,
+      [digest(credential), restaurant],
+    )
+  ).rows[0];
+  if (!row) reject('Phiên khách đã hết hiệu lực. Vui lòng quét lại QR.', 401);
+  const activeSession = await session(c, row.session_id, restaurant, false);
+  if (activeSession.session_status !== 'ACTIVE')
+    reject('Phiên bàn đã kết thúc. Vui lòng quét lại QR.', 401);
   const current = await one(
     c,
     'SELECT status,blocked_until FROM session_participant WHERE id=$1 FOR UPDATE',

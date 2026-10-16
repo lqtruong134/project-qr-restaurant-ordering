@@ -1,0 +1,167 @@
+'use client';
+import { SessionReference } from '../shared/session-reference';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { openShortfalls } from './operations-inbox';
+import { api, vnd, type Row } from '../shared/components';
+import { Icon, Modal } from '../shared/primitives';
+import BillPanel from '../workspace/bill-panel';
+export function useUrgentWork() {
+  const [issues, setIssues] = useState<Row[]>([]),
+    [refunds, setRefunds] = useState<Row[]>([]),
+    [outstanding, setOutstanding] = useState<Row[]>([]),
+    [error, setError] = useState(''),
+    [updatedAt, setUpdatedAt] = useState<string>();
+  const loading = useRef(false);
+  const refresh = useCallback(async () => {
+    if (loading.current) return;
+    loading.current = true;
+    try {
+      const [items, alerts, cases] = await Promise.all([
+        api<Row[]>('/core/order-exceptions?pending=true'),
+        api<Row[]>('/core/alerts'),
+        api<Row[]>('/core/outstanding'),
+      ]);
+      setIssues([
+        ...items,
+        ...alerts
+          .filter((a) => a.stock_inspection === true)
+          .map((a) => ({
+            ...a,
+            stock_inspection: true,
+            product_name_snapshot: a.item_name ?? null,
+            quantity: a.item_quantity ?? null,
+            reported_at: a.created_at ?? null,
+            reported_reason_code: a.issue_reason_code ?? null,
+          })),
+      ]);
+      setOutstanding(openShortfalls(cases));
+      setUpdatedAt(new Date().toISOString());
+      setRefunds(
+        Array.from(
+          new Map(
+            alerts
+              .filter(
+                (a) =>
+                  a.alert_type === 'REFUND_REQUIRED' &&
+                  BigInt(String(a.refund_due_amount ?? 0)) > 0n,
+              )
+              .map((a) => [a.session_id, a]),
+          ).values(),
+        ),
+      );
+      setError('');
+    } catch {
+      setError('Chưa tải được danh sách công việc. Chọn Tải lại dữ liệu để thử lại.');
+    } finally {
+      loading.current = false;
+    }
+  }, []);
+  useEffect(() => {
+    void refresh();
+    const tick = () => {
+      if (!document.hidden) void refresh();
+    };
+    const timer = setInterval(tick, 3000);
+    window.addEventListener('focus', tick);
+    window.addEventListener('online', tick);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', tick);
+      window.removeEventListener('online', tick);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [refresh]);
+  return { issues, refunds, outstanding, error, updatedAt, refresh };
+}
+export function UrgentBar({
+  issues,
+  refunds,
+  outstanding,
+  error,
+  open,
+  openReports,
+  updatedAt,
+}: {
+  issues: Row[];
+  refunds: Row[];
+  outstanding: Row[];
+  openReports: () => void;
+  error: string;
+  open: () => void;
+  updatedAt?: string;
+}) {
+  return (
+    <div
+      className={
+        'urgent-bar' + (issues.length || refunds.length || outstanding.length ? ' has-urgent' : '')
+      }
+    >
+      <button onClick={open} className="urgent-entry">
+        <Icon name="bell" size={20} />
+        <span>
+          <strong>
+            {updatedAt
+              ? `Việc cần xử lý - ${issues.length + refunds.length + outstanding.length}`
+              : 'Đang kiểm tra việc cần xử lý…'}
+          </strong>
+          <small>
+            {issues.length || refunds.length || outstanding.length
+              ? `${issues.length} món / kho cần xử lý - ${refunds.length} bàn cần hoàn tiền - ${outstanding.length} hồ sơ thiếu tiền`
+              : 'Không có công việc đang chờ xử lý.'}
+          </small>
+        </span>
+        <Icon name="arrow" size={18} />
+      </button>
+      {outstanding.length > 0 && (
+        <button className="urgent-outstanding" onClick={openReports}>
+          <Icon name="warning" size={18} />
+          <strong>{outstanding.length} hồ sơ thiếu tiền cần xử lý</strong>
+          <Icon name="arrow" size={16} />
+        </button>
+      )}
+      {error && <small role="status">{error}</small>}
+    </div>
+  );
+}
+export function RefundWork({ rows, done }: { rows: Row[]; done: () => Promise<void> }) {
+  const [selected, setSelected] = useState('');
+  const sessions = Array.from(new Map(rows.map((row) => [String(row.session_id), row])).values());
+  return (
+    <section className="refund-work">
+      <h2>
+        Tiền cần hoàn cho khách <span>- {sessions.length} bàn</span>
+      </h2>
+      <p>
+        Chỉ ghi nhận “đã hoàn” sau khi thực sự trả tiền. Miễn tiền món chưa phải là trả lại tiền cho
+        khách.
+      </p>
+      {sessions.map((row) => (
+        <article className="task-card" key={row.id}>
+          <div>
+            <strong>
+              Bàn {String(row.table_code)}
+              <SessionReference id={row.session_id} code={row.session_code} />
+            </strong>
+            <p>Cần hoàn {vnd(row.refund_due_amount)}</p>
+          </div>
+          <button className="primary-button" onClick={() => setSelected(String(row.session_id))}>
+            Mở hoàn tiền tại bàn
+          </button>
+        </article>
+      ))}
+      {selected && (
+        <Modal title="Hoàn tiền tại bàn" wide close={() => setSelected('')}>
+          <BillPanel
+            focusRefund
+            financialOnly
+            id={selected}
+            products={[]}
+            onClose={() => setSelected('')}
+            done={done}
+          />
+        </Modal>
+      )}
+    </section>
+  );
+}

@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
+    // Bound concurrent database fixtures on developer machines and CI runners.
+    maxWorkers: 2,
     include: ['apps/api/src/**/*.test.ts', 'tests/**/*.integration.test.ts'],
     coverage: {
       provider: 'v8',

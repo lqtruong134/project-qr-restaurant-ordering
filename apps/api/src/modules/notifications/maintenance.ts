@@ -1,12 +1,48 @@
+import type { PayosService } from '../payments/payos.service.js';
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '@thesis/database';
 import { event, session, transaction } from '../shared/core-persistence.js';
 import { release } from '../inventory/inventory.service.js';
+import { supportEvent } from '../support/support.service.js';
 import { recalculate } from '../finance/ledger.service.js';
 
 // The session lock is the same lock used by submit, review, kitchen and payment.
 // Multiple API processes may run this job; each transition is checked again under lock.
-export async function maintainCore(db: Database, restaurant: string) {
+export async function maintainCore(db: Database, restaurant: string, payos?: PayosService) {
+  await db.pool.query(
+    "DELETE FROM table_access_limit WHERE restaurant_id=$1 AND started_at<now()-interval '1 day'",
+    [restaurant],
+  );
+  const abandoned = await db.pool.query(
+    `SELECT x.id,COALESCE(s.table_id,x.table_id) AS table_id,x.session_id
+    FROM support_request x LEFT JOIN table_session s ON s.id=x.session_id
+    JOIN dining_table t ON t.id=COALESCE(s.table_id,x.table_id)
+    WHERE t.restaurant_id=$1 AND x.request_type='ACCESS_CODE' AND x.status IN ('NEW','ACKNOWLEDGED')
+    AND ((x.session_id IS NULL AND x.created_at<now()-interval '30 minutes') OR s.session_status<>'ACTIVE') LIMIT 100`,
+    [restaurant],
+  );
+  for (const ref of abandoned.rows)
+    await transaction(db, async (c) => {
+      if (ref.session_id) await session(c, ref.session_id, restaurant, false);
+      else await c.query('SELECT id FROM dining_table WHERE id=$1 FOR UPDATE', [ref.table_id]);
+      const x = (
+        await c.query(
+          `SELECT x.* FROM support_request x LEFT JOIN table_session s ON s.id=x.session_id
+      WHERE x.id=$1 AND x.status IN ('NEW','ACKNOWLEDGED')
+      AND ((x.session_id IS NULL AND x.created_at<now()-interval '30 minutes') OR s.session_status<>'ACTIVE') FOR UPDATE OF x`,
+          [ref.id],
+        )
+      ).rows[0];
+      if (!x) return;
+      await c.query(
+        `UPDATE support_request_handoff SET status='CANCELLED',responded_at=clock_timestamp(),
+      responded_by=from_staff_id,response_reason='Yêu cầu cấp mã hết thời gian chờ hoặc lượt khách đã kết thúc.'
+      WHERE support_request_id=$1 AND status='PENDING'`,
+        [x.id],
+      );
+      await c.query("UPDATE support_request SET status='CANCELLED' WHERE id=$1", [x.id]);
+      await supportEvent(c, x, 'SUPPORT_REQUEST_EXPIRED', null);
+    });
   const idle = await db.pool.query(
     `SELECT s.id FROM table_session s JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND s.session_status='ACTIVE' AND s.verification_status='UNVERIFIED' AND s.opened_at<now()-interval '15 minutes' AND NOT EXISTS(SELECT 1 FROM order_batch b WHERE b.session_id=s.id) AND NOT EXISTS(SELECT 1 FROM session_participant p WHERE p.session_id=s.id AND COALESCE(p.last_seen_at,p.joined_at)>now()-interval '15 minutes') LIMIT 100`,
     [restaurant],
@@ -65,18 +101,19 @@ export async function maintainCore(db: Database, restaurant: string) {
       }
     });
   const payments = await db.pool.query(
-    `SELECT DISTINCT p.session_id FROM payment_intent p JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND p.status IN ('CREATED','PENDING') AND p.expires_at<=now() LIMIT 100`,
+    `SELECT DISTINCT p.session_id FROM payment_intent p JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND p.status IN ('CREATED','PENDING') AND p.expires_at<=now() AND p.provider IS DISTINCT FROM 'PAYOS' LIMIT 100`,
     [restaurant],
   );
   for (const row of payments.rows)
     await transaction(db, async (c) => {
       await session(c, row.session_id, restaurant, false);
       await c.query(
-        "UPDATE payment_intent SET status='EXPIRED',version=version+1 WHERE session_id=$1 AND status IN ('CREATED','PENDING') AND expires_at<=now()",
+        "UPDATE payment_intent SET status='EXPIRED',version=version+1 WHERE session_id=$1 AND status IN ('CREATED','PENDING') AND expires_at<=now() AND provider IS DISTINCT FROM 'PAYOS'",
         [row.session_id],
       );
       await recalculate(c, row.session_id);
     });
+  await payos?.maintain();
   await transaction(db, async (c) => {
     const events = (
       await c.query(
@@ -95,13 +132,18 @@ export async function maintainCore(db: Database, restaurant: string) {
     }
   });
 }
-export function registerMaintenance(app: FastifyInstance, db: Database, restaurant: string) {
+export function registerMaintenance(
+  app: FastifyInstance,
+  db: Database,
+  restaurant: string,
+  payos?: PayosService,
+) {
   let timer: ReturnType<typeof setInterval> | undefined;
   let running: Promise<void> | undefined;
   app.addHook('onReady', async () => {
     timer = setInterval(() => {
       if (!running)
-        running = maintainCore(db, restaurant)
+        running = maintainCore(db, restaurant, payos)
           .catch((error) => {
             app.log.error({ err: error }, 'CORE maintenance failed; will retry on next interval');
           })

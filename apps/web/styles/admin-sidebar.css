@@ -1,0 +1,163 @@
+.experience-shell .admin-layout:has(> .admin-nested-nav) {
+  grid-template-columns: 244px minmax(0, 1fr);
+}
+.experience-shell .admin-layout.nav-collapsed:has(> .admin-nested-nav) {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+.experience-shell .admin-layout > .core-tabs.admin-nested-nav {
+  flex-wrap: nowrap;
+  overflow-x: hidden;
+  gap: 3px;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+.experience-shell .admin-layout > .core-tabs.admin-nested-nav > * {
+  flex-shrink: 0;
+}
+.experience-shell .admin-nested-nav .sidebar-group {
+  min-width: 0;
+}
+.experience-shell .admin-layout > .admin-nested-nav .sidebar-parent {
+  width: 100%;
+  text-align: left;
+  font-weight: 600;
+}
+.experience-shell .admin-nested-nav .sidebar-label {
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+}
+.experience-shell .admin-nested-nav .sidebar-parent > svg:first-child {
+  flex-shrink: 0;
+}
+.experience-shell .admin-nested-nav .sidebar-chevron {
+  flex: 0 0 14px;
+  transition: transform 150ms ease;
+}
+.experience-shell .admin-nested-nav .sidebar-parent[aria-expanded='true'] .sidebar-chevron {
+  transform: rotate(180deg);
+}
+.experience-shell .admin-nested-nav .sidebar-group[data-active='true'] > .sidebar-parent {
+  color: var(--brand-dark);
+}
+.experience-shell .admin-nested-nav .sidebar-submenu {
+  margin: 3px 0 8px 18px;
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+}
+.experience-shell .admin-nested-nav .sidebar-submenu[hidden] {
+  display: none;
+}
+.experience-shell .admin-layout > .admin-nested-nav .sidebar-child {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 10px;
+  margin: 2px 0;
+  white-space: normal;
+  text-align: left;
+  font-weight: 400;
+}
+.experience-shell .admin-layout > .admin-nested-nav .sidebar-child[aria-current='page'] {
+  color: var(--brand-dark);
+  background: #e3f0ed;
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+.experience-shell .admin-layout > .admin-nested-nav button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+.experience-shell .admin-layout.nav-collapsed .admin-nested-nav .sidebar-chevron {
+  display: none;
+}
+.experience-shell .admin-layout.nav-collapsed > .admin-nested-nav .sidebar-parent {
+  padding: 11px 8px;
+  justify-content: center;
+}
+.experience-shell
+  .admin-layout.nav-collapsed
+  .admin-nested-nav
+  .sidebar-group[data-active='true']
+  > .sidebar-parent {
+  background: #e3f0ed;
+}
+.experience-shell .admin-nested-nav .sidebar-mobile-current {
+  display: none;
+}
+.experience-shell .admin-content > .section-heading .admin-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.admin-tables-panel {
+  display: grid;
+  gap: 16px;
+}
+.admin-tables-panel .core-card > form {
+  margin-top: 16px;
+}
+.menu-categories .category-editor {
+  display: grid;
+  gap: 16px;
+}
+@media (max-width: 800px) {
+  .experience-shell .admin-layout:has(> .admin-nested-nav),
+  .experience-shell .admin-layout.nav-collapsed:has(> .admin-nested-nav) {
+    display: block;
+  }
+  .experience-shell .admin-layout > .core-tabs.admin-nested-nav {
+    display: flex;
+    flex-direction: column;
+    max-height: min(66dvh, 520px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px;
+    gap: 3px;
+  }
+  .experience-shell .admin-layout > .admin-nested-nav > .sidebar-toggle {
+    flex: none;
+    justify-content: flex-start;
+    position: sticky;
+    top: -8px;
+    z-index: 1;
+    background: #fff;
+  }
+  .experience-shell .admin-layout.nav-collapsed > .core-tabs.admin-nested-nav {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    overflow: hidden;
+    gap: 10px;
+  }
+  .experience-shell .admin-layout.nav-collapsed > .admin-nested-nav .sidebar-group {
+    display: none;
+  }
+  .experience-shell .admin-layout.nav-collapsed > .admin-nested-nav > .sidebar-toggle {
+    flex: 0 0 auto;
+    width: 44px;
+    padding: 10px;
+    position: static;
+  }
+  .experience-shell
+    .admin-layout.nav-collapsed
+    > .admin-nested-nav
+    > .sidebar-toggle
+    .sidebar-label {
+    display: none;
+  }
+  .experience-shell .admin-layout.nav-collapsed .admin-nested-nav .sidebar-mobile-current {
+    display: block;
+    min-width: 0;
+    color: var(--brand-dark);
+    font-size: 13px;
+    font-weight: 600;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .experience-shell .admin-nested-nav .sidebar-chevron {
+    transition: none;
+  }
+}

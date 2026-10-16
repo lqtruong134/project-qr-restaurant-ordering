@@ -17,8 +17,9 @@ export const riskDefaults = {
   TABLE_MAX_CAPACITY: 30,
   SHIFT_MAX_MINUTES: 960,
   SHIFT_MAX_BREAK_MINUTES: 240,
-  CLOCK_IN_EARLY_MINUTES: 30,
-  CLOCK_OUT_LATE_MINUTES: 1440,
+  CLOCK_IN_EARLY_MINUTES: 15,
+  CLOCK_OUT_LATE_MINUTES: 120,
+  ATTENDANCE_GRACE_MINUTES: 15,
 };
 
 export async function readPolicy(c: Connection, restaurant: string) {

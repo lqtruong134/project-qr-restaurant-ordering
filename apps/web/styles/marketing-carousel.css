@@ -1,0 +1,277 @@
+.marketing-carousel {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 22px;
+  background: #314d37;
+  isolation: isolate;
+}
+.marketing-carousel-window {
+  overflow: hidden;
+}
+.marketing-carousel-track {
+  display: flex;
+  transition: transform 650ms ease;
+}
+.marketing-slide {
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 100%;
+  min-width: 0;
+  min-height: 340px;
+  display: flex;
+  align-items: center;
+  padding: clamp(24px, 4vw, 52px) clamp(24px, 5vw, 60px);
+  color: #fff;
+  background: #314d37;
+}
+.marketing-slide::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, #14291ef0, #17291f99 48%, #1f2e2217 80%);
+}
+.marketing-slide-photo {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+.marketing-slide-photo > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.marketing-slide-copy {
+  max-width: 520px;
+  min-width: 0;
+}
+.marketing-slide-image-note {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  max-width: 240px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #203526b5;
+  color: #fff6e7;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.marketing-slide-copy .eyebrow {
+  color: #e5caa4;
+  margin: 0 0 12px;
+}
+.marketing-slide-copy h2 {
+  color: #fff;
+  font-size: clamp(26px, 3vw, 42px);
+  letter-spacing: -0.025em;
+  line-height: 1.18;
+  margin: 0 0 12px;
+  text-wrap: balance;
+}
+.marketing-slide-details > p:not(.eyebrow) {
+  margin: 0;
+  max-width: 440px;
+  color: #f6eee0;
+  font-size: 15px;
+  line-height: 1.65;
+}
+.marketing-slide-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 10px 18px;
+  margin-top: 20px;
+  border: 1px solid #ecd9be;
+  border-radius: 10px;
+  background: #fbefd9;
+  color: #293b2c;
+  text-decoration: none;
+  font-weight: 650;
+  font-size: 14px;
+  width: fit-content;
+}
+.marketing-slide-action:hover {
+  background: #fff7e8;
+}
+.marketing-carousel-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f7f1e5;
+}
+.marketing-carousel-dots {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+.marketing-carousel-dots button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  min-width: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+.marketing-carousel-dots button:hover {
+  background: #315d460d;
+}
+.marketing-carousel-controls button:focus-visible,
+.marketing-slide-action:focus-visible {
+  outline: 3px solid #eac08c;
+  outline-offset: 3px;
+}
+.marketing-carousel-dots button span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #83917f;
+  transition:
+    width 180ms ease,
+    height 180ms ease;
+}
+.marketing-carousel-dots button[aria-pressed='true'] span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #315d46;
+}
+.marketing-slide[data-presentation='poster'] {
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 0;
+  padding: 0;
+  background: #fffdf7;
+}
+.marketing-slide[data-presentation='poster']::after {
+  display: none;
+}
+.marketing-slide[data-presentation='poster'] .marketing-slide-photo {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  max-height: 560px;
+  flex: 0 0 auto;
+  background: #f7f1e5;
+}
+.marketing-slide[data-presentation='poster'] .marketing-slide-photo > img {
+  position: absolute;
+  inset: 0;
+  object-fit: contain;
+}
+.marketing-slide[data-presentation='poster'] .marketing-slide-copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  max-width: none;
+  padding: 18px 24px;
+}
+.marketing-slide[data-presentation='poster'] .marketing-slide-details {
+  min-width: 0;
+}
+.marketing-slide[data-presentation='poster'] .eyebrow {
+  color: #95603e;
+  font-size: 10px;
+  margin-bottom: 6px;
+}
+.marketing-slide[data-presentation='poster'] h2 {
+  font-size: 23px;
+  color: #31503b;
+  margin-bottom: 7px;
+}
+.marketing-slide[data-presentation='poster'] .marketing-slide-details > p:not(.eyebrow) {
+  max-width: none;
+  color: #75745f;
+  font-size: 13px;
+}
+.marketing-slide[data-presentation='poster'] .marketing-slide-action {
+  flex: 0 0 auto;
+  margin-top: 0;
+  background: #315d46;
+  border-color: #315d46;
+  color: #fff;
+}
+.marketing-slide[data-presentation='poster'] .marketing-slide-action:hover {
+  background: #244b35;
+}
+.marketing-slide[data-presentation='poster'] .marketing-slide-image-note {
+  position: static;
+  max-width: none;
+  padding: 0 24px 12px;
+  color: #7b7461;
+  background: transparent;
+}
+.marketing-carousel[data-reduced-motion='true'] .marketing-carousel-track {
+  transition: none;
+}
+.marketing-carousel-track[data-jumping='true'] {
+  transition: none;
+}
+@media (max-width: 600px) {
+  .marketing-carousel {
+    border-radius: 16px;
+  }
+  .marketing-slide {
+    min-height: 350px;
+    align-items: flex-end;
+    padding: 72px 22px 28px;
+  }
+  .marketing-slide::after {
+    background: linear-gradient(0deg, #13291ef5, #17291fa6 62%, #17291f1a);
+  }
+  .marketing-slide-copy h2 {
+    font-size: 28px;
+  }
+  .marketing-slide-details > p:not(.eyebrow) {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .marketing-slide-copy .eyebrow {
+    font-size: 10px;
+    margin-bottom: 8px;
+  }
+  .marketing-slide-action {
+    margin-top: 14px;
+    font-size: 13px;
+    padding: 9px 14px;
+  }
+  .marketing-slide-image-note {
+    top: 12px;
+    right: 12px;
+    max-width: 170px;
+    font-size: 9px;
+  }
+  .marketing-slide[data-presentation='poster'] .marketing-slide-copy {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 17px 20px;
+  }
+  .marketing-slide[data-presentation='poster'] h2 {
+    font-size: 21px;
+  }
+  .marketing-slide[data-presentation='poster'] .marketing-slide-details > p:not(.eyebrow) {
+    font-size: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marketing-carousel-track {
+    transition: none;
+  }
+  .marketing-carousel-dots button span {
+    transition: none;
+  }
+}

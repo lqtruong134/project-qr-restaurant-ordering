@@ -1,0 +1,418 @@
+.billing-totals {
+  margin: 18px 0;
+  border: 1px solid #d3ded5;
+  border-radius: 14px;
+  background: #fff;
+  padding: 18px;
+  min-width: 0;
+}
+.billing-price-facts,
+.billing-tax-facts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+.billing-price-facts > div,
+.billing-tax-facts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+.billing-price-facts dt,
+.billing-tax-facts dt {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.billing-price-facts dd,
+.billing-tax-facts dd {
+  flex-shrink: 0;
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.billing-price-facts small,
+.billing-tax-facts small {
+  display: block;
+  font-size: 0.8em;
+  font-weight: 400;
+  margin-top: 3px;
+}
+.billing-discount,
+.receipt-line-discount {
+  color: #2e654a;
+}
+.billing-payable {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid #d5dfd7;
+  font-size: 1.12rem;
+  font-weight: 700;
+}
+.billing-tax-details {
+  margin-top: 14px;
+  font-size: 0.9rem;
+}
+.billing-tax-details summary {
+  cursor: pointer;
+  width: fit-content;
+  color: #47624f;
+}
+.billing-tax-facts {
+  font-size: 0.9em;
+  padding-top: 12px;
+}
+.billing-tax-note {
+  margin: 12px 0 0;
+  font-size: 0.82em;
+  line-height: 1.5;
+  color: #5c6c61;
+}
+.promotion-selection {
+  min-width: 0;
+  margin: 22px 0;
+  padding: 20px;
+  border: 1px solid #c9daca;
+  border-radius: 14px;
+  background: #f7faf5;
+}
+.promotion-heading,
+.promotion-offer-heading,
+.promotion-selected {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.promotion-heading h3 {
+  margin: 0 0 4px;
+}
+.promotion-heading p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #617060;
+}
+.promotion-status {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #e0edde;
+  color: #315536;
+}
+.promotion-selected {
+  margin-top: 14px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #c7dcc8;
+  border-radius: 10px;
+}
+.promotion-selected > div {
+  flex: 1;
+  min-width: 150px;
+  overflow-wrap: anywhere;
+}
+.promotion-selected small {
+  display: block;
+  color: #687667;
+  margin-top: 4px;
+}
+.promotion-selected > strong {
+  color: #2e654a;
+  white-space: nowrap;
+}
+.promotion-code-form {
+  margin-top: 16px;
+  display: grid;
+  gap: 8px;
+}
+.promotion-code-form label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.promotion-code-form > div {
+  display: flex;
+  gap: 8px;
+}
+.promotion-code-form input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: 1px solid #c3d3c6;
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px 12px;
+  font: inherit;
+}
+.promotion-code-form button {
+  flex-shrink: 0;
+}
+.promotion-available {
+  margin-top: 16px;
+}
+.promotion-available summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.promotion-available ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.promotion-available li {
+  min-width: 0;
+  border: 1px solid #d7e2d4;
+  border-radius: 10px;
+  padding: 14px;
+  background: #fff;
+  overflow-wrap: anywhere;
+}
+.promotion-available li p,
+.promotion-available li small {
+  font-size: 0.85rem;
+  margin: 8px 0;
+  line-height: 1.5;
+}
+.promotion-available li small {
+  display: block;
+  color: #657361;
+}
+.promotion-offer-heading span {
+  color: #2e654a;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.promotion-eligible {
+  color: #2e654a;
+}
+.menu-vat-note {
+  display: block;
+  font-size: 0.8rem;
+  margin-top: 5px;
+  color: #68745f;
+}
+.receipt-sheet {
+  max-width: 520px;
+  padding: 24px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.receipt-sheet .receipt-row {
+  grid-template-columns: minmax(0, 1fr) 24px 78px 85px;
+  gap: 8px;
+  font-size: 12px;
+}
+.receipt-sheet .receipt-row > :first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.receipt-sheet .receipt-store h3 {
+  margin: 16px 0 10px;
+  letter-spacing: 0.04em;
+  font-size: 16px;
+}
+.receipt-sheet .receipt-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding-bottom: 14px;
+  font-size: 11px;
+}
+.receipt-line-discount {
+  display: block;
+  font-size: 10px;
+  margin-top: 3px;
+}
+.receipt-sheet .billing-totals {
+  margin: 14px 0 0;
+  padding: 14px 0;
+  border: 0;
+  border-top: 1px solid #222;
+  border-radius: 0;
+  color: #111;
+}
+.receipt-sheet .billing-payable {
+  border: 0;
+  padding: 0;
+  font-size: 16px;
+}
+.receipt-sheet .billing-price-facts {
+  gap: 7px;
+}
+.receipt-sheet .billing-tax-facts {
+  gap: 5px;
+  font-size: 11px;
+}
+.receipt-sheet .billing-price-facts small,
+.receipt-sheet .billing-tax-facts small,
+.receipt-sheet .billing-tax-note {
+  font-size: 10px;
+}
+.receipt-sheet .receipt-totals {
+  padding-top: 8px;
+  margin-top: 4px;
+  border-top: 1px dashed #aaa;
+}
+.receipt-sheet .receipt-totals > div {
+  font-size: 12px;
+  font-weight: 400;
+  padding: 4px 0;
+}
+.receipt-sheet .receipt-totals > div strong {
+  font-size: inherit;
+}
+.receipt-sheet .receipt-money-breakdown h4,
+.receipt-sheet .receipt-payments > strong {
+  font-size: 12px;
+}
+.receipt-sheet .payment-flow-facts dt,
+.receipt-sheet .payment-flow-facts dd,
+.receipt-sheet .receipt-payment-entry {
+  font-size: 11px;
+}
+.receipt-sheet .receipt-payment-entry small,
+.receipt-sheet .receipt-payment-entry p {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.receipt-sheet .receipt-footer small {
+  font-size: 10px;
+}
+@media (max-width: 520px) {
+  .billing-totals,
+  .promotion-selection {
+    padding: 14px;
+  }
+  .promotion-code-form > div {
+    flex-wrap: wrap;
+  }
+  .promotion-code-form input {
+    flex-basis: 160px;
+  }
+  .promotion-code-form button {
+    min-width: 100px;
+  }
+  .receipt-sheet {
+    padding: 14px;
+  }
+  .receipt-sheet .receipt-row {
+    grid-template-columns: minmax(0, 1fr) 18px 60px 65px;
+    gap: 4px;
+    font-size: 10px;
+  }
+  .billing-price-facts > div,
+  .billing-tax-facts > div {
+    gap: 10px;
+  }
+}
+@media print {
+  @page {
+    margin: 3mm;
+  }
+  .promotion-selection {
+    display: none !important;
+  }
+  .core-bill > .receipt-sheet {
+    width: 74mm;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  .receipt-sheet .receipt-row {
+    grid-template-columns: minmax(0, 1fr) 4mm 17mm 19mm;
+    gap: 1mm;
+    font-size: 8pt;
+  }
+  .receipt-sheet .receipt-store h2 {
+    font-size: 13pt;
+  }
+  .receipt-sheet .receipt-store h3 {
+    font-size: 11pt;
+  }
+  .receipt-sheet .receipt-meta,
+  .receipt-sheet .billing-price-facts,
+  .receipt-sheet .billing-tax-facts,
+  .receipt-sheet .receipt-totals > div,
+  .receipt-sheet .receipt-payment-entry,
+  .receipt-sheet .payment-flow-facts dt,
+  .receipt-sheet .payment-flow-facts dd {
+    font-size: 8pt;
+  }
+  .receipt-sheet .billing-payable {
+    font-size: 11pt;
+  }
+  .receipt-sheet .billing-price-facts > div,
+  .receipt-sheet .billing-tax-facts > div,
+  .receipt-sheet .receipt-owner-total {
+    break-inside: avoid;
+  }
+  .receipt-sheet .billing-tax-note,
+  .receipt-sheet .receipt-footer small,
+  .receipt-sheet .receipt-short-note,
+  .receipt-sheet .receipt-line-discount {
+    font-size: 7pt;
+  }
+}
+
+.receipt-sheet .combo-contents {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 3px 0;
+  border-radius: 0;
+  font-size: 10px;
+}
+.receipt-sheet .combo-contents ul {
+  margin: 0;
+  padding: 0;
+}
+.receipt-sheet .combo-contents li {
+  font-size: inherit;
+}
+@media print {
+  .receipt-sheet .combo-contents {
+    color: #444;
+    font-size: 7pt;
+  }
+  .receipt-sheet .receipt-money-breakdown .payment-flow-facts > div {
+    padding: 3px 0;
+  }
+}
+
+.guest-discount-discovery {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 18px;
+  margin: 0 0 20px;
+  border: 1px solid #dcc99f;
+  border-radius: 12px;
+  background: #fff6df;
+  color: #72501e;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.guest-discount-discovery > span {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.guest-discount-discovery small {
+  display: block;
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+.guest-discount-discovery .ui-icon {
+  flex-shrink: 0;
+}

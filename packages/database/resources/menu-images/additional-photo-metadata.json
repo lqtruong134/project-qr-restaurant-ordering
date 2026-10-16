@@ -1,0 +1,32 @@
+[
+  {
+    "code": "CHINH-17",
+    "file": "5c63ea2f-6d20-8157-9fdd-366d32a1f0dc.jpg",
+    "author": "Takeaway",
+    "license": "CC BY-SA 3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Saigon_Bun_thit_nuong.jpg",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "modification": "Original JPEG retained without crop, retouch or watermark removal.",
+    "reviewedAt": "2026-10-13"
+  },
+  {
+    "code": "CHINH-18",
+    "file": "ba74d017-10ce-80b2-bf7f-23ffc334dffb.jpg",
+    "author": "Jpatokal",
+    "license": "CC BY-SA 4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Mi_Quang_1A_Danang.jpg",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "modification": "Original JPEG retained without crop, retouch or watermark removal.",
+    "reviewedAt": "2026-10-13"
+  },
+  {
+    "code": "NUONG-11",
+    "file": "89834677-fcc4-8a5c-adea-125ce567ca1c.jpg",
+    "author": "HungryHuy",
+    "license": "CC BY 2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Vietnamese_thit_kho,_braised_pork_belly_and_boiled_eggs.jpg",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "modification": "Original JPEG retained without crop, retouch or watermark removal.",
+    "reviewedAt": "2026-10-13"
+  }
+]

@@ -1,0 +1,144 @@
+.wf-pay-breakdown h4 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+.wf-pay-breakdown dl {
+  margin: 0;
+}
+.wf-pay-breakdown dl > div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border, #dce4e7);
+}
+.wf-pay-breakdown dt {
+  min-width: 0;
+  font-weight: 600;
+}
+.wf-pay-breakdown dt small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted, #657780);
+  font-size: 0.82rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.wf-pay-breakdown dd {
+  margin: 0;
+  flex-shrink: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.wf-pay-breakdown .wf-pay-breakdown-total {
+  border-bottom: 0;
+}
+.wf-pay-details {
+  min-width: 0;
+  margin-top: 12px;
+}
+.wf-pay-details > summary {
+  cursor: pointer;
+  color: var(--primary, #396568);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.wf-pay-details[open] > summary {
+  margin-bottom: 12px;
+}
+.wf-pay-details .wf-table-scroll {
+  margin-top: 12px;
+}
+.wf-pay-segments {
+  min-width: 780px;
+}
+.wf-pay-segments caption {
+  padding: 12px 0;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text, #26373d);
+}
+.wf-pay-snapshot-note {
+  margin: 12px 0 0;
+  color: var(--muted, #657780);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+.wf-slip-lines .wf-pay-details {
+  max-width: 100%;
+}
+.wf-table.wf-slip-lines {
+  min-width: 0;
+  table-layout: fixed;
+}
+.wf-slip-lines th:first-child {
+  width: 50%;
+}
+.wf-slip-lines > tbody > .wf-slip-breakdown > td {
+  text-align: left;
+  padding-top: 0;
+}
+.wf-slip-breakdown .wf-pay-details {
+  margin-top: 0;
+}
+.wf-person-days .wf-pay-details {
+  flex-basis: 100%;
+}
+@media (max-width: 560px) {
+  .wf-pay-breakdown dl > div {
+    gap: 12px;
+  }
+  .wf-pay-breakdown dt small {
+    font-size: 0.78rem;
+  }
+  .wf-table.wf-slip-lines,
+  .wf-slip-lines > tbody,
+  .wf-table.wf-pay-segments,
+  .wf-pay-segments > tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .wf-slip-lines > thead,
+  .wf-pay-segments > thead {
+    display: none;
+  }
+  .wf-slip-lines > tbody > tr,
+  .wf-pay-segments > tbody > tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 16px;
+    border-bottom: 1px solid var(--border, #dce4e7);
+  }
+  .wf-slip-lines > tbody > tr > td,
+  .wf-pay-segments > tbody > tr > td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+  .wf-slip-lines > tbody > tr > td[data-label]::before,
+  .wf-pay-segments > tbody > tr > td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted, #657780);
+    font-size: 0.75rem;
+  }
+  .wf-slip-lines > tbody > .wf-slip-breakdown {
+    padding-top: 0;
+  }
+  .wf-slip-lines > tbody > .wf-slip-breakdown > td {
+    padding: 0;
+  }
+  .wf-pay-segments caption {
+    display: block;
+  }
+  .wf-pay-segments > tbody > tr {
+    padding: 12px 0;
+  }
+}

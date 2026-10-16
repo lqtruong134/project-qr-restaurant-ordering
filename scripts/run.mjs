@@ -28,6 +28,8 @@ else if (mode === 'rehearsal') run('pnpm', ['exec', 'tsx', 'scripts/rehearsal.ts
 else if (mode === 'docs') run('pnpm', ['exec', 'tsx', 'scripts/database-docs.ts']);
 else if (mode === 'e2e')
   run('pnpm', ['exec', 'tsx', 'scripts/browser-tests.ts', ...process.argv.slice(3)]);
+else if (mode === 'reset-demo')
+  run('pnpm', ['exec', 'tsx', 'scripts/reset-demo.ts', ...process.argv.slice(3)]);
 else if (mode === 'seed-core' || mode === 'seed') run('pnpm', ['exec', 'tsx', 'scripts/seed.ts']);
 else if (mode === 'dev' || mode === 'dev-lan') {
   if (mode === 'dev-lan') {

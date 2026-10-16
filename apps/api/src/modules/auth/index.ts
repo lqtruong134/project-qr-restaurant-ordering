@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import cookie from '@fastify/cookie';
-import { jwtVerify } from 'jose';
+import { jwtVerify, errors } from 'jose';
 import { createSessionCookies, digest } from './session-cookies.js';
 import { createLoginLimiter } from './login-limiter.js';
 import { fail, authMessages, unauthorized as invalid } from '../../shared/http-errors.js';
@@ -40,7 +40,9 @@ export async function registerAuth(app: FastifyInstance, db: Database, options: 
         path: '/',
       });
     if (
-      (!_request.url.startsWith('/guest/') && reply.statusCode === 401) ||
+      (!_request.url.startsWith('/guest/') &&
+        reply.statusCode === 401 &&
+        !(typeof payload === 'string' && payload.includes('"errorCode":"ACCESS_EXPIRED"'))) ||
       (reply.statusCode === 403 &&
         typeof payload === 'string' &&
         payload.includes('"errorCode":"ACCOUNT_LOCKED"'))
@@ -91,6 +93,7 @@ export async function registerAuth(app: FastifyInstance, db: Database, options: 
   app.addHook('preHandler', async (request, reply) => {
     const config = request.routeOptions.config;
     if (config.public) return;
+    let accessExpired = !request.cookies.access;
     let subject: string | undefined;
     let version: number | undefined;
     try {
@@ -105,10 +108,14 @@ export async function registerAuth(app: FastifyInstance, db: Database, options: 
         subject = payload.sub;
         version = typeof payload.v === 'number' ? payload.v : undefined;
       }
-    } catch {
-      /* Invalid/expired credentials are indistinguishable. */
+    } catch (error) {
+      accessExpired = error instanceof errors.JWTExpired;
     }
-    if (!subject || version === undefined) return invalid(reply);
+    if (!subject || version === undefined) {
+      if (accessExpired && request.cookies.refresh)
+        return fail(reply, 401, 'ACCESS_EXPIRED', 'Cần gia hạn mã truy cập.');
+      return invalid(reply);
+    }
     const state = await db.prisma.app_user.findFirst({
       where: { id: subject, restaurant_id: options.restaurantId },
       select: { status: true },
@@ -117,8 +124,12 @@ export async function registerAuth(app: FastifyInstance, db: Database, options: 
     const user = await identity(subject, version);
     if (!user) return invalid(reply);
     request.identity = user;
-    if (config.permission ? !user.permissions.includes(config.permission) : !config.authenticated)
-      return fail(reply, 403, 'PERMISSION_DENIED', authMessages.PERMISSION_DENIED);
+    const allowed = config.permission
+      ? typeof config.permission === 'string'
+        ? user.permissions.includes(config.permission)
+        : config.permission.some((permission) => user.permissions.includes(permission))
+      : config.authenticated;
+    if (!allowed) return fail(reply, 403, 'PERMISSION_DENIED', authMessages.PERMISSION_DENIED);
   });
   app.post<{ Body: { username: string; password: string } }>(
     '/auth/login',

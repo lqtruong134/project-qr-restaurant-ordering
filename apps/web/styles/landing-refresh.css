@@ -1,0 +1,157 @@
+.restaurant-landing {
+  --brand: #315d46;
+  --brand-dark: #234632;
+  background: #fcfaf5;
+}
+.restaurant-landing > .skip-link:not(:focus) {
+  clip-path: inset(50%);
+}
+.restaurant-landing .landing-header {
+  padding-block: 18px;
+}
+.landing-logo {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.restaurant-landing .landing-hero {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.12fr);
+  gap: clamp(24px, 4vw, 60px);
+  padding-block: 38px 64px;
+}
+.restaurant-landing .landing-hero h1 {
+  font-size: clamp(38px, 4.4vw, 64px);
+  line-height: 1.12;
+  letter-spacing: -0.045em;
+}
+.restaurant-landing .landing-hero h1 em {
+  color: #b25b2d;
+}
+.restaurant-landing .landing-hero-copy > .eyebrow {
+  color: #9b633b;
+  letter-spacing: 0.15em;
+}
+.restaurant-landing .landing-hero-copy > p:not(.eyebrow) {
+  max-width: 410px;
+  line-height: 1.8;
+}
+.restaurant-landing .landing-visual {
+  height: auto;
+  min-width: 0;
+  border-radius: 24px;
+}
+.landing-food-carousel .marketing-slide {
+  min-height: 530px;
+  align-items: flex-end;
+  padding: 44px 34px 82px;
+}
+.landing-food-carousel .marketing-slide::after {
+  background: linear-gradient(0deg, #172b20f2, #1c362183 55%, #1c362108 85%);
+}
+.landing-food-carousel .marketing-slide-copy h2 {
+  font-size: clamp(27px, 3vw, 40px);
+}
+.restaurant-landing .landing-qr-note {
+  background: #eff3e8;
+  border-color: #dde5d4;
+}
+.restaurant-landing .landing-menu-section {
+  padding-block: 20px 64px;
+}
+.restaurant-landing .landing-dishes {
+  gap: 24px;
+}
+.restaurant-landing .landing-dishes article {
+  border-radius: 18px;
+  overflow: hidden;
+  border-color: #e9e0d2;
+  box-shadow: 0 10px 28px #53452e08;
+}
+.restaurant-landing .landing-dishes article > img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  height: auto;
+  object-fit: cover;
+}
+.restaurant-landing .landing-dishes article > div {
+  padding: 22px;
+}
+.restaurant-landing .landing-dishes h3 {
+  font-size: 22px;
+}
+.restaurant-landing .landing-dishes small {
+  color: #a26436;
+}
+.restaurant-landing .landing-order-section {
+  padding: 32px 0 56px;
+  border-top: 1px solid #e9e1d5;
+}
+.restaurant-landing .landing-step {
+  color: #376148;
+}
+.restaurant-landing .landing-footer {
+  border-color: #e9e1d5;
+}
+@media (max-width: 900px) {
+  .restaurant-landing .landing-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    padding-block: 28px 44px;
+  }
+  .restaurant-landing .landing-hero-copy {
+    max-width: 600px;
+  }
+  .landing-food-carousel .marketing-slide {
+    min-height: 440px;
+  }
+}
+@media (max-width: 600px) {
+  .restaurant-landing .landing-header {
+    padding-block: 12px;
+  }
+  .landing-logo {
+    width: 44px;
+    height: 44px;
+  }
+  .restaurant-landing .landing-header nav {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .restaurant-landing .landing-header nav > a {
+    font-size: 12px;
+  }
+  .restaurant-landing .landing-header .brand-lockup small {
+    font-size: 9px;
+  }
+  .restaurant-landing .landing-hero {
+    padding-top: 24px;
+  }
+  .restaurant-landing .landing-hero h1 {
+    font-size: clamp(35px, 8.8vw, 48px);
+  }
+  .landing-food-carousel .marketing-slide {
+    min-height: 385px;
+    padding: 72px 22px 82px;
+  }
+  .restaurant-landing .landing-menu-section {
+    padding-block: 12px 32px;
+  }
+  .restaurant-landing .landing-dishes {
+    gap: 18px;
+  }
+  .restaurant-landing .landing-dishes article {
+    display: block;
+  }
+  .restaurant-landing .landing-dishes article > img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    height: auto;
+  }
+  .restaurant-landing .landing-section-title > p {
+    font-size: 13px;
+  }
+  .restaurant-landing .landing-dishes h3 {
+    font-size: 20px;
+  }
+}

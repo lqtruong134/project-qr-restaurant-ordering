@@ -9,6 +9,7 @@ export const riskLabels: Record<string, string> = {
   TABLE_MAX_CAPACITY: 'Sức chứa bàn tối đa (không quá 30)',
   SHIFT_MAX_MINUTES: 'Thời lượng ca tối đa (phút, không quá 960)',
   SHIFT_MAX_BREAK_MINUTES: 'Nghỉ giữa ca tối đa (phút)',
+  ATTENDANCE_GRACE_MINUTES: 'Khoảng thời gian cho phép đi muộn / về sớm (phút)',
   CLOCK_IN_EARLY_MINUTES: 'Cho phép vào sớm trước ca (phút)',
   CLOCK_OUT_LATE_MINUTES: 'Cho phép ra muộn sau ca (phút)',
 
@@ -18,14 +19,14 @@ export const riskLabels: Record<string, string> = {
   SESSION_MINUTE_REVIEW: 'Một bàn: số lượt/phút cần duyệt',
   REVIEW_TTL_MINUTES: 'Thời hạn chờ duyệt (phút)',
   PAYMENT_TTL_MINUTES: 'Thời hạn yêu cầu thanh toán (phút)',
-  FIRST_ORDER_REVIEW_ENABLED: 'Duyệt lượt đầu của phiên chưa xác minh',
-  LINE_QTY_REVIEW: 'Một dòng: số lượng cần duyệt',
-  LINE_QTY_HARD_LIMIT: 'Một dòng: số lượng tối đa',
+  FIRST_ORDER_REVIEW_ENABLED: 'Duyệt lượt gọi khi bàn chưa xác minh',
+  LINE_QTY_REVIEW: 'Một món trong lượt gọi: số lượng cần duyệt',
+  LINE_QTY_HARD_LIMIT: 'Một món trong lượt gọi: số lượng tối đa',
   ORDER_TOTAL_QTY_REVIEW: 'Một lượt: tổng số lượng cần duyệt',
   ORDER_TOTAL_QTY_HARD_LIMIT: 'Một lượt: tổng số lượng tối đa',
-  ORDER_AMOUNT_REVIEW_VND: 'Một lượt: tiền cần duyệt (đồng)',
-  ORDER_AMOUNT_HARD_LIMIT_VND: 'Một lượt: tiền tối đa (đồng)',
-  SESSION_AMOUNT_REVIEW_VND: 'Một phiên: tiền cần duyệt (đồng)',
+  ORDER_AMOUNT_REVIEW_VND: 'Một lượt: giá trị từ mức này cần duyệt (đồng)',
+  ORDER_AMOUNT_HARD_LIMIT_VND: 'Một lượt: giá trị tối đa (đồng)',
+  SESSION_AMOUNT_REVIEW_VND: 'Cả bàn: tổng tiền từ mức này cần duyệt (đồng)',
 };
 export function LinesForm({
   title,
@@ -48,13 +49,14 @@ export function LinesForm({
       <h2>{title}</h2>
       <EntryForm
         title="Thêm dòng nguyên liệu"
+        successMessage={false}
         fields={[
           {
             key: 'ingredientId',
             label: 'Nguyên liệu',
             options: ingredients.map((i) => ({
               value: i.id,
-              label: String(i.name) + ' · ' + String(i.unit_code ?? 'đơn vị cơ sở'),
+              label: String(i.name) + ' - ' + String(i.unit_code ?? 'đơn vị cơ sở'),
             })),
           },
           {
@@ -92,7 +94,7 @@ export function LinesForm({
       {lines.map((l, i) => (
         <div className="core-line" key={i}>
           <span>
-            {String(ingredients.find((x) => x.id === l.ingredientId)?.name)} · {l.quantity}{' '}
+            {String(ingredients.find((x) => x.id === l.ingredientId)?.name)} - {l.quantity}{' '}
             {String(ingredients.find((x) => x.id === l.ingredientId)?.unit_code ?? '')}
           </span>
           <button

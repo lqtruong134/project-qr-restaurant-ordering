@@ -1,4 +1,8 @@
+import { registerMenuPromotions } from './promotions.routes.js';
+import { listMenuPromotions, productPromotionField } from '@thesis/database/menu-promotions';
+import { MenuImageError, validateMenuImageUrl } from '@thesis/database/menu-images';
 import { registerImages } from './images.routes.js';
+import { comboCatalogFields, configureCombo, refreshDependentCombos } from './combo.service.js';
 import { readPolicy } from '../risk/policy.service.js';
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '@thesis/database';
@@ -23,6 +27,7 @@ export function registerCatalog(
   qrSecret = process.env.AUTH_SECRET ?? '',
 ) {
   registerImages(app);
+  registerMenuPromotions(app, db, restaurant);
   const admin = { permission: 'admin.workspace' };
   for (const [path, table] of [
     ['categories', 'menu_category'],
@@ -82,26 +87,15 @@ export function registerCatalog(
     }),
   );
   app.get('/core/catalog', { config: { authenticated: true } }, async () => ({
+    promotions: await listMenuPromotions(db.pool, restaurant),
     categories: await db.prisma.menu_category.findMany({
       where: { restaurant_id: restaurant },
       orderBy: { sort_order: 'asc' },
     }),
     products: (
       await db.pool.query(
-        `SELECT p.*,c.name AS category_name,
-          CASE WHEN p.availability_status<>'AVAILABLE' THEN 'UNAVAILABLE' WHEN NOT p.stock_managed THEN 'AVAILABLE' WHEN NOT EXISTS (
-            SELECT 1 FROM recipe_bom b WHERE b.product_id=p.id AND b.status='ACTIVE'
-              AND b.effective_from<=now() AND (b.effective_to IS NULL OR b.effective_to>now())
-          ) OR EXISTS (
-            SELECT 1 FROM recipe_bom b JOIN recipe_bom_item bi ON bi.recipe_bom_id=b.id
-            WHERE b.product_id=p.id AND b.status='ACTIVE' AND b.effective_from<=now()
-              AND (b.effective_to IS NULL OR b.effective_to>now())
-              AND NOT EXISTS (
-                SELECT 1 FROM inventory_balance ib JOIN stock_location sl ON sl.id=ib.location_id
-                WHERE ib.ingredient_id=bi.ingredient_id AND sl.restaurant_id=$1 AND sl.is_active
-                  AND ib.available_qty >= ceil((bi.quantity/b.yield_quantity)* (1+bi.waste_percent/100)*1000000)/1000000
-              )
-          ) THEN 'UNAVAILABLE' ELSE 'AVAILABLE' END AS availability_status
+        `SELECT p.*,${productPromotionField()} AS image_promotion,p.availability_status AS configured_availability_status,c.name AS category_name,${comboCatalogFields},
+          CASE WHEN product_catalog_available(p.id,$1) THEN 'AVAILABLE' ELSE 'UNAVAILABLE' END AS availability_status
          FROM product p JOIN menu_category c ON c.id=p.category_id
          WHERE p.restaurant_id=$1 ORDER BY p.name`,
         [restaurant],
@@ -116,14 +110,18 @@ export function registerCatalog(
   });
   app.post('/core/products', { config: admin }, async (r) => {
     const b = object(r.body);
+    const kind = b.productKind ?? 'DISH';
+    if (!['DISH', 'COMBO'].includes(String(kind))) reject('Loại món không hợp lệ.', 400);
+    if (kind === 'DISH' && b.components !== undefined)
+      reject('Món lẻ không có thành phần combo.', 400);
     return transaction(db, async (c) => {
       await one(c, 'SELECT id FROM menu_category WHERE id=$1 AND restaurant_id=$2 AND is_active', [
         uuid(b.categoryId),
         restaurant,
       ]);
-      return one(
+      const product = await one(
         c,
-        `INSERT INTO product(restaurant_id,category_id,code,name,base_price,stock_managed,is_complimentary) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        `INSERT INTO product(restaurant_id,category_id,code,name,base_price,stock_managed,is_complimentary,product_kind) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
         [
           restaurant,
           b.categoryId,
@@ -132,8 +130,11 @@ export function registerCatalog(
           money(b.price, b.complimentary === true),
           b.stockManaged !== false,
           b.complimentary === true,
+          kind,
         ],
       );
+      if (kind === 'COMBO') await configureCombo(c, product.id, restaurant, b.components);
+      return one(c, 'SELECT * FROM product WHERE id=$1', [product.id]);
     });
   });
   app.patch('/core/products/:id', { config: admin }, async (r) => {
@@ -148,6 +149,21 @@ export function registerCatalog(
     if (!['AVAILABLE', 'UNAVAILABLE'].includes(availability))
       reject('Trạng thái món không hợp lệ.', 400);
     return transaction(db, async (c) => {
+      const existing = await one(
+        c,
+        'SELECT * FROM product WHERE id=$1 AND restaurant_id=$2 FOR UPDATE',
+        [id, restaurant],
+      );
+      if (b.productKind !== undefined && b.productKind !== existing.product_kind)
+        reject('Không đổi loại món sau khi tạo. Hãy tạo một món hoặc combo mới.', 400);
+      if (existing.product_kind === 'DISH' && b.components !== undefined)
+        reject('Món lẻ không có thành phần combo.', 400);
+      if (
+        existing.product_kind === 'COMBO' &&
+        b.stockManaged !== undefined &&
+        b.stockManaged !== existing.stock_managed
+      )
+        reject('Quản lý kho của combo được xác định từ các món thành phần.', 400);
       if (b.categoryId !== undefined)
         await one(c, 'SELECT id FROM menu_category WHERE id=$1 AND restaurant_id=$2', [
           uuid(b.categoryId),
@@ -155,18 +171,14 @@ export function registerCatalog(
         ]);
       let image: string | null | undefined;
       if (b.imageUrl !== undefined) {
-        if (typeof b.imageUrl !== 'string' || b.imageUrl.length > 2000)
-          reject('Địa chỉ ảnh không hợp lệ.', 400);
-        image = b.imageUrl.trim() || null;
-        if (
-          image &&
-          !/^\/api\/menu-images\/[a-f0-9-]{36}\.(png|jpg|webp)$/.test(image) &&
-          !image.startsWith('/menu/') &&
-          !/^https:\/\//.test(image)
-        )
-          reject('Ảnh cần dùng HTTPS hoặc ảnh trong /menu/.', 400);
+        try {
+          image = await validateMenuImageUrl(b.imageUrl);
+        } catch (error) {
+          if (error instanceof MenuImageError) reject(error.message, 400);
+          throw error;
+        }
       }
-      return one(
+      await one(
         c,
         `UPDATE product SET name=$1,base_price=$2,is_active=$3,availability_status=$4,version=version+1,
         category_id=COALESCE($8::uuid,category_id),description=CASE WHEN $9 THEN $10 ELSE description END,image_url=CASE WHEN $11 THEN $12 ELSE image_url END,stock_managed=COALESCE($13,stock_managed),is_complimentary=COALESCE($14,is_complimentary)
@@ -192,14 +204,26 @@ export function registerCatalog(
           b.complimentary ?? null,
         ],
       );
+      if (existing.product_kind === 'COMBO' && b.components !== undefined)
+        await configureCombo(c, id, restaurant, b.components);
+      if (
+        existing.product_kind === 'DISH' &&
+        b.stockManaged !== undefined &&
+        b.stockManaged !== existing.stock_managed
+      )
+        await refreshDependentCombos(c, id);
+      return one(c, 'SELECT * FROM product WHERE id=$1', [id]);
     });
   });
   app.get('/core/tables', { config: { permission: 'staff.workspace' } }, async () =>
     db.pool
       .query(
-        `SELECT t.*,a.name AS area_name,s.id AS session_id,s.verification_status,s.financial_status,s.opened_at,
+        `SELECT t.*,a.name AS area_name,a.is_active AS area_active,(SELECT count(*)::int FROM session_participant p WHERE p.session_id=s.id AND p.status='ACTIVE') AS participants,s.id AS session_id,s.verification_status,s.financial_status,s.opened_at,
+ (SELECT max(h.transferred_at) FROM table_transfer_history h WHERE h.from_table_id=t.id) AS last_transfer_at,
+ (SELECT max(cs.closed_at) FROM table_session cs WHERE cs.table_id=t.id) AS last_closed_at,
+ GREATEST((SELECT max(cs.closed_at) FROM table_session cs WHERE cs.table_id=t.id),(SELECT max(h.transferred_at) FROM table_transfer_history h WHERE h.from_table_id=t.id)) AS cleaning_since,
  (SELECT count(*)::int FROM payment_intent pi WHERE pi.session_id=s.id AND pi.status IN ('CREATED','PENDING') AND pi.expires_at>now()) AS pending_payments,
- (SELECT COALESCE(sum(amount),0)::text FROM financial_charge f WHERE f.session_id=s.id AND f.status='ACTIVE') AS charge_total,
+ (SELECT COALESCE(sum(amount-discount_amount),0)::text FROM financial_charge f WHERE f.session_id=s.id AND f.status='ACTIVE') AS charge_total,
  (SELECT outstanding_amount::text FROM session_financial_account f WHERE f.session_id=s.id) AS outstanding_amount
  FROM dining_table t JOIN dining_area a ON a.id=t.area_id LEFT JOIN table_session s ON s.table_id=t.id AND s.session_status='ACTIVE' WHERE t.restaurant_id=$1 ORDER BY a.sort_order,t.code`,
         [restaurant],

@@ -1,13 +1,19 @@
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { createDatabase } from '../packages/database/src/index.js';
+import { restaurantMenu, restaurantCombos } from '../packages/database/src/restaurant-data.js';
+import { validateDatabaseDocumentationTables } from './database-doc-inventory.js';
 import { seed, restaurantId } from '../packages/database/src/seed.js';
 import { buildApp } from '../apps/api/src/app.js';
 import { registerAuth } from '../apps/api/src/auth.js';
+const schemaSource = readFileSync(
+  new URL('../packages/database/prisma/schema.prisma', import.meta.url),
+  'utf8',
+);
 const logs: string[] = [
-  '# CORE45 — Rehearsal evidence',
+  '# QR Restaurant — Rehearsal evidence',
   new Date().toISOString(),
   'Each run creates its own empty database; existing development data is untouched.',
 ];
@@ -35,7 +41,10 @@ try {
         const rows = await db.pool.query<{ tablename: string }>(
           "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename<>'_prisma_migrations' ORDER BY tablename",
         );
-        assert.equal(rows.rows.length, 55);
+        validateDatabaseDocumentationTables(
+          rows.rows.map(({ tablename }) => tablename),
+          schemaSource,
+        );
         const result: Record<string, number> = {};
         for (const { tablename } of rows.rows) {
           assert.match(tablename, /^[a-z_]+$/);
@@ -81,14 +90,15 @@ try {
         await app.close();
       }
       const sample = await db.prisma.product.findMany({ select: { code: true, base_price: true } });
-      assert.equal(sample.length, 24);
+      const expectedCodes = [...restaurantMenu, ...restaurantCombos].map((row) => row.code).sort();
+      assert.deepEqual(sample.map((row) => row.code).sort(), expectedCodes);
       assert.ok(sample.every((p) => p.base_price >= 0n));
       logs.push(
         '## Run ' + run + ' — PASS',
         '- Empty DB migrate: PASS',
         '- Seed twice + migration rerun preserve data: PASS',
         '- Three logins / 3 allow / 6 deny: PASS',
-        '- Sample VND catalog query (24 dishes): PASS',
+        `- VND catalog query (${restaurantMenu.length} dishes + ${restaurantCombos.length} combos): PASS`,
         '```json',
         JSON.stringify(before, null, 2),
         '```',

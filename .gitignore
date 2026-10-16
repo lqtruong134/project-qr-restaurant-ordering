@@ -25,3 +25,18 @@ packages/database/generated/
 
 # Runtime uploads are persistent data, not source assets.
 var/
+
+# AI research artifacts stay outside source control; curated JSONL and notebooks remain tracked.
+/ai/**/artifacts/
+/ai/**/outputs/
+/ai/**/predictions/
+/ai/**/checkpoints/
+/ai/**/.cache/
+/ai/**/__pycache__/
+/ai/**/.ipynb_checkpoints/
+*.safetensors
+*.gguf
+*.ggml
+
+# Intermediate photo selection/preparation; packaged runtime assets are under packages/database/resources.
+/restaurant-media-work/

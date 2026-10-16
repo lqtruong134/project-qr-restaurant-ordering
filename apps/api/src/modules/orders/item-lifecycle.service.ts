@@ -8,7 +8,7 @@ import {
   event,
 } from '../shared/core-persistence.js';
 import { releaseItem, consume } from '../inventory/inventory.service.js';
-import { recalculate } from '../finance/ledger.service.js';
+import { reverseItemCharge } from '../finance/ledger.service.js';
 
 /** Batch is an aggregate. Never use its state to authorize an individual item transition. */
 export async function aggregateBatch(c: Connection, id: string, actor: Actor) {
@@ -82,6 +82,7 @@ export async function cancelItems(
   restaurant: string,
   actor: Actor,
   reason: string,
+  reasonCode = 'OTHER',
 ) {
   const sources = (
     await c.query(
@@ -114,23 +115,28 @@ export async function cancelItems(
     }
     await releaseItem(c, item.id);
     await c.query(
-      "UPDATE order_item SET status='CANCELLED',cancel_reason=$2,cancelled_by_type=$3,cancelled_by_user_id=$4,cancelled_by_participant_id=$5,version=version+1 WHERE id=$1",
+      "UPDATE order_item SET status='CANCELLED',cancel_reason=$2,cancelled_by_type=$3,cancelled_by_user_id=$4,cancelled_by_participant_id=$5,cancel_reason_code=$6,version=version+1 WHERE id=$1",
       [
         item.id,
         reason,
         actor.type,
         actor.type === 'USER' ? actor.id : null,
         actor.type === 'GUEST' ? actor.id : null,
+        reasonCode,
       ],
     );
-    await c.query(
-      "UPDATE financial_charge SET status='REVERSED',reversed_at=now() WHERE order_item_id=$1 AND status='ACTIVE'",
-      [item.id],
-    );
-    await c.query(
-      'UPDATE payment_allocation SET reversed_amount=allocated_amount WHERE financial_charge_id IN (SELECT id FROM financial_charge WHERE order_item_id=$1)',
-      [item.id],
-    );
+    await reverseItemCharge(c, item.id, sid);
+    if (actor.type === 'USER')
+      await c.query(
+        "INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason,details) VALUES($1,$2,'CANCEL_ITEM','ORDER_ITEM',$3,$4,$5)",
+        [
+          restaurant,
+          actor.id,
+          item.id,
+          reason,
+          JSON.stringify({ reasonCode, previousStatus: item.status, chargeRetained: false }),
+        ],
+      );
     await history(c, item.order_batch_id, item.id, item.status, 'CANCELLED', actor, reason);
     cancelled.push(item.id);
     batches.add(item.order_batch_id);
@@ -140,18 +146,6 @@ export async function cancelItems(
   for (const id of batches) {
     await aggregateBatch(c, id, actor);
     await event(c, id, 'ITEMS_CANCELLED');
-  }
-  if (cancelled.length) {
-    await c.query(
-      "UPDATE payment_intent SET status='CANCELLED',version=version+1 WHERE session_id=$1 AND status IN ('CREATED','PENDING')",
-      [sid],
-    );
-    const account = await recalculate(c, sid);
-    if (BigInt(account.refund_due_amount) > 0n)
-      await c.query(
-        "INSERT INTO operational_alert(session_id,table_id,alert_type,severity,outstanding_amount) SELECT id,table_id,'REFUND_REQUIRED','WARNING',$2 FROM table_session WHERE id=$1",
-        [sid, account.refund_due_amount],
-      );
   }
   return { status: 'ok', cancelled, skipped, alreadyCancelled };
 }

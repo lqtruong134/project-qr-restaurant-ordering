@@ -61,6 +61,18 @@ export function registerUsers(app: FastifyInstance, db: Database, restaurant: st
         [id, restaurant],
       );
       if (before.status !== status || before.role !== role) text(b.reason, 500);
+      if (
+        (status !== 'ACTIVE' || role !== 'STAFF') &&
+        (
+          await c.query(
+            "SELECT id FROM support_request WHERE acknowledged_by=$1 AND status='ACKNOWLEDGED' LIMIT 1",
+            [id],
+          )
+        ).rowCount
+      )
+        reject(
+          'Nhân viên còn yêu cầu hỗ trợ đang phụ trách. Hãy hoàn tất hoặc bàn giao được nhận trước khi thu hồi quyền.',
+        );
       const rr = await one(c, 'SELECT id FROM role WHERE code=$1', [role]);
       await c.query(
         'UPDATE user_role SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL AND role_id<>$2',

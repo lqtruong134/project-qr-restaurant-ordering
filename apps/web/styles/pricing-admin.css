@@ -1,0 +1,277 @@
+.pricing-admin {
+  min-width: 0;
+}
+.pricing-rule-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.pricing-rule-note > svg {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+.pricing-rule-note p {
+  margin: 6px 0 0;
+}
+.pricing-toolbar {
+  align-items: end;
+  gap: 12px;
+  margin: 20px 0;
+}
+.pricing-toolbar > label {
+  min-width: 180px;
+}
+.pricing-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.pricing-card-grid .core-card {
+  min-width: 0;
+  margin: 0;
+}
+.pricing-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pricing-card-heading h3,
+.pricing-card-heading h4 {
+  margin: 0 0 4px;
+  overflow-wrap: anywhere;
+}
+.pricing-card-heading .status-pill {
+  flex: 0 0 auto;
+}
+.pricing-benefit {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--primary, #386568);
+  margin: 16px 0 12px;
+}
+.pricing-benefit small {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.pricing-facts {
+  margin: 0 0 20px;
+  display: grid;
+  gap: 12px;
+}
+.pricing-facts > div {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 12px;
+}
+.pricing-facts dt {
+  color: var(--text-muted);
+}
+.pricing-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.pricing-editor {
+  max-width: none;
+}
+.pricing-editor fieldset {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0 0 20px;
+  padding: 16px;
+  border: 1px solid var(--border, #d9e1e4);
+  border-radius: 12px;
+}
+.pricing-editor legend {
+  max-width: calc(100% - 16px);
+  box-sizing: border-box;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  padding: 0 8px;
+  font-weight: 700;
+}
+.pricing-editor fieldset > p {
+  margin: 0;
+}
+.pricing-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.pricing-fields label,
+.pricing-editor fieldset > label {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+.pricing-fields input,
+.pricing-fields select,
+.pricing-editor textarea,
+.pricing-editor fieldset > label input,
+.pricing-editor fieldset > label select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.pricing-weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.pricing-weekdays .policy-consent {
+  margin: 0;
+  gap: 8px;
+}
+.pricing-choice-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--border, #d9e1e4);
+  border-radius: 10px;
+}
+.pricing-choice-list .policy-consent {
+  align-items: flex-start;
+  margin: 0;
+  padding: 8px;
+}
+.pricing-choice-list small {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+}
+.pricing-admin .policy-consent input[type='checkbox'] {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 2px 0 0;
+}
+.pricing-policy-summary {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.pricing-policy-summary h3 {
+  margin: 4px 0;
+}
+.pricing-policy-history {
+  margin: 24px 0 32px;
+}
+.pricing-tax-product {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.pricing-tax-product h4 {
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+}
+.pricing-tax-product p {
+  margin: 12px 0 0;
+}
+.pricing-tax-product button {
+  flex: 0 0 auto;
+}
+.pricing-history {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.pricing-history h3 {
+  margin-top: 0;
+}
+.pricing-timeline {
+  padding-left: 22px;
+}
+.pricing-timeline li {
+  margin-bottom: 18px;
+  padding-left: 6px;
+}
+.pricing-timeline p {
+  margin: 6px 0;
+}
+.pricing-history time {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.pricing-use-list {
+  display: grid;
+  gap: 12px;
+}
+.pricing-use-list h4 {
+  margin: 0;
+}
+@media (max-width: 1100px) {
+  .pricing-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .pricing-fields,
+  .pricing-choice-list,
+  .pricing-history {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pricing-policy-summary {
+    flex-direction: column;
+  }
+  .pricing-facts > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .pricing-card-heading {
+    flex-wrap: wrap;
+  }
+  .pricing-tax-product {
+    flex-direction: column;
+  }
+  .pricing-editor fieldset {
+    padding: 12px;
+  }
+  .pricing-toolbar > label {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+.pricing-editor fieldset > :not(legend) + :not(legend) {
+  margin-top: 14px;
+}
+
+.pricing-editor label.policy-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 36px;
+}
+.pricing-editor label.policy-consent > span {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.5;
+}
+
+.report-metrics .report-value-unavailable {
+  font-size: 1rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.report-unavailable {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.pricing-policy-summary > button {
+  flex: 0 0 auto;
+}
+.pricing-policy-history .core-card > button {
+  display: block;
+  margin-top: 12px;
+}

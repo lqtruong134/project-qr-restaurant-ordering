@@ -1,3 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { validateDatabaseDocumentationTables } from '../scripts/database-doc-inventory.js';
+import {
+  restaurantMenu as demoMenu,
+  restaurantStaff as demoStaff,
+  restaurantCombos,
+} from '../packages/database/src/restaurant-data.js';
 import { beforeAll, afterAll, beforeEach, afterEach, it, expect } from 'vitest';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -60,15 +67,30 @@ beforeEach(async () => {
 afterEach(async () => {
   await app.close();
 });
-it('migrates exactly 55 business tables and seed twice preserves counts and passwords', async () => {
+it('migrates the complete business schema and seed twice preserves counts and passwords', async () => {
   const rows = await db.pool.query(
     "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'",
   );
-  expect(rows.rowCount).toBe(55);
+  const names = rows.rows.map((row) => String(row.tablename));
+  expect(
+    validateDatabaseDocumentationTables(
+      names,
+      readFileSync('packages/database/prisma/schema.prisma', 'utf8'),
+    ),
+  ).toBe(names.length);
+  expect(names).toEqual(
+    expect.arrayContaining([
+      'restaurant_tax_policy',
+      'discount_program',
+      'session_promotion',
+      'promotion_request',
+    ]),
+  );
+  expect(rows.rows.map((row) => row.tablename)).toContain('product_combo_item');
   const before = await db.prisma.app_user.findMany({ orderBy: { username: 'asc' } });
   await seed(db, password);
   const after = await db.prisma.app_user.findMany({ orderBy: { username: 'asc' } });
-  expect(after.length).toBe(8);
+  expect(after.length).toBe(demoStaff.length);
   expect(after.map((u) => u.id)).toEqual(before.map((u) => u.id));
   expect(
     after.every(
@@ -76,7 +98,7 @@ it('migrates exactly 55 business tables and seed twice preserves counts and pass
         u.password_hash === before[i]?.password_hash && u.password_hash.startsWith('$argon2id$'),
     ),
   ).toBe(true);
-  expect(await db.prisma.product.count()).toBe(24);
+  expect(await db.prisma.product.count()).toBe(demoMenu.length + restaurantCombos.length);
 });
 it('repeated seed preserves changed stock, table state, prices and disabled employees', async () => {
   const balance = await db.prisma.inventory_balance.findFirstOrThrow();
@@ -459,4 +481,84 @@ it('classifies credentials, permission, locked and expired failures and clears H
   const expired = await app.inject({ url: '/auth/me', headers: { cookie: 'access=invalid' } });
   expect(expired.statusCode).toBe(401);
   expect(expired.json().errorCode).toBe('SESSION_EXPIRED');
+});
+
+it('expired access preserves the refresh cookie and rejects a mutation before business execution', async () => {
+  let mutations = 0;
+  app.post('/test-refresh-mutation', { config: { authenticated: true } }, async () => ({
+    saved: ++mutations,
+  }));
+  const signedIn = await login();
+  clock += 901000;
+  const denied = await app.inject({
+    method: 'POST',
+    url: '/test-refresh-mutation',
+    headers: { ...headers, cookie: cookies(signedIn) },
+    payload: {},
+  });
+  expect(denied.statusCode).toBe(401);
+  expect(denied.json().errorCode).toBe('ACCESS_EXPIRED');
+  expect(denied.cookies).toHaveLength(0);
+  expect(mutations).toBe(0);
+  const missing = await app.inject({
+    url: '/auth/me',
+    headers: {
+      cookie: signedIn.cookies
+        .filter((c) => c.name === 'refresh')
+        .map((c) => c.name + '=' + c.value)
+        .join('; '),
+    },
+  });
+  expect(missing.json().errorCode).toBe('ACCESS_EXPIRED');
+  expect(missing.cookies).toHaveLength(0);
+  const renewed = await app.inject({
+    method: 'POST',
+    url: '/auth/refresh',
+    headers: { ...headers, cookie: cookies(signedIn) },
+  });
+  expect(renewed.statusCode).toBe(200);
+  const saved = await app.inject({
+    method: 'POST',
+    url: '/test-refresh-mutation',
+    headers: { ...headers, cookie: cookies(renewed) },
+    payload: {},
+  });
+  expect(saved.json().saved).toBe(1);
+  expect(mutations).toBe(1);
+});
+it('renewal through an eight-hour shift keeps the original absolute expiry and rejects revoked refresh', async () => {
+  const original = await login();
+  let current = original;
+  const staff = await db.prisma.app_user.findFirstOrThrow({ where: { username: accounts.staff } });
+  const absolute = staff.refresh_expires_at!.getTime();
+  for (let hour = 0; hour < 8; hour++) {
+    clock += 3600000;
+    expect(
+      (await app.inject({ url: '/auth/me', headers: { cookie: cookies(current) } })).json()
+        .errorCode,
+    ).toBe('ACCESS_EXPIRED');
+    current = await app.inject({
+      method: 'POST',
+      url: '/auth/refresh',
+      headers: { ...headers, cookie: cookies(current) },
+    });
+    expect(current.statusCode).toBe(200);
+    expect(
+      (await app.inject({ url: '/auth/me', headers: { cookie: cookies(current) } })).statusCode,
+    ).toBe(200);
+  }
+  expect(
+    (
+      await db.prisma.app_user.findUniqueOrThrow({ where: { id: staff.id } })
+    ).refresh_expires_at!.getTime(),
+  ).toBe(absolute);
+  const freshLogin = await login();
+  expect(freshLogin.statusCode).toBe(200);
+  const revoked = await app.inject({
+    method: 'POST',
+    url: '/auth/refresh',
+    headers: { ...headers, cookie: cookies(current) },
+  });
+  expect(revoked.statusCode).toBe(401);
+  expect(revoked.json().errorCode).toBe('SESSION_EXPIRED');
 });

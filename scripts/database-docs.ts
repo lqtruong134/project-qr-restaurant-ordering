@@ -1,8 +1,16 @@
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createDatabase } from '../packages/database/src/index.js';
+import { validateDatabaseDocumentationTables } from './database-doc-inventory.js';
 
 const db = createDatabase(process.env.DATABASE_URL!);
+const schemaSource = readFileSync(
+  new URL('../packages/database/prisma/schema.prisma', import.meta.url),
+  'utf8',
+);
+const outputDirectory = fileURLToPath(new URL('../docs/database/', import.meta.url));
 const esc = (s: string) =>
   s
     .replaceAll('&', '&amp;')
@@ -12,13 +20,16 @@ const esc = (s: string) =>
 const cell = (s: string | null) => (s ?? '—').replaceAll('|', '\\|').replaceAll('\n', ' ');
 try {
   const tables = (
-    await db.pool.query<{ name: string; description: string | null }>(
-      `SELECT c.relname name,obj_description(c.oid) description FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND c.relname<>'_prisma_migrations' ORDER BY c.relname`,
+    await db.pool.query<{ oid: string; name: string; description: string | null }>(
+      `SELECT c.oid::text oid,c.relname name,obj_description(c.oid) description FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p') AND c.relname<>'_prisma_migrations' ORDER BY c.relname`,
     )
   ).rows;
-  if (tables.length !== 55) throw new Error('Expected exactly 55 business tables');
+  const tableCount = validateDatabaseDocumentationTables(
+    tables.map((table) => table.name),
+    schemaSource,
+  );
   const md = [
-    '# Từ điển dữ liệu vật lý — 55 bảng',
+    `# Từ điển dữ liệu vật lý — ${tableCount} bảng`,
     '',
     'Sinh từ metadata PostgreSQL bằng `pnpm docs:database`, không chứa bản ghi nghiệp vụ hay thông tin đăng nhập. Kiểu, giá trị mặc định và các ràng buộc bên dưới lấy trực tiếp từ database đã migrate.',
     '',
@@ -27,7 +38,7 @@ try {
   ];
   const dot = [
     'digraph ERD {',
-    'graph [rankdir=LR,bgcolor="#fafbf8",pad="0.5",nodesep="0.55",ranksep="1.3",label="QR RESTAURANT • PHYSICAL ERD • 55 TABLES",labelloc=t,fontname="DejaVu Sans",fontsize=22];',
+    `graph [rankdir=LR,bgcolor="#fafbf8",pad="0.5",nodesep="0.55",ranksep="1.3",label="QR RESTAURANT • PHYSICAL ERD • ${tableCount} TABLES",labelloc=t,fontname="DejaVu Sans",fontsize=22];`,
     'node [shape=plain,fontname="DejaVu Sans"];',
     'edge [color="#638478",fontname="DejaVu Sans",fontsize=9,arrowsize=0.6,labeldistance=2.5];',
   ];
@@ -45,14 +56,14 @@ try {
         `SELECT a.attname name,format_type(a.atttypid,a.atttypmod) type,a.attnotnull required,pg_get_expr(d.adbin,d.adrelid) default_value,col_description(a.attrelid,a.attnum) description,
        EXISTS(SELECT 1 FROM pg_constraint k WHERE k.conrelid=a.attrelid AND k.contype='p' AND a.attnum=ANY(k.conkey)) pk,
        EXISTS(SELECT 1 FROM pg_constraint k WHERE k.conrelid=a.attrelid AND k.contype='f' AND a.attnum=ANY(k.conkey)) fk
-       FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=$1::regclass AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum`,
-        [table.name],
+       FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=$1::oid AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum`,
+        [table.oid],
       )
     ).rows;
     const constraints = (
       await db.pool.query<{ name: string; definition: string }>(
-        'SELECT conname name,pg_get_constraintdef(oid) definition FROM pg_constraint WHERE conrelid=$1::regclass ORDER BY contype,conname',
-        [table.name],
+        'SELECT conname name,pg_get_constraintdef(oid) definition FROM pg_constraint WHERE conrelid=$1::oid ORDER BY contype,conname',
+        [table.oid],
       )
     ).rows;
     const indexes = (
@@ -119,8 +130,8 @@ try {
        (SELECT string_agg(a.attname,', ' ORDER BY u.ord) FROM unnest(k.conkey) WITH ORDINALITY u(num,ord) JOIN pg_attribute a ON a.attrelid=k.conrelid AND a.attnum=u.num) columns,
        (SELECT bool_and(a.attnotnull) FROM pg_attribute a WHERE a.attrelid=k.conrelid AND a.attnum=ANY(k.conkey)) required,
        EXISTS(SELECT 1 FROM pg_index i WHERE i.indrelid=k.conrelid AND i.indisunique AND i.indisvalid AND i.indpred IS NULL AND i.indexprs IS NULL AND ARRAY(SELECT x.num FROM unnest(i.indkey) WITH ORDINALITY x(num,ord) WHERE x.ord<=i.indnkeyatts)::smallint[] <@ k.conkey) unique_child
-       FROM pg_constraint k WHERE k.conrelid=$1::regclass AND k.contype='f' ORDER BY k.conname`,
-        [table.name],
+       FROM pg_constraint k WHERE k.conrelid=$1::oid AND k.contype='f' ORDER BY k.conname`,
+        [table.oid],
       )
     ).rows;
     for (const fk of fks)
@@ -144,10 +155,15 @@ try {
     'legend [label="? nullable • PK/FK from database constraints\nPartial unique limits active rows, not all history",shape=box,fontname="DejaVu Sans",fontsize=12];',
     '}',
   );
-  writeFileSync('docs/database/data-dictionary.md', md.join('\n').trimEnd() + '\n');
-  writeFileSync('docs/database/physical.dot', dot.join('\n') + '\n');
-  execFileSync('dot', ['-Tsvg', 'docs/database/physical.dot', '-o', 'docs/database/physical.svg']);
-  console.log('Exported data dictionary and physical ERD from 55 live tables.');
+  const diagram = dot.join('\n') + '\n';
+  const svg = execFileSync('dot', ['-Tsvg'], { input: diagram });
+  mkdirSync(outputDirectory, { recursive: true });
+  writeFileSync(join(outputDirectory, 'data-dictionary.md'), md.join('\n').trimEnd() + '\n');
+  writeFileSync(join(outputDirectory, 'physical.dot'), diagram);
+  writeFileSync(join(outputDirectory, 'physical.svg'), svg);
+  console.log(
+    `Exported data dictionary and physical ERD from ${tableCount} public business tables.`,
+  );
 } finally {
   await db.close();
 }

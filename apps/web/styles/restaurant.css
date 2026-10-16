@@ -115,6 +115,18 @@ textarea {
 input::placeholder {
   color: #929990;
 }
+/* Native choice controls must not inherit the size of text fields. */
+input:is([type='checkbox'], [type='radio']) {
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: var(--brand);
+}
 label {
   font-size: var(--text-body);
   font-weight: 600;
@@ -2705,5 +2717,50 @@ textarea {
     width: 100%;
     text-align: left;
     justify-content: flex-start;
+  }
+}
+
+/* Keep complete monetary totals readable next to the dashboard icons. */
+@media (max-width: 1400px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 540px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* Keep every collapsed navigation control, including reload, within the icon rail. */
+@media (min-width: 801px) {
+  .admin-layout.nav-collapsed > .core-tabs {
+    padding: 8px 8px 0 0;
+  }
+  .admin-layout.nav-collapsed > .core-tabs > button,
+  .admin-layout.nav-collapsed > .core-tabs > .core-action > button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 10px 8px;
+    gap: 0;
+    font-size: var(--text-body);
+    text-align: center;
+  }
+  .admin-layout.nav-collapsed > .core-tabs .sidebar-label {
+    display: none;
+  }
+  .admin-layout.nav-collapsed > .core-tabs > .core-action {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+  .admin-layout.nav-collapsed > .core-tabs svg {
+    flex-shrink: 0;
+    margin: 0;
+  }
+  .admin-layout > .core-tabs button:focus-visible {
+    outline: 2px solid #5b895a;
+    outline-offset: 2px;
   }
 }

@@ -1,0 +1,15 @@
+# Candidate profile only; not tested on a GPU by this change.
+# Verify on the selected Colab/Kaggle CUDA runtime; restart kernel after installing.
+# Torch/Triton/CUDA are runtime-owned: record their resolved versions in the manifest.
+unsloth==2026.10.5
+unsloth_zoo==2026.10.5
+transformers==4.57.6
+trl==0.22.2
+datasets==4.3.0
+# Remaining direct runtime dependencies are declared; pip-freeze records resolution.
+accelerate
+peft
+bitsandbytes
+sentencepiece
+protobuf
+huggingface_hub>=0.34.0

@@ -11,7 +11,11 @@ const issues = [];
 const localSecrets = existsSync('.env')
   ? readFileSync('.env', 'utf8')
       .split('\n')
-      .filter((line) => /^(POSTGRES_PASSWORD|AUTH_SECRET|SEED_PASSWORD)=/.test(line))
+      .filter((line) =>
+        /^(POSTGRES_PASSWORD|AUTH_SECRET|SEED_PASSWORD|PAYOS_CLIENT_ID|PAYOS_API_KEY|PAYOS_CHECKSUM_KEY)=/.test(
+          line,
+        ),
+      )
       .map((line) => line.slice(line.indexOf('=') + 1))
       .map((value) => value.trim().replace(/^["']|["']$/g, ''))
       .filter((value) => value.length >= 8)

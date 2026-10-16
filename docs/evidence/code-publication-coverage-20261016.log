@@ -1,0 +1,328 @@
+$ node scripts/run.mjs coverage
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/home/quyettruong05/projects/qr-ordering-thesis[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+(node:161782) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ [32m✓[39m tests/core45.integration.test.ts [2m([22m[2m22 tests[22m[2m)[22m[33m 33675[2mms[22m[39m
+   [33m[2m✓[22m[39m generates unique internal receipt codes concurrently across restaurants and posts each receipt once [33m 481[2mms[22m[39m
+   [33m[2m✓[22m[39m searches old history before pagination, validates periods and enforces role and personal scope [33m 1719[2mms[22m[39m
+   [33m[2m✓[22m[39m executes a reviewed guest order, stock consumption, split payment, snapshot and close without duplicates [33m 1561[2mms[22m[39m
+   [33m[2m✓[22m[39m cancels a paid unprepared order and refunds once with a reconciled zero balance [33m 603[2mms[22m[39m
+   [33m[2m✓[22m[39m expires reviews and payments, releases stock and publishes the committed outbox [33m 385[2mms[22m[39m
+   [33m[2m✓[22m[39m enforces guest ownership and version conflicts, stock rollback, revoked QR and support claiming [33m 422[2mms[22m[39m
+   [33m[2m✓[22m[39m restricts debt write-off to admin and only after the kitchen has finished [33m 492[2mms[22m[39m
+   [33m[2m✓[22m[39m lets guests withdraw their own pending batch and closes only truly idle empty sessions [33m 552[2mms[22m[39m
+   [33m[2m✓[22m[39m rejects expired or inactive-area QR while allowing an existing table session to finish [33m 343[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps hidden categories consistent across menu, cart edits and order submission [33m 334[2mms[22m[39m
+   [33m[2m✓[22m[39m can reserve one serving of every canonical dish in valid batches and release exactly once [33m 10676[2mms[22m[39m
+   [33m[2m✓[22m[39m UAT v2: item ownership, partial cancellation, individual acceptance and atomic same-session serving [33m 1702[2mms[22m[39m
+   [33m[2m✓[22m[39m UAT v2: unmanaged menu, late cancellation retains stock and money, explicit waiver and partial refund [33m 1047[2mms[22m[39m
+   [33m[2m✓[22m[39m hands support over only by its owner, validates service permission and records the handover [33m 394[2mms[22m[39m
+ [32m✓[39m tests/restaurant-workforce-history.integration.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 46513[2mms[22m[39m
+   [33m[2m✓[22m[39m bootstrap retains personal hierarchy and policy premiums instead of a flat night-shift rate [33m 1391[2mms[22m[39m
+   [33m[2m✓[22m[39m previews using database guards, rolls back everything, and truncates operational work at the supplied clock [33m 1672[2mms[22m[39m
+   [33m[2m✓[22m[39m calculates historical attendance with holiday and night premiums, retains exceptions, and agrees with staff actions [33m 22858[2mms[22m[39m
+   [33m[2m✓[22m[39m pays closed August and September slips individually while October remains a draft with exact pay snapshots [33m 301[2mms[22m[39m
+   [33m[2m✓[22m[39m reruns idempotently and refuses to overwrite immutable attendance or finalized payroll evidence [33m 348[2mms[22m[39m
+ [32m✓[39m tests/restaurant-history.integration.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 29057[2mms[22m[39m
+   [33m[2m✓[22m[39m previews deterministically without creating sessions and ignores future restaurant dates [33m 586[2mms[22m[39m
+   [33m[2m✓[22m[39m plans the complete operating period with several thousand sessions and diverse menu items [33m 6964[2mms[22m[39m
+   [33m[2m✓[22m[39m imports settled sessions with frozen combo contents, approved refunds, cash change and balanced inventory [33m 15400[2mms[22m[39m
+   [33m[2m✓[22m[39m detects an inconsistent stored account and restores it by transaction rollback [33m 326[2mms[22m[39m
+   [33m[2m✓[22m[39m rejects late role grants and recipe parts without weakening append-only policy guards [33m 346[2mms[22m[39m
+ [32m✓[39m tests/payment-collection.integration.test.ts [2m([22m[2m33 tests[22m[2m)[22m[33m 41036[2mms[22m[39m
+   [33m[2m✓[22m[39m guest calls staff once with preferred method and reserves no money, including concurrent retries [33m 1099[2mms[22m[39m
+   [33m[2m✓[22m[39m own-dish collection allocates only to that guest, even when another guest ordered first [33m 837[2mms[22m[39m
+   [33m[2m✓[22m[39m cash 500000 for a 40000 payment records 40000 revenue and 460000 change; retry records once [33m 454[2mms[22m[39m
+   [33m[2m✓[22m[39m participant from another table and over-collection cannot reserve or pay [33m 741[2mms[22m[39m
+   [33m[2m✓[22m[39m another staff cannot collect a claimed payment request without handoff [33m 573[2mms[22m[39m
+   [33m[2m✓[22m[39m bank payment accepts a private screenshot in place of typed reference; image alone is not payment [33m 861[2mms[22m[39m
+   [33m[2m✓[22m[39m proof rejects unsupported file content and duplicate successful screenshot [33m 682[2mms[22m[39m
+   [33m[2m✓[22m[39m full payment completes all typed cash calls; partial payment leaves other guests waiting [33m 1102[2mms[22m[39m
+   [33m[2m✓[22m[39m a typed payment call requires explicit acceptance, cannot be bypassed by direct collection, and two claims have one owner [33m 828[2mms[22m[39m
+   [33m[2m✓[22m[39m handoff transfers payment confirmation, proof upload and cancellation rights only after acceptance [33m 1445[2mms[22m[39m
+   [33m[2m✓[22m[39m an old unlinked intent cannot confirm after a payment call is claimed by another employee [33m 763[2mms[22m[39m
+   [33m[2m✓[22m[39m ending a call without collecting money requires a reason and leaves the invoice unpaid [33m 485[2mms[22m[39m
+   [33m[2m✓[22m[39m settling the table ends other payment calls, keeps unrelated support open and records money once [33m 598[2mms[22m[39m
+   [33m[2m✓[22m[39m a legacy bill call without a preferred method follows the same acceptance and collection ownership rules [33m 673[2mms[22m[39m
+   [33m[2m✓[22m[39m paid before kitchen acceptance shows exact blockers and closing creates shared cleaning work for both employees [33m 1080[2mms[22m[39m
+   [33m[2m✓[22m[39m close preview lists unpaid food, pending collection and support together without masking the cooking reason [33m 521[2mms[22m[39m
+   [33m[2m✓[22m[39m admin approves the refund document before staff execute it; guest sees safe partial/full history and alerts clear only after return [33m 1111[2mms[22m[39m
+   [33m[2m✓[22m[39m requires explicit admin approval for old refund documents and deduplicates concurrent approvals [33m 564[2mms[22m[39m
+   [33m[2m✓[22m[39m staff work reflects only approved amounts while guest communication and further admin review remain independent [33m 466[2mms[22m[39m
+   [33m[2m✓[22m[39m rechecks the whole session balance before approving an old document, including a second guest order [33m 1848[2mms[22m[39m
+   [33m[2m✓[22m[39m does not invent an admin refund decision when none exists [33m 653[2mms[22m[39m
+   [33m[2m✓[22m[39m requires actual change handover, safely deduplicates concurrent confirmations, and invalidates a receipt after new items [33m 1417[2mms[22m[39m
+   [33m[2m✓[22m[39m preparation has not started: unavailable releases reserves once, not physical stock, and alerts both admin and service even unpaid [33m 646[2mms[22m[39m
+   [33m[2m✓[22m[39m 'fully prepaid': a pre-preparation stop preserves history and refunds only the actual overpayment [33m 1283[2mms[22m[39m
+   [33m[2m✓[22m[39m 'partly prepaid': a pre-preparation stop preserves history and refunds only the actual overpayment [33m 1146[2mms[22m[39m
+   [33m[2m✓[22m[39m 'still owes for the remaining dish': a pre-preparation stop preserves history and refunds only the actual overpayment [33m 1100[2mms[22m[39m
+   [33m[2m✓[22m[39m old single-item refund history stays linked to the original stop when a later unpaid item is stopped [33m 596[2mms[22m[39m
+   [33m[2m✓[22m[39m multi-item documents keep shared actual refund totals without inventing per-item money allocations [33m 899[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps two cash tenders, actual change, invoice credits and refunds distinct across guest, admin and frozen receipts [33m 1164[2mms[22m[39m
+   [33m[2m✓[22m[39m closed sessions reject cancellation and waiver without changing the final receipt or ledger [33m 699[2mms[22m[39m
+   [33m[2m✓[22m[39m closing and waiving race on the session lock, so a settled closed receipt cannot acquire a refund liability [33m 721[2mms[22m[39m
+   [33m[2m✓[22m[39m refund documents use the remaining invoice payment, not cash tender, and can split across two original payments [33m 1418[2mms[22m[39m
+ [32m✓[39m tests/support.integration.test.ts [2m([22m[2m29 tests[22m[2m)[22m[33m 18961[2mms[22m[39m
+   [33m[2m✓[22m[39m guest state follows NEW/ACK/RESOLVED and excludes other participants and handoff internals [33m 467[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL pending owner guard rejects ownership gaps and session cannot close with active support [33m 518[2mms[22m[39m
+ [32m✓[39m tests/combo.integration.test.ts [2m([22m[2m19 tests[22m[2m)[22m[33m 24742[2mms[22m[39m
+   [33m[2m✓[22m[39m adds poster dishes across categories and units with audited opening stock only for new ingredients, preserving legacy records [33m 2162[2mms[22m[39m
+   [33m[2m✓[22m[39m ordering two weekend combos reserves four teas and cancel-before-preparation releases every reservation with a frozen bill line [33m 635[2mms[22m[39m
+   [33m[2m✓[22m[39m uses the same image store for bootstrap photos and admin uploads and rejects broken product image links [33m 318[2mms[22m[39m
+   [33m[2m✓[22m[39m upgrades only the exact earlier set template, preserves already ordered four-part snapshots and money, and reruns without changes [33m 1443[2mms[22m[39m
+   [33m[2m✓[22m[39m skips a customized earlier set when its name, description, price, photo, selling state or component portions differ [33m 2839[2mms[22m[39m
+   [33m[2m✓[22m[39m seeds real fixed contents, lower bundle prices and aggregated recipes; reruns preserve custom prices and stock [33m 2088[2mms[22m[39m
+   [33m[2m✓[22m[39m adds only missing dishes and combos while preserving current users, prices, recipes, stock and movements [33m 910[2mms[22m[39m
+   [33m[2m✓[22m[39m rejects empty, duplicate, nested, disabled and cross-restaurant members and restricts configuration to admin [33m 354[2mms[22m[39m
+   [33m[2m✓[22m[39m merges shared ingredients, reserves for every combo and consumes once when the whole bundle starts preparation [33m 644[2mms[22m[39m
+   [33m[2m✓[22m[39m blocks a combo when separate portions fit the stock but the shared aggregate does not, rolling back every reservation [33m 517[2mms[22m[39m
+   [33m[2m✓[22m[39m stops catalogue and new orders when a component is unavailable or its category is disabled [33m 383[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps the configured selling state separate from stock availability when admin changes images [33m 790[2mms[22m[39m
+   [33m[2m✓[22m[39m publishes a new aggregated recipe after a component change while ordered contents and ingredient snapshots stay unchanged [33m 566[2mms[22m[39m
+   [33m[2m✓[22m[39m shows fixed contents in a guest cart and rejects sending a silently changed combo at the same price [33m 858[2mms[22m[39m
+   [33m[2m✓[22m[39m refunds the whole prepaid combo only after admin approval and lets staff complete the approved payment [33m 736[2mms[22m[39m
+ [32m✓[39m tests/policy.integration.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 18176[2mms[22m[39m
+   [33m[2m✓[22m[39m stores server acceptance time and immutable version without demanding acceptance on active state/profile access [33m 303[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps leave behavior: deletes only unsent own cart, retains orders, acceptance and debt, clears cookie [33m 531[2mms[22m[39m
+   [33m[2m✓[22m[39m guest cancels only own submitted items, and staff cancels accepted items with release, reversal and audit [33m 802[2mms[22m[39m
+   [33m[2m✓[22m[39m kitchen out-of-stock is allowed before preparation only and does not consume stock or charge twice [33m 357[2mms[22m[39m
+   [33m[2m✓[22m[39m restaurant fault at IN_PREPARATION retains stock/COGS, needs admin and reverses paid money once in one decision [33m 1308[2mms[22m[39m
+   [33m[2m✓[22m[39m restaurant fault at READY retains stock/COGS, needs admin and reverses paid money once in one decision [33m 1375[2mms[22m[39m
+   [33m[2m✓[22m[39m late customer change retains charge; rejecting a kitchen claim records the managerial decision [33m 468[2mms[22m[39m
+   [33m[2m✓[22m[39m served complaint needs admin waiver, retains lifecycle and COGS, and reduces served net sales without changing cash history [33m 415[2mms[22m[39m
+   [33m[2m✓[22m[39m concurrent admin approval adopts the saved kitchen reason once and preserves the separate guest task [33m 348[2mms[22m[39m
+   [33m[2m✓[22m[39m admin first, staff second: unresolved guest communication blocks close until confirmed and freezes a correct bill [33m 456[2mms[22m[39m
+   [33m[2m✓[22m[39m admin creates and approves refund documents while only staff executes the actual return [33m 584[2mms[22m[39m
+ [32m✓[39m tests/promotion-vat.integration.test.ts [2m([22m[2m22 tests[22m[2m)[22m[33m 15270[2mms[22m[39m
+   [33m[2m✓[22m[39m extracts VAT after reduction; cash received, change and net payable remain distinct [33m 727[2mms[22m[39m
+   [33m[2m✓[22m[39m freezes paid line snapshots, leaves new food undiscounted and retains remaining benefit after cancellation [33m 514[2mms[22m[39m
+   [33m[2m✓[22m[39m revalidates minimum before payment when food is cancelled [33m 465[2mms[22m[39m
+   [33m[2m✓[22m[39m blocks changes during a pending collection and allows them after cancellation [33m 440[2mms[22m[39m
+   [33m[2m✓[22m[39m reserves the final global use concurrently and releases it on removal; replay is idempotent [33m 567[2mms[22m[39m
+   [33m[2m✓[22m[39m releases expired holds, rejects expired programs, and prevents combo value contributing to thresholds [33m 638[2mms[22m[39m
+   [33m[2m✓[22m[39m chooses the best automatic benefit, explicit code overrides it, removal suppresses it [33m 465[2mms[22m[39m
+   [33m[2m✓[22m[39m distinguishes mixed VAT groups, exempt and zero; changing product tax does not rewrite ordered lines [33m 490[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps closed snapshots identical and captures promotion/VAT in receipt fingerprint [33m 351[2mms[22m[39m
+   [33m[2m✓[22m[39m guest codes are checked by the server for the guest own session [33m 348[2mms[22m[39m
+   [33m[2m✓[22m[39m distributes the bill discount into participant dues and rejects another participant overpayment [33m 1053[2mms[22m[39m
+   [33m[2m✓[22m[39m supports scoped benefits and gives a precise deficit excluding combo price [33m 399[2mms[22m[39m
+   [33m[2m✓[22m[39m serializes simultaneous different-code selections and preserves one program per table [33m 564[2mms[22m[39m
+   [33m[2m✓[22m[39m updates unpaid quotes after admin pause or edit, but retains paid program names and benefits [33m 520[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL guards reject net over-allocation, tax snapshot rewriting and wrong-tenant program scopes [33m 376[2mms[22m[39m
+   [33m[2m✓[22m[39m tax-aware sales reports distinguish menu subtotal, savings, VAT and margin [33m 348[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL allocation cap uses discounted due even before a successful payment exists [33m 395[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL rejects explicit-null VAT snapshots and prevents changing a reserved status during collection [33m 467[2mms[22m[39m
+ [32m✓[39m tests/review.integration.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 17206[2mms[22m[39m
+   [33m[2m✓[22m[39m reserves exact guest names per session ignoring case, Unicode representation and extra spaces [33m 440[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps the same participant on QR reuse and returns only names from the current session [33m 307[2mms[22m[39m
+   [33m[2m✓[22m[39m rejects duplicate profile changes and retains identity and dishes when renaming [33m 359[2mms[22m[39m
+   [33m[2m✓[22m[39m hides guests who left from the roster while reserving their name for the session history [33m 318[2mms[22m[39m
+   [33m[2m✓[22m[39m allows a previously used name in a new serving session after closing and cleaning [33m 444[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps edited master data when bootstrap seed is repeated [33m 1533[2mms[22m[39m
+   [33m[2m✓[22m[39m expires stale guest credentials and hides recipes using inactive ingredients or no ingredients [33m 628[2mms[22m[39m
+   [33m[2m✓[22m[39m requires outstanding service work before write-off and closes only the debt alert with an audit record [33m 537[2mms[22m[39m
+   [33m[2m✓[22m[39m comps a served item without falsifying its lifecycle or restoring consumed stock, and includes it on the frozen receipt [33m 558[2mms[22m[39m
+   [33m[2m✓[22m[39m rejects refunds pointing to another session item or another source allocation at the SQL boundary [33m 712[2mms[22m[39m
+   [33m[2m✓[22m[39m deduplicates outgoing bank references across refund cases and records each refund only once [33m 784[2mms[22m[39m
+ [32m✓[39m tests/sprint1.integration.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 14760[2mms[22m[39m
+   [33m[2m✓[22m[39m migrates the complete business schema and seed twice preserves counts and passwords [33m 1577[2mms[22m[39m
+   [33m[2m✓[22m[39m repeated seed preserves changed stock, table state, prices and disabled employees [33m 1729[2mms[22m[39m
+   [33m[2m✓[22m[39m three roles allow their own workspace and deny the other two at backend [33m 374[2mms[22m[39m
+   [33m[2m✓[22m[39m enforces five login attempts per account across IPs and per IP across accounts [33m 445[2mms[22m[39m
+   [33m[2m✓[22m[39m renewal through an eight-hour shift keeps the original absolute expiry and rejects revoked refresh [33m 376[2mms[22m[39m
+ [32m✓[39m tests/table-access.integration.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 13615[2mms[22m[39m
+   [33m[2m✓[22m[39m commits failed-code limits and enforces them server-side, including cookie resets via IP limits [33m 433[2mms[22m[39m
+   [33m[2m✓[22m[39m replaces claimed code assistance after 180s, retaining the old work and rejecting stale staff actions [33m 306[2mms[22m[39m
+   [33m[2m✓[22m[39m serializes simultaneous code issuance, sends ordinary orders directly to kitchen, and records staff calls without guest identities [33m 482[2mms[22m[39m
+   [33m[2m✓[22m[39m retains quantity review after staff verification instead of disabling all risk checks [33m 328[2mms[22m[39m
+ [32m✓[39m tests/payos.integration.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 13565[2mms[22m[39m
+   [33m[2m✓[22m[39m creates online only for STAFF, owns amount/net/URLs and persists safe QR after refresh [33m 428[2mms[22m[39m
+   [33m[2m✓[22m[39m rejects invalid, over outstanding, reserved overlap and forged participant scope [33m 473[2mms[22m[39m
+   [33m[2m✓[22m[39m cash200k + payOS150k + payOS100k settle450k without manual online confirm [33m 642[2mms[22m[39m
+   [33m[2m✓[22m[39m UNDERPAID credits actual bank receipts and reserves only remaining, then fully succeeds [33m 461[2mms[22m[39m
+   [33m[2m✓[22m[39m duplicate/retry/concurrent valid webhooks record each bank reference once [33m 386[2mms[22m[39m
+   [33m[2m✓[22m[39m cancellation needs provider acknowledgement and never releases unknown bank outcome [33m 393[2mms[22m[39m
+   [33m[2m✓[22m[39m maintenance confirms provider cancellation for expired intent before release [33m 348[2mms[22m[39m
+   [33m[2m✓[22m[39m late active payment is recorded once, flagged for admin and blocks closing until reconciled [33m 493[2mms[22m[39m
+   [33m[2m✓[22m[39m overpayment is actual received money, allocations capped and refund follows admin-to-staff approval [33m 648[2mms[22m[39m
+   [33m[2m✓[22m[39m stale authenticated snapshot cannot downgrade a paid link or bank references [33m 408[2mms[22m[39m
+   [33m[2m✓[22m[39m closed receipt stays frozen and extra late money is quarantined outside the settled ledger [33m 635[2mms[22m[39m
+   [33m[2m✓[22m[39m a signed bank payment arriving during create remains PAID when the create follow-up times out [33m 315[2mms[22m[39m
+   [33m[2m✓[22m[39m waiving an unpaid dish cannot close the zero bill while the bank QR cancellation is unknown [33m 607[2mms[22m[39m
+ [32m✓[39m tests/payos-protocol.integration.test.ts [2m([22m[2m34 tests[22m[2m)[22m[33m 15091[2mms[22m[39m
+     [33m[2m✓[22m[39m an envelope success flag cannot capture a signed unsuccessful bank transaction [33m 495[2mms[22m[39m
+     [33m[2m✓[22m[39m partial transfers reserve only their remainder, deduplicate replay and refund each real source after a discount [33m 1332[2mms[22m[39m
+     [33m[2m✓[22m[39m an older signed provider snapshot cannot downgrade a completed payment or its collected total [33m 552[2mms[22m[39m
+     [33m[2m✓[22m[39m accepts the authenticated virtual account alias without confusing it with the payer account [33m 381[2mms[22m[39m
+     [33m[2m✓[22m[39m a definitively failed unpaid provider link releases cash collection and the promotion lock [33m 761[2mms[22m[39m
+     [33m[2m✓[22m[39m legacy error presentation with authenticated FAILED status does not hold an unpaid session forever [33m 410[2mms[22m[39m
+     [33m[2m✓[22m[39m provider PROCESSING persists, hides the payable QR and remains reserved until background verification [33m 586[2mms[22m[39m
+     [33m[2m✓[22m[39m provider FAILED with an actual partial transfer keeps a reconciliation case and money history [33m 437[2mms[22m[39m
+     [33m[2m✓[22m[39m a valid webhook with a different recipient than its authenticated bank reference records no payment [33m 371[2mms[22m[39m
+     [33m[2m✓[22m[39m a changed late bank reference cannot rewrite quarantined money or a frozen closed receipt [33m 941[2mms[22m[39m
+ [32m✓[39m tests/workforce.integration.test.ts [2m([22m[2m21 tests[22m[2m)[22m[33m 15250[2mms[22m[39m
+   [33m[2m✓[22m[39m snapshots approved pay, handles multiple shifts, locks payroll and keeps employee payslips private [33m 623[2mms[22m[39m
+   [33m[2m✓[22m[39m moves the whole live session and preserves guest/cart/order/payment/history; rejects stale or busy targets [33m 650[2mms[22m[39m
+   [33m[2m✓[22m[39m reverses an unavailable paid dish and freezes a printable final receipt after refund and close [33m 1224[2mms[22m[39m
+   [33m[2m✓[22m[39m allows adjacent ca assignments, rolls back overlap and safely replays concurrent materialization [33m 337[2mms[22m[39m
+   [33m[2m✓[22m[39m applies current duration/break limits only to newly materialized ca [33m 309[2mms[22m[39m
+   [33m[2m✓[22m[39m uses full ca within grace, effective employee rate and immutable shift override snapshots [33m 305[2mms[22m[39m
+   [33m[2m✓[22m[39m enforces snapshot clock windows, late checkout handling and concurrent punch replay [33m 331[2mms[22m[39m
+   [33m[2m✓[22m[39m pays only the selected employee, protects draft privacy, prevents double pay and completes only all positive slips [33m 519[2mms[22m[39m
+(node:163897) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ [32m✓[39m tests/workforce-pay.integration.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 13303[2mms[22m[39m
+   [33m[2m✓[22m[39m uses each employee base rate for the same night ca, even with the old 50k shift override [33m 337[2mms[22m[39m
+   [33m[2m✓[22m[39m distinguishes weekday night overtime with or without preceding daytime overtime [33m 307[2mms[22m[39m
+   [33m[2m✓[22m[39m uses approved daytime overtime across separate ca and prevents rewriting an already approved night premium [33m 409[2mms[22m[39m
+   [33m[2m✓[22m[39m rejects approval of a stale pay preview without saving attendance and accepts the refreshed calculation [32m 300[2mms[22m[39m
+ [32m✓[39m tests/table-transfer.integration.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 14159[2mms[22m[39m
+   [33m[2m✓[22m[39m preserves session, participants, unsent cart, orders, account, payments and support; freezes the final destination on receipt [33m 1767[2mms[22m[39m
+   [33m[2m✓[22m[39m rejects occupied, cleaning, inactive, inactive-area, cross-restaurant and same-table destinations without partial writes [33m 320[2mms[22m[39m
+   [33m[2m✓[22m[39m validates coded reasons and OTHER note, stores readable text and supports the existing reason contract [33m 319[2mms[22m[39m
+   [33m[2m✓[22m[39m rejects stale source and closed sessions and denies ADMIN/KITCHEN/guest transfer [33m 343[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps the guest credential valid when state waits behind a concurrent transfer [33m 442[2mms[22m[39m
+ [32m✓[39m tests/admin-overview.integration.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 12313[2mms[22m[39m
+ [32m✓[39m tests/order-history.integration.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 13031[2mms[22m[39m
+   [33m[2m✓[22m[39m cancelled lookup retains the session, decision actor and actual partial/full refunds after closing [33m 1357[2mms[22m[39m
+ [32m✓[39m tests/workforce-demo.integration.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 11220[2mms[22m[39m
+   [33m[2m✓[22m[39m does not assign administrators or overlapping ca and replay preserves the planned schedule [33m 882[2mms[22m[39m
+   [33m[2m✓[22m[39m preserves a later agreed personal rate instead of resetting it on bootstrap replay [33m 431[2mms[22m[39m
+ [32m✓[39m tests/catalog-refresh.integration.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 12020[2mms[22m[39m
+   [33m[2m✓[22m[39m fresh catalogue has consistent serving descriptions and a stocked recipe for every dish [33m 425[2mms[22m[39m
+   [33m[2m✓[22m[39m legacy category IDs retain positions 0–6 and a second seed preserves IDs, assignments and operational data [33m 2034[2mms[22m[39m
+   [33m[2m✓[22m[39m preview is read-only; applying presentation refresh preserves custom prices, uploads, renamed dishes and all operational data [33m 846[2mms[22m[39m
+   [33m[2m✓[22m[39m repeating the refresh creates no further changes or audit entries [33m 453[2mms[22m[39m
+ [32m✓[39m tests/pricing-finance-regression.integration.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 10748[2mms[22m[39m
+   [33m[2m✓[22m[39m reconciles two 100k cash tenders, discounted payments, kitchen cancellation and staff refunds through actual APIs [33m 1641[2mms[22m[39m
+   [33m[2m✓[22m[39m captures tax on order submission and rejects later snapshot or oversized discount tampering [33m 469[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps zero-VAT distinct from exemption and supersedes a future policy without deleting the old version [33m 571[2mms[22m[39m
+   [33m[2m✓[22m[39m admin lookup and exception detail display the same discounted charge as the payment quote [33m 522[2mms[22m[39m
+ [32m✓[39m tests/menu-promotions.integration.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 9859[2mms[22m[39m
+   [33m[2m✓[22m[39m allows a newly created product banner, derives file dimensions and hides stale printed prices without blocking the hide action [33m 331[2mms[22m[39m
+   [33m[2m✓[22m[39m captures actual combo components and hides the banner after a portion changes until admin confirms the updated image [33m 335[2mms[22m[39m
+ [32m✓[39m tests/database.integration.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 247[2mms[22m[39m
+ [32m✓[39m apps/api/src/app.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 152[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/workforce/pay-calculation.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 113[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/workforce/workforce.service.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/admin/report-range.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/workforce/attendance.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/restaurant-data-refresh.integration.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/finance/billing-math.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/assistant/assistant-provider.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/finance/tax-classification.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/orders/reasons.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/inventory/receipt-number.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/menu-assistant.integration.test.ts [2m([22m[2m35 tests[22m[2m)[22m[33m 6017[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps OFF optional, authenticated and cheap with no model/provider calls [33m 338[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m35 passed[39m[22m[90m (35)[39m
+[2m      Tests [22m [1m[32m428 passed[39m[22m[90m (428)[39m
+[2m   Start at [22m 13:49:32
+[2m   Duration [22m 225.07s[2m (transform 3.46s, setup 0ms, import 14.78s, tests 420.21s, environment 5ms)[22m
+
+[34m % [39m[2mCoverage report from [22m[33mv8[39m
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   89.41 |    83.41 |   93.44 |    91.3 |                   
+ src               |   85.71 |    86.44 |   85.71 |   85.29 |                   
+  app.ts           |   84.61 |     91.3 |      80 |      84 | 31,54,89-90       
+  auth.ts          |     100 |      100 |     100 |     100 |                   
+  config.ts        |   85.71 |    69.23 |     100 |   85.71 | 8                 
+ src/modules       |     100 |      100 |     100 |     100 |                   
+  index.ts         |     100 |      100 |     100 |     100 |                   
+ src/modules/admin |    92.1 |    83.33 |     100 |    91.3 |                   
+  ...iew.routes.ts |     100 |      100 |     100 |     100 |                   
+  report-range.ts  |     100 |    93.54 |     100 |     100 | 28-29             
+  ...rts.routes.ts |   84.61 |    70.96 |     100 |   83.33 | ...76,193,217-218 
+ ...ules/assistant |   96.29 |    93.61 |     100 |   96.49 |                   
+  ...nt-context.ts |     100 |      100 |     100 |     100 |                   
+  ...t-provider.ts |     100 |    97.43 |     100 |     100 | 56                
+  ...ant.routes.ts |   91.66 |     87.5 |     100 |      90 | 36                
+  ...nt.service.ts |   94.64 |     90.9 |     100 |   94.94 | ...47,185,191,199 
+ src/modules/auth  |   93.84 |    92.37 |     100 |   95.72 |                   
+  index.ts         |   94.11 |     92.7 |     100 |   95.74 | 16,174,199-200    
+  login-limiter.ts |   88.88 |     90.9 |     100 |   92.85 | 5                 
+  ...on-cookies.ts |     100 |      100 |     100 |     100 |                   
+  types.ts         |       0 |        0 |       0 |       0 |                   
+ ...odules/catalog |   78.78 |    68.75 |   89.79 |    81.6 |                   
+  ...log.routes.ts |   74.03 |    68.49 |   79.16 |   76.04 | ...66,168,178,214 
+  combo.service.ts |      95 |     91.3 |     100 |   96.87 | 107               
+  images.routes.ts |   66.66 |        0 |     100 |   72.72 | 19-20,29          
+  ...ons.routes.ts |   75.86 |       40 |     100 |   79.16 | 20-22,38,50       
+  qr-token.ts      |   84.61 |       50 |     100 |     100 | 4-17              
+ ...modules/dining |    90.7 |    85.71 |   91.11 |   91.07 |                   
+  ...-readiness.ts |   97.77 |    90.47 |     100 |   97.67 | 98                
+  dining.routes.ts |   82.56 |    63.88 |   85.71 |   83.96 | ...27,241,283-299 
+  ...ice.routes.ts |   95.45 |       75 |     100 |   95.23 | 28                
+  ...fer.routes.ts |     100 |      100 |     100 |     100 |                   
+  ...er-reasons.ts |     100 |      100 |     100 |     100 |                   
+ ...odules/finance |   87.84 |     82.5 |   89.42 |   89.89 |                   
+  billing-math.ts  |   91.42 |    85.48 |   91.66 |      98 | 8                 
+  ...er.service.ts |     100 |      100 |     100 |     100 |                   
+  ...ing.routes.ts |   79.26 |    73.33 |   70.96 |      80 | ...85-187,204-206 
+  ...ng.service.ts |   88.32 |    80.69 |     100 |   90.17 | ...14,557,660,671 
+  ...sification.ts |     100 |      100 |     100 |     100 |                   
+ ...ules/inventory |   93.98 |    87.64 |     100 |   96.98 |                   
+  ...ory.routes.ts |   94.32 |    88.73 |     100 |   96.89 | 186,232,319,321   
+  ...ry.service.ts |    92.3 |    81.25 |     100 |   97.14 | 100               
+  ...ipt-number.ts |     100 |      100 |     100 |     100 |                   
+ .../notifications |   91.66 |    57.14 |   91.66 |   98.18 |                   
+  maintenance.ts   |   91.66 |    57.14 |   91.66 |   98.18 | 148               
+ ...modules/orders |   88.94 |    84.64 |   95.91 |   92.45 |                   
+  ...on.service.ts |      80 |    71.42 |     100 |   88.88 | 14                
+  ...ion.routes.ts |   91.66 |    89.83 |     100 |    93.1 | 67,77,112,166     
+  issue.routes.ts  |   96.66 |    83.33 |     100 |     100 | 75                
+  ...le.service.ts |   94.59 |    87.75 |     100 |   96.92 | 67,96             
+  orders.routes.ts |   85.95 |    73.84 |   90.47 |   89.56 | ...96-197,262,286 
+  ...rs.service.ts |   83.14 |    83.69 |     100 |   88.88 | ...05,118,129,134 
+  reasons.ts       |     100 |      100 |     100 |     100 |                   
+ ...dules/payments |   87.73 |    80.61 |   88.97 |   90.59 |                   
+  ...on.service.ts |    90.1 |     86.2 |     100 |   95.18 | 32,54,145,150     
+  ...on.service.ts |     100 |      100 |     100 |     100 |                   
+  ...oof.routes.ts |   86.84 |    69.44 |   83.33 |   91.17 | 39,83,88          
+  ...sts.routes.ts |   89.47 |    85.71 |     100 |   88.23 | 26,31,60,82       
+  ...ew.service.ts |     100 |    94.44 |     100 |     100 | 2                 
+  ...nts.routes.ts |   92.56 |    88.88 |    93.1 |   94.96 | ...80,297,322-324 
+  payos-adapter.ts |      60 |    57.14 |      50 |   58.97 | 42-63,136-148     
+  payos.service.ts |    86.7 |    79.79 |      95 |   90.13 | ...26,788,845,857 
+  ...pt.service.ts |     100 |     87.5 |     100 |     100 | 16                
+  ...al.service.ts |   90.32 |    77.27 |     100 |     100 | 38-45,68-69,78    
+  ...xt.service.ts |     100 |       75 |     100 |     100 | 26-41             
+  ...ry.service.ts |   96.42 |    89.47 |     100 |     100 | 19,54-56,72       
+  ...oks.routes.ts |   82.35 |    77.77 |    87.5 |   84.61 | ...38-146,209,241 
+ src/modules/risk  |   85.36 |    76.66 |     100 |   88.57 |                   
+  ...cy.service.ts |     100 |      100 |     100 |     100 |                   
+  risk.routes.ts   |   82.35 |    76.66 |     100 |   86.66 | 32,47,51,57       
+ ...dules/sessions |    88.6 |    80.74 |   95.91 |   89.96 |                   
+  guest-name.ts    |     100 |      100 |     100 |     100 |                   
+  guest.routes.ts  |   85.03 |    75.71 |   91.66 |   86.33 | ...14,344,346-352 
+  ...ess.routes.ts |      92 |    80.76 |     100 |   93.24 | 78,82,92,115,208  
+  ...ss.service.ts |    92.5 |    86.66 |     100 |   94.59 | 24,41             
+ ...modules/shared |   95.31 |    94.32 |     100 |   95.61 |                   
+  ...ersistence.ts |   95.89 |    93.05 |     100 |   95.31 | 12,44,115         
+  ...ory.routes.ts |   95.12 |    96.49 |     100 |   97.36 | 168               
+  idempotency.ts   |   92.85 |    91.66 |     100 |   91.66 | 24                
+ ...s/staff-access |      90 |    69.69 |     100 |   89.74 |                   
+  ...ess.routes.ts |      90 |    69.69 |     100 |   89.74 | 6,27,52,54        
+ ...odules/support |   98.05 |    98.48 |   95.45 |   97.93 |                   
+  ...ort.routes.ts |   97.26 |       98 |   92.85 |    97.1 | 42,127            
+  ...rt.service.ts |     100 |      100 |     100 |     100 |                   
+ ...ules/workforce |   88.87 |    82.36 |   94.77 |   89.88 |                   
+  attendance.ts    |     100 |    98.86 |     100 |     100 | 8                 
+  ...alculation.ts |     100 |      100 |     100 |     100 |                   
+  pay.routes.ts    |   83.05 |    69.44 |     100 |   86.79 | ...,79,89,124-135 
+  pay.service.ts   |   81.06 |    68.87 |   93.54 |   81.42 | ...46,271-273,283 
+  ...oll.routes.ts |   93.13 |    88.37 |      92 |   94.56 | ...36,225,236,298 
+  ...tes.routes.ts |   92.85 |    85.71 |     100 |   93.75 | ...66,138,227,231 
+  ...rce.routes.ts |   82.58 |    73.84 |    87.5 |   84.39 | ...36,445,447,452 
+  ...ce.service.ts |     100 |    95.83 |     100 |     100 | 79                
+ ...les/workspaces |     100 |      100 |     100 |     100 |                   
+  routes.ts        |     100 |      100 |     100 |     100 |                   
+ src/shared        |     100 |      100 |     100 |     100 |                   
+  http-errors.ts   |     100 |      100 |     100 |     100 |                   
+-------------------|---------|----------|---------|---------|-------------------

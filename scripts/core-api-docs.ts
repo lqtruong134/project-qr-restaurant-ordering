@@ -1,11 +1,355 @@
+import { restaurantPolicy, assistantRequestSchema } from '../packages/contracts/src/index.js';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { buildApp } from '../apps/api/src/app.js';
+import { registerAuth } from '../apps/api/src/auth.js';
+import { randomBytes } from 'node:crypto';
 import { registerModules } from '../apps/api/src/modules/index.js';
 import { createDatabase } from '../packages/database/src/index.js';
 const db = createDatabase(process.env.DATABASE_URL!);
 const app = buildApp(db);
 const id = '00000000-0000-4000-8000-000000000001';
+const classifiedAttendance = {
+  minutes: 240,
+  outcome: 'MISSED_CLOCK',
+  approvalMode: 'EXCEPTION',
+  note: 'Đã đối chiếu giờ làm với nhân viên và người phụ trách ca.',
+  paidPeriods: [
+    {
+      startsAt: '2026-10-10T22:00:00+07:00',
+      endsAt: '2026-10-11T02:00:00+07:00',
+      kind: 'REGULAR',
+    },
+  ],
+};
+const discountProgram = {
+  name: 'Ưu đãi bữa trưa',
+  description: 'Giảm 10% cho món lẻ từ 300.000 đ, tối đa 50.000 đ, áp dụng bữa trưa ngày thường.',
+  mode: 'CODE',
+  code: 'BUATRUA',
+  type: 'PERCENT',
+  percent: 10,
+  fixedAmount: null,
+  minEligibleAmount: '300000',
+  maxDiscountAmount: '50000',
+  startsAt: '2026-11-01T00:00:00+07:00',
+  endsAt: '2026-11-30T23:59:59+07:00',
+  weekdays: [1, 2, 3, 4, 5],
+  startTime: '11:00',
+  endTime: '14:00',
+  scope: 'ALL',
+  productIds: [],
+  categoryIds: [],
+  excludeCombos: true,
+  usageLimit: 100,
+  status: 'PAUSED',
+};
+const promotionChoice = {
+  byCode: {
+    summary: 'Nhập mã giảm giá',
+    value: { requestId: 'MA_MOI_CHO_LUOT_AP_DUNG_MA', code: 'BUATRUA' },
+  },
+  byProgram: {
+    summary: 'Chọn chương trình tự động từ GET promotion',
+    value: { requestId: 'MA_MOI_CHO_LUOT_CHON_CHUONG_TRINH', programId: id },
+  },
+};
+const assistantDescriptions: Record<string, string> = {
+  'GET /guest/menu-assistant/capabilities':
+    'Khách có cookie guest hợp lệ xem khả năng trợ lý. Mặc định OFF; MOCK chỉ là fixture có chủ đích, chưa có model thật. Không cập nhật heartbeat, giỏ, đơn, kho hoặc tiền.',
+  'POST /guest/menu-assistant/recommendations':
+    'Tư vấn tùy chọn, cần guest cookie, Origin và CSRF. message tối đa 1000 ký tự; people 1–20, budgetAmount là chuỗi số nguyên VND. Provider chỉ trả ID/số lượng/reasonCode; backend xác minh lại menu/giá/khả dụng/tổng nhu cầu kho/ngân sách và dựng nội dung. Dị ứng/chay/cay/khẩu phần chưa xác minh thì nhờ nhân viên. HTTP 200 vẫn cần đọc status: UNAVAILABLE không phải danh sách món. Không thêm giỏ hoặc đặt đơn. Chưa có UI AI/model thật.',
+};
+const pricingDescriptions: Record<string, string> = {
+  'GET /core/admin/discount-programs':
+    'ADMIN xem điều kiện, phiên bản, lượt đã dùng và lượt đang giữ của chương trình khuyến mãi.',
+  'POST /core/admin/discount-programs':
+    'ADMIN tạo chương trình. Ví dụ lưu ở trạng thái PAUSED để kiểm tra trước khi bật. Giảm phần trăm từ 1 đến 50; giảm tiền cố định cần minEligibleAmount ít nhất gấp đôi fixedAmount. excludeCombos luôn true: combo không được giảm thêm và không tính ngưỡng. VND dùng chuỗi số nguyên. Ngày giờ có múi giờ; lịch thứ/giờ tính theo múi giờ nhà hàng, khung giờ trong cùng ngày. Không có ưu đãi cộng dồn.',
+  'PATCH /core/admin/discount-programs/:id':
+    'ADMIN cập nhật đầy đủ điều kiện và version mới nhất từ GET discount-programs. Version cũ bị chặn 409. Thay đổi không sửa ưu đãi đã chốt hoặc snapshot giao dịch. Không sửa chương trình đã ARCHIVED và không đặt giới hạn thấp hơn số lượt đã dùng/đang giữ.',
+  'DELETE /core/admin/discount-programs/:id':
+    'ADMIN lưu trữ bằng version mới nhất. Không xóa lịch sử lượt sử dụng hoặc khoản giảm đã chốt; chương trình đã lưu trữ không được bật lại.',
+  'GET /core/admin/discount-programs/:id/history':
+    'ADMIN tra cứu tối đa 100 lần thay đổi và 100 lượt áp dụng gần nhất. Lịch sử có người/thời điểm/phiên bản và snapshot; lượt áp dụng có bàn, mã phiên, trạng thái và số tiền giảm.',
+  'GET /core/admin/tax-policies':
+    'ADMIN xem mức VAT mặc định hiện hành, các phiên bản chính sách theo mốc hiệu lực và phân loại thuế của món. Giá thực đơn đã gồm VAT. Không chịu VAT khác với thuế suất 0%.',
+  'POST /core/admin/tax-policies':
+    'ADMIN lập phiên bản mới với mức 0/5/8/10%, lý do tối thiểu 5 ký tự và thời điểm hiệu lực ít nhất một phút sau hiện tại. Có thể lập phiên bản cao hơn tại cùng mốc tương lai để thay lịch; bản cũ giữ nguyên. Không tính lại VAT món đã gọi/hóa đơn đã chốt. 8% cần đúng nhóm hàng và thời kỳ áp dụng; lịch mặc định chuyển về 10% ngày 01/01/2027.',
+  'PATCH /core/products/:id/tax':
+    'ADMIN phân loại món và gửi version hiện tại của sản phẩm từ GET tax-policies/catalog. DEFAULT dùng mức của nhà hàng; TAXABLE dùng 0/5/8/10%; EXEMPT là không chịu VAT, ratePercent=null. Phải có lý do tối thiểu 5 ký tự. Chỉ áp dụng lượt gọi mới, không sửa snapshot món đã gọi.',
+  'GET /core/sessions/:id/promotion':
+    'STAFF/ADMIN xem ưu đãi đủ điều kiện, lý do không áp dụng và quote hóa đơn của đúng phiên. Giá, giảm và VAT do backend tính; không gửi số tiền giảm tự tính từ client.',
+  'POST /core/sessions/:id/promotion':
+    'STAFF/ADMIN chọn một programId hoặc code, không gửi cả hai. requestId mới cho một hành động mới; giữ nguyên requestId và body khi gửi lại đúng hành động do lỗi mạng. Chỉ đổi ưu đãi trước khi thu tiền và khi không có yêu cầu thanh toán đang chờ. Các lần thu/hoàn dùng khoản giảm được phân bổ và lưu trên từng dòng món.',
+  'DELETE /core/sessions/:id/promotion':
+    'STAFF/ADMIN bỏ lựa chọn trước thanh toán bằng requestId. Gửi lại cùng requestId/body không thay đổi lần nữa; dùng mã mới cho hành động khác. Bị chặn nếu đã thu tiền hoặc có yêu cầu thu đang chờ.',
+  'GET /guest/promotion':
+    'Khách đã tham gia phiên bàn xem ưu đãi, điều kiện và quote của đúng bàn qua guest cookie. Không dùng cookie đăng nhập nội bộ để thay cho phiên khách.',
+  'POST /guest/promotion':
+    'Khách chọn một chương trình AUTO bằng programId hoặc nhập code cho chương trình CODE. Gửi requestId mới cho mỗi hành động; gửi lại đúng body/requestId khi lỗi mạng. Không đổi sau thu tiền hoặc khi yêu cầu thanh toán đang chờ. Combo không được giảm thêm và không tính ngưỡng.',
+  'DELETE /guest/promotion':
+    'Khách bỏ ưu đãi trước thanh toán. Cần guest cookie, CSRF và requestId; hành động lặp cùng mã/nội dung giữ kết quả cũ. Đã thu tiền hoặc có yêu cầu thu đang chờ thì bị chặn.',
+};
+const payosDescriptions: Record<string, string> = {
+  'POST /guest/payments':
+    'Endpoint cũ đã ngừng tạo khoản thu. Cần guest cookie và luôn trả 403; khách dùng POST /guest/payment-requests để gọi nhân viên. Không xóa khoản thu lịch sử.',
+  'POST /guest/payment-requests':
+    'Khách gọi nhân viên thu tiền, không tạo payment intent và không đóng phiên. CASH/BANK_TRANSFER; ONLINE chỉ được gửi như lời gọi khi payOS đã cấu hình. Nhân viên nhận việc trước khi bắt đầu thu.',
+  'POST /core/sessions/:id/payments':
+    'Chỉ STAFF bắt đầu thu tiền trong phiên còn mở. Server kiểm tra số tiền nguyên VND, dư nợ sau giảm/VAT, khoản giữ chỗ, phạm vi khách và quyền phụ trách. ONLINE dùng payOS; gọi SDK ngoài transaction. Giữ cùng requestId/body khi thử lại. Sau create, bill trả online.status/QR/link/số tiền đã nhận và còn cần chuyển; lỗi mạng giữ chỗ để tránh thu trùng.',
+  'POST /core/payments/:id/confirm':
+    'Chỉ xác nhận thủ công CASH/BANK_TRANSFER sau khi thực nhận. ONLINE luôn bị chặn 403, kể cả đã thành công; webhook/truy vấn payOS xác minh tiền. receivedAmount dùng riêng cho tiền khách đưa và tiền thối.',
+  'POST /core/payments/:id/refresh':
+    'STAFF phụ trách yêu cầu server đối chiếu payOS. Không nhập số tiền hoặc tự đổi sang PAID; dữ liệu chữ ký và từng tham chiếu ngân hàng phải khớp. Maintenance cũng đối chiếu nền.',
+  'POST /core/payments/:id/cancel':
+    'STAFF phụ trách yêu cầu hủy. payOS phải xác nhận kết thúc trước khi bỏ giữ chỗ; kết quả mạng chưa rõ vẫn chặn thu thay thế. Tiền đã nhận dùng quy trình admin duyệt hoàn, phục vụ thực trả và xác nhận.',
+  'POST /payments/webhooks/payos':
+    'Webhook payOS trực tiếp, dùng SDK chính thức xác minh chữ ký data, không dùng chữ ký connector nội bộ hoặc redirect. Không cần auth cookie/Origin/CSRF, nhưng chữ ký bắt buộc. Đối chiếu orderCode/link/VND/từng reference/amount với truy vấn xác thực payOS; duplicate không cộng tiền. 200 nhận/ghi bền vững probe hoặc thông báo chưa khớp; 400 chữ ký không hợp lệ; 503 khi chưa đối chiếu được để nhà cung cấp thử lại. Không gọi endpoint bằng fixture hoặc khóa thật trong tài liệu.',
+  'GET /core/admin/payment-reconciliation':
+    'ADMIN xem tối đa 100 hồ sơ payOS cần đối soát hoặc đã xử lý, bàn/mã phiên và tiền đã nhận/cách ly. Không trả khóa, payload tạo link hoặc dữ liệu ngân hàng dư thừa.',
+  'POST /core/admin/payment-reconciliation/:id/resolve':
+    'ADMIN chỉ lưu kết quả sau đối chiếu. Phiên mở dùng RECONCILED khi provider đã kết thúc và các khoản hoàn đã xong. Tiền đến sau đóng phiên dùng RETURNED_EXTERNALLY sau trả tiền thật, bắt buộc reference/reason; phiếu chốt giữ nguyên. Không có thao tác tự gán PAID hoặc tự chuyển tiền.',
+  'GET /core/admin/payment-webhooks/unmatched':
+    'ADMIN xem tối đa 100 thông báo PAYOS có chữ ký, số tiền dương, chưa khớp khoản thu của đúng nhà hàng. Chỉ 6 trường tối thiểu; chỉ đọc, có thể gồm probe đăng ký, không chứng minh tiền trả cho bàn và không tự ghi ledger.',
+};
+const integerMoney = {
+  type: 'string',
+  pattern: '^[0-9]{1,12}$',
+  description:
+    'Số tiền VND nguyên, tối đa 100.000.000.000 đ; không gửi dấu phân cách hoặc số thực.',
+};
+const versionSchema = { type: 'integer', minimum: 1, maximum: 2147483646 };
+const requestIdSchema = {
+  type: 'string',
+  minLength: 1,
+  maxLength: 100,
+  description: 'Mã mới cho hành động mới; giữ cùng mã và nội dung nếu gửi lại do lỗi mạng.',
+};
+const discountProperties = {
+  name: { type: 'string', minLength: 1, maxLength: 120 },
+  description: { type: 'string', maxLength: 500 },
+  mode: { type: 'string', enum: ['AUTO', 'CODE'] },
+  code: {
+    type: 'string',
+    nullable: true,
+    maxLength: 32,
+    pattern: '^[A-Z0-9][A-Z0-9_-]{2,31}$',
+    description: 'Bắt buộc khi mode=CODE; mode=AUTO dùng null.',
+  },
+  type: { type: 'string', enum: ['PERCENT', 'FIXED'] },
+  percent: {
+    type: 'integer',
+    nullable: true,
+    minimum: 1,
+    maximum: 50,
+    description: 'Bắt buộc khi type=PERCENT, null khi giảm tiền cố định.',
+  },
+  fixedAmount: {
+    ...integerMoney,
+    nullable: true,
+    description: 'Dương khi type=FIXED, null khi giảm phần trăm.',
+  },
+  minEligibleAmount: {
+    ...integerMoney,
+    description: 'Ngưỡng tổng món đủ điều kiện, không gồm combo. Với FIXED phải >=2×fixedAmount.',
+  },
+  maxDiscountAmount: {
+    ...integerMoney,
+    nullable: true,
+    description: 'Trần giảm phần trăm, số dương hoặc null nếu không giới hạn.',
+  },
+  startsAt: { type: 'string', format: 'date-time' },
+  endsAt: { type: 'string', format: 'date-time', description: 'Sau startsAt.' },
+  weekdays: {
+    type: 'array',
+    uniqueItems: true,
+    maxItems: 7,
+    items: { type: 'integer', minimum: 0, maximum: 6 },
+    description: '0=Chủ nhật, 1=Thứ Hai…6=Thứ Bảy; [] là mỗi ngày.',
+  },
+  startTime: { type: 'string', nullable: true, pattern: '^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$' },
+  endTime: {
+    type: 'string',
+    nullable: true,
+    pattern: '^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$',
+    description: 'Cả hai giờ đều null hoặc endTime sau startTime trong cùng ngày.',
+  },
+  scope: { type: 'string', enum: ['ALL', 'PRODUCTS', 'CATEGORIES'] },
+  productIds: {
+    type: 'array',
+    uniqueItems: true,
+    maxItems: 200,
+    items: { type: 'string', format: 'uuid' },
+    description: 'Ít nhất một món khi scope=PRODUCTS; các scope khác dùng [].',
+  },
+  categoryIds: {
+    type: 'array',
+    uniqueItems: true,
+    maxItems: 200,
+    items: { type: 'string', format: 'uuid' },
+    description: 'Ít nhất một nhóm khi scope=CATEGORIES; các scope khác dùng [].',
+  },
+  excludeCombos: { type: 'boolean', enum: [true] },
+  usageLimit: { type: 'integer', nullable: true, minimum: 1, maximum: 1000000 },
+  status: { type: 'string', enum: ['ACTIVE', 'PAUSED', 'ARCHIVED'] },
+};
+const requestSchemas: Record<string, unknown> = {
+  'POST /guest/menu-assistant/recommendations': assistantRequestSchema,
+  'POST /core/sessions/:id/payments': {
+    type: 'object',
+    required: ['requestId', 'method', 'amount'],
+    properties: {
+      requestId: requestIdSchema,
+      method: { enum: ['CASH', 'BANK_TRANSFER', 'ONLINE'] },
+      amount: integerMoney,
+      collectionScope: { enum: ['TABLE', 'PARTICIPANT'] },
+      participantId: { type: 'string', format: 'uuid' },
+      supportRequestId: { type: 'string', format: 'uuid' },
+    },
+  },
+  'POST /core/admin/discount-programs': {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'name',
+      'mode',
+      'type',
+      'minEligibleAmount',
+      'startsAt',
+      'endsAt',
+      'scope',
+      'excludeCombos',
+      'status',
+    ],
+    properties: discountProperties,
+  },
+  'PATCH /core/admin/discount-programs/:id': {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'name',
+      'mode',
+      'type',
+      'minEligibleAmount',
+      'startsAt',
+      'endsAt',
+      'scope',
+      'excludeCombos',
+      'status',
+      'version',
+    ],
+    properties: { ...discountProperties, version: versionSchema },
+  },
+  'DELETE /core/admin/discount-programs/:id': {
+    type: 'object',
+    additionalProperties: false,
+    required: ['version'],
+    properties: { version: versionSchema },
+  },
+  'POST /core/admin/tax-policies': {
+    type: 'object',
+    additionalProperties: false,
+    required: ['effectiveAt', 'defaultRatePercent', 'reason'],
+    properties: {
+      effectiveAt: { type: 'string', format: 'date-time' },
+      defaultRatePercent: { type: 'integer', enum: [0, 5, 8, 10] },
+      reason: { type: 'string', minLength: 5, maxLength: 500 },
+    },
+  },
+  'PATCH /core/products/:id/tax': {
+    type: 'object',
+    additionalProperties: false,
+    required: ['treatment', 'ratePercent', 'reason', 'version'],
+    properties: {
+      treatment: { type: 'string', enum: ['DEFAULT', 'TAXABLE', 'EXEMPT'] },
+      ratePercent: {
+        type: 'integer',
+        nullable: true,
+        enum: [null, 0, 5, 8, 10],
+        description: 'TAXABLE cần số; DEFAULT và EXEMPT cần null.',
+      },
+      reason: { type: 'string', minLength: 5, maxLength: 500 },
+      version: versionSchema,
+    },
+  },
+};
+for (const path of ['/core/sessions/:id/promotion', '/guest/promotion']) {
+  requestSchemas['POST ' + path] = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['requestId'],
+    oneOf: [
+      { required: ['code'], not: { required: ['programId'] } },
+      { required: ['programId'], not: { required: ['code'] } },
+    ],
+    properties: {
+      requestId: requestIdSchema,
+      code: { type: 'string', minLength: 3, maxLength: 32 },
+      programId: { type: 'string', format: 'uuid' },
+    },
+  };
+  requestSchemas['DELETE ' + path] = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['requestId'],
+    properties: { requestId: requestIdSchema },
+  };
+}
+
 const examples: Record<string, unknown> = {
+  'POST /guest/menu-assistant/recommendations': {
+    message: 'Tôi đi 3 người, ngân sách 500.000đ và muốn có một món rau.',
+    people: 3,
+    budgetAmount: '500000',
+    preferences: { include: ['VEGETABLE'] },
+  },
+  'POST /core/admin/discount-programs': discountProgram,
+  'PATCH /core/admin/discount-programs/:id': { ...discountProgram, status: 'ACTIVE', version: 1 },
+  'DELETE /core/admin/discount-programs/:id': { version: 2 },
+  'POST /core/admin/tax-policies': {
+    effectiveAt: '2027-01-01T00:00:00+07:00',
+    defaultRatePercent: 10,
+    reason: 'Áp dụng mức VAT thông thường từ ngày 01/01/2027.',
+  },
+  'PATCH /core/products/:id/tax': {
+    treatment: 'TAXABLE',
+    ratePercent: 8,
+    reason: 'Đối chiếu món thuộc nhóm hàng đủ điều kiện giảm VAT trong năm 2026.',
+    version: 1,
+  },
+  'POST /core/sessions/:id/promotion': promotionChoice.byCode.value,
+  'DELETE /core/sessions/:id/promotion': { requestId: 'MA_MOI_CHO_LUOT_BO_UU_DAI' },
+  'POST /guest/promotion': promotionChoice.byCode.value,
+  'DELETE /guest/promotion': { requestId: 'MA_MOI_CHO_LUOT_BO_UU_DAI' },
+
+  'POST /core/workforce/pay-rates': {
+    userId: id,
+    effectiveFrom: '2026-11-01T00:00:00+07:00',
+    hourlyRate: '40000',
+    reason: 'Áp dụng mức lương đã thỏa thuận từ tháng 11.',
+  },
+  'POST /core/workforce/pay-policies': {
+    effectiveFrom: '2026-11-01',
+    nightPremiumPercent: 30,
+    overtimeWeekdayPercent: 150,
+    restDayPercent: 200,
+    holidayPercent: 300,
+  },
+  'POST /core/workforce/calendar': {
+    date: '2026-11-01',
+    kind: 'WEEKLY_REST',
+    userId: id,
+    name: 'Ngày nghỉ tuần đã phân công',
+  },
+  'POST /core/workforce/assignments/:id/pay-preview': classifiedAttendance,
+  'POST /core/workforce/assignments/:id/approve': {
+    ...classifiedAttendance,
+    expectedAmount: '208000',
+  },
+  'POST /core/alerts/:id/guest-notified': {},
+  'POST /core/items/:id/report-issue': {
+    reasonCode: 'KITCHEN_ERROR',
+    note: 'Món cháy, bếp dừng phục vụ',
+  },
   'POST /core/inventory/adjustments': {
     balanceId: id,
     expectedVersion: 1,
@@ -18,15 +362,22 @@ const examples: Record<string, unknown> = {
   'POST /guest/items/cancel': { itemIds: [id] },
   'POST /core/items/cancel': { itemIds: [id], reason: 'Khách đổi món trước chế biến' },
   'POST /core/sessions/:id/serve-items': { itemIds: [id] },
+  'POST /core/support/:id/handoffs/:handoffId/accept': {},
+  'POST /core/support/:id/handoffs/:handoffId/decline': { reason: 'Đang thu tiền bàn khác' },
+  'POST /core/support/:id/handoffs/:handoffId/cancel': { reason: 'Tiếp tục tự xử lý' },
   'POST /core/support/:id/reassign': { userId: id, reason: 'Bàn giao ca phục vụ' },
-  'POST /core/items/:id/late-cancel': { reason: 'Món lỗi sau chế biến' },
+  'POST /core/items/:id/late-cancel': {
+    reasonCode: 'KITCHEN_ERROR',
+    note: 'Đối chiếu bếp xác nhận lỗi chế biến',
+  },
   'POST /core/items/:id/waive': { reason: 'Quản trị miễn khoản thu món lỗi' },
 
   'POST /core/sessions/:id/transfer': {
     tableId: id,
-    fromTableId: id,
+    fromTableId: '00000000-0000-4000-8000-000000000002',
     partySize: 4,
-    reason: 'Khách muốn chuyển sang khu vực yên tĩnh',
+    reasonCode: 'AREA_CHANGE',
+    note: 'Khách muốn chuyển sang khu vực yên tĩnh',
   },
   'POST /core/workforce/shifts': {
     code: 'CA-SANG-20260925',
@@ -36,14 +387,18 @@ const examples: Record<string, unknown> = {
     breakMinutes: 30,
   },
 
-  'POST /guest/join': { token: 'LAY_TU_MA_QR_MOI', name: 'Khách' },
+  'POST /guest/join': {
+    token: 'LAY_TU_MA_QR_MOI',
+    name: 'Khách',
+    acceptedPolicyVersion: restaurantPolicy.version,
+  },
   'POST /guest/cart': { productId: id, quantity: 1, cartVersion: 1, note: '' },
   'PATCH /guest/cart/:id': { quantity: 2, cartVersion: 2, note: '' },
   'DELETE /guest/cart/:id': { cartVersion: 2 },
   'POST /guest/orders': { requestId: 'MA_MOI_CHO_MOI_LUOT', cartVersion: 2, itemIds: [id] },
   'POST /guest/orders/:id/cancel': { reason: 'Khách đổi ý' },
   'POST /guest/support': { type: 'ASSISTANCE', content: 'Cần hỗ trợ tại bàn' },
-  'POST /guest/payments': { requestId: 'MA_MOI_CHO_MOI_LUOT', method: 'CASH', amount: '55000' },
+  // Legacy endpoint remains authenticated but returns 403: guests only request staff collection.
   'POST /core/categories': { code: 'MON-CHINH', name: 'Món chính' },
   'PATCH /core/categories/:id': { name: 'Món chính', sortOrder: 0, active: true },
   'POST /core/areas': { code: 'TANG-1', name: 'Tầng 1' },
@@ -99,7 +454,14 @@ const examples: Record<string, unknown> = {
     method: 'CASH',
     amount: '55000',
   },
-  'POST /core/payments/:id/confirm': { amount: '55000', reference: 'MA_CHUYEN_KHOAN_NEU_CO' },
+  'POST /core/payments/:id/confirm': { amount: '55000', receivedAmount: '100000' },
+  'POST /guest/payment-requests': { method: 'BANK_TRANSFER' },
+  'POST /core/payments/:id/refresh': {},
+  'POST /core/payments/:id/cancel': {},
+  'POST /core/admin/payment-reconciliation/:id/resolve': {
+    resolution: 'RECONCILED',
+    reason: 'Đã đối chiếu đủ trạng thái ngân hàng và xử lý khoản hoàn.',
+  },
   'POST /core/sessions/:id/refunds': { paymentId: id, amount: '55000', reason: 'Hoàn món hủy' },
   'POST /core/refunds/:id/complete': { method: 'CASH', reference: '' },
   'POST /core/sessions/:id/outstanding': {
@@ -110,9 +472,15 @@ const examples: Record<string, unknown> = {
   'POST /core/outstanding/:id/recovered': { reason: 'Đã đối chiếu thu đủ' },
 };
 const paths: Record<string, Record<string, unknown>> = {};
+const authOperations = new Set<string>();
 app.addHook('onRoute', (r) => {
   const method = String(r.method);
   if (method === 'HEAD') return;
+  const operationKey = method + ' ' + r.url;
+  if (r.url.startsWith('/auth/') || r.url.startsWith('/workspaces/')) {
+    authOperations.add(operationKey);
+    return;
+  }
   const path = r.url.replace(/:([A-Za-z]+)/g, '{$1}');
   const permission =
     r.config?.permission ?? (r.config?.public ? 'Khách/connector' : 'Đã đăng nhập');
@@ -127,14 +495,46 @@ app.addHook('onRoute', (r) => {
   const body = examples[method + ' ' + r.url] ?? {};
   paths[path] ??= {};
   paths[path]![method.toLowerCase()] = {
-    tags: [String(permission)],
+    tags: assistantDescriptions[operationKey]
+      ? ['Trợ lý thực đơn · nền tảng tùy chọn']
+      : payosDescriptions[operationKey]
+        ? ['Thu tiền và payOS']
+        : pricingDescriptions[operationKey]
+          ? [
+              r.url.includes('tax')
+                ? 'VAT · quản trị'
+                : r.url.startsWith('/guest/')
+                  ? 'Khuyến mãi · khách'
+                  : r.url.includes('/admin/')
+                    ? 'Khuyến mãi · quản trị'
+                    : 'Khuyến mãi · phục vụ và quản trị',
+            ]
+          : [String(permission)],
     summary: method + ' ' + path,
     operationId: 'core_' + method.toLowerCase() + '_' + r.url.replace(/[^a-zA-Z0-9]/g, '_'),
-    description: r.config?.externalWebhook
-      ? 'Bộ nối thanh toán HMAC riêng; chưa phải endpoint trực tiếp của VNPay/MoMo. Xem docs/core45/PAYMENTS.md.'
-      : 'Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.',
+    description:
+      assistantDescriptions[operationKey] ??
+      payosDescriptions[operationKey] ??
+      pricingDescriptions[operationKey] ??
+      (r.url === '/core/workforce/assignments/:id/approve'
+        ? 'Duyệt sau khi gọi pay-preview. Giữ nguyên các khoảng công và lấy expectedAmount từ amount của kết quả xem trước; không dùng số tiền ví dụ nếu căn cứ thực tế khác. Khoảng công phải kết thúc, đúng giờ nghỉ và có căn cứ; công đã duyệt không được sửa đè.'
+        : r.url === '/core/workforce/assignments/:id/pay-preview'
+          ? 'Tính tiền dự kiến trên đơn giá, chính sách và lịch nghỉ có hiệu lực. Không ghi công đã duyệt. Ca có nghỉ cần khai báo các khoảng được tính công sau khi trừ nghỉ; giờ làm thêm cần approveExtra=true và lý do.'
+          : r.config?.externalWebhook
+            ? 'Bộ nối thanh toán HMAC riêng; chưa phải endpoint trực tiếp của VNPay/MoMo. Xem docs/core45/PAYMENTS.md.'
+            : 'Mã ID trong ví dụ cần thay bằng ID thật lấy từ API GET tương ứng. Mọi thay đổi được backend kiểm tra quyền và phạm vi nhà hàng.'),
     parameters,
-    security: r.config?.public ? [] : [{ accessCookie: [] }],
+    security: [
+      '/guest/promotion',
+      '/guest/payments',
+      '/guest/payment-requests',
+      '/guest/menu-assistant/capabilities',
+      '/guest/menu-assistant/recommendations',
+    ].includes(r.url)
+      ? [{ guestCookie: [] }]
+      : r.config?.public
+        ? []
+        : [{ accessCookie: [] }],
     ...(method === 'GET'
       ? {}
       : {
@@ -142,8 +542,13 @@ app.addHook('onRoute', (r) => {
             required: true,
             content: {
               'application/json': {
-                schema: { type: 'object', additionalProperties: true },
-                example: body,
+                schema: requestSchemas[operationKey] ?? {
+                  type: 'object',
+                  additionalProperties: true,
+                },
+                ...(method === 'POST' && r.url.endsWith('/promotion')
+                  ? { examples: promotionChoice }
+                  : { example: body }),
               },
             },
           },
@@ -159,13 +564,22 @@ app.addHook('onRoute', (r) => {
     },
   };
 });
+// Registration only: this app never listens or executes handlers. The ephemeral auth key is not a deployed credential.
+await registerAuth(app, db, {
+  secret: randomBytes(32).toString('hex'),
+  restaurantId: process.env.RESTAURANT_ID!,
+  origins: ['http://localhost:3000'],
+  secure: false,
+});
 registerModules(app, db, process.env.RESTAURANT_ID!);
 mkdirSync('docs/core45', { recursive: true });
 writeFileSync('docs/core45/openapi-paths.json', JSON.stringify(paths, null, 2) + '\n');
+const businessCount = Object.values(paths).reduce((n, v) => n + Object.keys(v).length, 0);
+const healthCount = ['/health/live', '/health/ready'].filter((url) =>
+  app.hasRoute({ method: 'GET', url }),
+).length;
 await app.close();
 await db.close();
 console.log(
-  'Generated CORE API reference: ' +
-    Object.values(paths).reduce((n, v) => n + Object.keys(v).length, 0) +
-    ' operations',
+  `Generated API reference: ${businessCount} business operations; ${businessCount + authOperations.size + healthCount} registered total (${authOperations.size} auth/workspace, ${healthCount} health; automatic HEAD excluded).`,
 );

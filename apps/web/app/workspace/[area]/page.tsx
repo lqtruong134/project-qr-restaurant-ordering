@@ -5,12 +5,13 @@ import Admin from '../../../features/admin/admin';
 import Service from '../../../features/workspace/service';
 import Link from 'next/link';
 import { Icon } from '../../../features/shared/primitives';
+import { ProcedureHelp } from '../../../features/shared/policy-ui';
 import { getAuthenticated, postApi } from '../../../lib/api-client';
 type User = { id: string; displayName: string; role: string; permissions: string[] };
 const labels: Record<string, string> = {
-  staff: 'Không gian nhân viên',
-  kitchen: 'Không gian bếp',
-  admin: 'Không gian quản trị',
+  staff: 'Phục vụ',
+  kitchen: 'Bếp',
+  admin: 'Quản trị',
 };
 export default function Workspace({ params }: { params: Promise<{ area: string }> }) {
   const { area } = use(params);
@@ -55,17 +56,27 @@ export default function Workspace({ params }: { params: Promise<{ area: string }
     }
   }
   return (
-    <main className="workspace-shell">
+    <main className="workspace-shell experience-shell" data-role={area}>
+      <a className="skip-link" href="#workspace-main">
+        Đến nội dung chính
+      </a>
       <header className="workspace-header">
         <Link href="/" className="brand-lockup">
           <span className="brand-symbol">
-            <Icon name="leaf" />
+            <Icon name="table" />
           </span>
           <div>
             <strong>QUYẾT TRƯỜNG</strong>
-            <small>Restaurant workspace</small>
+            <small>{labels[area] ?? 'Vận hành nhà hàng'}</small>
           </div>
         </Link>
+        <div className="workspace-command-actions">
+          {user && (
+            <ProcedureHelp
+              role={area === 'admin' ? 'ADMIN' : area === 'kitchen' ? 'KITCHEN' : 'STAFF'}
+            />
+          )}
+        </div>
         <div className="workspace-user">
           {user && (
             <>
@@ -83,27 +94,7 @@ export default function Workspace({ params }: { params: Promise<{ area: string }
           </button>
         </div>
       </header>
-      <section className="workspace-content">
-        <div className="workspace-title">
-          <div>
-            <p className="eyebrow">
-              {area === 'kitchen'
-                ? 'TRONG BẾP HÔM NAY'
-                : area === 'admin'
-                  ? 'VẬN HÀNH NHÀ HÀNG'
-                  : 'CHĂM SÓC TỪNG BÀN KHÁCH'}
-            </p>
-            <h1>{labels[area] ?? 'Không gian nội bộ'}</h1>
-            <p>
-              {area === 'kitchen'
-                ? 'Nhận món, chuẩn bị và phối hợp cùng đội phục vụ.'
-                : area === 'admin'
-                  ? 'Mọi hoạt động nhà hàng, trong một không gian.'
-                  : 'Một ca phục vụ nhịp nhàng bắt đầu từ đây.'}
-            </p>
-          </div>
-          {user && <span className="live-indicator">Đã xác thực quyền truy cập</span>}
-        </div>
+      <section className="workspace-content" id="workspace-main" tabIndex={-1}>
         {error ? (
           <div role="alert" className="auth-card">
             <h2>Không thể truy cập</h2>
@@ -115,11 +106,19 @@ export default function Workspace({ params }: { params: Promise<{ area: string }
         ) : (
           <>
             {canViewOwnWork && (
-              <nav className="filter-chips" aria-label="Không gian làm việc">
-                <button className={!myWork ? 'active' : ''} onClick={() => setMyWork(false)}>
+              <nav className="filter-chips role-switcher" aria-label="Không gian làm việc">
+                <button
+                  aria-pressed={!myWork}
+                  className={!myWork ? 'active' : ''}
+                  onClick={() => setMyWork(false)}
+                >
                   Vận hành nhà hàng
                 </button>
-                <button className={myWork ? 'active' : ''} onClick={() => setMyWork(true)}>
+                <button
+                  aria-pressed={myWork}
+                  className={myWork ? 'active' : ''}
+                  onClick={() => setMyWork(true)}
+                >
                   Lịch làm & lương của tôi
                 </button>
               </nav>

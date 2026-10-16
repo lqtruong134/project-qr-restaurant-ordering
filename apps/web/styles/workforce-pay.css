@@ -1,0 +1,121 @@
+/* Per-person rates, dated policies and transparent attendance approval. */
+.wf-pay-settings,
+.wf-pay-review,
+.wf-pay-period-group,
+.wf-pay-preview {
+  min-width: 0;
+}
+.wf-pay-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+.wf-pay-policy-grid > div {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  border: 1px solid var(--wf-border, #e1e7e2);
+  border-radius: 12px;
+  padding: 16px;
+  background: #f4f8f6;
+}
+.wf-pay-policy-grid span,
+.wf-pay-records p,
+.wf-pay-period-group > p {
+  color: var(--muted, #64777b);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.wf-pay-records {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+.wf-pay-records article {
+  border: 1px solid var(--wf-border, #e1e7e2);
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 0;
+}
+.wf-pay-record-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.wf-pay-record-title > div:first-child {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.wf-pay-record-title strong {
+  overflow-wrap: anywhere;
+}
+.wf-pay-records p {
+  margin: 6px 0 0;
+}
+.wf-pay-period-group,
+.wf-pay-preview {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--wf-border, #e1e7e2);
+  border-radius: 12px;
+  padding: 16px;
+  background: #f5f8f6;
+}
+.wf-pay-period-group h4,
+.wf-pay-period-group p,
+.wf-pay-preview h4,
+.wf-pay-preview p {
+  margin: 0;
+}
+.wf-pay-period-group > button {
+  justify-self: start;
+}
+.wf-pay-period-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+.wf-pay-period-row label,
+.wf-pay-period-group .core-fields > label {
+  min-width: 0;
+}
+.wf-pay-period-row input,
+.wf-pay-period-group input {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+.wf-pay-help {
+  color: #705214;
+}
+@media (max-width: 900px) {
+  .wf-pay-policy-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .wf-pay-period-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .wf-pay-period-row > button {
+    justify-self: start;
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 540px) {
+  .wf-pay-policy-grid,
+  .wf-pay-period-row,
+  .wf-pay-period-group .core-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wf-pay-records article,
+  .wf-pay-preview,
+  .wf-pay-period-group {
+    padding: 12px;
+  }
+  .wf-pay-period-row > button {
+    grid-column: auto;
+  }
+}

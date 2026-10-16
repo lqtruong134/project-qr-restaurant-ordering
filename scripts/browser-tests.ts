@@ -1,10 +1,14 @@
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createDatabase } from '../packages/database/src/index.js';
 const host = createDatabase(process.env.DATABASE_URL!);
 const name = 'thesis_browser_' + randomBytes(8).toString('hex');
 const url = new URL(process.env.DATABASE_URL!);
 url.pathname = '/' + name;
+const uploadDirectory = mkdtempSync(join(tmpdir(), 'thesis-browser-media-'));
 const env = {
   ...process.env,
   DATABASE_URL: url.toString(),
@@ -15,6 +19,8 @@ const env = {
   APP_ORIGINS: 'http://127.0.0.1:13100,http://localhost:13100',
   CI: '1',
   NEXT_DIST_DIR: '.next-e2e',
+  MENU_UPLOAD_DIR: uploadDirectory,
+  PAYMENT_PROOF_DIR: join(uploadDirectory, 'payment-proofs'),
 };
 function run(args: string[]) {
   const result = spawnSync('pnpm', args, { env, stdio: 'inherit' });
@@ -30,4 +36,5 @@ try {
 } finally {
   await host.pool.query('DROP DATABASE ' + name + ' WITH (FORCE)');
   await host.close();
+  rmSync(uploadDirectory, { recursive: true, force: true });
 }

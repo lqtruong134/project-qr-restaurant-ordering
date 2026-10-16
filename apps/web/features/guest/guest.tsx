@@ -1,44 +1,162 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
-import { Action, api, ApiError, EntryForm, label, vnd, type Product } from '../shared/components';
+import { PromotionSelection } from '../shared/promotion-selection';
+import { payableItemAmount } from '../shared/billing-summary';
+import { SessionReference } from '../shared/session-reference';
+import { HistoryList } from '../shared/history-filters';
+import { GuestRefundSummary } from './refund-summary';
+import { GuestPaymentSummary } from './payment-summary';
+import { GuestSupport } from './guest-support';
+import { reasonLabel, restaurantPolicy } from '@thesis/contracts';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Action,
+  api,
+  ApiError,
+  EntryForm,
+  label,
+  vnd,
+  type Product,
+  type Row,
+} from '../shared/components';
 import { Empty, Icon, Modal, Search, matches } from '../shared/primitives';
-import { Cart, PaymentForm, type GuestState } from './guest-panels';
+import { notifyInfo, notifySuccess } from '../shared/operation-notice';
+import { PaymentForm, type GuestState } from './guest-panels';
+import { Cart, CartSummary, cartTotal } from './cart';
+import { DishPicker } from './dish-picker';
+import { guestPaymentStatus } from './payment-status';
+import { SessionCode } from './session-code';
+import { GuestBillLines } from './bill-lines';
+import { GuestScope } from './scope';
+import { GuestParticipants } from './participants';
+import { PolicyDialog, PolicyNotice } from '../shared/policy-ui';
+import { restaurantDateTime } from '../shared/restaurant-time';
+import { GuestLiveNotice } from './live-notice';
+import { advanceDishNotices, type DishNoticeFeed } from './dish-notices';
+import { GuestWelcome } from './welcome';
+import { MarketingCarousel } from '../shared/marketing-carousel';
+import { menuSlides } from './menu-promotions';
+import { MenuCard } from './menu-card';
+import { OrderedComboContents } from './order-combo';
+import '../../app/restaurant-notice.css';
 
 export default function Guest() {
   const [state, setState] = useState<GuestState>(),
     [error, setError] = useState(''),
-    [notice, setNotice] = useState(''),
     [token, setToken] = useState('');
   const [qrInfo, setQrInfo] = useState<{ table_name: string; area_name: string }>();
   const [view, setView] = useState('menu'),
     [search, setSearch] = useState(''),
-    [category, setCategory] = useState('Tất cả');
+    [category, setCategory] = useState('Tất cả'),
+    [orderScope, setOrderScope] = useState<'mine' | 'table'>('table'),
+    [paymentScope, setPaymentScope] = useState<'mine' | 'table'>('table');
   const [selected, setSelected] = useState<Product>(),
-    [joining, setJoining] = useState(true);
+    [cartSelection, setCartSelection] = useState<Record<string, boolean>>({}),
+    [joining, setJoining] = useState(true),
+    [loading, setLoading] = useState(true),
+    [profile, setProfile] = useState(false),
+    [showPolicy, setShowPolicy] = useState(false);
+  const qrGeneration = useRef(0);
+  const liveDishFeed = useRef<DishNoticeFeed | undefined>(undefined);
+  const [dishFeed, setDishFeed] = useState<DishNoticeFeed>();
+  const lastCartVersion = useRef(0);
+  const lastTable = useRef<{ sessionId: string; tableId: string; version: number } | null>(null);
   const refresh = useCallback(async () => {
+    const generation = qrGeneration.current;
     try {
-      setState(await api<GuestState>('/guest/state', undefined, 'GET', true));
+      const next = await api<GuestState>('/guest/state', undefined, 'GET', true);
+      if (generation !== qrGeneration.current) return;
+      const previous = lastTable.current;
+      if (
+        previous?.sessionId === next.session.id &&
+        (Number(next.session.version) < previous.version ||
+          next.cart.cart_version < lastCartVersion.current)
+      )
+        return;
+      if (previous?.sessionId === next.session.id && previous.tableId !== next.session.table_id)
+        notifyInfo(
+          'Bàn của bạn đã được chuyển sang ' +
+            next.session.table_name +
+            '. Giỏ, món và thanh toán được giữ nguyên.',
+        );
+      lastTable.current = {
+        sessionId: next.session.id,
+        tableId: String(next.session.table_id),
+        version: Number(next.session.version),
+      };
+      lastCartVersion.current = next.cart.cart_version;
+      liveDishFeed.current = advanceDishNotices(liveDishFeed.current, {
+        sessionId: next.session.id,
+        tableId: String(next.session.table_id),
+        participantId: next.participant.id,
+        orders: next.orders,
+      });
+      setDishFeed(liveDishFeed.current);
+      setState(next);
       setError('');
     } catch (e) {
-      if (e instanceof ApiError && [401, 403, 404, 409].includes(e.status)) setState(undefined);
+      if (generation !== qrGeneration.current) return;
+      if (e instanceof ApiError && [401, 403, 404, 409].includes(e.status)) {
+        setState(undefined);
+        liveDishFeed.current = undefined;
+        setDishFeed(undefined);
+      }
+      if (e instanceof ApiError && e.status === 401) setJoining(true);
       setError(e instanceof Error ? e.message : 'Chưa kết nối được nhà hàng.');
     }
   }, []);
   useEffect(() => {
-    const qr = window.location.hash.slice(1);
-    setToken(qr);
-    // A new QR must be joined explicitly; never silently show a previous table's session.
-    setJoining(Boolean(qr));
-    if (!qr) void refresh();
-    else
-      void api<{ table_name: string; area_name: string }>(
-        '/guest/qr-info',
-        { token: qr },
-        'POST',
-        true,
-      )
-        .then(setQrInfo)
-        .catch((e) => setError(e.message));
+    const readQr = () => {
+      const generation = ++qrGeneration.current;
+      lastTable.current = null;
+      lastCartVersion.current = 0;
+      liveDishFeed.current = undefined;
+      setDishFeed(undefined);
+      setCartSelection({});
+      const qr = window.location.hash.slice(1);
+      setToken(qr);
+      setQrInfo(undefined);
+      setError('');
+      setLoading(true);
+      // A hash navigation may keep this page mounted. Each new QR is explicit,
+      // and responses for an earlier QR must never restore the previous table.
+      setJoining(Boolean(qr));
+      if (!qr)
+        void refresh().finally(() => {
+          if (generation === qrGeneration.current) setLoading(false);
+        });
+      else {
+        setState(undefined);
+        setProfile(false);
+        void api<{ table_name: string; area_name: string; already_joined: boolean }>(
+          '/guest/qr-info',
+          { token: qr },
+          'POST',
+          true,
+        )
+          .then(async (info) => {
+            if (generation !== qrGeneration.current) return;
+            setQrInfo(info);
+            if (info.already_joined) {
+              window.history.replaceState(null, '', '/guest');
+              setToken('');
+              setJoining(false);
+              await refresh();
+            }
+          })
+          .catch((e) => {
+            if (generation === qrGeneration.current) setError(e.message);
+          })
+          .finally(() => {
+            if (generation === qrGeneration.current) setLoading(false);
+          });
+      }
+    };
+    readQr();
+    window.addEventListener('hashchange', readQr);
+    return () => {
+      ++qrGeneration.current;
+      window.removeEventListener('hashchange', readQr);
+    };
   }, [refresh]);
   useEffect(() => {
     if (joining) return;
@@ -50,10 +168,12 @@ export default function Guest() {
     };
     document.addEventListener('visibilitychange', resume);
     window.addEventListener('online', resume);
+    window.addEventListener('focus', resume);
     return () => {
       clearInterval(timer);
       document.removeEventListener('visibilitychange', resume);
       window.removeEventListener('online', resume);
+      window.removeEventListener('focus', resume);
     };
   }, [joining, refresh]);
   async function mutate(path: string, body: unknown, method = 'POST') {
@@ -64,128 +184,213 @@ export default function Guest() {
       true,
     );
     if (result?.skipped?.length)
-      setNotice(
+      notifyInfo(
         'Đã hủy ' +
           (result.cancelled?.length ?? 0) +
           ' món; ' +
           result.skipped.length +
           ' món đã đổi trạng thái nên được giữ lại.',
       );
+    else if (result?.cancelled)
+      if (result.cancelled.length)
+        notifySuccess(`Đã hủy ${result.cancelled.length} món còn chờ bếp.`);
+      else notifyInfo('Không có món nào còn đủ điều kiện hủy.');
     await refresh();
   }
+  function navigate(next: string) {
+    setView(next);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  const scopedOrders =
+    state?.orders.filter(
+      (o) => orderScope === 'table' || o.owner_participant_id === state.participant.id,
+    ) ?? [];
   const categories = [
     'Tất cả',
-    ...new Set(state?.products.map((p) => String(p.category_name ?? 'Món ngon')) ?? []),
+    'Combo',
+    ...new Set(
+      state?.products
+        .filter((p) => p.product_kind !== 'COMBO')
+        .map((p) => String(p.category_name ?? 'Khác'))
+        .filter((name) => name !== 'Combo' && name !== 'Tất cả') ?? [],
+    ),
   ];
   const products =
     state?.products.filter(
-      (p) => (category === 'Tất cả' || p.category_name === category) && matches(p.name, search),
+      (p) =>
+        (category === 'Tất cả' ||
+          (category === 'Combo'
+            ? p.product_kind === 'COMBO'
+            : p.product_kind !== 'COMBO' && String(p.category_name ?? 'Khác') === category)) &&
+        matches([p.name, ...(p.components?.map((item) => item.name) ?? [])].join(' '), search),
     ) ?? [];
-  const count = state?.items.reduce((sum, i) => sum + i.quantity, 0) ?? 0;
-  const total =
-    state?.items.reduce((sum, i) => sum + BigInt(i.unit_price_preview) * BigInt(i.quantity), 0n) ??
-    0n;
+  const mine = state?.items.filter((i) => i.owner_participant_id === state.participant.id) ?? [];
+  const count = mine.reduce((sum, i) => sum + i.quantity, 0);
+  const total = cartTotal(mine);
+  const comboProducts = products.filter((p) => p.product_kind === 'COMBO');
+  const dishProducts = products.filter((p) => p.product_kind !== 'COMBO');
   return (
-    <main className="guest-app">
+    <main className="guest-app guest-experience">
       <header className="guest-header">
-        <a className="brand-lockup" href="/">
+        <a
+          className="brand-lockup"
+          href="/guest"
+          aria-label="Quyết Trường: về thực đơn"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate('menu');
+          }}
+        >
           <span className="brand-symbol">
-            <Icon name="leaf" />
+            <Icon name="table" />
           </span>
           <div>
             <strong>QUYẾT TRƯỜNG</strong>
-            <small>Vietnamese Bistro</small>
+            <small>MÓN VIỆT TẠI BÀN</small>
           </div>
         </a>
+        <button
+          className="icon-button policy-header-button"
+          aria-label="Quy định & chính sách"
+          title="Quy định & chính sách"
+          onClick={() => setShowPolicy(true)}
+        >
+          <Icon name="info" />
+        </button>
         {state && !joining && (
-          <span className="guest-table">
-            <Icon name="table" size={16} />
-            {String(state.session.table_name)} · {String(state.session.area_name)} ·{' '}
-            {state.participant.displayName}
-          </span>
+          <div className="guest-header-actions">
+            <span className="guest-table">
+              <Icon name="table" size={16} />
+              <span>
+                <strong>{String(state.session.table_name)}</strong>
+                <small>
+                  {String(state.session.area_name)}
+                  <SessionReference id={state.session.id} />
+                </small>
+              </span>
+            </span>
+            {state.session.access_code && <SessionCode code={String(state.session.access_code)} />}
+            <GuestParticipants
+              members={
+                state.participants ?? [
+                  { id: state.participant.id, display_name: state.participant.displayName },
+                ]
+              }
+              currentId={state.participant.id}
+              tableName={String(state.session.table_name)}
+              onEditProfile={() => setProfile(true)}
+            />
+          </div>
         )}
       </header>
+      {showPolicy && <PolicyDialog close={() => setShowPolicy(false)} />}
       {!state || joining ? (
-        <section className="guest-welcome">
-          <p className="eyebrow">MỘT BỮA NGON, MỘT NIỀM VUI</p>
-          <h1>{qrInfo ? qrInfo.table_name + ' · ' + qrInfo.area_name : 'Mời bạn vào bàn.'}</h1>
-          {error && token && (
-            <p role="alert" className="form-error">
-              {error}
-            </p>
-          )}
-          <p>Nhập tên để cả bàn dễ nhận ra những món bạn chọn. Không cần tạo tài khoản.</p>
-          {token && qrInfo ? (
-            <EntryForm
-              title="Tham gia bàn"
-              fields={[{ key: 'name', label: 'Tên của bạn' }]}
-              submit="Xem thực đơn"
-              onSubmit={async (v) => {
-                await api('/guest/join', { token, name: v.name }, 'POST', true);
-                setJoining(false);
-                setToken('');
-                window.history.replaceState(null, '', '/guest');
-                await refresh();
-              }}
-            />
-          ) : (
-            <Empty title="Quét QR tại bàn để bắt đầu" icon="table">
-              Nếu phiên đã kết thúc, hãy quét lại mã QR hoặc liên hệ nhân viên.
-            </Empty>
-          )}
-          {error && !token && (
-            <p role="alert" className="form-error">
-              {error}
-            </p>
-          )}
-        </section>
+        <GuestWelcome
+          token={token}
+          table={qrInfo}
+          loading={loading}
+          error={error}
+          showPolicy={() => setShowPolicy(true)}
+          joined={async () => {
+            setJoining(false);
+            setToken('');
+            window.history.replaceState(null, '', '/guest');
+            await refresh();
+          }}
+        />
       ) : (
         <>
-          {notice && <p role="status">{notice}</p>}
+          <GuestLiveNotice
+            key={[state.session.id, state.session.table_id, state.participant.id].join(':')}
+            feed={dishFeed}
+            orders={state.orders}
+            openOrders={() => navigate('orders')}
+          />
           {error && (
             <p role="alert" className="form-error">
               {error} Vui lòng thử lại hoặc gọi nhân viên.
             </p>
           )}
-          <details className="core-card">
-            <summary>Tên của bạn và rời bàn</summary>
-            <EntryForm
-              title="Đổi tên hiển thị"
-              fields={[{ key: 'name', label: 'Tên của bạn', value: state.participant.displayName }]}
-              onSubmit={(v) => mutate('/guest/profile', v, 'PATCH')}
-            />
-            <Action
-              confirm="Rời bàn và bỏ các món chưa gửi của bạn? Món đã gọi vẫn được giữ trong hóa đơn."
-              run={async () => {
-                await api('/guest/leave', {}, 'POST', true);
-                setState(undefined);
-                setJoining(true);
-              }}
-            >
-              Rời bàn
-            </Action>
-          </details>
+          {profile && (
+            <Modal title="Tên của bạn và rời bàn" close={() => setProfile(false)}>
+              <p className="field-hint">
+                Chọn tên khác với người cùng bàn để dễ nhận ra món của bạn. Đổi tên không làm thay
+                đổi các món đã chọn hoặc đã gọi.
+              </p>
+              <EntryForm
+                title="Đổi tên hiển thị"
+                submit="Cập nhật tên"
+                successMessage="Đã cập nhật tên của bạn."
+                fields={[
+                  { key: 'name', label: 'Tên của bạn', value: state.participant.displayName },
+                ]}
+                onSubmit={(v) => mutate('/guest/profile', v, 'PATCH')}
+              />
+              <Action
+                confirmTitle="Rời bàn trên thiết bị này?"
+                confirmLabel="Xác nhận rời bàn"
+                successMessage="Bạn đã rời bàn trên thiết bị này."
+                confirm={restaurantPolicy.notices.leave}
+                run={async () => {
+                  await api('/guest/leave', {}, 'POST', true);
+                  setState(undefined);
+                  liveDishFeed.current = undefined;
+                  setDishFeed(undefined);
+                  setJoining(true);
+                  setProfile(false);
+                }}
+              >
+                Rời bàn
+              </Action>
+            </Modal>
+          )}
           {view === 'menu' && (
             <>
-              <section className="guest-hero">
+              <div className="guest-menu-intro">
                 <div>
-                  <p className="eyebrow">BẾP VIỆT · NGUYÊN LIỆU TƯƠI · VỊ THÂN QUEN</p>
-                  <h1>Hôm nay bạn muốn dùng gì?</h1>
-                  <p>
-                    Một chút món quen, một chút khám phá. Chọn món ngon và chia sẻ cùng những người
-                    bên cạnh.
-                  </p>
+                  <p className="eyebrow">THỰC ĐƠN QUYẾT TRƯỜNG</p>
+                  <h1>Hôm nay bạn muốn dùng món gì?</h1>
                 </div>
-                <div className="hero-plate">
-                  <img src="/menu/rice.svg" alt="Minh họa món Việt" />
-                </div>
-              </section>
+                <p>
+                  Chọn món, xem lại giỏ rồi gửi bếp.
+                  <small className="menu-vat-note">Giá thực đơn đã gồm VAT.</small>
+                </p>
+              </div>
+              {(state.discountPrograms ?? []).length > 0 && (
+                <button className="guest-discount-discovery" onClick={() => navigate('payment')}>
+                  <span>
+                    <Icon name="receipt" size={20} />
+                    <span>
+                      <strong>Ưu đãi của bàn</strong>
+                      <small>
+                        {state.billing?.promotion && BigInt(state.billing.discountAmount) > 0n
+                          ? `${state.billing.promotion.name} · Đang giảm ${vnd(state.billing.discountAmount)}`
+                          : `${state.discountPrograms!.length} chương trình · Xem điều kiện và áp dụng mã trước khi thanh toán`}
+                      </small>
+                    </span>
+                  </span>
+                  <Icon name="arrow" size={20} />
+                </button>
+              )}
               <div className="menu-layout">
-                <section aria-label="Thực đơn">
+                <section className="guest-menu-column" aria-label="Thực đơn">
+                  <MarketingCarousel
+                    slides={menuSlides(state.products, state.promotions)}
+                    className="guest-menu-promotions"
+                    onSelect={(id) => {
+                      const product = state.products.find(
+                        (p) => p.id === id && p.availability_status === 'AVAILABLE',
+                      );
+                      if (product) setSelected(product);
+                    }}
+                  />
                   <div className="section-heading">
                     <div>
                       <h2>Thực đơn tại bàn</h2>
-                      <p>{state.products.length} lựa chọn từ căn bếp của chúng tôi</p>
+                      <p>
+                        {products.length} lựa chọn
+                        {category !== 'Tất cả' ? ' - ' + category : ' trong thực đơn'}
+                      </p>
                     </div>
                   </div>
                   <Search
@@ -193,11 +398,13 @@ export default function Guest() {
                     onChange={setSearch}
                     placeholder="Tìm món bạn yêu thích…"
                   />
-                  <div className="filter-chips" aria-label="Danh mục món">
+                  <div className="filter-chips" role="group" aria-label="Danh mục món">
                     {categories.map((c) => (
                       <button
                         key={c}
                         className={c === category ? 'active' : ''}
+                        title={c}
+                        aria-pressed={c === category}
                         onClick={() => setCategory(c)}
                       >
                         {c}
@@ -205,55 +412,68 @@ export default function Guest() {
                     ))}
                   </div>
                   {!products.length && (
-                    <Empty title="Chưa tìm thấy món phù hợp">
-                      Thử tên món khác hoặc chọn tất cả danh mục.
+                    <Empty
+                      title={
+                        state.products.length
+                          ? 'Không tìm thấy món phù hợp'
+                          : 'Thực đơn đang được cập nhật'
+                      }
+                    >
+                      {state.products.length
+                        ? 'Thử tên món khác hoặc xem tất cả danh mục.'
+                        : 'Vui lòng nhờ nhân viên giới thiệu món hiện có.'}
+                      {(search || category !== 'Tất cả') && (
+                        <button
+                          type="button"
+                          className="secondary-button menu-filter-reset"
+                          onClick={() => {
+                            setSearch('');
+                            setCategory('Tất cả');
+                          }}
+                        >
+                          Xem tất cả món
+                        </button>
+                      )}
                     </Empty>
                   )}
-                  <div className="menu-grid">
-                    {products.map((p) => (
-                      <article
-                        className={
-                          'dish-card' +
-                          (p.availability_status !== 'AVAILABLE' ? ' dish-unavailable' : '')
-                        }
-                        key={p.id}
-                      >
-                        <div className="dish-visual">
-                          <img
-                            src={String(p.image_url || '/menu/rice.svg')}
-                            alt={'Minh họa ' + p.name}
-                            loading="lazy"
-                            onError={(e) => {
-                              e.currentTarget.onerror = null;
-                              e.currentTarget.src = '/menu/rice.svg';
-                            }}
-                          />
-                          <span className="dish-category">{String(p.category_name)}</span>
+                  {comboProducts.length > 0 && (
+                    <section className="guest-combo-section" aria-label="Combo gợi ý">
+                      <div className="guest-menu-group-heading">
+                        <div>
+                          <span className="eyebrow">CHỌN NHANH MỘT BỮA NGON</span>
+                          <h3>Combo gợi ý</h3>
                         </div>
-                        <div className="dish-content">
-                          <h3>{p.name}</h3>
-                          <p>{String(p.description ?? 'Được chuẩn bị tươi ngon tại bếp.')}</p>
-                          <div className="dish-bottom">
-                            <strong>{vnd(p.base_price)}</strong>
-                            {p.availability_status === 'AVAILABLE' ? (
-                              <button aria-label={'Chọn ' + p.name} onClick={() => setSelected(p)}>
-                                <Icon name="plus" size={18} />
-                              </button>
-                            ) : (
-                              <small>Tạm hết món</small>
-                            )}
-                          </div>
+                        <p>Xem các món đi kèm và giá trọn combo.</p>
+                      </div>
+                      <div className="menu-grid combo-grid">
+                        {comboProducts.map((p) => (
+                          <MenuCard key={p.id} product={p} select={setSelected} />
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                  {dishProducts.length > 0 && (
+                    <section className="guest-dish-section" aria-label="Món lẻ">
+                      {comboProducts.length > 0 && (
+                        <div className="guest-menu-group-heading">
+                          <h3>Món lẻ</h3>
+                          <p>Chọn thêm theo khẩu vị của bạn.</p>
                         </div>
-                      </article>
-                    ))}
-                  </div>
+                      )}
+                      <div className="menu-grid">
+                        {dishProducts.map((p) => (
+                          <MenuCard key={p.id} product={p} select={setSelected} />
+                        ))}
+                      </div>
+                    </section>
+                  )}
                   <p className="menu-footnote">
-                    Hình minh họa. Nếu có dị ứng thực phẩm, vui lòng trao đổi với nhân viên trước
-                    khi gọi món.
+                    Nếu bạn có dị ứng hoặc cần thay đổi nguyên liệu, vui lòng trao đổi với nhân viên
+                    trước khi gọi món.
                   </p>
                 </section>
                 <aside className="cart-sidebar">
-                  <Cart state={state} mutate={mutate} done={refresh} />
+                  <CartSummary state={state} open={() => navigate('cart')} />
                 </aside>
               </div>
             </>
@@ -261,153 +481,305 @@ export default function Guest() {
           {view === 'orders' && (
             <section className="guest-content">
               <p className="eyebrow">TỪ BẾP ĐẾN BÀN</p>
-              <h1>Món đã gửi</h1>
-              {!state.orders.length && (
-                <Empty title="Bữa ăn của bạn bắt đầu từ đây" icon="chef">
+              <h1>Món đã gọi</h1>
+              <GuestScope value={orderScope} change={setOrderScope} />
+              {!scopedOrders.length && (
+                <Empty
+                  title={orderScope === 'mine' ? 'Bạn chưa gửi món nào' : 'Bàn chưa gửi món nào'}
+                  icon="chef"
+                >
                   Chọn món trong thực đơn, sau đó gửi từ giỏ món.
                 </Empty>
               )}
-              {[...new Set(state.orders.map((o) => o.id))].map((id) => {
-                const lines = state.orders.filter((o) => o.id === id),
-                  order = lines[0]!;
-                return (
-                  <article className="core-card guest-order-group" key={id}>
-                    <div className="section-heading">
-                      <h3>Lượt gọi #{id.slice(0, 6).toUpperCase()}</h3>
-                      <span className="status-pill" data-status={String(order.status)}>
-                        {label(order.status)}
-                      </span>
-                    </div>
-                    <div className="order-meta">
-                      <Icon name="clock" size={14} />
-                      {new Date(String(order.created_at)).toLocaleString('vi-VN')}
-                    </div>
-                    {lines.map((i) => (
-                      <div className="core-line" key={String(i.item_id)}>
-                        <strong>
-                          {String(i.quantity)} × {String(i.product_name_snapshot)}
-                        </strong>
-                        <span className="status-pill" data-status={String(i.item_status)}>
-                          {label(i.item_status)}
-                        </span>
-                        {i.note && <small>Ghi chú: {String(i.note)}</small>}
-                        {i.owner_participant_id === state.participant.id &&
-                          i.item_status === 'SUBMITTED' && (
-                            <Action
-                              confirm="Hủy riêng món này?"
-                              run={() => mutate('/guest/items/cancel', { itemIds: [i.item_id] })}
-                            >
-                              Hủy món này
-                            </Action>
-                          )}
-                        {i.item_reason && (
-                          <small className="form-error">{String(i.item_reason)}</small>
-                        )}
-                      </div>
-                    ))}
-                    <p className="core-line">
-                      Tổng lượt gọi <strong>{vnd(order.total_amount)}</strong>
-                    </p>
-                    {order.created_by_participant_id === state.participant.id &&
-                      state.orders.some((i) => i.id === id && i.item_status === 'SUBMITTED') && (
-                        <Action
-                          confirm="Hủy những món của bạn chưa được bếp tiếp nhận trong lượt này?"
-                          run={() =>
-                            mutate('/guest/orders/' + id + '/cancel', {
-                              reason: 'Khách yêu cầu hủy lượt trước khi bếp tiếp nhận',
-                            })
-                          }
-                        >
-                          Hủy các món còn chờ trong lượt
-                        </Action>
-                      )}
-                  </article>
-                );
-              })}
+              {scopedOrders.length > 0 && (
+                <HistoryList
+                  showTimeFilter={false}
+                  items={[...new Map(scopedOrders.map((o) => [o.id, o])).values()]}
+                  date={(o) => o.created_at}
+                  search={(o) =>
+                    scopedOrders
+                      .filter((i) => i.id === o.id)
+                      .map((i) =>
+                        [i.product_name_snapshot, i.note, i.owner_name, i.id.slice(0, 6)].join(' '),
+                      )
+                      .join(' ')
+                  }
+                  placeholder="Tìm món, người gọi hoặc ghi chú…"
+                  empty="Không tìm thấy lượt gọi phù hợp"
+                >
+                  {(rows) => (
+                    <>
+                      {rows.map((orderRow) => {
+                        const id = orderRow.id;
+                        const lines = scopedOrders.filter((o) => o.id === id),
+                          order = lines[0]!;
+                        return (
+                          <article className="core-card guest-order-group" key={id}>
+                            <div className="section-heading">
+                              <div>
+                                <h3>Lượt gọi #{id.slice(0, 6).toUpperCase()}</h3>
+                                <strong className="order-owner">
+                                  {order.created_by_participant_id === state.participant.id
+                                    ? 'Bạn gọi'
+                                    : order.created_by_participant_id
+                                      ? String(
+                                          state.participants?.find(
+                                            (p) => p.id === order.created_by_participant_id,
+                                          )?.display_name ?? 'Khách cùng bàn',
+                                        ) + ' gọi'
+                                      : 'Nhân viên gọi cho bàn'}
+                                </strong>
+                              </div>
+                              <span className="status-pill" data-status={String(order.status)}>
+                                {label(order.status)}
+                              </span>
+                            </div>
+                            <div className="order-meta">
+                              <Icon name="clock" size={14} />
+                              {restaurantDateTime(order.created_at)}
+                            </div>
+                            {lines.map((i) => (
+                              <div className="core-line guest-order-item" key={String(i.item_id)}>
+                                <strong>
+                                  {String(i.quantity)} × {String(i.product_name_snapshot)}
+                                </strong>
+                                {i.product_kind_snapshot === 'COMBO' && (
+                                  <OrderedComboContents value={i.combo_components_snapshot} />
+                                )}
+                                <span className="status-pill" data-status={String(i.item_status)}>
+                                  {label(i.item_status)}
+                                </span>
+                                <small className="item-owner">
+                                  {i.owner_participant_id === state.participant.id
+                                    ? 'Món của bạn'
+                                    : i.owner_participant_id
+                                      ? 'Món của ' + String(i.owner_name ?? 'khách cùng bàn')
+                                      : 'Món chung - Nhân viên gọi hộ'}
+                                </small>
+                                {i.note && <small>Ghi chú: {String(i.note)}</small>}
+                                {i.owner_participant_id === state.participant.id &&
+                                  i.item_status === 'SUBMITTED' && (
+                                    <Action
+                                      confirmTitle="Hủy món đang chờ bếp?"
+                                      confirmLabel="Xác nhận hủy món"
+                                      confirm={
+                                        String(i.quantity) +
+                                        ' × ' +
+                                        i.product_name_snapshot +
+                                        ' - ' +
+                                        vnd(i.line_total) +
+                                        '. ' +
+                                        restaurantPolicy.notices.cancel
+                                      }
+                                      run={() =>
+                                        mutate('/guest/items/cancel', {
+                                          itemIds: [i.item_id],
+                                          reasonCode: 'CUSTOMER_CHANGED_MIND',
+                                        })
+                                      }
+                                    >
+                                      Hủy món này
+                                    </Action>
+                                  )}
+                                {i.awaiting_admin === true && (
+                                  <small>
+                                    Nhà hàng đang kiểm tra sự cố và số tiền cần trả. Nhân viên sẽ
+                                    đến trao đổi với bạn.
+                                  </small>
+                                )}
+                                {i.charge_status === 'REVERSED' && (
+                                  <small>Không tính tiền món này.</small>
+                                )}
+                                {i.item_status === 'CANCELLED' &&
+                                  i.charge_status === 'ACTIVE' &&
+                                  i.awaiting_admin !== true && (
+                                    <small>
+                                      Món đã hủy sau khi bắt đầu chế biến - Vẫn tính tiền.
+                                    </small>
+                                  )}
+                                {i.item_reason && (
+                                  <small className="form-error">
+                                    {i.cancel_reason_code === 'CUSTOMER_CHANGED_MIND'
+                                      ? 'Món đã hủy theo yêu cầu.'
+                                      : i.cancel_reason_code === 'OTHER'
+                                        ? 'Nhà hàng chưa thể phục vụ món này. Nhân viên sẽ đến trao đổi với bạn.'
+                                        : reasonLabel(i.cancel_reason_code) ||
+                                          'Món đã được dừng. Nhân viên sẽ trao đổi với bạn.'}
+                                  </small>
+                                )}
+                              </div>
+                            ))}
+                            <p className="core-line guest-order-total">
+                              {orderScope === 'mine'
+                                ? 'Tiền món của bạn trong lượt này'
+                                : 'Tiền món trong lượt này'}{' '}
+                              <strong>
+                                {vnd(
+                                  lines.reduce(
+                                    (sum, i) =>
+                                      sum +
+                                      (i.charge_status === 'ACTIVE'
+                                        ? BigInt(String(i.original_amount ?? i.line_total ?? 0))
+                                        : 0n),
+                                    0n,
+                                  ),
+                                )}
+                              </strong>
+                            </p>
+                            {order.created_by_participant_id === state.participant.id &&
+                              state.orders.some(
+                                (i) => i.id === id && i.item_status === 'SUBMITTED',
+                              ) && (
+                                <Action
+                                  confirmTitle="Hủy các món còn chờ?"
+                                  confirmLabel="Xác nhận hủy"
+                                  confirm={
+                                    'Hủy ' +
+                                    lines
+                                      .filter((i) => i.item_status === 'SUBMITTED')
+                                      .reduce((sum, i) => sum + Number(i.quantity), 0) +
+                                    ' phần chưa được bếp tiếp nhận trong lượt này? ' +
+                                    restaurantPolicy.notices.cancel
+                                  }
+                                  run={() =>
+                                    mutate('/guest/orders/' + id + '/cancel', {
+                                      reasonCode: 'CUSTOMER_CHANGED_MIND',
+                                      note: 'Khách yêu cầu hủy lượt trước khi bếp tiếp nhận',
+                                    })
+                                  }
+                                >
+                                  Hủy các món còn chờ trong lượt
+                                </Action>
+                              )}
+                          </article>
+                        );
+                      })}
+                    </>
+                  )}
+                </HistoryList>
+              )}
             </section>
           )}
           {view === 'payment' && (
             <section className="guest-content">
-              <p className="eyebrow">THOẢI MÁI CHIA SẺ BỮA ĂN</p>
+              <p className="eyebrow">THÔNG TIN THANH TOÁN</p>
               <h1>Thanh toán tại bàn</h1>
               <div className="core-card">
-                <div className="core-stats">
+                <GuestPaymentSummary
+                  account={state.account}
+                  billing={state.billing}
+                  payments={state.payments}
+                  requests={state.support}
+                />
+                {state.session.session_status === 'ACTIVE' && (
+                  <PromotionSelection
+                    guest
+                    sessionId={state.session.id}
+                    billing={state.billing}
+                    hasPayment={BigInt(String(state.account.paid_total ?? 0)) > 0n}
+                    done={refresh}
+                  />
+                )}
+                <GuestRefundSummary
+                  account={state.account}
+                  transactions={state.refundTransactions}
+                />
+                {BigInt(String(state.account?.outstanding_amount ?? 0)) > 0n && (
                   <p>
-                    Tiền món<strong>{vnd(state.account?.charge_total)}</strong>
-                  </p>
-                  <p>
-                    Đã thanh toán<strong>{vnd(state.account?.paid_total)}</strong>
-                  </p>
-                  <p>
-                    Còn phải trả<strong>{vnd(state.account?.outstanding_amount)}</strong>
-                  </p>
-                  <p>
-                    Chờ xác nhận<strong>{vnd(state.account?.reserved_payment_amount)}</strong>
-                  </p>
-                </div>
-                {BigInt(String(state.account?.refund_due_amount ?? 0)) > 0n && (
-                  <p className="attention-banner">
-                    Nhân viên cần hoàn lại {vnd(state.account.refund_due_amount)} cho bàn.
+                    Bạn có thể thanh toán toàn bộ hoặc chia thành nhiều lần. Nhân viên sẽ kiểm tra
+                    và xác nhận sau khi nhận tiền.
                   </p>
                 )}
-                <p>
-                  Bạn có thể thanh toán toàn bộ hoặc chia thành nhiều lần. Nhân viên sẽ kiểm tra và
-                  xác nhận sau khi nhận tiền.
-                </p>
-                <PaymentForm
-                  done={refresh}
-                  available={(
-                    BigInt(String(state.account?.outstanding_amount ?? 0)) -
-                    BigInt(String(state.account?.reserved_payment_amount ?? 0))
-                  ).toString()}
-                />
+                <GuestScope value={paymentScope} change={setPaymentScope} />
+                {paymentScope === 'mine' && (
+                  <div className="own-bill-summary">
+                    <span>Tiền món của bạn</span>
+                    <strong>
+                      {vnd(
+                        state.orders
+                          .filter(
+                            (i) =>
+                              i.owner_participant_id === state.participant.id &&
+                              i.charge_status === 'ACTIVE',
+                          )
+                          .reduce((sum, i) => sum + payableItemAmount(i, state.billing), 0n),
+                      )}
+                    </strong>
+                    <small>
+                      Các số tiền phía trên là của cả bàn. Muốn trả riêng, hãy nhờ nhân viên kiểm
+                      tra phần món của bạn.
+                    </small>
+                  </div>
+                )}
+                {state.orders.length > 0 && (
+                  <GuestBillLines
+                    items={state.orders.filter(
+                      (i) =>
+                        paymentScope === 'table' || i.owner_participant_id === state.participant.id,
+                    )}
+                    billing={state.billing}
+                    mine={paymentScope === 'mine'}
+                  />
+                )}
+                {BigInt(String(state.account?.outstanding_amount ?? 0)) > 0n && (
+                  <PolicyNotice>{restaurantPolicy.notices.payment}</PolicyNotice>
+                )}
+                {(BigInt(String(state.account?.outstanding_amount ?? 0)) > 0n ||
+                  (BigInt(String(state.account?.refunded_total ?? 0)) === 0n &&
+                    BigInt(String(state.account?.refund_due_amount ?? 0)) === 0n)) && (
+                  <PaymentForm
+                    done={refresh}
+                    available={String(state.account?.outstanding_amount ?? '0')}
+                    requests={state.support}
+                    paymentStatus={guestPaymentStatus(
+                      state.account,
+                      state.orders,
+                      state.items.length,
+                    )}
+                  />
+                )}
               </div>
             </section>
           )}
           {view === 'cart' && (
             <section className="guest-content">
-              <p className="eyebrow">MÓN BẠN ĐANG CHỌN</p>
               <h1>Giỏ món</h1>
-              <div className="core-card">
-                <Cart state={state} mutate={mutate} done={refresh} />
-              </div>
+              <Cart
+                state={state}
+                mutate={mutate}
+                done={refresh}
+                selection={cartSelection}
+                select={setCartSelection}
+                menu={() => navigate('menu')}
+                submitted={(order) =>
+                  notifySuccess(
+                    order.status === 'PENDING_REVIEW'
+                      ? 'Đã gửi món đã chọn. Nhân viên sẽ kiểm tra lượt gọi của bạn; các món chưa chọn vẫn ở trong giỏ.'
+                      : 'Đã gửi món đã chọn đến bếp. Các món chưa chọn vẫn ở trong giỏ.',
+                  )
+                }
+              />
             </section>
           )}
           {view === 'support' && (
             <section className="guest-content">
-              <p className="eyebrow">CHÚNG TÔI LUÔN SẴN SÀNG</p>
+              <p className="eyebrow">HỖ TRỢ TẠI BÀN</p>
               <h1>Bạn cần hỗ trợ gì?</h1>
-              <div className="core-card">
-                <EntryForm
-                  title="Gọi nhân viên hỗ trợ"
-                  fields={[
-                    {
-                      key: 'type',
-                      label: 'Bạn cần gì?',
-                      options: ['ASSISTANCE', 'WATER', 'UTENSILS', 'BILL', 'OTHER'].map(
-                        (value) => ({ value, label: label(value) }),
-                      ),
-                    },
-                    { key: 'content', label: 'Nội dung thêm', optional: true },
-                  ]}
-                  submit="Gửi hỗ trợ"
-                  onSubmit={(v) => mutate('/guest/support', v)}
-                />
-                {state.support?.map((s) => (
-                  <div className="core-line" key={s.id}>
-                    <span>{label(s.request_type)}</span>
-                    <span className="status-pill" data-status={s.status}>
-                      {label(s.status)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <GuestSupport rows={state.support ?? []} done={refresh} />
             </section>
           )}
           {view === 'menu' && count > 0 && (
-            <button className="mobile-cart-button" onClick={() => setView('cart')}>
+            <button
+              className="mobile-cart-button"
+              aria-label="Xem giỏ món của tôi"
+              onClick={() => navigate('cart')}
+            >
               <Icon name="bag" size={18} />
-              {count} món · {vnd(total)}
+              <span>
+                Giỏ của tôi · {count}{' '}
+                {mine.every((item) => item.product_kind === 'COMBO') ? 'combo' : 'món'}
+              </span>
+              <strong>{vnd(total)}</strong>
               <Icon name="arrow" size={17} />
             </button>
           )}
@@ -422,7 +794,8 @@ export default function Guest() {
               <button
                 key={key}
                 className={view === key ? 'active' : ''}
-                onClick={() => setView(key!)}
+                aria-current={view === key ? 'page' : undefined}
+                onClick={() => navigate(key!)}
               >
                 <Icon name={icon!} />
                 {title}
@@ -431,30 +804,38 @@ export default function Guest() {
             ))}
           </nav>
           {selected && (
-            <Modal title="Thêm món vào giỏ" close={() => setSelected(undefined)}>
-              <div className="add-dish-preview">
-                <img src={String(selected.image_url || '/menu/rice.svg')} alt="" />
-                <div>
-                  <h3>{selected.name}</h3>
-                  <p>{vnd(selected.base_price)}</p>
-                </div>
-              </div>
-              <EntryForm
-                title="Chọn món"
-                fields={[
-                  { key: 'quantity', label: 'Số lượng', type: 'number', value: 1, min: 1, max: 20 },
-                  { key: 'note', label: 'Ghi chú cho bếp', optional: true },
-                ]}
-                submit="Thêm vào giỏ"
-                onSubmit={async (v) => {
-                  await mutate('/guest/cart', {
-                    productId: selected.id,
-                    quantity: Number(v.quantity),
-                    note: v.note,
-                    cartVersion: state.cart.cart_version,
-                  });
+            <Modal title="Chọn món" close={() => setSelected(undefined)}>
+              <DishPicker
+                product={selected}
+                add={async (quantity, note, mode) => {
+                  const item = await api<Row>(
+                    '/guest/cart',
+                    {
+                      productId: selected.id,
+                      quantity,
+                      note,
+                      cartVersion: state.cart.cart_version,
+                    },
+                    'POST',
+                    true,
+                  );
+                  if (mode === 'now')
+                    setCartSelection({
+                      ...Object.fromEntries(mine.map((i) => [i.id, false])),
+                      [item.id]: true,
+                    });
+                  else setCartSelection((previous) => ({ ...previous, [item.id]: true }));
+                  await refresh();
                   setSelected(undefined);
-                  setView('cart');
+                  if (mode === 'now') navigate('cart');
+                  else
+                    notifySuccess(
+                      'Đã thêm ' +
+                        quantity +
+                        ' × ' +
+                        selected.name +
+                        ' vào giỏ. Bạn có thể tiếp tục chọn món.',
+                    );
                 }}
               />
             </Modal>

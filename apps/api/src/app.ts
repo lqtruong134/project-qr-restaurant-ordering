@@ -36,6 +36,20 @@ export function buildApp(database: { ping(): Promise<void> }, logging = false) {
   );
   app.setErrorHandler((error, request, reply) => {
     if (error && typeof error === 'object' && 'statusCode' in error) {
+      // Guest credentials are a table session, distinct from an employee login.
+      // Only expose the explicitly public message produced by domain validation.
+      if (
+        [401, 403].includes(Number(error.statusCode)) &&
+        request.routeOptions.url?.startsWith('/guest/') &&
+        'publicMessage' in error &&
+        typeof error.publicMessage === 'string'
+      )
+        return fail(
+          reply,
+          Number(error.statusCode),
+          error.statusCode === 401 ? 'GUEST_SESSION_EXPIRED' : 'GUEST_ACCESS_DENIED',
+          error.publicMessage,
+        );
       if (error.statusCode === 401)
         return fail(reply, 401, 'SESSION_EXPIRED', authMessages.SESSION_EXPIRED);
       if (error.statusCode === 403)
@@ -65,6 +79,7 @@ export function buildApp(database: { ping(): Promise<void> }, logging = false) {
     )
       return reply.code(error.statusCode).send({
         errorCode: 'INVALID_REQUEST',
+        ...('publicDetails' in error ? { details: error.publicDetails } : {}),
         userMessage:
           'publicMessage' in error && typeof error.publicMessage === 'string'
             ? error.publicMessage

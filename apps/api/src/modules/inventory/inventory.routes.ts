@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
+import { refreshDependentCombos } from '../catalog/combo.service.js';
 import type { Database } from '@thesis/database';
+import { receiptNumber } from './receipt-number.js';
 import {
   decimal,
   integer,
@@ -36,7 +38,26 @@ export function registerInventory(app: FastifyInstance, db: Database, restaurant
     ).rows,
     receipts: (
       await db.pool.query(
-        'SELECT g.* FROM goods_receipt g JOIN stock_location l ON l.id=g.location_id WHERE l.restaurant_id=$1 ORDER BY g.created_at DESC LIMIT 100',
+        `SELECT g.* FROM goods_receipt g JOIN stock_location l ON l.id=g.location_id WHERE l.restaurant_id=$1 AND (g.status='DRAFT' OR g.id IN (SELECT x.id FROM goods_receipt x JOIN stock_location y ON y.id=x.location_id WHERE y.restaurant_id=$1 ORDER BY x.created_at DESC LIMIT 100)) ORDER BY g.created_at DESC`,
+        [restaurant],
+      )
+    ).rows,
+    recipes: (
+      await db.pool.query(
+        `SELECT b.* FROM recipe_bom b JOIN product p ON p.id=b.product_id
+         WHERE p.restaurant_id=$1 AND b.status='ACTIVE' AND b.effective_from<=now()
+         AND (b.effective_to IS NULL OR b.effective_to>now()) ORDER BY p.name`,
+        [restaurant],
+      )
+    ).rows,
+    recipeItems: (
+      await db.pool.query(
+        `SELECT bi.*,i.name AS ingredient_name,u.code AS unit
+         FROM recipe_bom_item bi JOIN recipe_bom b ON b.id=bi.recipe_bom_id
+         JOIN product p ON p.id=b.product_id JOIN ingredient i ON i.id=bi.ingredient_id
+         JOIN unit_of_measure u ON u.id=i.base_unit_id
+         WHERE p.restaurant_id=$1 AND b.status='ACTIVE' AND b.effective_from<=now()
+         AND (b.effective_to IS NULL OR b.effective_to>now()) ORDER BY i.name`,
         [restaurant],
       )
     ).rows,
@@ -163,10 +184,13 @@ export function registerInventory(app: FastifyInstance, db: Database, restaurant
         b = object(r.body);
       if (!Array.isArray(b.lines) || !b.lines.length || b.lines.length > 50)
         reject('Cần 1–50 nguyên liệu.', 400);
-      await one(c, 'SELECT id FROM product WHERE id=$1 AND restaurant_id=$2 FOR UPDATE', [
-        id,
-        restaurant,
-      ]);
+      const product = await one(
+        c,
+        'SELECT id,product_kind FROM product WHERE id=$1 AND restaurant_id=$2 FOR UPDATE',
+        [id, restaurant],
+      );
+      if (product.product_kind === 'COMBO')
+        reject('Công thức combo được cộng từ các món thành phần. Hãy chỉnh công thức món lẻ.', 400);
       const v = await one(
         c,
         'SELECT COALESCE(max(version_no),0)+1 AS next FROM recipe_bom WHERE product_id=$1',
@@ -192,6 +216,7 @@ export function registerInventory(app: FastifyInstance, db: Database, restaurant
           [bom.id, line.ingredientId, decimal(line.quantity), decimal(line.waste ?? '0', true)],
         );
       }
+      await refreshDependentCombos(c, id);
       return bom;
     }),
   );
@@ -207,14 +232,16 @@ export function registerInventory(app: FastifyInstance, db: Database, restaurant
         reject('Cần 1–100 dòng nhập kho.', 400);
       if (new Set(b.lines.map((raw) => uuid(object(raw).ingredientId))).size !== b.lines.length)
         reject('Mỗi nguyên liệu chỉ xuất hiện một dòng trong phiếu nhập.', 400);
+      const sequence = await one(c, "SELECT nextval('goods_receipt_number_seq')::text AS number");
       const receipt = await one(
         c,
-        'INSERT INTO goods_receipt(location_id,receipt_no,total_value,created_by,supplier_name_snapshot) VALUES($1,$2,0,$3,$4) RETURNING *',
+        'INSERT INTO goods_receipt(location_id,receipt_no,total_value,created_by,supplier_name_snapshot,external_reference) VALUES($1,$2,0,$3,$4,$5) RETURNING *',
         [
           b.locationId,
-          text(b.number, 80),
+          receiptNumber(sequence.number),
           r.identity!.id,
           b.supplier ? text(b.supplier, 120) : null,
+          b.externalReference ? text(b.externalReference, 120) : null,
         ],
       );
       for (const raw of b.lines) {
@@ -235,22 +262,38 @@ export function registerInventory(app: FastifyInstance, db: Database, restaurant
           ],
         );
       }
-      return one(
+      const created = await one(
         c,
         'UPDATE goods_receipt SET total_value=(SELECT sum(round(base_quantity*unit_cost))::bigint FROM goods_receipt_item WHERE receipt_id=$1) WHERE id=$1 RETURNING *',
         [receipt.id],
       );
+      await c.query(
+        "INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason,details) VALUES($1,$2,'CREATE_DRAFT_RECEIPT','GOODS_RECEIPT',$3,'Lập phiếu nhập nháp',$4)",
+        [
+          restaurant,
+          r.identity!.id,
+          receipt.id,
+          JSON.stringify({ after: created, lines: b.lines }),
+        ],
+      );
+      return created;
     }),
   );
   app.get('/core/receipts/:id', { config }, async (r) =>
     transaction(db, async (c) => {
       const g = await one(
         c,
-        'SELECT g.* FROM goods_receipt g JOIN stock_location l ON l.id=g.location_id WHERE g.id=$1 AND l.restaurant_id=$2',
+        'SELECT g.*,l.name AS location_name,a.display_name AS created_by_name,b.display_name AS approved_by_name FROM goods_receipt g JOIN stock_location l ON l.id=g.location_id JOIN app_user a ON a.id=g.created_by LEFT JOIN app_user b ON b.id=g.approved_by WHERE g.id=$1 AND l.restaurant_id=$2',
         [idParam(r), restaurant],
       );
       return {
         ...g,
+        audit: (
+          await c.query(
+            "SELECT e.id,e.action,e.reason,e.created_at,u.display_name AS actor_name FROM business_audit_event e LEFT JOIN app_user u ON u.id=e.actor_id WHERE e.restaurant_id=$1 AND e.resource_type='GOODS_RECEIPT' AND e.resource_id=$2 ORDER BY e.created_at DESC,e.id DESC",
+            [restaurant, g.id],
+          )
+        ).rows,
         lines: (
           await c.query(
             'SELECT * FROM goods_receipt_item WHERE receipt_id=$1 ORDER BY created_at,id',
@@ -298,8 +341,13 @@ export function registerInventory(app: FastifyInstance, db: Database, restaurant
       }
       const updated = await one(
         c,
-        'UPDATE goods_receipt SET version=version+1,location_id=$2,receipt_no=$3,supplier_name_snapshot=$4,total_value=(SELECT sum(round(base_quantity*unit_cost))::bigint FROM goods_receipt_item WHERE receipt_id=$1) WHERE id=$1 RETURNING *',
-        [g.id, b.locationId, text(b.number, 80), b.supplier ? text(b.supplier, 120) : null],
+        'UPDATE goods_receipt SET version=version+1,location_id=$2,external_reference=$3,supplier_name_snapshot=$4,total_value=(SELECT sum(round(base_quantity*unit_cost))::bigint FROM goods_receipt_item WHERE receipt_id=$1) WHERE id=$1 RETURNING *',
+        [
+          g.id,
+          b.locationId,
+          b.externalReference ? text(b.externalReference, 120) : null,
+          b.supplier ? text(b.supplier, 120) : null,
+        ],
       );
       await c.query(
         "INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason,details) VALUES($1,$2,'EDIT_DRAFT_RECEIPT','GOODS_RECEIPT',$3,$4,$5)",
@@ -327,6 +375,8 @@ export function registerInventory(app: FastifyInstance, db: Database, restaurant
         );
       if (g.status === 'CANCELLED') return g;
       if (g.status !== 'DRAFT') reject('Phiếu đã nhập kho không được hủy như phiếu nháp.');
+      if (object(r.body).expectedVersion !== g.version)
+        reject('Phiếu đã thay đổi. Hãy kiểm tra lại trước khi hủy.');
       await c.query(
         "INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason) VALUES($1,$2,'CANCEL_DRAFT_RECEIPT','GOODS_RECEIPT',$3,$4)",
         [restaurant, r.identity!.id, g.id, reason],
@@ -347,6 +397,8 @@ export function registerInventory(app: FastifyInstance, db: Database, restaurant
       );
       if (g.status === 'APPROVED') return g;
       if (g.status !== 'DRAFT') reject('Phiếu nhập không còn ở trạng thái nháp.');
+      if (object(r.body).expectedVersion !== g.version)
+        reject('Phiếu đã được sửa ở nơi khác. Hãy kiểm tra lại hàng và tổng tiền trước khi duyệt.');
       await one(c, 'SELECT id FROM stock_location WHERE id=$1 AND is_active', [g.location_id]);
       const items = (
         await c.query(
@@ -381,11 +433,25 @@ export function registerInventory(app: FastifyInstance, db: Database, restaurant
           ],
         );
       }
-      return one(
+      const approved = await one(
         c,
         "UPDATE goods_receipt SET version=version+1,status='APPROVED',approved_by=$2,received_at=now() WHERE id=$1 RETURNING *",
         [g.id, r.identity!.id],
       );
+      await c.query(
+        "INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason,details) VALUES($1,$2,'APPROVE_RECEIPT','GOODS_RECEIPT',$3,'Kiểm tra hàng và duyệt nhập kho',$4)",
+        [
+          restaurant,
+          r.identity!.id,
+          g.id,
+          JSON.stringify({
+            receiptNo: g.receipt_no,
+            totalValue: g.total_value,
+            lineCount: items.length,
+          }),
+        ],
+      );
+      return approved;
     }),
   );
 }

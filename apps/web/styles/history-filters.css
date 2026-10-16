@@ -1,0 +1,117 @@
+.history-view {
+  min-width: 0;
+}
+.history-view .empty-state {
+  min-height: 120px;
+  padding: 24px;
+}
+.history-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin: 16px 0 8px;
+}
+.history-controls > label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  min-width: 130px;
+}
+.history-controls .search-field {
+  flex: 1 1 260px;
+  min-width: 0;
+  max-width: none;
+  display: flex;
+  align-items: center;
+}
+.history-controls .search-field input {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 0;
+  min-width: 0;
+  flex: 1;
+}
+.history-controls .search-field svg {
+  flex-shrink: 0;
+}
+.history-controls .search-field:focus-within {
+  outline: 2px solid var(--primary, #396266);
+  outline-offset: 2px;
+}
+.history-controls select,
+.history-controls input {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--border, #d4dedb);
+  border-radius: 10px;
+  background: white;
+  color: inherit;
+}
+.history-controls button {
+  min-height: 42px;
+}
+.history-scope {
+  display: block;
+  margin-bottom: 16px;
+  color: var(--muted, #66757d);
+}
+.history-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 0;
+  font-size: 13px;
+}
+.history-pagination > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.inv-auto-code {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  background: #f3f6f6;
+  border-radius: 10px;
+}
+.inv-auto-code span,
+.inv-auto-code small {
+  color: var(--muted, #66757d);
+  font-size: 13px;
+}
+.inv-edit-line .inv-line-value {
+  grid-column: 1 / -1;
+  margin: 0;
+  text-align: right;
+  font-size: 13px;
+}
+.inv-receipt-meta {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+.inv-receipt-actions > .core-action:first-child button {
+  background: var(--primary, #396266);
+  color: white;
+}
+@media (max-width: 540px) {
+  .history-controls {
+    gap: 10px;
+  }
+  .history-controls > label {
+    flex: 1 1 135px;
+    min-width: 0;
+  }
+  .history-controls .search-field {
+    flex-basis: 100%;
+  }
+  .history-controls > button {
+    flex: 1 1 120px;
+  }
+  .history-pagination {
+    align-items: start;
+  }
+}

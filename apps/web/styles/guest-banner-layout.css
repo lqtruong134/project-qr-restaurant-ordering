@@ -1,0 +1,103 @@
+/* The banner shares the menu column; only the visible slide defines its height. */
+.guest-experience .guest-menu-column {
+  min-width: 0;
+}
+.guest-experience .guest-menu-promotions {
+  margin-bottom: 24px;
+  border: 1px solid #e5e6d9;
+  background: #fffdf7;
+}
+.guest-menu-promotions .marketing-carousel-track {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+.guest-menu-promotions .marketing-slide {
+  position: absolute;
+  top: 0;
+  left: var(--slide-offset);
+  width: 100%;
+}
+.guest-menu-promotions .marketing-slide[aria-hidden='false'] {
+  position: relative;
+}
+.guest-menu-promotions .marketing-slide[data-presentation='poster'] .marketing-slide-photo {
+  aspect-ratio: var(--promotion-aspect-ratio);
+  max-height: none;
+}
+.guest-menu-promotions .marketing-carousel-controls {
+  padding-block: 5px;
+}
+@media (min-width: 851px) {
+  .guest-experience .menu-layout {
+    padding-inline: 0;
+  }
+  .guest-experience .cart-sidebar {
+    display: block;
+    position: sticky;
+    top: 20px;
+    align-self: start;
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+  }
+  .guest-menu-promotions .marketing-slide[data-presentation='poster'] {
+    --promotion-photo-height: 260px;
+    display: grid;
+    grid-template-columns:
+      calc(var(--promotion-photo-height) * var(--promotion-aspect-ratio))
+      minmax(0, 1fr);
+    align-items: center;
+    gap: 0 22px;
+    padding: 16px;
+  }
+  .guest-menu-promotions .marketing-slide[data-presentation='poster'] .marketing-slide-photo {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    height: var(--promotion-photo-height);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .guest-menu-promotions .marketing-slide[data-presentation='poster'] .marketing-slide-copy {
+    grid-column: 2;
+    grid-row: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 14px;
+    padding: 0;
+  }
+  .guest-menu-promotions .marketing-slide[data-presentation='poster'] h2 {
+    font-size: clamp(22px, 2vw, 28px);
+  }
+  .guest-menu-promotions .marketing-slide[data-presentation='poster'] .marketing-slide-image-note {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+    padding: 10px 0 0;
+  }
+}
+@media (min-width: 851px) and (max-width: 1100px) {
+  .guest-menu-promotions .marketing-slide[data-presentation='poster'] {
+    --promotion-photo-height: 240px;
+    gap: 0 18px;
+    padding: 14px;
+  }
+}
+@media (max-width: 850px) {
+  .guest-experience .menu-layout {
+    padding-inline: 0;
+  }
+  .guest-menu-promotions .marketing-slide[data-presentation='poster'] {
+    display: flex;
+    padding: 0;
+  }
+  .guest-menu-promotions .marketing-slide[data-presentation='poster'] .marketing-slide-copy {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+  }
+  .guest-menu-promotions .marketing-slide[data-presentation='poster'] .marketing-slide-image-note {
+    padding: 0 16px 12px;
+  }
+}

@@ -1,5 +1,26 @@
 # 15. Hồ sơ đối chiếu và giới hạn xác minh
 
+## Công bố toàn bộ mã nguồn — 16/10/2026
+
+Sau hai commit công bố tài liệu, bản cập nhật này đưa mã nguồn ứng dụng, migration, tài nguyên ảnh cài đặt, kiểm thử và nền tảng trợ lý vào cùng repository. Tài khoản Git đã xác thực là `TruongB2306646`; email tác giả commit được cấu hình theo chủ dự án là `truongb2306646@student.ctu.edu.vn`. Không công bố `.env`, database đang vận hành, ảnh tải lên, chứng từ riêng, cache, mô hình AI hoặc thư mục xử lý ảnh trung gian.
+
+Đã cập nhật các bản vá tương thích của Next.js/Fastify và phụ thuộc liên quan; lần quét cuối không còn cảnh báo được biết đến. CI rehearsal đối chiếu danh sách bảng với schema thay cho con số cũ, kiểm tra đầy đủ món và combo. Giới hạn hai worker cho integration/coverage để giảm tải database; chỉ ca kiểm tra cả thực đơn có thời hạn riêng 30 giây. Các assertion nghiệp vụ giữ nguyên.
+
+| Kiểm tra | Kết quả |
+| --- | --- |
+| Format/lint/TypeScript/unit | 225 ca / 33 suite đạt |
+| Backend và tích hợp có coverage | 428 ca / 35 suite đạt, gồm 367 ca tích hợp; độ bao phủ dòng 91,3% |
+| Build production | 7 route đạt với Next.js 16.3.8 |
+| Cài từ database mới | Hai lượt migrate/seed, chạy lại giữ dữ liệu và quyền ba vai trò đạt |
+| Trình duyệt trọng tâm | 14 ca khác nhau đạt, 1 ca Swagger mobile bỏ qua theo cấu hình; desktop, Android, Safari |
+
+Lượt trình duyệt trọng tâm đầu đạt 11, lỗi 3 ca CORE và bỏ qua 1; sau khi sửa selector cũ và kiểm tra các bước trả thối/giao phiếu hiện hành, cả 3 ca CORE đã đạt khi chạy lại. Đây là tổng hợp các tình huống khác nhau qua hai lượt. Bộ đầy đủ thu thập được 411 ca; lần công bố này nghiệm thu nhóm trọng tâm nói trên. Một lượt coverage trước đó bị lỗi kết nối/timeout; lượt cuối sau khi giới hạn worker và đặt thời hạn cho ca toàn thực đơn đạt toàn bộ. Không hạ ngưỡng coverage hoặc bỏ assertion để báo đạt.
+
+Môi trường đang dùng tiếp tục có web/API HTTP200; không reset database nghiệp vụ, bật merchant payOS thật hoặc model AI thật. Hướng dẫn clone mới có ở README gốc; dữ liệu PostgreSQL và kho upload cần sao lưu/chuyển riêng nếu triển khai máy khác.
+
+[Biên bản](reference/code-publication-20261016.json) · [Kiểm tra mã](evidence/code-publication-check-20261016.log) · [Coverage](evidence/code-publication-coverage-20261016.log) · [Phụ thuộc](evidence/code-publication-dependency-audit-20261016.log) · [Build](evidence/code-publication-build-20261016.log) · [Cài mới](evidence/code-publication-rehearsal-20261016.log) · [CORE ba trình duyệt](evidence/code-publication-core-browser-20261016.log).
+
+
 ## Nền tảng AI Menu Assistant — 15/10/2026
 
 Đã audit dữ liệu và chuẩn bị API tư vấn guest chỉ đọc, provider thay thế được, structured output có xác minh, dữ liệu SFT/evaluation và notebook QLoRA ở mức scaffold. Cấu hình đang dùng **OFF**; không sửa .env, migration, seed hoặc bảng dữ liệu nghiệp vụ. Không tải model, chạy GPU/train/inference hoặc triển khai Ollama; chưa thêm giao diện AI.

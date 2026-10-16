@@ -3,6 +3,34 @@
 @import '../styles/typography.css';
 
 @import '../styles/service.css';
+@import '../styles/workforce.css';
+@import '../styles/inventory.css';
+/* Shared interface theme follows the task-specific layouts. */
+@import '../styles/interface.css';
+@import '../styles/issue.css';
+@import '../styles/work-queue.css';
+@import '../styles/experience.css';
+@import '../styles/admin-sidebar.css';
+@import '../styles/guest-shopping.css';
+@import '../styles/guest-participants.css';
+@import '../styles/table-access.css';
+@import '../styles/admin-reports.css';
+@import '../styles/history-filters.css';
+@import '../styles/ui-audit.css';
+@import '../styles/restaurant-refresh.css';
+@import '../styles/discard-dialog.css';
+@import '../styles/operation-notice.css';
+@import '../styles/workforce-pay.css';
+@import '../styles/workforce-breakdown.css';
+@import '../styles/marketing-carousel.css';
+@import '../styles/guest-refresh.css';
+@import '../styles/internal-login.css';
+@import '../styles/combo.css';
+@import '../styles/landing-refresh.css';
+@import '../styles/promotion-assets.css';
+@import '../styles/guest-banner-layout.css';
+@import '../styles/promotions-receipt.css';
+@import '../styles/pricing-admin.css';
 
 .auth-blocked-screen {
   position: fixed;
@@ -30,4 +58,127 @@
   border-radius: 12px;
   box-shadow: 0 6px 24px #0002;
   pointer-events: none;
+}
+
+@import '../styles/payment.css';
+@import '../styles/online-payment.css';
+
+/* One work queue: role and request ownership stay visible on every surface. */
+.queue-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 20px 0 16px;
+}
+.queue-heading h2 {
+  margin: 0 0 8px;
+}
+.queue-heading p,
+.queue-context {
+  color: var(--text-muted);
+  margin: 0 0 16px;
+}
+.queue-total {
+  background: #e7eef7;
+  color: #24476a;
+  padding: 10px 14px;
+  border-radius: 10px;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.queue-views {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.queue-views button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  min-height: 44px;
+  background: white;
+  border: 1px solid #cbd8e4;
+  border-radius: 10px;
+  font: inherit;
+  color: #344e6b;
+  cursor: pointer;
+}
+.queue-views button[aria-pressed='true'] {
+  background: #243f61;
+  color: white;
+  border-color: #243f61;
+}
+.queue-views b {
+  background: #eaf0f6;
+  color: #24476a;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 12px;
+}
+.work-queue .support-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.work-queue .support-card-actions {
+  margin-top: auto;
+}
+.work-queue .support-task {
+  display: flex;
+  flex-direction: column;
+}
+.work-queue .support-task h3,
+.queue-operations h3 {
+  margin: 14px 0 0;
+}
+.work-queue .support-type {
+  margin: 12px 0;
+}
+.queue-operations:empty,
+.work-queue .support-grid:empty {
+  display: none;
+}
+.queue-operations {
+  margin: 16px 0;
+}
+.collection-ownership-note {
+  background: #eef3fa;
+  border: 1px solid #cfdaea;
+  color: #24476a;
+  border-radius: 12px;
+  padding: 16px;
+}
+.payment-request-ownership {
+  margin-top: 24px;
+}
+.payment-request-ownership .support-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.table-job-owner {
+  font-weight: 600;
+}
+.latest-table-job small:last-child {
+  font-weight: 600;
+}
+@media (max-width: 800px) {
+  .queue-heading {
+    display: block;
+  }
+  .queue-total {
+    display: inline-block;
+    white-space: normal;
+  }
+  .work-queue .support-grid,
+  .payment-request-ownership .support-grid {
+    grid-template-columns: 1fr;
+  }
+  .queue-views button {
+    flex: 1 1 145px;
+    justify-content: space-between;
+  }
+  .queue-heading p {
+    margin-bottom: 12px;
+  }
 }

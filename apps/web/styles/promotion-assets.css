@@ -1,0 +1,7 @@
+/* Posters keep their complete price and lettering; photographs use their usual crop. */
+.dish-media[data-poster='true'] {
+  background: #fff4df;
+}
+.dish-media[data-poster='true'] > img {
+  object-fit: contain;
+}

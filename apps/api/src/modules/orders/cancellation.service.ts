@@ -7,6 +7,7 @@ export async function cancelBatch(
   restaurant: string,
   actor: Actor,
   reason: string,
+  reasonCode = 'OTHER',
 ) {
   const batch = await one(c, 'SELECT * FROM order_batch WHERE id=$1', [id]);
   if (actor.type === 'GUEST' && batch.created_by_participant_id !== actor.id)
@@ -21,6 +22,7 @@ export async function cancelBatch(
     restaurant,
     actor,
     reason,
+    reasonCode,
   );
   const current = await one(c, 'SELECT * FROM order_batch WHERE id=$1', [id]);
   return { ...current, ...result, status: current.status };

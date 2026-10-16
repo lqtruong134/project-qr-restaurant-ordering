@@ -1,0 +1,362 @@
+/* Moving an active meal: table picker, one review step and immutable history. */
+.transfer-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+  margin-bottom: 20px;
+}
+.transfer-entry p {
+  margin: 5px 0 0;
+  font-size: 14px;
+}
+.transfer-entry-actions,
+.transfer-footer,
+.transfer-footer > div {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.transfer-entry .transfer-success {
+  flex-basis: 100%;
+  color: #246245;
+  background: #ecf6ef;
+  border-radius: 8px;
+  padding: 12px;
+}
+.transfer-workflow {
+  color: var(--ink);
+}
+.transfer-workflow button {
+  min-height: 44px;
+}
+.transfer-picker {
+  display: grid;
+  gap: 18px;
+}
+.transfer-source {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.transfer-source-icon {
+  color: var(--brand);
+  padding: 12px;
+  background: #fff;
+  border-radius: 10px;
+}
+.transfer-source h3 {
+  margin: 4px 0;
+  font-size: 22px;
+}
+.transfer-source p {
+  margin: 0;
+}
+.transfer-guests {
+  margin-left: auto;
+  max-width: 150px;
+}
+.transfer-workflow label {
+  font-size: 14px;
+  font-weight: 600;
+}
+.transfer-workflow input:not([type='radio']),
+.transfer-workflow select,
+.transfer-workflow textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  min-height: 44px;
+}
+.transfer-caption {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  margin: 0;
+}
+.transfer-filter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 0.65fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+.transfer-filter .search-field {
+  margin: 0;
+  align-self: end;
+}
+.transfer-filter .search-field input {
+  margin: 0;
+}
+.transfer-targets {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.transfer-targets legend {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.transfer-targets legend span {
+  background: var(--soft);
+  color: var(--brand);
+  border-radius: 20px;
+  padding: 2px 9px;
+  margin-left: 5px;
+}
+.transfer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+  max-height: 330px;
+  overflow-y: auto;
+  padding: 5px;
+  border-radius: 8px;
+}
+.transfer-table {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+}
+.transfer-table:hover {
+  border-color: var(--brand);
+}
+.transfer-table:focus-within {
+  outline: 3px solid #da732e;
+  outline-offset: 1px;
+}
+.transfer-table.is-selected {
+  border: 2px solid var(--brand);
+  padding: 13px;
+  background: var(--soft);
+}
+.transfer-table input[type='radio'] {
+  accent-color: var(--brand);
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+  margin: 3px 0 0;
+}
+.transfer-table-content {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  font-weight: 400;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.transfer-table-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.transfer-table-heading strong {
+  font-size: 17px;
+  color: var(--ink);
+}
+.transfer-ready {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #276342;
+  background: #eef6ef;
+  padding: 4px 7px;
+  border-radius: 20px;
+}
+.transfer-table-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 22px;
+}
+.transfer-table-tags small {
+  font-size: 11px;
+  padding: 3px 7px;
+  background: #f0f3f7;
+  border-radius: 4px;
+  color: var(--muted);
+}
+.transfer-table-tags .transfer-selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--brand);
+  font-weight: 700;
+}
+.transfer-reason {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.transfer-footer {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+.transfer-footer p {
+  font-size: 14px;
+  margin: 0;
+}
+.transfer-warning {
+  padding: 12px;
+  border-left: 4px solid #ba691d;
+  border-radius: 6px;
+  background: #fff4e3;
+  color: #785022;
+}
+.transfer-review-path {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  gap: 20px;
+  background: var(--soft);
+  border-radius: 12px;
+  padding: 24px;
+}
+.transfer-review-path > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.transfer-review-path strong {
+  font-size: 24px;
+}
+.transfer-review-path span,
+.transfer-review-path small {
+  color: var(--muted);
+  font-size: 14px;
+}
+.transfer-review-details > div {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.transfer-review-details dt {
+  color: var(--muted);
+}
+.transfer-review-details dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.transfer-keep {
+  padding-left: 22px;
+  line-height: 1.8;
+  font-size: 14px;
+}
+.transfer-timeline {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+.transfer-timeline li {
+  padding: 16px 18px;
+  border-left: 3px solid var(--brand);
+  border-radius: 0 10px 10px 0;
+  background: var(--soft);
+  overflow-wrap: anywhere;
+}
+.transfer-timeline time {
+  font-size: 13px;
+  color: var(--muted);
+}
+.transfer-timeline h3 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 18px;
+  margin: 10px 0;
+}
+.transfer-timeline p {
+  margin: 7px 0;
+  font-size: 14px;
+}
+@media (min-width: 1400px) {
+  .transfer-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .transfer-entry,
+  .transfer-source {
+    padding: 14px;
+  }
+  .transfer-entry-actions {
+    width: 100%;
+  }
+  .transfer-entry-actions button {
+    flex: 1;
+    font-size: 12px;
+  }
+  .transfer-source {
+    flex-wrap: wrap;
+  }
+  .transfer-source-icon {
+    display: none;
+  }
+  .transfer-guests {
+    max-width: 100%;
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+  .transfer-filter {
+    grid-template-columns: 1fr;
+  }
+  .transfer-filter button {
+    justify-self: start;
+  }
+  .transfer-grid {
+    grid-template-columns: 1fr;
+    max-height: 350px;
+  }
+  .transfer-reason {
+    grid-template-columns: 1fr;
+  }
+  .transfer-footer > div {
+    width: 100%;
+  }
+  .transfer-footer button {
+    flex: 1;
+  }
+  .transfer-review-path {
+    gap: 12px;
+    padding: 16px;
+    align-items: flex-start;
+  }
+  .transfer-review-path strong {
+    font-size: 18px;
+  }
+  .transfer-review-details > div {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}

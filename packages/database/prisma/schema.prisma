@@ -11,12 +11,22 @@ datasource db {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model app_user {
-  staff_code String @default(dbgenerated())
-  salary_payments payroll_payment[] @relation("salary_payer")
-  business_events business_audit_event[] @relation("business_actor")
-  verified_sessions table_session[] @relation("session_verifier")
-  resolved_alerts operational_alert[] @relation("alert_resolver")
-  closed_sessions table_session[] @relation("session_closed_by")
+  payos_created              payos_payment_request[]   @relation("payos_created")
+  payos_resolved             payos_payment_request[]   @relation("payos_resolved")
+  tax_policies_created       restaurant_tax_policy[]
+  discount_programs_created  discount_program[]
+  workforce_pay_policies     workforce_pay_policy[]
+  pay_calendar_created       workforce_calendar_day[]  @relation("pay_calendar_creator")
+  pay_calendar_rest          workforce_calendar_day[]  @relation("pay_calendar_employee")
+  support_handoffs_from      support_request_handoff[] @relation("support_from")
+  support_handoffs_to        support_request_handoff[] @relation("support_to")
+  support_handoffs_responded support_request_handoff[] @relation("support_responder")
+  staff_code                 String                    @default(dbgenerated())
+  salary_payments            payroll_payment[]         @relation("salary_payer")
+  business_events            business_audit_event[]    @relation("business_actor")
+  verified_sessions          table_session[]           @relation("session_verifier")
+  resolved_alerts            operational_alert[]       @relation("alert_resolver")
+  closed_sessions            table_session[]           @relation("session_closed_by")
 
   id                                                                      String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   restaurant_id                                                           String                     @db.Uuid
@@ -61,9 +71,11 @@ model app_user {
   shift_assignment_shift_assignment_user_id_restaurant_idToapp_user       shift_assignment[]         @relation("shift_assignment_user_id_restaurant_idToapp_user")
   table_transfer_history                                                  table_transfer_history[]
   work_shift                                                              work_shift[]
+  shift_template                                                          shift_template[]
 
   @@unique([restaurant_id, username])
   @@unique([id, restaurant_id], map: "app_user_id_restaurant_key")
+  @@unique([restaurant_id, staff_code], map: "app_user_restaurant_staff_code")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -87,6 +99,7 @@ model dining_area {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model dining_table {
+  access_requests                                                                         support_request[]          @relation("access_request_table")
   id                                                                                      String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   restaurant_id                                                                           String                     @db.Uuid
   area_id                                                                                 String                     @db.Uuid
@@ -145,36 +158,62 @@ model permission {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model product {
-  stock_managed Boolean @default(true)
-  is_complimentary Boolean @default(false)
-  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  restaurant_id       String        @db.Uuid
-  category_id         String        @db.Uuid
+  tax_treatment       String               @default("DEFAULT")
+  vat_rate_percent    Int?
+  menu_promotions     menu_promotion[]
+  product_kind        String               @default("DISH")
+  combo_items         product_combo_item[] @relation("combo_parent")
+  included_in_combos  product_combo_item[] @relation("combo_component")
+  stock_managed       Boolean              @default(true)
+  is_complimentary    Boolean              @default(false)
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id       String               @db.Uuid
+  category_id         String               @db.Uuid
   code                String
   name                String
   description         String?
   image_url           String?
   base_price          BigInt
-  availability_status String        @default("AVAILABLE")
-  is_active           Boolean       @default(true)
-  version             Int           @default(1)
-  created_at          DateTime      @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime      @default(now()) @db.Timestamptz(6)
+  availability_status String               @default("AVAILABLE")
+  is_active           Boolean              @default(true)
+  version             Int                  @default(1)
+  created_at          DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime             @default(now()) @db.Timestamptz(6)
   cart_item           cart_item[]
   order_item          order_item[]
-  menu_category       menu_category @relation(fields: [category_id, restaurant_id], references: [id, restaurant_id], onUpdate: Restrict)
-  restaurant          restaurant    @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
+  menu_category       menu_category        @relation(fields: [category_id, restaurant_id], references: [id, restaurant_id], onUpdate: Restrict)
+  restaurant          restaurant           @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
   recipe_bom          recipe_bom[]
 
+  @@unique([id, restaurant_id], map: "product_id_restaurant_promotion_key")
   @@unique([restaurant_id, code])
   @@index([category_id, restaurant_id], map: "product_category_idx")
+}
+
+model product_combo_item {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  combo_product_id     String   @db.Uuid
+  component_product_id String   @db.Uuid
+  quantity             Int
+  sort_order           Int      @default(0)
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  combo_product        product  @relation("combo_parent", fields: [combo_product_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  component_product    product  @relation("combo_component", fields: [component_product_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([combo_product_id, component_product_id])
+  @@index([component_product_id], map: "product_combo_component_idx")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model restaurant {
-  salary_payments payroll_payment[]
-  business_events business_audit_event[]
+  tax_policies           restaurant_tax_policy[]
+  discount_programs      discount_program[]
+  menu_promotions        menu_promotion[]
+  workforce_pay_policies workforce_pay_policy[]
+  pay_calendar           workforce_calendar_day[]
+  salary_payments        payroll_payment[]
+  business_events        business_audit_event[]
   id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                   String
   address                String?
@@ -199,6 +238,7 @@ model restaurant {
   shift_assignment       shift_assignment[]
   table_transfer_history table_transfer_history[]
   work_shift             work_shift[]
+  shift_template         shift_template[]
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -245,6 +285,8 @@ model session_cart {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model session_participant {
+  accepted_policy_version                                                String?
+  accepted_policy_at                                                     DateTime?              @db.Timestamptz(6)
   id                                                                     String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   session_id                                                             String                 @db.Uuid
   guest_id                                                               String                 @db.Uuid
@@ -287,17 +329,22 @@ model table_qr_token {
   dining_table     dining_table @relation(fields: [table_id], references: [id], onUpdate: Restrict)
 
   @@unique([table_id, version_no])
+  @@unique([table_id], map: "table_qr_one_active", where: raw("(status = 'ACTIVE'::text)"))
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model table_session {
-  verified_by String? @db.Uuid
-  verifier app_user? @relation("session_verifier",fields:[verified_by],references:[id],onDelete:Restrict,onUpdate:NoAction)
-  receipt_number String? @unique
-  closed_by String? @db.Uuid
-  receipt_snapshot Json?
-  closed_by_user app_user? @relation("session_closed_by",fields:[closed_by],references:[id],onDelete:NoAction,onUpdate:NoAction)
+  promotion              session_promotion?
+  promotion_requests     promotion_request[]
+  access_code_ciphertext String?
+  access_code_issued_at  DateTime?           @db.Timestamptz(6)
+  verified_by            String?             @db.Uuid
+  verifier               app_user?           @relation("session_verifier", fields: [verified_by], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  receipt_number         String?             @unique
+  closed_by              String?             @db.Uuid
+  receipt_snapshot       Json?
+  closed_by_user         app_user?           @relation("session_closed_by", fields: [closed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   id                        String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   table_id                  String                     @db.Uuid
@@ -326,7 +373,10 @@ model table_session {
   dining_table              dining_table               @relation(fields: [table_id], references: [id], onUpdate: Restrict)
   table_transfer_history    table_transfer_history[]
 
+  @@unique([table_id], map: "table_session_one_open", where: raw("(session_status <> ALL (ARRAY['CLOSED'::text, 'CANCELLED'::text]))"))
   @@index([table_id], map: "table_session_table_idx")
+  @@index([closed_by], map: "session_closed_by_lookup", where: raw("(closed_by IS NOT NULL)"))
+  @@index([verified_by], map: "session_verified_by_lookup", where: raw("(verified_by IS NOT NULL)"))
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -342,25 +392,27 @@ model user_role {
   role        role      @relation(fields: [role_id], references: [id], onUpdate: Restrict)
   app_user    app_user  @relation(fields: [user_id], references: [id], onUpdate: Restrict)
 
+  @@unique([user_id], map: "user_role_one_active", where: raw("(revoked_at IS NULL)"))
   @@index([role_id], map: "user_role_role_idx")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model cart_item {
-  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  cart_id              String               @db.Uuid
-  owner_participant_id String?              @db.Uuid
-  product_id           String               @db.Uuid
-  quantity             Int
-  note                 String?
-  unit_price_preview   BigInt
-  selected             Boolean              @default(false)
-  version              Int                  @default(1)
-  created_at           DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime             @default(now()) @db.Timestamptz(6)
-  session_cart         session_cart         @relation(fields: [cart_id], references: [id], onUpdate: Restrict, map: "core_cart_item_f1")
-  session_participant  session_participant? @relation(fields: [owner_participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_cart_item_f2")
-  product              product              @relation(fields: [product_id], references: [id], onUpdate: Restrict, map: "core_cart_item_f3")
+  product_version_preview Int?
+  id                      String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cart_id                 String               @db.Uuid
+  owner_participant_id    String?              @db.Uuid
+  product_id              String               @db.Uuid
+  quantity                Int
+  note                    String?
+  unit_price_preview      BigInt
+  selected                Boolean              @default(false)
+  version                 Int                  @default(1)
+  created_at              DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime             @default(now()) @db.Timestamptz(6)
+  session_cart            session_cart         @relation(fields: [cart_id], references: [id], onUpdate: Restrict, map: "core_cart_item_f1")
+  session_participant     session_participant? @relation(fields: [owner_participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_cart_item_f2")
+  product                 product              @relation(fields: [product_id], references: [id], onUpdate: Restrict, map: "core_cart_item_f3")
 
   @@index([cart_id], map: "core_cart_item_fk1")
   @@index([owner_participant_id], map: "core_cart_item_fk2")
@@ -369,6 +421,10 @@ model cart_item {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model financial_charge {
+  discount_amount    BigInt               @default(0)
+  promotion_snapshot Json?
+  tax_snapshot       Json?
+  tax_amount         BigInt?
   id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   session_id         String               @db.Uuid
   order_item_id      String?              @db.Uuid
@@ -382,13 +438,14 @@ model financial_charge {
   order_item         order_item?          @relation(fields: [order_item_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_financial_charge_f2")
   payment_allocation payment_allocation[]
 
+  @@unique([order_item_id], map: "pdm_item_charge", where: raw("(charge_type = 'ITEM'::text)"))
   @@index([session_id], map: "core_financial_charge_fk1")
   @@index([order_item_id], map: "core_financial_charge_fk2")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model goods_receipt {
-  version Int @default(1)
+  version                                      Int                  @default(1)
   id                                           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   location_id                                  String               @db.Uuid
   receipt_no                                   String
@@ -398,6 +455,7 @@ model goods_receipt {
   created_by                                   String               @db.Uuid
   approved_by                                  String?              @db.Uuid
   supplier_name_snapshot                       String?
+  external_reference                           String?
   created_at                                   DateTime             @default(now()) @db.Timestamptz(6)
   updated_at                                   DateTime             @default(now()) @db.Timestamptz(6)
   stock_location                               stock_location       @relation(fields: [location_id], references: [id], onUpdate: Restrict, map: "core_goods_receipt_f1")
@@ -474,7 +532,6 @@ model ingredient {
   name                           String
   base_unit_id                   String                           @db.Uuid
   min_stock                      Decimal                          @default(0) @db.Decimal(18, 6)
-  current_avg_cost               Decimal                          @default(0) @db.Decimal(18, 6)
   is_active                      Boolean                          @default(true)
   version                        Int                              @default(1)
   created_at                     DateTime                         @default(now()) @db.Timestamptz(6)
@@ -515,8 +572,8 @@ model inventory_balance {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model inventory_movement {
-  request_key String?
-  reason String?
+  request_key      String?
+  reason           String?
   id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   location_id      String         @db.Uuid
   ingredient_id    String         @db.Uuid
@@ -537,6 +594,7 @@ model inventory_movement {
   app_user         app_user?      @relation(fields: [created_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_inventory_movement_f6")
 
   @@unique([order_item_id, ingredient_id, location_id], map: "core_consumption_line", where: raw("(movement_type = 'CONSUMPTION'::text)"))
+  @@unique([location_id, request_key], map: "inventory_manual_request_key", where: raw("(request_key IS NOT NULL)"))
   @@index([goods_receipt_id], map: "core_inventory_movement_fk1")
   @@index([order_item_id], map: "core_inventory_movement_fk2")
   @@index([location_id], map: "core_inventory_movement_fk4")
@@ -568,28 +626,31 @@ model inventory_reservation {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model operational_alert {
-  resolution_note String?
-  resolved_by String? @db.Uuid
-  resolver app_user? @relation("alert_resolver",fields:[resolved_by],references:[id],onDelete:Restrict,onUpdate:NoAction)
-  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  session_id         String?        @db.Uuid
-  table_id           String         @db.Uuid
+  payos_requests     payos_payment_request[]
+  resolution_note    String?
+  resolved_by        String?                 @db.Uuid
+  resolver           app_user?               @relation("alert_resolver", fields: [resolved_by], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  id                 String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id         String?                 @db.Uuid
+  table_id           String                  @db.Uuid
   alert_type         String
   severity           String
-  outstanding_amount BigInt         @default(0)
-  status             String         @default("NEW")
-  acknowledged_by    String?        @db.Uuid
-  escalated_at       DateTime?      @db.Timestamptz(6)
-  resolved_at        DateTime?      @db.Timestamptz(6)
-  created_at         DateTime       @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime       @default(now()) @db.Timestamptz(6)
-  table_session      table_session? @relation(fields: [session_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_operational_alert_f1")
-  dining_table       dining_table   @relation(fields: [table_id], references: [id], onUpdate: Restrict, map: "core_operational_alert_f2")
-  app_user           app_user?      @relation(fields: [acknowledged_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_operational_alert_f3")
+  outstanding_amount BigInt                  @default(0)
+  status             String                  @default("NEW")
+  acknowledged_by    String?                 @db.Uuid
+  escalated_at       DateTime?               @db.Timestamptz(6)
+  resolved_at        DateTime?               @db.Timestamptz(6)
+  created_at         DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime                @default(now()) @db.Timestamptz(6)
+  table_session      table_session?          @relation(fields: [session_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_operational_alert_f1")
+  dining_table       dining_table            @relation(fields: [table_id], references: [id], onUpdate: Restrict, map: "core_operational_alert_f2")
+  app_user           app_user?               @relation(fields: [acknowledged_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_operational_alert_f3")
 
+  @@unique([session_id], map: "pdm_alert_shortfall", where: raw("((alert_type = 'PAYMENT_SHORTFALL'::text) AND (status <> 'RESOLVED'::text) AND (session_id IS NOT NULL))"))
   @@index([session_id], map: "core_operational_alert_fk1")
   @@index([table_id], map: "core_operational_alert_fk2")
   @@index([acknowledged_by], map: "core_operational_alert_fk3")
+  @@index([resolved_by], map: "alert_resolved_by_lookup", where: raw("(resolved_by IS NOT NULL)"))
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -629,11 +690,15 @@ model order_batch {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model order_item {
-  stock_managed_snapshot Boolean @default(true)
-  received_at DateTime? @db.Timestamptz(6)
-  preparation_started_at DateTime? @db.Timestamptz(6)
-  ready_at DateTime? @db.Timestamptz(6)
-  served_at DateTime? @db.Timestamptz(6)
+  tax_snapshot                                                                    Json?
+  product_kind_snapshot                                                           String                           @default("DISH")
+  combo_components_snapshot                                                       Json                             @default("[]")
+  cancel_reason_code                                                              String?
+  stock_managed_snapshot                                                          Boolean                          @default(true)
+  received_at                                                                     DateTime?                        @db.Timestamptz(6)
+  preparation_started_at                                                          DateTime?                        @db.Timestamptz(6)
+  ready_at                                                                        DateTime?                        @db.Timestamptz(6)
+  served_at                                                                       DateTime?                        @db.Timestamptz(6)
   id                                                                              String                           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   order_batch_id                                                                  String                           @db.Uuid
   owner_participant_id                                                            String?                          @db.Uuid
@@ -707,6 +772,7 @@ model order_review {
   order_batch     order_batch @relation(fields: [order_batch_id], references: [id], onUpdate: Restrict, map: "core_order_review_f1")
   app_user        app_user?   @relation(fields: [reviewer_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_order_review_f2")
 
+  @@unique([order_batch_id], map: "pdm_review_pending", where: raw("(status = 'PENDING'::text)"))
   @@index([order_batch_id], map: "core_order_review_fk1")
   @@index([reviewer_id], map: "core_order_review_fk2")
 }
@@ -754,6 +820,8 @@ model order_status_history {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model outbox_event {
+  support_request_id     String?              @db.Uuid
+  support_request        support_request?     @relation(fields: [support_request_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
   id                     String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   aggregate_type         String
   event_type             String
@@ -769,6 +837,7 @@ model outbox_event {
   order_batch            order_batch?         @relation(fields: [order_batch_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_outbox_event_f1")
   payment_transaction    payment_transaction? @relation(fields: [payment_transaction_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_outbox_event_f2")
 
+  @@index([support_request_id], map: "outbox_support_request")
   @@index([order_batch_id], map: "core_outbox_event_fk1")
   @@index([payment_transaction_id], map: "core_outbox_event_fk2")
   @@index([status, available_at], map: "pdm_outbox_ready")
@@ -795,6 +864,7 @@ model outstanding_balance_case {
   app_user_outstanding_balance_case_reported_byToapp_user app_user      @relation("outstanding_balance_case_reported_byToapp_user", fields: [reported_by], references: [id], onUpdate: Restrict, map: "core_outstanding_balance_case_f3")
   app_user_outstanding_balance_case_admin_ownerToapp_user app_user?     @relation("outstanding_balance_case_admin_ownerToapp_user", fields: [admin_owner], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_outstanding_balance_case_f4")
 
+  @@unique([session_id], map: "pdm_outstanding_open", where: raw("(status <> ALL (ARRAY['RECOVERED'::text, 'WRITTEN_OFF'::text, 'CANCELLED'::text]))"))
   @@index([session_id], map: "core_outstanding_balance_case_fk1")
   @@index([table_id], map: "core_outstanding_balance_case_fk2")
   @@index([reported_by], map: "core_outstanding_balance_case_fk3")
@@ -821,26 +891,33 @@ model payment_allocation {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model payment_intent {
-  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  session_id           String                @db.Uuid
-  payer_participant_id String?               @db.Uuid
+  payos_request        payos_payment_request?
+  collection_scope     String                 @default("TABLE")
+  proof                Json?
+  support_request_id   String?                @db.Uuid
+  support_request      support_request?       @relation(fields: [support_request_id], references: [id], onDelete: Restrict)
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id           String                 @db.Uuid
+  payer_participant_id String?                @db.Uuid
   method               String
   amount               BigInt
-  currency             String                @default("VND")
-  status               String                @default("CREATED")
+  currency             String                 @default("VND")
+  status               String                 @default("CREATED")
   client_request_id    String
   provider             String?
   provider_reference   String?
-  expires_at           DateTime              @db.Timestamptz(6)
-  version              Int                   @default(1)
-  created_at           DateTime              @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime              @default(now()) @db.Timestamptz(6)
+  expires_at           DateTime               @db.Timestamptz(6)
+  version              Int                    @default(1)
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime               @default(now()) @db.Timestamptz(6)
   idempotency_record   idempotency_record[]
-  table_session        table_session         @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_payment_intent_f1")
-  session_participant  session_participant?  @relation(fields: [payer_participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_payment_intent_f2")
+  table_session        table_session          @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_payment_intent_f1")
+  session_participant  session_participant?   @relation(fields: [payer_participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_payment_intent_f2")
   payment_transaction  payment_transaction[]
 
   @@unique([session_id, client_request_id])
+  @@unique([session_id], map: "pdm_pending_online", where: raw("((method = 'ONLINE'::text) AND (status = ANY (ARRAY['CREATED'::text, 'PENDING'::text])))"))
+  @@index([support_request_id], map: "payment_intent_support_request")
   @@index([session_id], map: "core_payment_intent_fk1")
   @@index([payer_participant_id], map: "core_payment_intent_fk2")
 }
@@ -870,6 +947,7 @@ model payment_transaction {
   refund_case             refund_case[]
 
   @@unique([provider, provider_transaction_id], map: "pdm_provider_tx", where: raw("(provider IS NOT NULL)"))
+  @@unique([payment_intent_id], map: "core_intent_capture", where: raw("((payment_intent_id IS NOT NULL) AND (status = 'SUCCEEDED'::text) AND (provider IS DISTINCT FROM 'PAYOS'::text))"))
   @@index([payment_intent_id], map: "core_payment_transaction_fk1")
   @@index([session_id], map: "core_payment_transaction_fk2")
   @@index([confirmed_by], map: "core_payment_transaction_fk3")
@@ -912,6 +990,7 @@ model recipe_bom {
   recipe_bom_item                recipe_bom_item[]
 
   @@unique([product_id, version_no])
+  @@unique([product_id], map: "core_active_bom", where: raw("(status = 'ACTIVE'::text)"))
   @@index([product_id], map: "core_recipe_bom_fk1")
 }
 
@@ -934,7 +1013,7 @@ model recipe_bom_item {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model refund_case {
-  request_key String?
+  request_key                   String?
   id                            String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   session_id                    String               @db.Uuid
   order_item_id                 String?              @db.Uuid
@@ -955,6 +1034,7 @@ model refund_case {
   app_user                      app_user?            @relation(fields: [assigned_staff_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_refund_case_f5")
   refund_transaction            refund_transaction[]
 
+  @@unique([session_id, request_key], map: "refund_case_request_key", where: raw("(request_key IS NOT NULL)"))
   @@index([session_id], map: "core_refund_case_fk1")
   @@index([order_item_id], map: "core_refund_case_fk2")
   @@index([source_payment_transaction_id], map: "core_refund_case_fk3")
@@ -964,7 +1044,7 @@ model refund_case {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model refund_transaction {
-  request_key String?
+  request_key    String?
   id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   refund_case_id String      @db.Uuid
   method         String
@@ -978,8 +1058,10 @@ model refund_transaction {
   refund_case    refund_case @relation(fields: [refund_case_id], references: [id], onUpdate: Restrict, map: "core_refund_transaction_f1")
   app_user       app_user    @relation(fields: [processed_by], references: [id], onUpdate: Restrict, map: "core_refund_transaction_f2")
 
+  @@unique([refund_case_id, request_key], map: "refund_request_once", where: raw("(request_key IS NOT NULL)"))
   @@index([refund_case_id], map: "core_refund_transaction_fk1")
   @@index([processed_by], map: "core_refund_transaction_fk2")
+  @@index([reference], map: "refund_bank_reference_lookup", where: raw("((method = 'BANK_TRANSFER'::text) AND (status = 'SUCCEEDED'::text))"))
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -1017,8 +1099,6 @@ model session_financial_account {
   created_at              DateTime      @default(now()) @db.Timestamptz(6)
   updated_at              DateTime      @default(now()) @db.Timestamptz(6)
   table_session           table_session @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_session_financial_account_f1")
-
-  @@index([session_id], map: "core_session_financial_account_fk1")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -1042,23 +1122,37 @@ model stock_location {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model support_request {
-  id                                                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  session_id                                         String               @db.Uuid
-  participant_id                                     String?              @db.Uuid
+  resolution_actor_type                              String                    @default("USER")
+  table_id                                           String?                   @db.Uuid
+  access_table                                       dining_table?             @relation("access_request_table", fields: [table_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  visitor_hash                                       String?
+  visitor_name                                       String?
+  replaces_request_id                                String?                   @db.Uuid
+  replaces_request                                   support_request?          @relation("support_replacement", fields: [replaces_request_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  replacements                                       support_request[]         @relation("support_replacement")
+  payment_method                                     String?
+  payment_intents                                    payment_intent[]
+  handoffs                                           support_request_handoff[]
+  support_outbox                                     outbox_event[]
+  id                                                 String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id                                         String?                   @db.Uuid
+  participant_id                                     String?                   @db.Uuid
   request_type                                       String
   content                                            String?
-  status                                             String               @default("NEW")
-  acknowledged_by                                    String?              @db.Uuid
-  resolved_by                                        String?              @db.Uuid
-  created_at                                         DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at                                         DateTime             @default(now()) @db.Timestamptz(6)
-  acknowledged_at                                    DateTime?            @db.Timestamptz(6)
-  resolved_at                                        DateTime?            @db.Timestamptz(6)
-  table_session                                      table_session        @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_support_request_f1")
-  session_participant                                session_participant? @relation(fields: [participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_support_request_f2")
-  app_user_support_request_acknowledged_byToapp_user app_user?            @relation("support_request_acknowledged_byToapp_user", fields: [acknowledged_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_support_request_f3")
-  app_user_support_request_resolved_byToapp_user     app_user?            @relation("support_request_resolved_byToapp_user", fields: [resolved_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_support_request_f4")
+  status                                             String                    @default("NEW")
+  acknowledged_by                                    String?                   @db.Uuid
+  resolved_by                                        String?                   @db.Uuid
+  created_at                                         DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at                                         DateTime                  @default(now()) @db.Timestamptz(6)
+  acknowledged_at                                    DateTime?                 @db.Timestamptz(6)
+  resolved_at                                        DateTime?                 @db.Timestamptz(6)
+  table_session                                      table_session?            @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_support_request_f1")
+  session_participant                                session_participant?      @relation(fields: [participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_support_request_f2")
+  app_user_support_request_acknowledged_byToapp_user app_user?                 @relation("support_request_acknowledged_byToapp_user", fields: [acknowledged_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_support_request_f3")
+  app_user_support_request_resolved_byToapp_user     app_user?                 @relation("support_request_resolved_byToapp_user", fields: [resolved_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_support_request_f4")
 
+  @@unique([session_id, participant_id, request_type], map: "support_request_active_participant", where: raw("((participant_id IS NOT NULL) AND (status = ANY (ARRAY['NEW'::text, 'ACKNOWLEDGED'::text])))"))
+  @@index([status, created_at], map: "support_request_queue")
   @@index([session_id], map: "core_support_request_fk1")
   @@index([participant_id], map: "core_support_request_fk2")
   @@index([acknowledged_by], map: "core_support_request_fk3")
@@ -1080,7 +1174,12 @@ model unit_of_measure {
 }
 
 model attendance_record {
-  outcome String @default("WORKED")
+  pay_components       Json?
+  pay_snapshot         Json?
+  paid_periods         Json?
+  approval_mode        String?
+  rate_source          String?
+  outcome              String           @default("WORKED")
   id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   restaurant_id        String           @db.Uuid
   assignment_id        String           @unique @db.Uuid
@@ -1121,6 +1220,9 @@ model employee_pay_rate {
 }
 
 model payroll_line {
+  pay_components       Json?
+  pay_snapshot         Json?
+  paid_periods         Json?
   id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   restaurant_id        String             @db.Uuid
   payroll_slip_id      String             @db.Uuid
@@ -1138,6 +1240,38 @@ model payroll_line {
   restaurant           restaurant         @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([payroll_slip_id], map: "payroll_line_slip_idx")
+}
+
+model workforce_pay_policy {
+  id                       String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id            String     @db.Uuid
+  effective_from           DateTime   @db.Date
+  night_premium_percent    Int        @default(30)
+  overtime_weekday_percent Int        @default(150)
+  rest_day_percent         Int        @default(200)
+  holiday_percent          Int        @default(300)
+  created_by               String     @db.Uuid
+  created_at               DateTime   @default(now()) @db.Timestamptz(6)
+  restaurant               restaurant @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
+  creator                  app_user   @relation(fields: [created_by, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([restaurant_id, effective_from])
+}
+
+model workforce_calendar_day {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id String     @db.Uuid
+  date          DateTime   @db.Date
+  kind          String
+  user_id       String?    @db.Uuid
+  name          String
+  created_by    String     @db.Uuid
+  created_at    DateTime   @default(now()) @db.Timestamptz(6)
+  restaurant    restaurant @relation(fields: [restaurant_id], references: [id], onUpdate: Restrict)
+  creator       app_user   @relation("pay_calendar_creator", fields: [created_by, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  employee      app_user?  @relation("pay_calendar_employee", fields: [user_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([restaurant_id, date, user_id], map: "workforce_calendar_lookup")
 }
 
 model payroll_run {
@@ -1164,18 +1298,18 @@ model payroll_run {
 }
 
 model payroll_slip {
-  salary_payment payroll_payment[]
-  id                     String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  restaurant_id          String         @db.Uuid
-  payroll_run_id         String         @db.Uuid
-  user_id                String         @db.Uuid
+  salary_payment         payroll_payment[]
+  id                     String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id          String            @db.Uuid
+  payroll_run_id         String            @db.Uuid
+  user_id                String            @db.Uuid
   employee_name_snapshot String
   username_snapshot      String
-  created_at             DateTime       @default(now()) @db.Timestamptz(6)
+  created_at             DateTime          @default(now()) @db.Timestamptz(6)
   payroll_line           payroll_line[]
-  payroll_run            payroll_run    @relation(fields: [payroll_run_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
-  restaurant             restaurant     @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  app_user               app_user       @relation(fields: [user_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  payroll_run            payroll_run       @relation(fields: [payroll_run_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  restaurant             restaurant        @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  app_user               app_user          @relation(fields: [user_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([id, restaurant_id])
   @@unique([payroll_run_id, user_id])
@@ -1224,48 +1358,261 @@ model table_transfer_history {
   @@index([session_id, transferred_at], map: "table_transfer_history_session_idx")
 }
 
-model work_shift {
-  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  restaurant_id    String             @db.Uuid
-  code             String
-  name             String
-  starts_at        DateTime           @db.Timestamptz(6)
-  ends_at          DateTime           @db.Timestamptz(6)
-  break_minutes    Int                @default(0)
-  created_by       String             @db.Uuid
-  created_at       DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
-  shift_assignment shift_assignment[]
-  app_user         app_user           @relation(fields: [created_by, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
-  restaurant       restaurant         @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model shift_template {
+  id                   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id        String       @db.Uuid
+  code                 String
+  name                 String
+  start_time           DateTime     @db.Time(0)
+  end_time             DateTime     @db.Time(0)
+  ends_next_day        Boolean      @default(false)
+  break_minutes        Int          @default(0)
+  hourly_rate_override BigInt?
+  is_active            Boolean      @default(true)
+  sort_order           Int          @default(0)
+  version              Int          @default(1)
+  created_by           String       @db.Uuid
+  created_at           DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime     @default(now()) @db.Timestamptz(6)
+  restaurant           restaurant   @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  app_user             app_user     @relation(fields: [created_by, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  work_shift           work_shift[]
 
+  @@unique([restaurant_id, code])
+  @@unique([id, restaurant_id])
+  @@index([restaurant_id, is_active, sort_order, name], map: "shift_template_active_order")
+}
+
+model work_shift {
+  template_id              String?            @db.Uuid
+  scheduled_date           DateTime?          @db.Date
+  template_version         Int?
+  hourly_rate_override     BigInt?
+  attendance_grace_minutes Int                @default(15)
+  clock_in_early_minutes   Int                @default(15)
+  clock_out_late_minutes   Int                @default(120)
+  shift_template           shift_template?    @relation(fields: [template_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  id                       String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id            String             @db.Uuid
+  code                     String
+  name                     String
+  starts_at                DateTime           @db.Timestamptz(6)
+  ends_at                  DateTime           @db.Timestamptz(6)
+  break_minutes            Int                @default(0)
+  created_by               String             @db.Uuid
+  created_at               DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime           @default(now()) @db.Timestamptz(6)
+  shift_assignment         shift_assignment[]
+  app_user                 app_user           @relation(fields: [created_by, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  restaurant               restaurant         @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([template_id, scheduled_date], map: "work_shift_template_day")
   @@unique([id, restaurant_id])
   @@unique([restaurant_id, code])
 }
 
 model payroll_payment {
- id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
- restaurant_id String @db.Uuid
- payroll_slip_id String @unique @db.Uuid
- amount BigInt
- reference String
- paid_by String @db.Uuid
- paid_at DateTime @default(now()) @db.Timestamptz(6)
- restaurant restaurant @relation(fields:[restaurant_id],references:[id],onDelete:NoAction,onUpdate:NoAction)
- slip payroll_slip @relation(fields:[payroll_slip_id,restaurant_id],references:[id,restaurant_id],onDelete:NoAction,onUpdate:NoAction)
- payer app_user @relation("salary_payer",fields:[paid_by,restaurant_id],references:[id,restaurant_id],onDelete:NoAction,onUpdate:NoAction)
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id   String       @db.Uuid
+  payroll_slip_id String       @unique @db.Uuid
+  amount          BigInt
+  reference       String
+  paid_by         String       @db.Uuid
+  paid_at         DateTime     @default(now()) @db.Timestamptz(6)
+  restaurant      restaurant   @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  slip            payroll_slip @relation(fields: [payroll_slip_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+  payer           app_user     @relation("salary_payer", fields: [paid_by, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
 }
+
 model business_audit_event {
- id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
- restaurant_id String @db.Uuid
- actor_id String @db.Uuid
- action String
- resource_type String
- resource_id String @db.Uuid
- reason String
- details Json @default("{}")
- created_at DateTime @default(now()) @db.Timestamptz(6)
- restaurant restaurant @relation(fields:[restaurant_id],references:[id],onDelete:NoAction,onUpdate:NoAction)
- actor app_user @relation("business_actor",fields:[actor_id,restaurant_id],references:[id,restaurant_id],onDelete:NoAction,onUpdate:NoAction)
- @@index([resource_type,resource_id,created_at],map:"business_audit_resource")
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id String     @db.Uuid
+  actor_id      String?    @db.Uuid
+  actor_type    String?
+  action        String
+  resource_type String
+  resource_id   String     @db.Uuid
+  reason        String
+  details       Json       @default("{}")
+  created_at    DateTime   @default(now()) @db.Timestamptz(6)
+  restaurant    restaurant @relation(fields: [restaurant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  actor         app_user?  @relation("business_actor", fields: [actor_id, restaurant_id], references: [id, restaurant_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([resource_type, resource_id, created_at], map: "business_audit_resource")
+}
+
+model support_request_handoff {
+  response_actor_type String          @default("USER")
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  support_request_id  String          @db.Uuid
+  from_staff_id       String          @db.Uuid
+  to_staff_id         String          @db.Uuid
+  reason              String
+  status              String          @default("PENDING")
+  requested_at        DateTime        @default(now()) @db.Timestamptz(6)
+  responded_at        DateTime?       @db.Timestamptz(6)
+  responded_by        String?         @db.Uuid
+  response_reason     String?
+  request             support_request @relation(fields: [support_request_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  from_staff          app_user        @relation("support_from", fields: [from_staff_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  to_staff            app_user        @relation("support_to", fields: [to_staff_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  responder           app_user?       @relation("support_responder", fields: [responded_by], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([support_request_id], map: "support_handoff_one_pending", where: raw("(status = 'PENDING'::text)"))
+  @@index([support_request_id, requested_at], map: "support_handoff_request_history")
+  @@index([to_staff_id, status], map: "support_handoff_incoming")
+  @@index([from_staff_id], map: "support_handoff_from")
+  @@index([responded_by], map: "support_handoff_responder")
+}
+
+model table_access_limit {
+  bucket_hash   String   @id
+  restaurant_id String   @db.Uuid
+  attempts      Int      @default(0)
+  started_at    DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model menu_promotion {
+  id                  String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id       String     @db.Uuid
+  product_id          String     @db.Uuid
+  image_url           String
+  image_width         Int
+  image_height        Int
+  presentation        String     @default("PHOTO")
+  eyebrow             String?
+  image_note          String?
+  expected_price      BigInt?
+  expected_components Json       @default("[]")
+  sort_order          Int        @default(0)
+  is_deleted          Boolean    @default(false)
+  is_active           Boolean    @default(true)
+  version             Int        @default(1)
+  created_at          DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime   @default(now()) @db.Timestamptz(6)
+  restaurant          restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  product             product    @relation(fields: [product_id, restaurant_id], references: [id, restaurant_id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([restaurant_id, product_id])
+  @@index([restaurant_id, is_active, sort_order, id], map: "menu_promotion_active_order")
+}
+
+model restaurant_tax_policy {
+  restaurant           restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  creator              app_user?  @relation(fields: [created_by], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  id                   String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id        String     @db.Uuid
+  effective_at         DateTime   @db.Timestamptz(6)
+  default_rate_percent Int
+  price_includes_vat   Boolean    @default(true)
+  version              Int
+  reason               String
+  created_by           String?    @db.Uuid
+  created_at           DateTime   @default(now()) @db.Timestamptz(6)
+
+  @@unique([restaurant_id, version])
+  @@index([restaurant_id, effective_at, version], map: "tax_policy_effective")
+}
+
+model discount_program {
+  restaurant          restaurant          @relation(fields: [restaurant_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  creator             app_user            @relation(fields: [created_by], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sessions            session_promotion[]
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id       String              @db.Uuid
+  name                String
+  description         String              @default("")
+  mode                String
+  code                String?
+  discount_type       String
+  percent             Int?
+  fixed_amount        BigInt?
+  min_eligible_amount BigInt              @default(0)
+  max_discount_amount BigInt?
+  starts_at           DateTime            @db.Timestamptz(6)
+  ends_at             DateTime            @db.Timestamptz(6)
+  weekdays            Int[]               @default([])
+  start_time          String?
+  end_time            String?
+  scope               String              @default("ALL")
+  product_ids         String[]            @default([]) @db.Uuid
+  category_ids        String[]            @default([]) @db.Uuid
+  exclude_combos      Boolean             @default(true)
+  usage_limit         Int?
+  status              String              @default("ACTIVE")
+  version             Int                 @default(1)
+  created_by          String              @db.Uuid
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime            @default(now()) @db.Timestamptz(6)
+
+  @@unique([restaurant_id, code], map: "discount_code_unique", where: raw("code IS NOT NULL"))
+  @@index([restaurant_id, status, starts_at, ends_at], map: "discount_program_restaurant")
+}
+
+model session_promotion {
+  session            table_session     @relation(fields: [session_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  program            discount_program? @relation(fields: [program_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  session_id         String            @id @db.Uuid
+  program_id         String?           @db.Uuid
+  status             String
+  explicit_selection Boolean           @default(false)
+  program_snapshot   Json?
+  eligible_amount    BigInt            @default(0)
+  discount_amount    BigInt            @default(0)
+  expires_at         DateTime?         @db.Timestamptz(6)
+  locked_at          DateTime?         @db.Timestamptz(6)
+  created_at         DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime          @default(now()) @db.Timestamptz(6)
+
+  @@index([program_id, status, expires_at], map: "session_promotion_quota")
+}
+
+model promotion_request {
+  session           table_session @relation(fields: [session_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id        String        @db.Uuid
+  actor_type        String
+  actor_id          String        @db.Uuid
+  request_key       String
+  request_hash      String
+  response_snapshot Json
+  created_at        DateTime      @default(now()) @db.Timestamptz(6)
+
+  @@unique([session_id, actor_type, actor_id, request_key])
+}
+
+model payos_payment_request {
+  id                       String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payment_intent_id        String             @unique @db.Uuid
+  created_by               String             @db.Uuid
+  order_code               BigInt             @unique @default(dbgenerated("nextval('payos_order_code_seq'::regclass)"))
+  payment_link_id          String?            @unique
+  status                   String             @default("CREATE_PENDING")
+  provider_status          String?
+  request_payload          Json
+  account_number           String?
+  checkout_url             String?
+  qr_code                  String?
+  paid_amount              BigInt             @default(0)
+  quarantined_transactions Json               @default("[]")
+  last_error               String?
+  lease_until              DateTime?          @db.Timestamptz(6)
+  next_poll_at             DateTime           @default(now()) @db.Timestamptz(6)
+  cancel_requested         Boolean            @default(false)
+  reconciliation_status    String?
+  reconciliation_reason    String?
+  resolved_by              String?            @db.Uuid
+  resolved_at              DateTime?          @db.Timestamptz(6)
+  alert_id                 String?            @db.Uuid
+  created_at               DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime           @default(now()) @db.Timestamptz(6)
+  intent                   payment_intent     @relation(fields: [payment_intent_id], references: [id], onDelete: Restrict)
+  creator                  app_user           @relation("payos_created", fields: [created_by], references: [id], onDelete: Restrict)
+  resolver                 app_user?          @relation("payos_resolved", fields: [resolved_by], references: [id], onDelete: Restrict)
+  alert                    operational_alert? @relation(fields: [alert_id], references: [id], onDelete: Restrict)
+
+  @@index([next_poll_at], map: "payos_request_poll", where: raw("(status <> ALL (ARRAY['PAID'::text,'CANCELLED'::text,'EXPIRED'::text,'FAILED'::text]))"))
+  @@index([created_by], map: "payos_request_created_by")
+  @@index([resolved_by], map: "payos_request_resolved_by")
+  @@index([alert_id], map: "payos_request_alert")
 }

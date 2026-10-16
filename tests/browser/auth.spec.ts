@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 if (existsSync('.env')) process.loadEnvFile('.env');
 test('internal login, role workspace, direct forbidden navigation and logout', async ({ page }) => {
   await page.goto('/login');
-  await expect(page.getByRole('heading', { name: 'Đăng nhập', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Đăng nhập nội bộ', exact: true })).toBeVisible();
   await page.locator('#username').fill('pv001');
   await page.locator('#password').fill(process.env.SEED_PASSWORD!);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
@@ -14,6 +14,7 @@ test('internal login, role workspace, direct forbidden navigation and logout', a
   ).toHaveCount(0);
   await page.screenshot({
     caret: 'initial',
+    scale: 'css',
     path: test.info().outputPath('staff.png'),
     fullPage: true,
   });
@@ -29,6 +30,7 @@ test('internal login, role workspace, direct forbidden navigation and logout', a
   await expect(page).toHaveURL(/login/);
   await page.screenshot({
     caret: 'initial',
+    scale: 'css',
     path: test.info().outputPath('login.png'),
     fullPage: true,
   });

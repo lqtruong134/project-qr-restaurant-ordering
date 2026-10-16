@@ -1,81 +1,61 @@
-# QR Restaurant Ordering
+# Hệ thống gọi món tại bàn bằng QR
 
-Ứng dụng gọi món bằng QR tại bàn cho **Quyết Trường Bistro** (nhà hàng demo). Một repository thống nhất gồm giao diện Next.js/React, API Fastify/TypeScript và PostgreSQL với **55 bảng nghiệp vụ**. Có bốn không gian: quản trị, phục vụ, bếp và khách.
+Ứng dụng hiện hành gồm giao diện khách, phục vụ, bếp và quản trị; quản lý gọi món, khuyến mãi/VAT, thanh toán tiền mặt/chuyển khoản và payOS, kho và nhân sự. Đã tích hợp payOS với QR, webhook xác minh và đối soát; nền tảng AI Menu Assistant có API chỉ đọc và provider tùy chọn, mặc định tắt; chưa có model thật.
 
-Đã có gọi món, duyệt đơn, chế biến/phục vụ, hỗ trợ tại bàn, chuyển bàn, thu tiền và hoàn tiền thủ công, báo cáo, công thức và kho. Quản trị có phân ca, chấm công, đơn giá giờ và bảng lương nội bộ; nhân viên xem lịch, ghi nhận vào/ra ca và phiếu lương đã chốt. **AI và tích hợp ngân hàng/cổng thanh toán online chưa triển khai.**
+Bắt đầu học tại [docs/00-bat-dau.md](docs/00-bat-dau.md), hoặc mở [sổ tay HTML](docs/00-BAT-DAU.html). Bộ tài liệu được đối chiếu code và PostgreSQL ngày 15/10/2026, có lộ trình 12 buổi, hướng dẫn nghiệp vụ, mã nguồn, 67 bảng/786 cột và 186 thao tác API. [Hồ sơ xác minh](docs/15-doi-chieu.md) nêu rõ những gì đã kiểm tra.
 
-## Chạy trên máy
+## Cài từ bản clone mới
 
-Môi trường phát triển: Ubuntu/WSL, Node theo `.nvmrc`, pnpm theo `packageManager`, Docker Compose.
+Yêu cầu Node.js 24, pnpm 12.3.4 và Docker đang chạy; trên Windows dùng WSL cho các lệnh phát triển/kiểm thử. Trong gốc repository chạy lần lượt:
 
-```sh
-cd ~/projects/qr-ordering-thesis
+```bash
 pnpm install --frozen-lockfile
 pnpm run setup
 pnpm db:up
-pnpm db:generate
 pnpm db:migrate
+pnpm db:generate
 pnpm db:seed
 pnpm dev
 ```
 
-Mặc định mở **http://localhost:3000**, API ở cổng 4000, PostgreSQL ở 5433. Nếu `.env` đã đổi cổng, dùng `WEB_PORT` tương ứng. Giữ một terminal chạy; Ctrl+C để dừng. Lỗi `EADDRINUSE` nghĩa là cổng đang được chương trình khác dùng, thường do còn một phiên chạy cũ.
+`setup` tạo `.env` cục bộ với bí mật ngẫu nhiên; không chia sẻ hoặc commit tệp này. Các tài khoản khởi tạo dùng mật khẩu `SEED_PASSWORD` trong `.env` của chính máy cài; không có mật khẩu chung được công bố. `db:generate` sinh Prisma Client nên cần chạy sau khi clone, vì mã sinh không nằm trong Git. Ảnh món/banner thực đơn được cài từ tài nguyên đã đóng gói vào kho runtime khi khởi tạo; ảnh ADMIN tải lên và dữ liệu PostgreSQL cần sao lưu riêng khi chuyển môi trường.
 
-`pnpm run setup` tạo `.env` nếu chưa có và giữ các thiết lập đã tồn tại. Mật khẩu seed nằm trong `SEED_PASSWORD` của `.env` riêng. Không đưa `.env`, dump database, cookie hay trace trình duyệt lên Git. Sau khi đổi cấu hình, khởi động lại dịch vụ. `pnpm setup` là lệnh khác, hãy dùng đúng `pnpm run setup`.
+Lần khởi tạo mới tạo danh mục và lịch làm việc ban đầu, không tự sao chép lịch sử giao dịch hoặc hồ sơ trên máy khác. Khi đã có database vận hành, đọc [hướng dẫn vận hành](docs/12-van-hanh.md) trước khi chạy migration/seed; không dùng script reset cũ để nâng cấp dữ liệu.
 
-| Vai trò | Tên đăng nhập demo |
-|---|---|
-| Quản trị | `quyettruong05` |
-| Phục vụ | `pv001`, `pv002`, `pv003`, `pv004` |
-| Bếp | `bep001`, `bep002`, `bep003` |
-| Khách | Quét QR, nhập tên; không cần tài khoản nhân viên |
+## Chạy trên môi trường đã cài
 
-Mỗi nhân viên có mã đăng nhập riêng, kể cả khi trùng họ tên. Để thử nhiều vai trò cùng lúc, dùng hồ sơ trình duyệt riêng; các tab trong cùng hồ sơ chia sẻ cookie. Một tài khoản nội bộ chỉ có một phiên đăng nhập hiện hành.
+Yêu cầu Node 24, pnpm theo packageManager và PostgreSQL qua Docker Desktop/WSL. Trong gốc repository: `pnpm db:up`, `pnpm db:check`, rồi `pnpm dev`. Xem [hướng dẫn vận hành](docs/12-van-hanh.md) trước khi chạy migration hoặc seed.
 
-## Tài liệu cần đọc
+## Ảnh và giao diện
 
-1. [Chạy thử bốn vai trò và dùng điện thoại](docs/core45/RUN-DEMO.md).
-2. [Cấu trúc và luồng code](docs/code-guide.md), [quy tắc kiến trúc](docs/architecture/README.md).
-3. [Dữ liệu mẫu và cách thay ảnh](docs/core45/DEMO-DATA.md).
-4. [Phạm vi và giới hạn hiện tại](docs/core45/IMPLEMENTATION.md).
-5. [Từ điển database](docs/database/data-dictionary.md), [ERD vật lý](docs/database/physical.svg). Migration là nguồn sự thật.
-6. API trực tiếp tại `/api-docs`; nút Execute gửi yêu cầu thật. [Hướng dẫn Swagger](docs/swagger-demo.md).
+Xem [cách thay ảnh thật và bố cục từng vai trò](docs/20-anh-va-giao-dien.md). Ảnh món và banner thực đơn dùng cùng kho var/menu-images hoặc MENU_UPLOAD_DIR; database giữ đường dẫn. Ảnh thương hiệu/nền tĩnh nằm ở apps/web/public/images.
 
-Các phương án thiết kế cũ ở [docs/archive](docs/archive/README.md); ADR và bằng chứng từng đợt được giữ để phục vụ luận văn, không thay thế tài liệu hiện hành.
+## Chính sách khách và xử lý món
 
-## Kiểm tra trước khi chia sẻ code
+[Hồ sơ chính sách và ma trận nghiệp vụ](docs/21-chinh-sach-va-ma-tran.md) ghi hồ sơ phiên bản 2026-10-v1, bằng chứng đồng ý, lý do hủy và quyền xử lý lỗi nhà hàng.
 
-```sh
-pnpm check
-pnpm test:coverage
-pnpm exec playwright install --with-deps chromium webkit
-pnpm test:e2e
-pnpm build
-pnpm check:secrets
-pnpm audit --audit-level=high
-pnpm demo:rehearse
-```
+## Hỗ trợ và bàn giao
 
-`check` gồm định dạng, lint, TypeScript và unit test. Coverage chạy kiểm thử backend và integration. Integration/E2E/rehearsal tự tạo database thử riêng rồi dọn; user PostgreSQL phát triển cần quyền CREATE DATABASE. Không dùng tài khoản hoặc database production để chạy test. E2E dùng cổng 13100/14100 và thư mục `.next-e2e`, không dùng seed đang thao tác trên giao diện phát triển. Trace có thể chứa dữ liệu đăng nhập thử nên bị Git bỏ qua.
+[Ví dụ hỗ trợ và bàn giao có xác nhận](docs/22-ho-tro-va-ban-giao.md) giải thích trách nhiệm, CSDL và kết quả kiểm thử. Chính sách hiện hành là 2026-10-v2; các bằng chứng đồng ý trước đó được giữ.
 
-## Database và seed
+## Chuyển bàn
 
-SQL migration nằm trong `packages/database/prisma/migrations`. Không sửa migration đã chia sẻ; thêm migration mới. Không dùng `db push` để thay lịch sử migration. `pnpm db:seed:core` là alias tương thích của `pnpm db:seed`, dùng cùng một bộ dữ liệu.
+[Hướng dẫn chuyển cả phiên và lịch sử](docs/23-chuyen-ban.md): chọn thẻ bàn đủ chỗ, xác nhận một lần và giữ khách/giỏ/món/tiền. Đợt này không thêm migration hoặc reset dữ liệu.
 
-Seed chỉ bổ sung bản ghi thiếu, không đặt lại giá, mật khẩu, phiên bàn hoặc tồn kho đã vận hành. Muốn bắt đầu lại demo, sao lưu và tạo database rỗng riêng rồi migrate/seed; không xóa sổ giao dịch trực tiếp. Volume Docker được giữ khi `pnpm db:down`; không dùng `down -v` để dừng thông thường.
+## Sự cố món và phiếu thanh toán
 
-Cài Graphviz và chạy `pnpm docs:database` để cập nhật metadata/ERD. Tệp này không xuất dữ liệu khách hàng hay thông tin đăng nhập.
+[Hướng dẫn bếp báo lỗi, phục vụ trao đổi khách, admin duyệt và hoàn tiền](docs/24-su-co-mon-va-phieu-thanh-toan.md) giải thích thanh việc cần xử lý, lý do nhanh và phiếu có thành tiền 0đ. Không thêm migration hoặc reset dữ liệu.
 
-## Triển khai sau giai đoạn demo
+## Thu tiền tại bàn
 
-Cần nghiệm thu tại nhà hàng, HTTPS/origin/cookie phù hợp, backup và thử phục hồi, giám sát lỗi và cấu hình môi trường riêng. Rate limiter hiện ở RAM, phù hợp một API instance; nhiều instance cần kho trạng thái chung. Báo cáo là số liệu nghiệp vụ, chưa phải hệ thống hóa đơn điện tử/kế toán. Kết quả test đạt không thay thế kiểm thử vận hành thực tế.
+PayOS được cấu hình riêng phía backend; không sao chép khóa vào Git. Xem [biến môi trường, webhook HTTPS và test thật 5.000đ](docs/12-van-hanh.md), cùng [nghiệm thu](docs/15-doi-chieu.md). Hiện code hoàn tất nhưng merchant thật chưa được bật.
 
-## Vận hành phục vụ và phiếu thanh toán
+[Khách gọi nhân viên, khoản thu, tiền thối và ảnh chuyển khoản](docs/25-thu-tien-tai-ban.md). Luồng thu tiền hiện hành đã bao gồm khuyến mãi, VAT và payOS; schema hiện có 67 bảng và 36 migration. Các phiếu chốt giữ ảnh chụp số liệu tại thời điểm thanh toán.
 
-Xem [luồng phục vụ, phiếu thanh toán, chuyển bàn và ca/lương](docs/service-and-receipts.md). Bản hiện tại gồm 55 bảng nghiệp vụ; giữ nguyên 45 bảng lõi và bổ sung 8 bảng nhân sự/chuyển bàn cùng 2 bảng thanh toán lương và nhật ký nghiệp vụ.
+## Duy trì tài liệu
 
-Đợt chuẩn hóa nghiệp vụ mới: [nghiệm thu v2](docs/uat-v2.md).
+Markdown trong docs là nguồn chính. Chạy `node docs/tools/export-html.mjs` để sinh lại bản đọc HTML sau khi cập nhật. Giữ đồng bộ bản Windows ở thư mục Tai-lieu. Các tệp docs/openapi.yaml và docs/core45/openapi-paths.json được bước build Swagger sử dụng trực tiếp.
 
-## Chấm công và kho
+## Nền tảng AI Menu Assistant
 
-[Chấm công và kho: nghiệp vụ, lý do thiết kế, cách kiểm thử](docs/attendance-and-inventory.md).
+Xem [audit, contract, giới hạn và lộ trình model thật](docs/14-mo-rong.md). API mặc định OFF; không sửa cart/order/payment, không cần Ollama để chạy hệ thống. `pnpm ai:data:validate` kiểm tra bộ 36 mẫu dữ liệu; notebook chỉ là scaffold, chưa train/GPU-validated. [Dữ liệu và notebook nghiên cứu](ai/menu-assistant/README.md).

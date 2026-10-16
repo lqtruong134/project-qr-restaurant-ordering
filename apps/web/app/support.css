@@ -1,0 +1,237 @@
+.support-workspace,
+.guest-support {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.support-workspace section {
+  min-width: 0;
+}
+.support-workspace h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  font-size: 1.15rem;
+}
+.support-grid,
+.support-report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+}
+.support-task {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #deded8);
+  border-radius: 16px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.support-task p,
+.support-task h3 {
+  margin: 0;
+}
+.support-task small {
+  color: var(--muted, #647069);
+  line-height: 1.6;
+}
+.support-task h3 {
+  font-size: 1.2rem;
+}
+.support-task h3 small {
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+.support-new {
+  border-left: 4px solid #b97627;
+  background: #fffcf6;
+}
+.support-incoming {
+  border: 2px solid #47785e;
+  background: #f3f8f3;
+}
+.support-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+}
+.support-age {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #775316;
+}
+.support-type {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+}
+.support-owner {
+  font-weight: 600;
+}
+.support-content {
+  white-space: pre-wrap;
+}
+.support-priority {
+  font-size: 0.8rem;
+  color: #335c42;
+}
+.support-handoff-note {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(65, 104, 76, 0.07);
+  border-radius: 10px;
+  font-size: 0.88rem;
+}
+.support-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+.support-card-actions > .core-action:first-child button {
+  background: #344f3e;
+  color: #fff;
+  border-color: #344f3e;
+}
+.support-card-actions button {
+  min-height: 44px;
+}
+.support-alert-banner {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 16px 20px;
+  background: #edf6ee;
+  border: 1px solid #8fb397;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+.support-alert-banner p {
+  margin: 4px 0 0;
+}
+.support-alert-banner button {
+  margin-left: auto;
+}
+.support-help {
+  color: var(--muted, #647069);
+  line-height: 1.65;
+  font-size: 0.88rem;
+}
+.support-form {
+  display: grid;
+  gap: 16px;
+}
+.support-form label {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+}
+.support-form select,
+.support-form textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border, #deded8);
+  border-radius: 10px;
+  background: #fff;
+  color: #293b30;
+  font: inherit;
+}
+.support-form textarea {
+  resize: vertical;
+}
+.support-form :focus-visible,
+.support-card-actions :focus-visible,
+.support-alert-banner :focus-visible {
+  outline: 3px solid #bb8335;
+  outline-offset: 3px;
+}
+.support-feedback {
+  margin: 0;
+  line-height: 1.6;
+  color: #31563e;
+  font-weight: 600;
+}
+.guest-support-row {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 0;
+  border-top: 1px solid var(--border, #deded8);
+}
+.guest-support-row div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.guest-support-row strong,
+.guest-support-row small {
+  display: block;
+}
+.guest-support-row small {
+  color: var(--muted, #647069);
+  margin-top: 6px;
+}
+.guest-support-row p {
+  white-space: pre-wrap;
+  margin: 8px 0 0;
+}
+.guest-support-row .status-pill {
+  white-space: normal;
+  flex-shrink: 0;
+  max-width: 45%;
+}
+.support-history-list {
+  padding-left: 20px;
+  display: grid;
+  gap: 16px;
+}
+.support-history-list small {
+  display: block;
+  margin-top: 5px;
+}
+.support-history-list p {
+  margin: 5px 0;
+}
+.support-history-entry {
+  padding: 14px 0;
+  border-top: 1px solid var(--border, #deded8);
+}
+@media (max-width: 600px) {
+  .support-task {
+    padding: 16px;
+  }
+  .support-card-actions > * {
+    flex: 1 1 auto;
+  }
+  .support-card-actions button {
+    width: 100%;
+  }
+  .support-alert-banner button {
+    margin-left: 0;
+    width: 100%;
+  }
+  .support-form button {
+    width: 100%;
+  }
+  .guest-support-row {
+    flex-direction: column;
+  }
+  .guest-support-row .status-pill {
+    max-width: 100%;
+  }
+  .service-nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

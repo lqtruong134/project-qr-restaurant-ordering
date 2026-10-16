@@ -18,7 +18,7 @@ Nếu công cụ AI cần nội dung thô, dùng [bản Markdown bắt đầu](h
 
 ## Phạm vi bản công bố ngày 16/10/2026
 
-Tài liệu mô tả mã nguồn đang làm việc trên máy, gồm các lần đối chiếu đến ngày 15/10/2026. Lần công bố này chỉ cập nhật tài liệu; **các thay đổi ứng dụng chưa commit trên máy không được đẩy lên cùng**. Mốc mã nguồn trước lần công bố tài liệu là [`7b6301a`](https://github.com/lqtruong134/project-qr-restaurant-ordering/commit/7b6301aeb2b7bd6bc519b8cc018506d2ab92f649). Vì vậy một số đường dẫn mã nguồn mới trong tài liệu có thể chưa có trên GitHub; không suy ra rằng checkout mã nguồn ở mốc đó đã có toàn bộ chức năng được mô tả.
+Tài liệu mô tả mã nguồn hiện hành, gồm các lần đối chiếu đến ngày 15/10/2026. Hai commit `88ba324` và `bd3fcac` ban đầu chỉ công bố tài liệu. Bản cập nhật mã nguồn tiếp theo đưa ứng dụng, migration, tài nguyên ảnh cài đặt, kiểm thử và nền tảng AI tương ứng vào cùng repository. Khi đối chiếu, chọn mã nguồn và tài liệu ở cùng commit; checkout các mốc cũ hơn có thể chưa có các tệp/chức năng mới. Dữ liệu PostgreSQL, `.env`, ảnh tải lên khi vận hành, cache và mô hình AI không được công bố cùng mã nguồn.
 
 Kết quả kiểm tra có ngày và phạm vi riêng ở [bài 15](15-doi-chieu.md); không coi các số liệu cũ là kết quả của phiên bản khác. Nền tảng trợ lý thực đơn đang **OFF**, chưa chạy huấn luyện/GPU hoặc nghiệm thu mô hình thật. Tài liệu không thay thế mã nguồn, dữ liệu cấu hình triển khai hoặc xác nhận nghiệp vụ thực tế.
 

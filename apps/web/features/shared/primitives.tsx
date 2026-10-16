@@ -1,7 +1,11 @@
 'use client';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
 
 const paths: Record<string, string> = {
+  'panel-close': 'M4 3h16v18H4ZM9 3v18m7-12-3 3 3 3',
+  'panel-open': 'M4 3h16v18H4ZM9 3v18m4-12 3 3-3 3',
+  info: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18m0 7v7m0-10v.1',
+  warning: 'M12 3 2 21h20ZM12 9v5m0 3v.1',
   home: 'M3 10 12 3l9 7v11h-6v-7H9v7H3Z',
   menu: 'M4 3h16v18H4ZM8 7h8M8 12h8M8 17h5',
   table: 'M3 5h18v10H3ZM6 15v6m12-6v6M8 5v10m8-10v10',
@@ -26,6 +30,7 @@ const paths: Record<string, string> = {
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   return (
     <svg
+      className="ui-icon"
       width={size}
       height={size}
       viewBox="0 0 24 24"
@@ -83,61 +88,147 @@ export function Stat({
     </article>
   );
 }
-export function confirmDiscard(root: ParentNode | null = document.querySelector('dialog[open]')) {
-  return (
-    !root?.querySelector('form[data-dirty="true"]') || window.confirm('Bỏ những thay đổi chưa lưu?')
-  );
+let requestDiscard: (() => Promise<boolean>) | undefined;
+export async function confirmDiscard(
+  root: ParentNode | null = Array.from(document.querySelectorAll('dialog[open]')).at(-1) ?? null,
+) {
+  if (!root?.querySelector('form[data-dirty="true"]')) return true;
+  return (await requestDiscard?.()) ?? false;
 }
+const openDialogs = new Set<HTMLDialogElement>();
+let previousBodyOverflow = '';
 export function Modal({
   title,
   children,
   close,
   wide = false,
   blocking = false,
+  headingContent,
+  className = '',
+  descriptionId,
+  initialFocus,
 }: {
   title: string;
   children: ReactNode;
   close: () => void;
   wide?: boolean;
   blocking?: boolean;
+  headingContent?: ReactNode;
+  className?: string;
+  descriptionId?: string;
+  initialFocus?: RefObject<HTMLElement | null>;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const closing = useRef(false);
+  const titleId = useId();
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
-    ref.current?.showModal();
-    const overflow = document.body.style.overflow;
+    const dialogElement = ref.current;
+    if (!dialogElement) return;
+    dialogElement.showModal();
+    (initialFocus?.current ?? dialogElement.querySelector<HTMLHeadingElement>('h2'))?.focus({
+      preventScroll: true,
+    });
+    if (openDialogs.size === 0) previousBodyOverflow = document.body.style.overflow;
+    openDialogs.add(dialogElement);
     document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = overflow;
-      previous?.focus();
+      dialogElement.close();
+      openDialogs.delete(dialogElement);
+      if (openDialogs.size === 0) document.body.style.overflow = previousBodyOverflow;
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
-  }, []);
+  }, [initialFocus]);
+  async function requestClose() {
+    if (blocking || closing.current) return;
+    closing.current = true;
+    try {
+      if (await confirmDiscard(ref.current)) close();
+    } finally {
+      closing.current = false;
+    }
+  }
   return (
     <dialog
       ref={ref}
-      className={'app-dialog' + (wide ? ' dialog-wide' : '')}
+      className={'app-dialog' + (wide ? ' dialog-wide' : '') + (className ? ' ' + className : '')}
       onCancel={(e) => {
         e.preventDefault();
-        if (!blocking && confirmDiscard(ref.current)) close();
+        e.stopPropagation();
+        void requestClose();
       }}
       aria-label={title}
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
     >
       <div className="dialog-heading">
-        <h2>{title}</h2>
+        <h2 id={titleId} tabIndex={-1}>
+          {title}
+        </h2>
+        {headingContent}
         {!blocking && (
-          <button
-            className="icon-button"
-            onClick={() => {
-              if (confirmDiscard(ref.current)) close();
-            }}
-            aria-label="Đóng"
-          >
+          <button className="icon-button" onClick={requestClose} aria-label="Đóng">
             <Icon name="close" />
           </button>
         )}
       </div>
       <div className="dialog-body">{children}</div>
     </dialog>
+  );
+}
+export function DiscardDialogHost() {
+  const [pending, setPending] = useState(false);
+  const resolvePending = useRef<((discard: boolean) => void) | undefined>(undefined);
+  const continueButton = useRef<HTMLButtonElement>(null);
+  const descriptionId = useId();
+  useEffect(() => {
+    const request = () => {
+      // Only the first pending action may proceed; repeated requests keep their form open.
+      if (resolvePending.current) return Promise.resolve(false);
+      return new Promise<boolean>((resolve) => {
+        resolvePending.current = resolve;
+        setPending(true);
+      });
+    };
+    requestDiscard = request;
+    return () => {
+      if (requestDiscard === request) requestDiscard = undefined;
+      resolvePending.current?.(false);
+      resolvePending.current = undefined;
+    };
+  }, []);
+  function finish(discard: boolean) {
+    const resolve = resolvePending.current;
+    resolvePending.current = undefined;
+    setPending(false);
+    resolve?.(discard);
+  }
+  if (!pending) return null;
+  return (
+    <Modal
+      title="Bỏ thay đổi chưa lưu?"
+      className="discard-dialog"
+      descriptionId={descriptionId}
+      initialFocus={continueButton}
+      close={() => finish(false)}
+    >
+      <div className="confirm-dialog">
+        <span className="confirm-dialog-icon">
+          <Icon name="warning" size={24} />
+        </span>
+        <p id={descriptionId}>
+          Những thay đổi bạn vừa nhập chưa được lưu. Chọn “Bỏ thay đổi” sẽ bỏ phần chỉnh sửa này.
+        </p>
+        <div className="confirm-dialog-actions">
+          <button ref={continueButton} className="primary-button" onClick={() => finish(false)}>
+            Tiếp tục chỉnh sửa
+          </button>
+          <button className="secondary-button discard-button" onClick={() => finish(true)}>
+            Bỏ thay đổi
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 export function Search({
@@ -155,6 +246,8 @@ export function Search({
       <input
         aria-label={placeholder}
         placeholder={placeholder}
+        autoComplete="off"
+        enterKeyHint="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />

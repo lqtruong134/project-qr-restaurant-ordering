@@ -1,0 +1,3 @@
+$ node scripts/run.mjs rehearsal
+Rehearsal 1: migration, seed, SQL, three-role allow/deny PASS
+Rehearsal 2: migration, seed, SQL, three-role allow/deny PASS

@@ -1,3 +1,4 @@
+import type { MenuPromotion } from '@thesis/contracts';
 import type { Product, Row } from '../shared/components';
 export type Inventory = {
   units: Row[];
@@ -6,9 +7,11 @@ export type Inventory = {
   balances: Row[];
   movements: Row[];
   receipts: Row[];
+  recipes: Row[];
+  recipeItems: Row[];
 };
 export type AdminData = {
-  catalog: { categories: Row[]; products: Product[] };
+  catalog: { categories: Row[]; products: Product[]; promotions?: MenuPromotion[] };
   tables: Row[];
   areas: Row[];
   inventory: Inventory;

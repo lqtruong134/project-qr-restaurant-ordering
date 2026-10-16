@@ -38,6 +38,7 @@ export function registerRisk(app: FastifyInstance, db: Database, restaurant: str
               'SHIFT_MAX_BREAK_MINUTES',
               'CLOCK_IN_EARLY_MINUTES',
               'CLOCK_OUT_LATE_MINUTES',
+              'ATTENDANCE_GRACE_MINUTES',
             ].includes(key)
               ? 0
               : 1) ||
@@ -58,10 +59,11 @@ export function registerRisk(app: FastifyInstance, db: Database, restaurant: str
         Number(current.SHIFT_MAX_MINUTES) > 960 ||
         Number(current.SHIFT_MAX_BREAK_MINUTES) > 240 ||
         Number(current.CLOCK_IN_EARLY_MINUTES) > 240 ||
-        Number(current.CLOCK_OUT_LATE_MINUTES) > 1440
+        Number(current.CLOCK_OUT_LATE_MINUTES) > 240 ||
+        Number(current.ATTENDANCE_GRACE_MINUTES) > 60
       )
         reject(
-          'Ca tối đa 960 phút; nghỉ và vào sớm tối đa 240 phút; ra muộn tối đa 1440 phút.',
+          'Ca tối đa 960 phút; nghỉ và vào sớm tối đa 240 phút; ra muộn tối đa 240 phút; dung sai tối đa 60 phút.',
           400,
         );
       for (const [review, hard] of [

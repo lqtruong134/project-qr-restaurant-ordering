@@ -1,0 +1,125 @@
+.internal-login {
+  position: relative;
+  isolation: isolate;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 32px 24px;
+  background: #203d32;
+}
+.internal-login > .skip-link:not(:focus) {
+  clip-path: inset(50%);
+}
+.internal-login-background {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+}
+.internal-login-background img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.internal-login-background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, rgb(15 35 25 / 70%), rgb(15 35 25 / 36%));
+}
+.internal-login-card {
+  width: min(100%, 420px);
+  padding: 28px 34px 30px;
+  background: #fffdf8;
+  border: 1px solid rgb(255 255 255 / 80%);
+  border-radius: 22px;
+  box-shadow: 0 22px 70px rgb(13 30 20 / 26%);
+}
+.internal-login-brand {
+  display: block;
+  margin: 0 auto 8px;
+  width: 124px;
+}
+.internal-login-brand img {
+  display: block;
+  width: 100%;
+  height: auto;
+  mix-blend-mode: multiply;
+}
+.internal-login-card h1 {
+  font-size: 1.7rem;
+  line-height: 1.25;
+  letter-spacing: -0.035em;
+  margin: 0 0 10px;
+  text-align: center;
+  color: #243b2e;
+}
+.internal-login-card > p {
+  margin: 0;
+  text-align: center;
+  color: #68756a;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+.internal-login-card form {
+  display: grid;
+  gap: 10px;
+  margin-top: 26px;
+}
+.internal-login-card label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.internal-login-card form > input,
+.internal-login-card .password-field {
+  margin-bottom: 8px;
+}
+.internal-login-card input {
+  min-height: 48px;
+  width: 100%;
+  background: #fff;
+  border: 1px solid #cfd8cb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 1rem;
+}
+.internal-login-card .password-field {
+  position: relative;
+}
+.internal-login-card .password-field input {
+  padding-right: 64px;
+}
+.internal-login-card .password-toggle {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  bottom: 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #396346;
+  font-size: 0.85rem;
+  padding: 0 12px;
+}
+.internal-login-card .form-error:empty {
+  display: none;
+}
+.internal-login-card .primary-button {
+  width: 100%;
+  justify-content: center;
+  min-height: 48px;
+  margin-top: 4px;
+}
+.internal-login-card .internal-login-help {
+  margin-top: 22px;
+  font-size: 0.8rem;
+}
+@media (max-width: 480px) {
+  .internal-login {
+    padding: 24px 16px;
+  }
+  .internal-login-card {
+    padding: 24px;
+    border-radius: 18px;
+  }
+}

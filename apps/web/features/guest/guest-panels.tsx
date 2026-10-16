@@ -1,10 +1,14 @@
 'use client';
-import { requestId } from '../shared/request-id';
+import type { BillingSummary, DiscountOffer, MenuPromotion } from '@thesis/contracts';
+import { SupportRetry } from './support-retry';
 import { useState } from 'react';
-import { Action, api, EntryForm, vnd, type Product, type Row } from '../shared/components';
+import { api, type Product, type Row } from '../shared/components';
 import { Empty } from '../shared/primitives';
+import type { PaymentStatus } from './payment-status';
+export type GuestParticipant = { id: string; display_name: string | null; joined_at?: string };
 export type GuestState = {
   participant: { id: string; displayName: string };
+  participants?: GuestParticipant[];
   session: Row;
   cart: { cart_version: number };
   items: (Row & {
@@ -14,193 +18,111 @@ export type GuestState = {
     name: string;
   })[];
   products: Product[];
+  promotions?: MenuPromotion[];
   orders: Row[];
   account: Row;
+  billing?: BillingSummary;
+  discountPrograms?: DiscountOffer[];
   support?: Row[];
+  refundTransactions?: Row[];
+  payments?: Row[];
 };
-export function Cart({
-  state,
-  mutate,
+export function PaymentForm({
   done,
+  available,
+  paymentStatus,
+  requests = [],
 }: {
-  state: GuestState;
-  mutate: (path: string, body: unknown, method?: string) => Promise<void>;
   done: () => Promise<void>;
+  available: string;
+  paymentStatus: PaymentStatus;
+  requests?: Row[];
 }) {
-  const [key, setKey] = useState(() => requestId());
-  const mine = state.items.filter((i) => i.owner_participant_id === state.participant.id);
-  const total = state.items.reduce(
-    (s, i) => s + BigInt(i.unit_price_preview) * BigInt(i.quantity),
-    0n,
-  );
-  return (
-    <>
-      <h2>
-        Giỏ chung của bàn{' '}
-        <span className="status-pill">{state.items.reduce((s, i) => s + i.quantity, 0)} món</span>
-      </h2>
-      <p>Bạn gửi những món mình chọn. Mọi người cùng bàn vẫn xem được giỏ chung.</p>
-      {!state.items.length && (
-        <Empty title="Chưa có món trong giỏ" icon="bag">
-          Một bữa ngon đang chờ bạn.
-        </Empty>
-      )}
-      {state.items.map((i) => (
-        <div key={i.id} className="cart-item">
-          <div>
-            <strong>
-              {i.quantity} × {i.name}
-            </strong>
-            <span>{vnd(BigInt(i.unit_price_preview) * BigInt(i.quantity))}</span>
-          </div>
-          {i.note && <small>{String(i.note)}</small>}
-          {i.available === false && (
-            <p className="form-error">
-              Món hoặc danh mục hiện không còn phục vụ. Bạn có thể bỏ món này.
-            </p>
-          )}
-          {i.current_price !== undefined &&
-            String(i.current_price) !== String(i.unit_price_preview) &&
-            i.owner_participant_id === state.participant.id && (
-              <div>
-                <p className="form-error">
-                  Giá mới: {vnd(i.current_price)}. Xác nhận giá mới trước khi gửi.
-                </p>
-                <Action
-                  run={() =>
-                    mutate(
-                      '/guest/cart/' + i.id,
-                      {
-                        quantity: i.quantity,
-                        note: i.note ?? '',
-                        cartVersion: state.cart.cart_version,
-                      },
-                      'PATCH',
-                    )
-                  }
-                >
-                  Đồng ý giá mới
-                </Action>
-              </div>
-            )}
-          {i.owner_participant_id !== state.participant.id ? (
-            <small>{String(i.owner_name ?? 'Người cùng bàn')} chọn</small>
-          ) : (
-            <>
-              <Action
-                run={() =>
-                  mutate(
-                    '/guest/cart/' + i.id,
-                    {
-                      quantity: i.quantity + 1,
-                      note: i.note ?? '',
-                      cartVersion: state.cart.cart_version,
-                    },
-                    'PATCH',
-                  )
-                }
-              >
-                +1
-              </Action>
-              {i.quantity > 1 && (
-                <Action
-                  run={() =>
-                    mutate(
-                      '/guest/cart/' + i.id,
-                      {
-                        quantity: i.quantity - 1,
-                        note: i.note ?? '',
-                        cartVersion: state.cart.cart_version,
-                      },
-                      'PATCH',
-                    )
-                  }
-                >
-                  −1
-                </Action>
-              )}
-              <Action
-                run={() =>
-                  mutate('/guest/cart/' + i.id, { cartVersion: state.cart.cart_version }, 'DELETE')
-                }
-              >
-                Bỏ món
-              </Action>
-            </>
-          )}
-        </div>
-      ))}
-      {state.items.length > 0 && (
-        <div className="cart-total">
-          <span>Tạm tính cả giỏ</span>
-          <strong>{vnd(total)}</strong>
-        </div>
-      )}
-      {mine.length > 0 &&
-        mine.every(
-          (i) =>
-            i.available !== false &&
-            (i.current_price === undefined ||
-              String(i.current_price) === String(i.unit_price_preview)),
-        ) && (
-          <Action
-            run={async () => {
-              await api(
-                '/guest/orders',
-                {
-                  requestId: key,
-                  cartVersion: state.cart.cart_version,
-                  itemIds: mine.map((i) => i.id),
-                },
-                'POST',
-                true,
-              );
-              setKey(requestId());
-              await done();
-            }}
-          >
-            Gửi các món của tôi
-          </Action>
-        )}
-    </>
-  );
-}
-export function PaymentForm({ done, available }: { done: () => Promise<void>; available: string }) {
-  const [key, setKey] = useState(() => requestId());
+  const [method, setMethod] = useState('CASH'),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(''),
+    [sent, setSent] = useState<Row>();
+  const pending =
+    requests.find(
+      (r) =>
+        r.request_type === 'BILL' &&
+        r.payment_method &&
+        ['NEW', 'ACKNOWLEDGED'].includes(String(r.status)),
+    ) ?? (requests.some((r) => r.id === sent?.id) ? undefined : sent);
+  if (pending)
+    return (
+      <div className="guest-payment-sent">
+        <strong>Bạn đã báo nhân viên hỗ trợ thanh toán</strong>
+        <p role="status">
+          {pending.status === 'ACKNOWLEDGED'
+            ? 'Nhân viên đã tiếp nhận yêu cầu. Vui lòng chờ tại bàn để được hỗ trợ thanh toán.'
+            : 'Yêu cầu đã được gửi. Nhân viên sẽ đến bàn hỗ trợ bạn thanh toán.'}
+        </p>
+        <span>
+          {pending.payment_method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'} -{' '}
+          {pending.status === 'ACKNOWLEDGED' ? 'Nhân viên đang xử lý' : 'Đang chờ nhân viên'}
+        </span>
+        <SupportRetry request={pending} done={done} />
+      </div>
+    );
   if (BigInt(available) <= 0n)
     return (
-      <Empty title="Chưa có khoản cần gửi thanh toán" icon="receipt">
-        Nếu đã gửi yêu cầu, vui lòng chờ nhân viên xác nhận.
+      <Empty title={paymentStatus.title} icon="receipt">
+        {paymentStatus.detail}
       </Empty>
     );
   return (
-    <EntryForm
-      key={available}
-      title="Yêu cầu thanh toán"
-      fields={[
-        {
-          key: 'method',
-          label: 'Hình thức',
-          options: [
-            { value: 'CASH', label: 'Tiền mặt' },
-            { value: 'BANK_TRANSFER', label: 'Chuyển khoản, nhân viên xác nhận' },
-          ],
-        },
-        {
-          key: 'amount',
-          label: 'Số tiền (đồng)',
-          type: 'number',
-          min: 1,
-          step: '1',
-          value: available,
-        },
-      ]}
-      submit="Báo nhân viên thu tiền"
-      onSubmit={async (v) => {
-        await api('/guest/payments', { ...v, requestId: key }, 'POST', true);
-        setKey(requestId());
-        await done();
+    <form
+      className="guest-payment-request"
+      aria-busy={busy}
+      aria-label="Yêu cầu thanh toán"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (busy) return;
+        setBusy(true);
+        setError('');
+        try {
+          const r = await api<Row>('/guest/payment-requests', { method }, 'POST', true);
+          setSent(r);
+          await done();
+        } catch (e) {
+          setError((e as Error).message);
+        } finally {
+          setBusy(false);
+        }
       }}
-    />
+    >
+      <h3>Bạn muốn thanh toán bằng cách nào?</h3>
+      <div className="amount-choices" role="group" aria-label="Hình thức thanh toán">
+        {[
+          ['CASH', 'Tiền mặt', 'Nhân viên đến bàn thu tiền'],
+          ['BANK_TRANSFER', 'Chuyển khoản', 'Nhân viên hướng dẫn chuyển khoản'],
+        ].map(([m, label, hint]) => (
+          <button
+            type="button"
+            key={m}
+            aria-label={label}
+            aria-pressed={method === m}
+            disabled={busy}
+            onClick={() => setMethod(m!)}
+          >
+            <strong>{label}</strong>
+            <span>{hint}</span>
+          </button>
+        ))}
+      </div>
+      <p>
+        Bạn có thể trả cho cả bàn hoặc riêng món của mình. Hãy cho nhân viên biết phần bạn muốn
+        thanh toán.
+      </p>
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      <button className="primary-button" disabled={busy}>
+        {busy ? 'Đang báo nhân viên…' : 'Báo nhân viên thu tiền'}
+      </button>
+    </form>
   );
 }

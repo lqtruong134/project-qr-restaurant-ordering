@@ -1,0 +1,205 @@
+.guest-experience .guest-header {
+  height: auto;
+}
+.guest-participants-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 0;
+  max-width: 390px;
+  padding: 6px 10px;
+  color: #733e22;
+  background: #faf2e9;
+  border: 1px solid #e8d8c8;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.guest-participants-button:hover {
+  background: #f4e7d8;
+}
+.guest-participants-button:focus-visible {
+  outline: 3px solid #a34e23;
+  outline-offset: 3px;
+}
+.guest-participants-button > svg,
+.guest-participants-extra,
+.guest-participant-avatar {
+  flex-shrink: 0;
+}
+.guest-participants-preview {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+}
+.guest-participant-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.guest-participant-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ead8c5;
+  color: #643718;
+  font-size: 12px;
+  font-weight: 700;
+}
+.guest-participant-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+.guest-participants-extra {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0 5px;
+  border: 1px solid #dec6b0;
+  border-radius: 50%;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.guest-participants-detail {
+  display: grid;
+  gap: 16px;
+}
+.guest-participants-summary,
+.guest-participants-detail .field-hint {
+  margin: 0;
+}
+.guest-participants-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.guest-participants-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid #e9e3da;
+}
+.guest-participants-list .guest-participant-avatar {
+  width: 38px;
+  height: 38px;
+  font-size: 15px;
+}
+.guest-participant-full-name {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.guest-participant-self {
+  padding: 3px 8px;
+  color: #733e22;
+  background: #faf2e9;
+  border-radius: 20px;
+  font-size: 12px;
+}
+@media (max-width: 760px) {
+  .guest-experience .guest-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+  .guest-experience .guest-header .guest-header-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    gap: 8px;
+  }
+  .guest-participants-button {
+    flex: 1 1 260px;
+    max-width: 100%;
+  }
+  .guest-participants-preview {
+    flex: 1;
+  }
+  .guest-participant-name {
+    max-width: 100%;
+  }
+}
+@media (max-width: 360px) {
+  .guest-participants-button {
+    gap: 6px;
+    padding: 6px 8px;
+  }
+  .guest-participants-preview {
+    gap: 6px;
+  }
+  .guest-participant-chip {
+    gap: 4px;
+  }
+  .guest-participants-button .guest-participant-avatar {
+    width: 24px;
+    height: 24px;
+  }
+  .guest-participants-extra {
+    min-width: 28px;
+    min-height: 28px;
+  }
+}
+
+/* Table and people names can be long without displacing the access code. */
+.guest-experience .guest-header-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.guest-experience .guest-header-actions .guest-table {
+  max-width: 260px;
+  align-items: flex-start;
+}
+.guest-experience .guest-header-actions .guest-table > svg {
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+.guest-experience .guest-header-actions .guest-table small {
+  overflow-wrap: anywhere;
+}
+.guest-experience .guest-participants-preview {
+  flex: 1;
+}
+.guest-experience .guest-participant-chip {
+  flex: 1 1 0;
+  overflow: hidden;
+}
+.guest-experience .guest-participant-name {
+  min-width: 0;
+}
+@media (max-width: 760px) {
+  .guest-experience .guest-header .guest-header-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+  .guest-experience .guest-header-actions .guest-table {
+    width: 100%;
+    max-width: none;
+  }
+  .guest-experience .guest-header .guest-participants-button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  .guest-experience .guest-participant-name {
+    max-width: none;
+  }
+}

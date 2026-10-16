@@ -1,3 +1,6 @@
+import { issueTableCode } from '../sessions/table-access.service.js';
+import { parseReason } from '../orders/reasons.js';
+import { registerDishNotices } from './dish-notice.routes.js';
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '@thesis/database';
 import {
@@ -8,13 +11,15 @@ import {
   session,
   text,
   transaction,
-  uuid,
 } from '../shared/core-persistence.js';
 import { freezeReceipt } from '../payments/receipt.service.js';
+import { refundApprovalJoin } from '../payments/refund-approval.service.js';
 import { recalculate } from '../finance/ledger.service.js';
+import { closeReadiness } from './close-readiness.js';
 import { cancelBatch } from '../orders/cancellation.service.js';
 export function registerOperations(app: FastifyInstance, db: Database, restaurant: string) {
   const config = { permission: 'staff.workspace' };
+  registerDishNotices(app, db, restaurant);
   app.post('/core/tables/:id/open', { config }, async (r) =>
     transaction(db, async (c) => {
       const t = await one(
@@ -23,115 +28,14 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
         [idParam(r), restaurant],
       );
       if (t.table_status !== 'AVAILABLE') reject('Bàn chưa sẵn sàng mở phiên.');
-      const s = await one(
-        c,
-        "INSERT INTO table_session(table_id,verification_status,verified_at,verified_by) VALUES($1,'VERIFIED',now(),$2) RETURNING *",
-        [t.id, r.identity!.id],
-      );
-      await c.query('INSERT INTO session_cart(session_id) VALUES($1)', [s.id]);
-      await c.query('INSERT INTO session_financial_account(session_id) VALUES($1)', [s.id]);
-      await c.query(
-        "UPDATE dining_table SET table_status='OCCUPIED',version=version+1 WHERE id=$1",
-        [t.id],
-      );
-      return s;
+      return issueTableCode(c, t, r.identity!.id);
     }),
   );
   app.post('/core/sessions/:id/verify', { config }, async (r) =>
     transaction(db, async (c) => {
       const s = await session(c, idParam(r), restaurant);
-      return one(
-        c,
-        "UPDATE table_session SET verification_status='VERIFIED',verified_at=COALESCE(verified_at,now()),verified_by=COALESCE(verified_by,$2),version=version+1 WHERE id=$1 RETURNING *",
-        [s.id, r.identity!.id],
-      );
-    }),
-  );
-  app.get('/core/support', { config }, async () =>
-    db.pool
-      .query(
-        `SELECT x.*,t.code AS table_code,p.display_name,u.display_name AS acknowledged_by_name,u.username AS acknowledged_by_username FROM support_request x JOIN table_session s ON s.id=x.session_id JOIN dining_table t ON t.id=s.table_id LEFT JOIN session_participant p ON p.id=x.participant_id LEFT JOIN app_user u ON u.id=x.acknowledged_by WHERE t.restaurant_id=$1 AND x.status IN ('NEW','ACKNOWLEDGED') ORDER BY x.created_at`,
-        [restaurant],
-      )
-      .then((v) => v.rows),
-  );
-  for (const action of ['claim', 'resolve'])
-    app.post('/core/support/:id/' + action, { config }, async (r) =>
-      transaction(db, async (c) => {
-        const x = await one(
-          c,
-          'SELECT x.* FROM support_request x JOIN table_session s ON s.id=x.session_id JOIN dining_table t ON t.id=s.table_id WHERE x.id=$1 AND t.restaurant_id=$2 FOR UPDATE OF x',
-          [idParam(r), restaurant],
-        );
-        if (action === 'claim') {
-          if (x.status !== 'NEW') reject('Yêu cầu đã được người khác tiếp nhận.');
-          return one(
-            c,
-            "UPDATE support_request SET status='ACKNOWLEDGED',acknowledged_by=$2,acknowledged_at=now() WHERE id=$1 RETURNING *",
-            [x.id, r.identity!.id],
-          );
-        }
-        if (x.status !== 'ACKNOWLEDGED' || x.acknowledged_by !== r.identity!.id)
-          reject('Chỉ người đang tiếp nhận được hoàn tất yêu cầu.', 403);
-        return one(
-          c,
-          "UPDATE support_request SET status='RESOLVED',resolved_by=$2,resolved_at=now() WHERE id=$1 RETURNING *",
-          [x.id, r.identity!.id],
-        );
-      }),
-    );
-  app.get(
-    '/core/support-assignees',
-    { config },
-    async () =>
-      (
-        await db.pool.query(
-          `SELECT DISTINCT u.id,u.username,u.display_name FROM app_user u
-      JOIN user_role ur ON ur.user_id=u.id AND ur.revoked_at IS NULL
-      JOIN role_permission rp ON rp.role_id=ur.role_id JOIN permission p ON p.id=rp.permission_id
-      WHERE u.restaurant_id=$1 AND u.status='ACTIVE' AND p.code='staff.workspace'
-      ORDER BY u.username`,
-          [restaurant],
-        )
-      ).rows,
-  );
-  app.post('/core/support/:id/reassign', { config }, async (r) =>
-    transaction(db, async (c) => {
-      const b = object(r.body),
-        target = uuid(b.userId),
-        reason = text(b.reason, 500);
-      const x = await one(
-        c,
-        `SELECT x.* FROM support_request x JOIN table_session s ON s.id=x.session_id
-      JOIN dining_table t ON t.id=s.table_id WHERE x.id=$1 AND t.restaurant_id=$2 FOR UPDATE OF x`,
-        [idParam(r), restaurant],
-      );
-      if (x.status !== 'ACKNOWLEDGED' || x.acknowledged_by !== r.identity!.id)
-        reject('Chỉ nhân viên đang tiếp nhận được bàn giao yêu cầu.', 403);
-      if (target === r.identity!.id) reject('Chọn một đồng nghiệp khác.', 400);
-      await one(
-        c,
-        `SELECT u.id FROM app_user u JOIN user_role ur ON ur.user_id=u.id AND ur.revoked_at IS NULL
-      JOIN role_permission rp ON rp.role_id=ur.role_id JOIN permission p ON p.id=rp.permission_id
-      WHERE u.id=$1 AND u.restaurant_id=$2 AND u.status='ACTIVE' AND p.code='staff.workspace' FOR SHARE OF u`,
-        [target, restaurant],
-      );
-      await c.query(
-        `INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason,details)
-      VALUES($1,$2,'SUPPORT_REASSIGN','SUPPORT_REQUEST',$3,$4,$5)`,
-        [
-          restaurant,
-          r.identity!.id,
-          x.id,
-          reason,
-          JSON.stringify({ from: r.identity!.id, to: target }),
-        ],
-      );
-      return one(
-        c,
-        'UPDATE support_request SET acknowledged_by=$2,acknowledged_at=now() WHERE id=$1 RETURNING *',
-        [x.id, target],
-      );
+      const t = await one(c, 'SELECT * FROM dining_table WHERE id=$1 FOR UPDATE', [s.table_id]);
+      return issueTableCode(c, t, r.identity!.id);
     }),
   );
   app.post('/core/orders/:id/cancel', { config }, async (r) =>
@@ -141,7 +45,8 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
         idParam(r),
         restaurant,
         { type: 'USER', id: r.identity!.id },
-        text(object(r.body).reason, 300),
+        parseReason(object(r.body), 'STAFF_CANCEL').text,
+        parseReason(object(r.body), 'STAFF_CANCEL').code,
       ),
     ),
   );
@@ -149,25 +54,14 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
     transaction(db, async (c) => {
       const s = await session(c, idParam(r), restaurant),
         a = await recalculate(c, s.id);
-      if (BigInt(a.outstanding_amount) !== 0n || BigInt(a.refund_due_amount) !== 0n)
-        reject('Phiên còn thiếu tiền hoặc cần hoàn tiền.');
-      const pending = await one(
-        c,
-        `SELECT (SELECT count(*) FROM order_batch WHERE session_id=$1 AND status NOT IN ('COMPLETED','REJECTED','CANCELLED'))+(SELECT count(*) FROM payment_intent WHERE session_id=$1 AND status IN ('CREATED','PENDING','REQUIRES_RECONCILIATION'))+(SELECT count(*) FROM refund_case WHERE session_id=$1 AND status IN ('OPEN','IN_PROGRESS')) AS n`,
-        [s.id],
-      );
-      if (Number(pending.n)) reject('Còn đơn hoặc giao dịch chưa kết thúc.');
-      const tasks = await c.query(
-        "SELECT id FROM support_request WHERE session_id=$1 AND status IN ('NEW','ACKNOWLEDGED') UNION ALL SELECT id FROM operational_alert WHERE session_id=$1 AND status<>'RESOLVED'",
-        [s.id],
-      );
-      if (tasks.rowCount)
-        reject('Còn yêu cầu hỗ trợ hoặc cảnh báo chưa hoàn tất. Hãy xử lý trước khi đóng phiên.');
-      const cases = await c.query(
-        "SELECT id FROM outstanding_balance_case WHERE session_id=$1 AND status NOT IN ('RECOVERED','CANCELLED','WRITTEN_OFF')",
-        [s.id],
-      );
-      if (cases.rowCount) reject('Quản trị cần chốt hồ sơ thiếu tiền trước khi đóng phiên.');
+      const readiness = await closeReadiness(c, s.id, a);
+      if (!readiness.canClose)
+        throw Object.assign(new Error('Chưa thể kết thúc bàn.'), {
+          statusCode: 409,
+          publicMessage:
+            'Chưa thể kết thúc bàn: ' + readiness.blockers.map((b) => b.title).join('; ') + '.',
+          publicDetails: readiness,
+        });
       await c.query(
         "UPDATE table_session SET session_status='CLOSED',closed_at=now(),close_reason='SETTLED',version=version+1 WHERE id=$1",
         [s.id],
@@ -190,13 +84,44 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
       ),
     ),
   );
-  app.get('/core/alerts', { config }, async () =>
-    db.pool
-      .query(
-        "SELECT a.*,COALESCE(current_table.code,t.code) AS table_code,t.code AS original_table_code FROM operational_alert a JOIN dining_table t ON t.id=a.table_id LEFT JOIN table_session current_session ON current_session.id=a.session_id LEFT JOIN dining_table current_table ON current_table.id=current_session.table_id WHERE t.restaurant_id=$1 AND a.status<>'RESOLVED' ORDER BY a.created_at",
-        [restaurant],
-      )
-      .then((v) => v.rows),
+  app.get(
+    '/core/alerts',
+    { config: { permission: ['staff.workspace', 'admin.workspace'] } },
+    async (r) =>
+      db.pool
+        .query(
+          `SELECT a.*,COALESCE(report.action IN ('KITCHEN_ISSUE_REPORTED','KITCHEN_UNAVAILABLE_REPORTED'),false)
+    OR (a.alert_type='REFUND_REQUIRED' AND least(COALESCE(account.refund_due_amount,0),COALESCE(refund_work.approved_amount,0))<=0) AS requires_admin,
+  report.action='KITCHEN_UNAVAILABLE_REPORTED' AS stock_inspection,report.resource_id AS item_id,report.details->>'productId' AS product_id,
+  report.action='KITCHEN_ISSUE_GUEST_NOTICE' AS guest_notice,
+  item.product_name_snapshot AS item_name,item.quantity AS item_quantity,
+  report.reason AS issue_reason,report.details->>'reasonCode' AS issue_reason_code,
+  (SELECT u.display_name FROM app_user u WHERE u.id=report.actor_id) AS reported_by_name,
+  COALESCE(current_table.code,t.code) AS table_code,t.code AS original_table_code,
+  COALESCE(current_table.name,t.name) AS table_name,
+  account.refund_due_amount,
+  least(COALESCE(account.refund_due_amount,0),COALESCE(refund_work.approved_amount,0))::text AS approved_refund_amount,
+  greatest(COALESCE(account.refund_due_amount,0)-COALESCE(refund_work.approved_amount,0),0)::text AS refund_review_amount
+  FROM operational_alert a JOIN dining_table t ON t.id=a.table_id
+  LEFT JOIN table_session current_session ON current_session.id=a.session_id
+  LEFT JOIN dining_table current_table ON current_table.id=current_session.table_id
+  LEFT JOIN session_financial_account account ON account.session_id=a.session_id
+  LEFT JOIN LATERAL (
+    SELECT COALESCE(sum(greatest(f.amount-COALESCE((SELECT sum(rt.amount) FROM refund_transaction rt
+      WHERE rt.refund_case_id=f.id AND rt.status='SUCCEEDED'),0),0)),0) AS approved_amount
+    FROM refund_case f ${refundApprovalJoin}
+    WHERE f.session_id=a.session_id AND f.status IN ('OPEN','IN_PROGRESS') AND approval.approved_at IS NOT NULL
+  ) refund_work ON a.alert_type='REFUND_REQUIRED'
+  LEFT JOIN LATERAL (SELECT e.* FROM business_audit_event e WHERE e.action IN ('KITCHEN_ISSUE_REPORTED','KITCHEN_ISSUE_GUEST_NOTICE','KITCHEN_UNAVAILABLE_REPORTED')
+    AND e.details->>'alertId'=a.id::text ORDER BY e.created_at DESC,e.id DESC LIMIT 1) report ON true
+  LEFT JOIN order_item item ON item.id=report.resource_id
+  WHERE t.restaurant_id=$1 AND a.status<>'RESOLVED'
+    AND (a.alert_type<>'REFUND_REQUIRED' OR (COALESCE(account.refund_due_amount,0)>0
+      AND ($2 OR least(COALESCE(account.refund_due_amount,0),COALESCE(refund_work.approved_amount,0))>0)))
+  ORDER BY a.created_at`,
+          [restaurant, r.identity!.permissions.includes('admin.workspace')],
+        )
+        .then((v) => v.rows),
   );
   app.post('/core/alerts/:id/acknowledge', { config }, async (r) =>
     transaction(db, (c) =>
@@ -214,6 +139,18 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
         'SELECT a.* FROM operational_alert a JOIN dining_table t ON t.id=a.table_id WHERE a.id=$1 AND t.restaurant_id=$2',
         [idParam(r), restaurant],
       );
+      const notice = await c.query(
+        "SELECT id FROM business_audit_event WHERE action='KITCHEN_ISSUE_GUEST_NOTICE' AND details->>'alertId'=$1",
+        [a.id],
+      );
+      if (notice.rowCount)
+        reject('Dùng xác nhận đã trao đổi với khách để hoàn tất việc tại bàn.', 403);
+      const pendingKitchen = await c.query(
+        "SELECT id FROM business_audit_event WHERE action IN ('KITCHEN_ISSUE_REPORTED','KITCHEN_UNAVAILABLE_REPORTED') AND details->>'alertId'=$1",
+        [a.id],
+      );
+      if (pendingKitchen.rowCount)
+        reject('Sự cố món cần quản trị quyết định; nhân viên không tự đóng cảnh báo này.', 403);
       if (a.session_id) {
         await session(c, a.session_id, restaurant, false);
         const balance = await recalculate(c, a.session_id);
@@ -288,24 +225,43 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
         ]);
         if (!['PENDING_ADMIN_REVIEW', 'IN_RECOVERY'].includes(o.status))
           reject('Hồ sơ không còn chờ xử lý.');
-        const pending = await one(
-          c,
-          "SELECT count(*)::int AS n FROM order_batch WHERE session_id=$1 AND status NOT IN ('COMPLETED','CANCELLED','REJECTED')",
-          [s.id],
-        );
-        if (pending.n) reject('Cần hoàn tất các lượt gọi trước khi đóng ngoại lệ.');
-        const payment = await one(
-          c,
-          "SELECT count(*)::int AS n FROM payment_intent WHERE session_id=$1 AND status IN ('CREATED','PENDING','REQUIRES_RECONCILIATION')",
-          [s.id],
-        );
-        if (payment.n) reject('Còn yêu cầu thanh toán đang xử lý.');
         const a = await recalculate(c, s.id);
+        const readiness = await closeReadiness(c, s.id, a);
+        const blockers = readiness.blockers.filter(
+          (blocker) =>
+            !['UNPAID', 'OUTSTANDING_CASE', 'ALERT_PAYMENT_SHORTFALL'].includes(blocker.code),
+        );
+        if (blockers.length)
+          throw Object.assign(new Error('Unresolved work before write-off'), {
+            statusCode: 409,
+            publicMessage: blockers.map((blocker) => blocker.title).join('; ') + '.',
+            publicDetails: { canClose: false, blockers },
+          });
         if (BigInt(a.refund_due_amount) > 0n || BigInt(a.outstanding_amount) === 0n)
           reject('Số dư đã thay đổi, cần kiểm tra lại hồ sơ.');
         await c.query(
           "UPDATE outstanding_balance_case SET status='WRITTEN_OFF',admin_owner=$2,notes=COALESCE(notes,'')||E'\n'||$3 WHERE id=$1",
           [id, r.identity!.id, text(b.reason, 500)],
+        );
+        await c.query(
+          `INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason,details)
+           VALUES($1,$2,'WRITE_OFF_BALANCE','OUTSTANDING_BALANCE_CASE',$3,$4,$5)`,
+          [
+            restaurant,
+            r.identity!.id,
+            id,
+            text(b.reason, 500),
+            JSON.stringify({
+              reportedAmount: o.outstanding_amount,
+              writtenOffAmount: a.outstanding_amount,
+              sessionId: s.id,
+            }),
+          ],
+        );
+        await c.query(
+          `UPDATE operational_alert SET status='RESOLVED',resolved_at=now(),resolved_by=$2,resolution_note=$3
+           WHERE session_id=$1 AND alert_type='PAYMENT_SHORTFALL' AND status<>'RESOLVED'`,
+          [s.id, r.identity!.id, 'Quản trị ghi nhận không thu hồi: ' + text(b.reason, 500)],
         );
         await c.query(
           "UPDATE table_session SET session_status='CLOSED',closed_at=now(),close_reason='OUTSTANDING_WRITTEN_OFF',version=version+1 WHERE id=$1",

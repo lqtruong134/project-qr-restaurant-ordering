@@ -10,6 +10,7 @@ import {
   uuid,
   type Connection,
 } from '../shared/core-persistence.js';
+import { workforceAudit } from './templates.routes.js';
 import { date, workforceTransaction } from './workforce.service.js';
 
 async function eligible(c: Connection, run: Record<string, unknown>) {
@@ -25,8 +26,25 @@ async function eligible(c: Connection, run: Record<string, unknown>) {
     )
   ).rows;
 }
-const slipsSql = `SELECT s.*,COALESCE(sum(l.amount),0)::text AS total_amount FROM payroll_slip s
+const slipsSql = `SELECT s.*,pay.id AS payment_id,pay.amount AS paid_amount,pay.paid_at,pay.reference AS payment_reference,pay.paid_by,
+ CASE WHEN pay.id IS NOT NULL THEN 'PAID' WHEN COALESCE(sum(l.amount),0)=0 THEN 'NOT_REQUIRED' ELSE 'UNPAID' END AS payment_status,
+ COALESCE(sum(l.amount) FILTER(WHERE l.line_type='WORK'),0)::text AS work_amount,
+ COALESCE(sum(l.amount) FILTER(WHERE l.line_type='BONUS'),0)::text AS bonus_amount,
+ (-COALESCE(sum(l.amount) FILTER(WHERE l.line_type='DEDUCTION'),0))::text AS deduction_amount,
+ COALESCE(sum(l.amount),0)::text AS total_amount FROM payroll_slip s LEFT JOIN payroll_payment pay ON pay.payroll_slip_id=s.id
  LEFT JOIN payroll_line l ON l.payroll_slip_id=s.id`;
+async function complete(c: Connection, run: Record<string, unknown>, actor: string) {
+  const missing = await c.query(
+    `SELECT s.id FROM payroll_slip s LEFT JOIN payroll_payment p ON p.payroll_slip_id=s.id WHERE s.payroll_run_id=$1 AND p.id IS NULL AND (SELECT COALESCE(sum(amount),0) FROM payroll_line WHERE payroll_slip_id=s.id)>0`,
+    [run.id],
+  );
+  if (missing.rowCount) return null;
+  return one(
+    c,
+    "UPDATE payroll_run SET status='PAID',paid_by=$2,paid_at=now(),payment_reference='Đã ghi nhận chi từng phiếu; phiếu 0 đồng không cần chi' WHERE id=$1 AND status='FINALIZED' RETURNING *",
+    [run.id, actor],
+  );
+}
 export function registerPayroll(app: FastifyInstance, db: Database, restaurant: string) {
   const admin = { config: { permission: 'admin.workspace' } },
     self = { config: { authenticated: true } };
@@ -51,7 +69,7 @@ export function registerPayroll(app: FastifyInstance, db: Database, restaurant: 
       await db.pool.query(
         slipsSql +
           ` JOIN payroll_run p ON p.id=s.payroll_run_id WHERE s.restaurant_id=$1 AND s.user_id=$2 AND p.status<>'DRAFT'
-      GROUP BY s.id ORDER BY s.created_at DESC`,
+      GROUP BY s.id,pay.id ORDER BY s.created_at DESC`,
         [restaurant, r.identity!.id],
       )
     ).rows;
@@ -77,7 +95,7 @@ export function registerPayroll(app: FastifyInstance, db: Database, restaurant: 
       ]);
       const slips = (
         await c.query(
-          slipsSql + ' WHERE s.payroll_run_id=$1 GROUP BY s.id ORDER BY s.username_snapshot',
+          slipsSql + ' WHERE s.payroll_run_id=$1 GROUP BY s.id,pay.id ORDER BY s.username_snapshot',
           [run.id],
         )
       ).rows;
@@ -146,8 +164,8 @@ export function registerPayroll(app: FastifyInstance, db: Database, restaurant: 
             [restaurant, run.id, a.user_id, a.display_name, a.username],
           ));
         await c.query(
-          `INSERT INTO payroll_line(restaurant_id,payroll_slip_id,attendance_id,line_type,description,minutes,hourly_rate_snapshot,amount,created_by)
-        VALUES($1,$2,$3,'WORK',$4,$5,$6,$7,$8)`,
+          `INSERT INTO payroll_line(restaurant_id,payroll_slip_id,attendance_id,line_type,description,minutes,hourly_rate_snapshot,amount,created_by,pay_components,pay_snapshot,paid_periods)
+        VALUES($1,$2,$3,'WORK',$4,$5,$6,$7,$8,$9,$10,$11)`,
           [
             restaurant,
             slip.id,
@@ -157,6 +175,9 @@ export function registerPayroll(app: FastifyInstance, db: Database, restaurant: 
             a.hourly_rate_snapshot,
             a.amount,
             r.identity!.id,
+            a.pay_components ? JSON.stringify(a.pay_components) : null,
+            a.pay_snapshot ? JSON.stringify(a.pay_snapshot) : null,
+            a.paid_periods ? JSON.stringify(a.paid_periods) : null,
           ],
         );
       }
@@ -214,41 +235,70 @@ export function registerPayroll(app: FastifyInstance, db: Database, restaurant: 
       )
         reject('Giờ công đã thay đổi. Xóa bản nháp rồi lập lại kỳ lương.');
       const totals = (
-        await c.query(slipsSql + ' WHERE s.payroll_run_id=$1 GROUP BY s.id', [run.id])
+        await c.query(slipsSql + ' WHERE s.payroll_run_id=$1 GROUP BY s.id,pay.id', [run.id])
       ).rows;
       if (totals.some((t) => BigInt(t.total_amount) < 0n))
         reject('Khoản khấu trừ không được làm lương thực nhận âm.');
-      return one(
+      const finalized = await one(
         c,
         "UPDATE payroll_run SET status='FINALIZED',finalized_by=$2,finalized_at=now() WHERE id=$1 RETURNING *",
         [run.id, r.identity!.id],
       );
+      await workforceAudit(
+        c,
+        restaurant,
+        r.identity!.id,
+        'FINALIZE_PAYROLL',
+        'PAYROLL_RUN',
+        run.id,
+        'Chốt bảng lương chính thức',
+        { totalAmount: totals.reduce((n, t) => n + BigInt(t.total_amount), 0n).toString() },
+      );
+      return (await complete(c, finalized, r.identity!.id)) ?? finalized;
     }),
   );
-  app.post('/core/payroll/:id/paid', admin, async (r) =>
+  app.post('/core/payroll/:id/slips/:slipId/paid', admin, async (r) =>
     tx(async (c) => {
       const run = await one(
         c,
         'SELECT * FROM payroll_run WHERE id=$1 AND restaurant_id=$2 FOR UPDATE',
         [idParam(r), restaurant],
       );
-      if (run.status === 'PAID') return run;
-      if (run.status !== 'FINALIZED') reject('Chỉ ghi nhận chi tiền cho kỳ đã chốt.');
-      const reference = text(object(r.body).reference, 300);
-      const slips = (await c.query(slipsSql + ' WHERE s.payroll_run_id=$1 GROUP BY s.id', [run.id]))
-        .rows;
-      for (const slip of slips)
-        if (BigInt(slip.total_amount) > 0n)
-          await c.query(
-            'INSERT INTO payroll_payment(restaurant_id,payroll_slip_id,amount,reference,paid_by) VALUES($1,$2,$3,$4,$5)',
-            [restaurant, slip.id, slip.total_amount, reference, r.identity!.id],
-          );
-      return one(
+      if (run.status === 'DRAFT') reject('Chốt bảng lương trước khi ghi nhận chi tiền.');
+      const slipId = uuid((r.params as { slipId: string }).slipId);
+      const slip = await one(
         c,
-        "UPDATE payroll_run SET status='PAID',paid_by=$2,paid_at=now(),payment_reference=$3 WHERE id=$1 RETURNING *",
-        [run.id, r.identity!.id, reference],
+        slipsSql + ' WHERE s.id=$1 AND s.payroll_run_id=$2 GROUP BY s.id,pay.id',
+        [slipId, run.id],
       );
+      if (slip.payment_id)
+        return one(c, 'SELECT * FROM payroll_payment WHERE id=$1', [slip.payment_id]);
+      if (BigInt(slip.total_amount) <= 0n) reject('Phiếu này không có tiền cần chi.');
+      const reference = text(object(r.body).reference, 300);
+      const payment = await one(
+        c,
+        'INSERT INTO payroll_payment(restaurant_id,payroll_slip_id,amount,reference,paid_by) VALUES($1,$2,$3,$4,$5) RETURNING *',
+        [restaurant, slip.id, slip.total_amount, reference, r.identity!.id],
+      );
+      await workforceAudit(
+        c,
+        restaurant,
+        r.identity!.id,
+        'PAY_SALARY',
+        'PAYROLL_SLIP',
+        slip.id,
+        reference,
+        payment,
+      );
+      await complete(c, run, r.identity!.id);
+      return payment;
     }),
+  );
+  app.post('/core/payroll/:id/paid', admin, async () =>
+    reject(
+      'Chọn phiếu của từng nhân viên để ghi nhận đã chi. Không ghi nhận chi đồng loạt cả kỳ.',
+      409,
+    ),
   );
   app.delete('/core/payroll/:id', admin, async (r) =>
     tx(async (c) => {

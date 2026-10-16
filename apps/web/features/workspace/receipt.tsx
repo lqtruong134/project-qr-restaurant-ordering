@@ -1,12 +1,55 @@
+import type { BillingSummary } from '@thesis/contracts';
+import {
+  paymentMethodLabel,
+  type PaymentCapabilities,
+  type PaymentIntent,
+} from '../shared/online-payment';
+import { BillingTotals } from '../shared/billing-totals';
+import { taxLabel } from '../shared/billing-summary';
+import { SessionReference } from '../shared/session-reference';
 import { vnd, type Row } from '../shared/components';
+import { paymentSummary } from '../shared/payment-summary';
+import { PaymentBreakdown } from '../shared/payment-breakdown';
+import { CashHistory } from './payment-handover';
+import { receiptLines } from './receipt-lines';
+import { ComboContents } from '../shared/combo-contents';
+export type CloseReadiness = {
+  canClose: boolean;
+  blockers: {
+    code: string;
+    title: string;
+    detail: string;
+    tab: 'orders' | 'payments' | 'tasks';
+    count: number;
+  }[];
+};
 export type Bill = {
+  billing?: BillingSummary;
+  closure?: CloseReadiness;
+  completion?: {
+    pendingChange: Row[];
+    receiptKey: string;
+    receiptRequired: boolean;
+    receiptDelivery: {
+      details: { delivery: string; layout: string };
+      created_at: string;
+      confirmed_by_name: string;
+    } | null;
+  };
+  refundWorkflow?: { approvedAmount: string; awaitingApprovalAmount: string; reviewAmount: string };
+  refundContext?: { reason: string; decisions: Row[] } | null;
+  participants?: Row[];
+  paymentRequests?: Row[];
   session: Row;
   account: Row;
   charges: Row[];
-  intents: Row[];
+  intents: PaymentIntent[];
+  paymentCapabilities?: PaymentCapabilities;
   payments: Row[];
   refunds: Row[];
   complimentaryItems?: Row[];
+  waivedItems?: Row[];
+  cancelledItems?: Row[];
   refundTransactions?: Row[];
   store: Row;
   generatedAt: string;
@@ -14,27 +57,46 @@ export type Bill = {
 };
 export const billTime = (value: unknown, timezone = 'Asia/Ho_Chi_Minh') =>
   value ? new Date(String(value)).toLocaleString('vi-VN', { timeZone: timezone }) : 'Đang phục vụ';
-export default function Receipt({ bill, visible }: { bill: Bill; visible: boolean }) {
+export default function Receipt({
+  id,
+  bill,
+  visible,
+  layout = 'standard',
+}: {
+  id?: string;
+  bill: Bill;
+  visible: boolean;
+  layout?: 'standard' | 'detailed';
+}) {
   const closed = bill.session.session_status === 'CLOSED',
     zone = String(bill.store.timezone ?? 'Asia/Ho_Chi_Minh');
+  const totals = paymentSummary(bill.account);
   const receipts = bill.payments.filter((p) => p.status === 'SUCCEEDED');
+  const lines = receiptLines(bill);
+  const owners =
+    layout === 'detailed' ? [...new Set(lines.map((l) => l.ownerId ?? 'common'))] : ['all'];
   return (
     <section
+      id={id}
       className={'receipt-sheet' + (visible ? ' receipt-visible' : '')}
       aria-label="Phiếu thanh toán"
     >
       <header className="receipt-store">
         <h2>{String(bill.store.name)}</h2>
         <p>{String(bill.store.address ?? '')}</p>
+        {bill.store.phone && <p>Điện thoại: {String(bill.store.phone)}</p>}
+        {bill.store.tax_code && <p>MST: {String(bill.store.tax_code)}</p>}
         <h3>{closed ? 'PHIẾU THANH TOÁN' : 'PHIẾU TẠM TÍNH'}</h3>
       </header>
       <div className="receipt-meta">
-        <span>
-          Số phiếu:{' '}
-          <strong>{String(bill.session.receipt_number ?? 'TT-' + bill.session.id)}</strong>
-        </span>
+        {bill.session.receipt_number && (
+          <span>
+            Số phiếu: <strong>{String(bill.session.receipt_number)}</strong>
+          </span>
+        )}
         <span>
           Bàn: <strong>{String(bill.session.table_code)}</strong>
+          <SessionReference id={bill.session.id} />
         </span>
         <span>
           Giờ vào: <strong>{billTime(bill.session.opened_at, zone)}</strong>
@@ -48,7 +110,7 @@ export default function Receipt({ bill, visible }: { bill: Bill; visible: boolea
         </span>
         {bill.closedBy && (
           <span>
-            Nhân viên chốt: {bill.closedBy.display_name} · {bill.closedBy.username}
+            Nhân viên chốt: {bill.closedBy.display_name} - {bill.closedBy.username}
           </span>
         )}
       </div>
@@ -57,107 +119,123 @@ export default function Receipt({ bill, visible }: { bill: Bill; visible: boolea
           <span>Món / khoản thu</span>
           <span>SL</span>
           <span>Đơn giá</span>
-          <span>Thành tiền</span>
+          <span>
+            {bill.billing && BigInt(bill.billing.discountAmount) > 0n ? 'Sau giảm' : 'Thành tiền'}
+          </span>
         </div>
-        {bill.charges
-          .filter((c) => c.status === 'ACTIVE')
-          .map((c) => (
-            <div className="receipt-row" key={c.id}>
-              <span>{String(c.product_name_snapshot ?? 'Khoản thu')}</span>
-              <span>{String(c.quantity ?? 1)}</span>
-              <span>{vnd(c.unit_price_snapshot ?? c.amount)}</span>
-              <strong>{vnd(c.amount)}</strong>
+        {!lines.length && <p className="receipt-empty">Chưa có món tính tiền.</p>}
+        {owners.map((owner) => {
+          const selected =
+            owner === 'all' ? lines : lines.filter((l) => (l.ownerId ?? 'common') === owner);
+          return (
+            <div className="receipt-owner-group" key={owner}>
+              {layout === 'detailed' && (
+                <h4>
+                  {owner === 'common'
+                    ? 'Món chung / nhân viên gọi hộ'
+                    : (selected[0]?.ownerName ?? 'Khách chưa có tên')}
+                </h4>
+              )}
+              {(['normal', 'gift', 'adjusted'] as const).map((group) => (
+                <div key={group}>
+                  {group !== 'normal' && selected.some((l) => l.group === group) && (
+                    <h4 className="receipt-group-title">
+                      {group === 'gift' ? 'Món tặng' : 'Món hủy / không tính tiền'}
+                    </h4>
+                  )}
+                  {selected
+                    .filter((l) => l.group === group)
+                    .map((line) => (
+                      <div className="receipt-row" key={line.id}>
+                        <span>
+                          {line.name}
+                          <ComboContents components={line.components} />
+                          {BigInt(String(line.discountAmount ?? 0)) > 0n && (
+                            <small className="receipt-line-discount">
+                              Khuyến mãi −{vnd(line.discountAmount)}
+                            </small>
+                          )}
+                          {line.taxTreatment && line.taxTreatment !== 'LEGACY' && (
+                            <small className="receipt-short-note">
+                              {taxLabel(line.taxTreatment, line.vatRatePercent)}
+                            </small>
+                          )}
+                          {line.note && <small className="receipt-short-note">{line.note}</small>}
+                        </span>
+                        <span>{String(line.quantity)}</span>
+                        <span>{vnd(line.unitPrice)}</span>
+                        <strong>{vnd(line.amount)}</strong>
+                      </div>
+                    ))}
+                </div>
+              ))}
+              {layout === 'detailed' && (
+                <p className="receipt-owner-total">
+                  <span>Tiền nhóm này sau khuyến mãi</span>
+                  <strong>
+                    {vnd(selected.reduce((sum, l) => sum + BigInt(String(l.amount)), 0n))}
+                  </strong>
+                </p>
+              )}
             </div>
-          ))}
+          );
+        })}
       </div>
-      {(bill.complimentaryItems ?? []).map((i) => (
-        <div className="receipt-row" key={i.id}>
-          <span>{String(i.product_name_snapshot)} (Món tặng)</span>
-          <span>{String(i.quantity)}</span>
-          <span>{vnd(0)}</span>
-          <strong>{vnd(0)}</strong>
-        </div>
-      ))}
+      <BillingTotals billing={bill.billing} account={bill.account} receipt />
       <div className="receipt-totals">
         <div>
-          <span>Tổng phải thanh toán</span>
-          <strong>{vnd(bill.account.charge_total)}</strong>
+          <span>Đã thanh toán (sau hoàn)</span>
+          <strong>{vnd(totals.netPaid)}</strong>
         </div>
         <div>
-          <span>Đã thu</span>
-          <strong>{vnd(bill.account.paid_total)}</strong>
-        </div>
-        {BigInt(String(bill.account.refunded_total ?? 0)) > 0n && (
-          <div>
-            <span>Đã hoàn lại khách</span>
-            <strong>{vnd(bill.account.refunded_total)}</strong>
-          </div>
-        )}
-        <div>
-          <span>Còn phải thu</span>
+          <span>Còn phải thanh toán</span>
           <strong>{vnd(bill.account.outstanding_amount)}</strong>
         </div>
         {BigInt(String(bill.account.refund_due_amount)) > 0n && (
           <div>
-            <span>Còn phải hoàn khách</span>
+            <span>Còn chờ hoàn tiền món</span>
             <strong>{vnd(bill.account.refund_due_amount)}</strong>
           </div>
         )}
       </div>
+      {totals.refundedTotal > 0n && <p className="receipt-short-note">Đã trừ tiền hoàn món.</p>}
+      <section className="receipt-money-breakdown" aria-label="Đối chiếu thanh toán">
+        <h4>Đối chiếu tiền khách đã đưa</h4>
+        <PaymentBreakdown account={bill.account} payments={bill.payments} compact />
+      </section>
       <div className="receipt-payments">
-        <strong>Các lần thanh toán</strong>
+        <strong>Các lần thanh toán tiền món</strong>
         {!receipts.length && <p>Chưa thu tiền</p>}
         {receipts.map((p) => {
-          const meta = p.metadata as unknown as { cashReceived?: string; changeGiven?: string };
           return (
             <div className="receipt-payment-entry" key={p.id}>
               <p>
-                {p.method === 'CASH'
-                  ? 'Tiền mặt'
-                  : p.method === 'BANK_TRANSFER'
-                    ? 'Chuyển khoản đã xác nhận'
-                    : 'Thanh toán'}{' '}
-                · {vnd(p.amount)}
+                {paymentMethodLabel(p.method)} - Thanh toán cho món {vnd(p.amount)}
               </p>
               <small>
-                {billTime(p.confirmed_at ?? p.created_at, zone)} ·{' '}
-                {String(p.confirmed_by_name ?? '')} {String(p.confirmed_by_username ?? '')}
+                {billTime(p.confirmed_at ?? p.created_at, zone)} -{' '}
+                {p.method === 'ONLINE' ? 'Hệ thống xác nhận' : String(p.confirmed_by_name ?? '')}{' '}
+                {p.method === 'ONLINE' ? '' : String(p.confirmed_by_username ?? '')}
               </small>
-              {p.method === 'CASH' && meta?.cashReceived && (
-                <small>
-                  Khách đưa {vnd(meta.cashReceived)} · Trả lại {vnd(meta.changeGiven)}
-                </small>
-              )}
+              <CashHistory payment={p} />
             </div>
           );
         })}
       </div>
       {(bill.refundTransactions ?? []).length > 0 && (
         <div className="receipt-payments">
-          <strong>Các lần hoàn tiền</strong>
+          <strong>Các lần hoàn tiền món</strong>
           {bill.refundTransactions!.map((t) => (
             <div className="receipt-payment-entry" key={t.id}>
               <p>
-                {t.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'} · {vnd(t.amount)}
+                {t.method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'} - {vnd(t.amount)}
               </p>
               <small>
-                {billTime(t.processed_at, zone)} · {String(t.processed_by_name ?? '')}
+                {billTime(t.processed_at, zone)} - {String(t.processed_by_name ?? '')}
               </small>
               {t.reference && <small>Mã giao dịch: {String(t.reference)}</small>}
             </div>
           ))}
-        </div>
-      )}
-      {bill.charges.some((c) => c.status !== 'ACTIVE') && (
-        <div className="receipt-payments">
-          <strong>Khoản đã hủy / miễn thu (không cộng vào tổng)</strong>
-          {bill.charges
-            .filter((c) => c.status !== 'ACTIVE')
-            .map((c) => (
-              <p key={c.id}>
-                {String(c.product_name_snapshot ?? 'Khoản thu')} · {vnd(c.amount)}
-              </p>
-            ))}
         </div>
       )}
       <footer className="receipt-footer">
@@ -165,10 +243,7 @@ export default function Receipt({ bill, visible }: { bill: Bill; visible: boolea
           <p>Phiên đóng theo hồ sơ thiếu tiền; không phải đã thu đủ.</p>
         )}
         <p>Cảm ơn quý khách và hẹn gặp lại!</p>
-        <small>
-          Phiếu nội bộ, không phải hóa đơn thuế. Số tiền theo giá món đã ghi nhận; chưa áp dụng
-          thuế/phí riêng.
-        </small>
+        <small>Phiếu thanh toán nội bộ, không thay thế hóa đơn điện tử.</small>
       </footer>
     </section>
   );

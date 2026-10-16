@@ -19,7 +19,7 @@ declare module 'fastify' {
   interface FastifyContextConfig {
     public?: boolean;
     externalWebhook?: boolean;
-    permission?: string;
+    permission?: string | readonly string[];
     authenticated?: boolean;
   }
   interface FastifyRequest {

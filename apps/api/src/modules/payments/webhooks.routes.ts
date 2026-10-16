@@ -1,3 +1,5 @@
+import type { UnmatchedPaymentWebhook } from '@thesis/contracts';
+import { consumePromotion } from '../finance/pricing.service.js';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '@thesis/database';
@@ -150,7 +152,7 @@ export async function ingestConnector(
     );
     const charges = (
       await c.query(
-        `SELECT f.*,f.amount-COALESCE((SELECT sum(allocated_amount-reversed_amount) FROM payment_allocation WHERE financial_charge_id=f.id),0) AS remaining FROM financial_charge f WHERE f.session_id=$1 AND f.status='ACTIVE' ORDER BY f.created_at,f.id FOR UPDATE`,
+        `SELECT f.*,f.amount-f.discount_amount-COALESCE((SELECT sum(allocated_amount-reversed_amount) FROM payment_allocation WHERE financial_charge_id=f.id),0) AS remaining FROM financial_charge f WHERE f.session_id=$1 AND f.status='ACTIVE' ORDER BY f.created_at,f.id FOR UPDATE`,
         [pi.session_id],
       )
     ).rows;
@@ -182,6 +184,7 @@ export async function ingestConnector(
       "INSERT INTO outbox_event(aggregate_type,payment_transaction_id,event_type,payload) VALUES('PAYMENT_TRANSACTION',$1,'PAYMENT_RECEIVED',$2)",
       [payment.id, JSON.stringify({ sessionId: pi.session_id })],
     );
+    await consumePromotion(c, pi.session_id);
     const account = await recalculate(c, pi.session_id);
     if (late || left > 0n)
       await c.query(
@@ -212,6 +215,25 @@ export function registerWebhooks(app: FastifyInstance, db: Database, restaurant:
         r.headers['x-payment-signature'],
       );
     },
+  );
+  app.get(
+    '/core/admin/payment-webhooks/unmatched',
+    { config: { permission: 'admin.workspace' } },
+    async (): Promise<UnmatchedPaymentWebhook[]> =>
+      (
+        await db.pool.query(
+          `SELECT w.id,w.payload_snapshot->>'orderCode' AS "orderCode",
+            w.payload_snapshot->>'amount' AS amount,w.payload_snapshot->>'currency' AS currency,
+            w.provider_event_id AS reference,w.received_at AS "receivedAt"
+          FROM payment_webhook_event w
+          WHERE w.provider='PAYOS' AND w.signature_valid IS TRUE AND w.processing_status='UNMATCHED'
+            AND w.payload_snapshot->>'restaurantId'=$1
+            AND CASE WHEN w.payload_snapshot->>'amount' ~ '^[0-9]{1,12}$'
+              THEN (w.payload_snapshot->>'amount')::bigint ELSE 0 END>0
+          ORDER BY w.received_at DESC,w.id DESC LIMIT 100`,
+          [restaurant],
+        )
+      ).rows,
   );
   app.get(
     '/core/payment-events',

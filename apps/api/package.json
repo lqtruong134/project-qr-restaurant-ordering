@@ -8,10 +8,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "fastify": "5.12.3",
+    "@fastify/cookie": "^11.0.0",
+    "@payos/node": "2.0.5",
     "@thesis/contracts": "workspace:*",
     "@thesis/database": "workspace:*",
-    "@fastify/cookie": "^11.0.0",
+    "fastify": "5.12.5",
     "jose": "^6.1.0"
   }
 }

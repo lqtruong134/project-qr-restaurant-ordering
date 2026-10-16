@@ -1,0 +1,162 @@
+.role-visual {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(160px, 22%, 240px);
+  min-width: 0;
+  min-height: 138px;
+  margin-bottom: 18px;
+  overflow: hidden;
+  border: 1px solid #dedfd1;
+  border-radius: 16px;
+  background: #faf8f0;
+}
+
+.role-visual-content {
+  min-width: 0;
+  padding: 18px 22px;
+  align-self: center;
+}
+
+.role-visual-photo {
+  position: relative;
+  min-width: 0;
+  min-height: 100%;
+  overflow: hidden;
+  background: #e8e3d6;
+}
+
+.role-visual-photo img {
+  object-fit: cover;
+  object-position: center;
+}
+
+.role-visual-admin {
+  min-height: 108px;
+  margin-bottom: 0;
+}
+
+.role-visual-admin .overview-context {
+  gap: 10px 18px;
+}
+
+.experience-shell .role-visual .service-overview {
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.experience-shell .role-visual .service-overview > div:first-child {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.experience-shell .role-visual .service-overview .service-tools {
+  flex: 0 1 auto;
+}
+
+.role-visual .service-tools {
+  gap: 8px;
+}
+
+.role-visual .service-tools small {
+  margin: 0;
+}
+
+@media (max-width: 1000px) {
+  .role-visual {
+    grid-template-columns: minmax(0, 1fr) 160px;
+  }
+
+  .experience-shell .role-visual .service-overview .service-tools {
+    justify-content: flex-start;
+    max-width: none;
+  }
+
+  .role-visual .service-tools small {
+    flex-basis: auto;
+    align-self: center;
+    text-align: left;
+  }
+}
+
+@media (max-width: 600px) {
+  .role-visual {
+    grid-template-columns: minmax(0, 1fr) 94px;
+    min-height: 0;
+    margin-bottom: 14px;
+    border-radius: 12px;
+  }
+
+  .role-visual-content {
+    display: contents;
+  }
+
+  .role-visual-photo {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    width: 80px;
+    height: 80px;
+    min-height: 0;
+    margin: 14px 14px 14px 0;
+    border-radius: 10px;
+  }
+
+  .role-visual-admin {
+    margin-bottom: 0;
+  }
+
+  .role-visual .overview-context small {
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .experience-shell .role-visual .service-overview {
+    display: contents;
+  }
+
+  .role-visual .overview-context {
+    display: contents;
+  }
+
+  .experience-shell .role-visual .service-overview > div:first-child,
+  .role-visual .overview-context > p {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 14px 0 10px 14px;
+  }
+
+  .experience-shell .role-visual .service-overview .service-tools {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: auto;
+    padding: 0 14px 14px;
+  }
+
+  .role-visual .overview-context > button {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: start;
+    margin: 0 14px 14px;
+  }
+
+  .role-visual .service-tools small {
+    flex-basis: 100%;
+  }
+
+  .experience-shell .role-visual .service-tools button {
+    padding-inline: 10px;
+    font-size: 12px;
+  }
+}
+
+@media print {
+  .role-visual {
+    display: none !important;
+  }
+}

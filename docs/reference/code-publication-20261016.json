@@ -1,0 +1,48 @@
+{
+  "verifiedAt": "2026-10-16T07:31:12.013864+00:00",
+  "purpose": "Publish the complete current source after the earlier documentation-only commits",
+  "githubAccount": "TruongB2306646",
+  "commitEmail": "truongb2306646@student.ctu.edu.vn",
+  "versions": {
+    "next": "16.3.8",
+    "fastify": "5.12.5"
+  },
+  "knownDependencyVulnerabilities": 0,
+  "checks": {
+    "unitTests": 225,
+    "unitSuites": 33,
+    "backendAndIntegrationTests": 428,
+    "backendAndIntegrationSuites": 35,
+    "integrationTests": 367,
+    "coverageLinesPct": 91.3,
+    "productionRoutes": 7,
+    "freshDatabaseRehearsals": 2
+  },
+  "browser": {
+    "collectedFullSuite": 411,
+    "selectedCriticalScenarios": 15,
+    "finalDistinctPassed": 14,
+    "skipped": 1,
+    "fullSuiteExecuted": false,
+    "initialRun": {
+      "passed": 11,
+      "failed": 3,
+      "skipped": 1
+    },
+    "subsequentCoreFlowRun": {
+      "passed": 3,
+      "failed": 0
+    },
+    "note": "The three previously failing CORE scenarios were rerun successfully after updating obsolete UI selectors. Counts are distinct cases across the two runs, not a single clean full-suite run."
+  },
+  "publicationExcludes": [
+    ".env and credentials",
+    "PostgreSQL database contents and Docker volumes",
+    "var/ runtime uploads/payment proofs",
+    "restaurant-media-work/ intermediate assets",
+    "AI model weights, outputs, caches"
+  ],
+  "businessDatabaseReset": false,
+  "realPayosMerchantActivated": false,
+  "realAiModelActivated": false
+}

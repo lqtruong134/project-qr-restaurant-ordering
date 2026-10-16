@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./menu-images": "./src/menu-images.ts",
+    "./menu-media": "./src/menu-media.ts",
+    "./menu-promotions": "./src/menu-promotions.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -13,7 +16,8 @@
     "pg": "^8.16.0",
     "@prisma/client": "7.10.0",
     "@prisma/adapter-pg": "7.10.0",
-    "argon2": "^0.44.0"
+    "argon2": "^0.44.0",
+    "@thesis/contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/pg": "^8.15.0",

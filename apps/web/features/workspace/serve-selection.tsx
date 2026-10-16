@@ -1,6 +1,8 @@
 'use client';
+import { SessionReference } from '../shared/session-reference';
 import { useState } from 'react';
 import { Action, type Order } from '../shared/components';
+import { ComboContents } from '../shared/combo-contents';
 export function ServeSelection({
   orders,
   act,
@@ -18,11 +20,12 @@ export function ServeSelection({
         if (!ready.length) return null;
         const chosen = ready.filter((i) => selected.includes(i.id));
         return (
-          <section className="core-card" key={sid}>
+          <section className="core-card serve-selection" key={sid}>
             <h3>
-              Bàn {batches[0]?.table_code} · {ready.length} món chờ mang
+              Bàn {batches[0]?.table_code}
+              <SessionReference id={sid} /> - {ready.length} món chờ mang
             </h3>
-            <label>
+            <label className="serve-select-row">
               <input
                 type="checkbox"
                 checked={chosen.length === ready.length}
@@ -33,11 +36,11 @@ export function ServeSelection({
                       : selected.filter((id) => !ready.some((i) => i.id === id)),
                   )
                 }
-              />{' '}
-              Chọn tất cả món đang chờ
+              />
+              <span>Chọn tất cả món đang chờ</span>
             </label>
             {ready.map((i) => (
-              <label className="core-line" key={i.id}>
+              <label className="serve-select-row serve-item" key={i.id}>
                 <input
                   type="checkbox"
                   checked={selected.includes(i.id)}
@@ -49,12 +52,14 @@ export function ServeSelection({
                 />
                 <span>
                   {i.quantity} × {i.product_name_snapshot}
-                  {i.note && <small> · {String(i.note)}</small>}
+                  <ComboContents components={i.combo_components_snapshot} />
+                  {i.note && <small> - {String(i.note)}</small>}
                 </span>
               </label>
             ))}
             {chosen.length > 0 && (
               <Action
+                successMessage={`Đã ghi nhận phục vụ ${chosen.length} món.`}
                 run={async () => {
                   await act('/core/sessions/' + sid + '/serve-items', {
                     itemIds: chosen.map((i) => i.id),
