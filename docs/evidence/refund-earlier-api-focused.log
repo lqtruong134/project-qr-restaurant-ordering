@@ -1,0 +1,51 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/home/quyettruong05/projects/qr-ordering-thesis[39m
+
+ [31m❯[39m tests/payment-collection.integration.test.ts [2m([22m[2m18 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 12408[2mms[22m[39m
+   [33m[2m✓[22m[39m guest calls staff once with preferred method and reserves no money, including concurrent retries [33m 410[2mms[22m[39m
+   [33m[2m✓[22m[39m own-dish collection allocates only to that guest, even when another guest ordered first [33m 517[2mms[22m[39m
+   [32m✓[39m cash 500000 for a 40000 payment records 40000 revenue and 460000 change; retry records once[32m 268[2mms[22m[39m
+   [33m[2m✓[22m[39m participant from another table and over-collection cannot reserve or pay [33m 330[2mms[22m[39m
+   [32m✓[39m another staff cannot collect a claimed payment request without handoff[32m 258[2mms[22m[39m
+   [33m[2m✓[22m[39m bank payment accepts a private screenshot in place of typed reference; image alone is not payment [33m 359[2mms[22m[39m
+   [32m✓[39m proof rejects unsupported file content and duplicate successful screenshot[32m 290[2mms[22m[39m
+   [33m[2m✓[22m[39m full payment completes all typed cash calls; partial payment leaves other guests waiting [33m 469[2mms[22m[39m
+   [33m[2m✓[22m[39m a typed payment call requires explicit acceptance, cannot be bypassed by direct collection, and two claims have one owner [33m 345[2mms[22m[39m
+   [33m[2m✓[22m[39m handoff transfers payment confirmation, proof upload and cancellation rights only after acceptance [33m 463[2mms[22m[39m
+   [33m[2m✓[22m[39m an old unlinked intent cannot confirm after a payment call is claimed by another employee [33m 311[2mms[22m[39m
+   [33m[2m✓[22m[39m ending a call without collecting money requires a reason and leaves the invoice unpaid [33m 303[2mms[22m[39m
+   [33m[2m✓[22m[39m settling the table ends other payment calls, keeps unrelated support open and records money once [33m 450[2mms[22m[39m
+   [33m[2m✓[22m[39m a legacy bill call without a preferred method follows the same acceptance and collection ownership rules [33m 450[2mms[22m[39m
+   [33m[2m✓[22m[39m paid before kitchen acceptance shows exact blockers and closing creates shared cleaning work for both employees [33m 706[2mms[22m[39m
+   [32m✓[39m close preview lists unpaid food, pending collection and support together without masking the cooking reason[32m 249[2mms[22m[39m
+[31m   [31m×[31m staff uses the saved admin decision for refunds; guest sees safe partial/full history and alerts clear only after return[39m[33m 442[2mms[22m[39m
+   [33m[2m✓[22m[39m does not invent an admin refund decision when none exists [33m 322[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/payment-collection.integration.test.ts[2m > [22mstaff uses the saved admin decision for refunds; guest sees safe partial/full history and alerts clear only after return
+[31m[1mAssertionError[22m: {"errorCode":"INVALID_REQUEST","userMessage":"Không tìm thấy dữ liệu hoặc dữ liệu đã thay đổi.","correlationId":"req-9e"}: expected 404 to be 200 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 404[39m
+
+[36m [2m❯[22m ok tests/payment-collection.integration.test.ts:[2m32:32[22m[39m
+    [90m 30|[39m [35masync[39m [35mfunction[39m [34mok[39m(url[33m:[39m string[33m,[39m user[33m:[39m string[33m,[39m body[33m?[39m[33m:[39m unknown) {
+    [90m 31|[39m   [35mconst[39m r [33m=[39m [35mawait[39m [34mreq[39m(url[33m,[39m user[33m,[39m body)[33m;[39m
+    [90m 32|[39m   [34mexpect[39m(r[33m.[39mstatusCode[33m,[39m r[33m.[39mbody)[33m.[39m[34mtoBe[39m([34m200[39m)[33m;[39m
+    [90m   |[39m                                [31m^[39m
+    [90m 33|[39m   [35mreturn[39m r[33m.[39m[34mjson[39m()[33m;[39m
+    [90m 34|[39m }
+[90m [2m❯[22m tests/payment-collection.integration.test.ts:[2m580:13[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m17 passed[39m[22m[90m (18)[39m
+[2m   Start at [22m 15:55:15
+[2m   Duration [22m 13.51s[2m (transform 621ms, setup 0ms, import 953ms, tests 12.41s, environment 0ms)[22m
+

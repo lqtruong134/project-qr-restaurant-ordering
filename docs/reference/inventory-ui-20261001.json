@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-01T06:49:21.241Z",
+  "scope": "Inventory interface redesign",
+  "businessRules": "Existing receipt/stock/recipe workflows retained; two read arrays added to GET /core/inventory.",
+  "schema": "55 tables, 23 migrations; unchanged",
+  "check": {
+    "passed": true,
+    "unitTests": 19
+  },
+  "integration": {
+    "passed": 51
+  },
+  "browser": {
+    "passed": 44,
+    "skipped": 1,
+    "total": 45,
+    "inventoryCases": 6,
+    "projects": [
+      "desktop",
+      "mobile",
+      "webkit-mobile"
+    ]
+  },
+  "build": {
+    "passed": true,
+    "routes": 7
+  },
+  "secretsScan": {
+    "passed": true
+  },
+  "data": "Tests used disposable databases. Operational database not reset.",
+  "sources": [
+    "https://docs.restaurant365.com/doc/docs/items-grid",
+    "https://docs.restaurant365.com/docs/recipe-items-page",
+    "https://www.marketman.com/platform/restaurant-inventory-management-software"
+  ]
+}

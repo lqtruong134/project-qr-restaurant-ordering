@@ -1,0 +1,432 @@
+{
+  "date": "2026-10-03T10:33:37.686Z",
+  "scope": "Thông tin hoàn tiền cho khách; cảnh báo STAFF mở xác nhận thực tế; backend lấy lý do ADMIN thay vì nhân viên nhập lại.",
+  "checks": [
+    {
+      "label": "Format, ESLint, TypeScript, unit",
+      "result": "Đạt format/lint/typecheck; 43/43 unit trên 9 tệp",
+      "started": "2026-10-03T10:27:18.408Z",
+      "finished": "2026-10-03T10:27:31.711Z",
+      "args": [
+        "check"
+      ],
+      "code": 0,
+      "log": "evidence/refund-check-final.log"
+    },
+    {
+      "label": "API và PostgreSQL",
+      "result": "127/127 integration trên 9 tệp; lý do ADMIN, trả từng phần, idempotency và riêng tư dữ liệu",
+      "started": "2026-10-03T09:02:21.333Z",
+      "finished": "2026-10-03T09:05:03.911Z",
+      "args": [
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.integration.config.ts",
+        "--maxWorkers=1"
+      ],
+      "code": 0,
+      "log": "evidence/refund-api-full.log"
+    },
+    {
+      "label": "Trình duyệt liên quan",
+      "result": "15/15 tình huống hoàn tiền, sự cố món và thu tiền trên desktop, Android, WebKit mobile",
+      "started": "2026-10-03T09:00:18.195Z",
+      "finished": "2026-10-03T09:05:15.785Z",
+      "args": [
+        "test:e2e",
+        "tests/browser/refund-experience.spec.ts",
+        "tests/browser/dish-issue.spec.ts",
+        "tests/browser/payment-collection.spec.ts"
+      ],
+      "code": 0,
+      "log": "evidence/refund-browser-focused.log"
+    },
+    {
+      "label": "Kiểm tra sau chỉnh cuộn mobile",
+      "result": "3/3 luồng hoàn tiền; lý do nằm dưới tiêu đề hộp thoại, khách thấy chờ → hoàn một phần → hoàn đủ",
+      "started": "2026-10-03T10:24:59.879Z",
+      "finished": "2026-10-03T10:25:47.156Z",
+      "args": [
+        "test:e2e",
+        "tests/browser/refund-experience.spec.ts"
+      ],
+      "code": 0,
+      "log": "evidence/refund-browser-focus-final.log"
+    },
+    {
+      "label": "Build production",
+      "result": "Next.js build đạt với 7 route, thư mục build riêng không ghi cache dev",
+      "started": "2026-10-03T10:27:18.315Z",
+      "finished": "2026-10-03T10:27:25.735Z",
+      "args": [
+        "build"
+      ],
+      "code": 0,
+      "log": "evidence/refund-production-build.log"
+    },
+    {
+      "label": "Kiểm tra bí mật",
+      "result": "Script check:secrets đạt",
+      "started": "2026-10-03T09:21:11.296Z",
+      "finished": "2026-10-03T09:21:11.968Z",
+      "args": [
+        "check:secrets"
+      ],
+      "code": 0,
+      "log": "evidence/refund-secrets.log"
+    },
+    {
+      "label": "Kiểm tra diff",
+      "result": "git diff --check đạt",
+      "started": "2026-10-03T10:28:20.367Z",
+      "finished": "2026-10-03T10:28:20.458Z",
+      "args": [
+        "exec",
+        "git",
+        "diff",
+        "--check"
+      ],
+      "code": 0,
+      "log": "evidence/refund-diff-check.log"
+    }
+  ],
+  "earlierRuns": [
+    {
+      "started": "2026-10-03T08:53:56.465Z",
+      "finished": "2026-10-03T08:53:57.469Z",
+      "args": [
+        "exec",
+        "prettier",
+        "--write",
+        "apps/api/src/modules/payments/refund-context.service.ts",
+        "apps/web/features/guest/refund-summary.tsx",
+        "apps/api/src/modules/payments/receipt.service.ts",
+        "apps/api/src/modules/payments/payments.routes.ts",
+        "apps/api/src/modules/sessions/guest.routes.ts",
+        "apps/web/features/guest/guest-panels.tsx",
+        "apps/web/features/workspace/receipt.tsx",
+        "apps/web/features/workspace/service-actions.tsx",
+        "apps/web/features/workspace/service.tsx",
+        "apps/web/features/workspace/bill-panel.tsx",
+        "apps/web/features/guest/guest.tsx",
+        "apps/web/features/guest/payment-status.ts",
+        "apps/web/styles/experience.css",
+        "apps/web/features/guest/payment-status.test.ts",
+        "tests/payment-collection.integration.test.ts"
+      ],
+      "code": 2,
+      "log": "evidence/refund-earlier-format.log"
+    },
+    {
+      "started": "2026-10-03T08:55:15.068Z",
+      "finished": "2026-10-03T08:55:29.116Z",
+      "args": [
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.integration.config.ts",
+        "--maxWorkers=1",
+        "tests/payment-collection.integration.test.ts"
+      ],
+      "code": 1,
+      "log": "evidence/refund-earlier-api-focused.log"
+    }
+  ],
+  "changed": [
+    {
+      "path": "apps/api/src/modules/payments/refund-context.service.ts",
+      "new": true,
+      "sha256": "d0c0eccfc14524b9f2006f9511821b28a26b324cc3ec373e7c356c9610686408"
+    },
+    {
+      "path": "apps/web/features/guest/payment-status.test.ts",
+      "new": false,
+      "sha256": "5e055bd2a225d343acfa45fc448a702cb608575c974a7d7aa5e9419d1b7d2445"
+    },
+    {
+      "path": "apps/web/features/guest/payment-status.ts",
+      "new": false,
+      "sha256": "cfc3325fe68387fb1de9ca8fccfc108336eac47cfb197a0ff4278d8b375591af"
+    },
+    {
+      "path": "apps/web/features/guest/refund-summary.tsx",
+      "new": true,
+      "sha256": "67191b99bc6988677b48d8c06b4ec6a2da7c2fc243f25f77b67e91d8f0aa5967"
+    },
+    {
+      "path": "apps/web/styles/experience.css",
+      "new": false,
+      "sha256": "01f04ce358fee67a22d740fe0fac7dc6492865aba4ae48bad1d1b402c8d4c11d"
+    },
+    {
+      "path": "tests/browser/refund-experience.spec.ts",
+      "new": true,
+      "sha256": "70ab8bcba55b5f055e48f48aa5b294c08199e2129e0d864629bcd8c54ab60525"
+    },
+    {
+      "path": "tests/payment-collection.integration.test.ts",
+      "new": false,
+      "sha256": "e30c103bb035b8ce48e23195debf3fd87d3eae6b79b4b68754dd4f1b40c5c4c9"
+    },
+    {
+      "path": "apps/api/src/modules/payments/payments.routes.ts",
+      "new": false,
+      "sha256": "44674236352e5f3759930857296705de422dd21caa2c6eda4a7b2e623e44b770"
+    },
+    {
+      "path": "apps/api/src/modules/payments/receipt.service.ts",
+      "new": false,
+      "sha256": "69e4d970e98ad8d03f88c8293ff12d836459189fd8adfeb1b36f435ffa089919"
+    },
+    {
+      "path": "apps/api/src/modules/sessions/guest.routes.ts",
+      "new": false,
+      "sha256": "0056ec4c6c47cc041631ee05d6afc069ec3325573e297161a915467d95b6f7ae"
+    },
+    {
+      "path": "apps/web/features/guest/guest-panels.tsx",
+      "new": false,
+      "sha256": "cc0d06c9a6b1e72bb3aaeb62e8588d381f609551f824109819591e85b1b7db13"
+    },
+    {
+      "path": "apps/web/features/guest/guest.tsx",
+      "new": false,
+      "sha256": "464bf5b1f3d7c591e1ba91512ef9f6df2aec15e3703e91e28c89400593ba7496"
+    },
+    {
+      "path": "apps/web/features/workspace/bill-panel.tsx",
+      "new": false,
+      "sha256": "59f7a9bedcea4ddc479ca6120206b7f88a6d767dbf63f7392c2c34541d35a04e"
+    },
+    {
+      "path": "apps/web/features/workspace/receipt.tsx",
+      "new": false,
+      "sha256": "b07fc5189d9bc7c3aa9366812df8b8527d5b3b4e8e0d3131e94565fefc434fa9"
+    },
+    {
+      "path": "apps/web/features/workspace/service-actions.tsx",
+      "new": false,
+      "sha256": "7791bfc07c730e066fa60f053b68b8431b664f47a1498384d8caf86c234f5572"
+    },
+    {
+      "path": "apps/web/features/workspace/service.tsx",
+      "new": false,
+      "sha256": "576f38f71dbf1c2ccdb723bc707d35a9c3ca6c1bf18a80c14cc6c6311c197d0d"
+    }
+  ],
+  "screenshots": [
+    {
+      "project": "mobile",
+      "file": "evidence/refund-mobile-staff-refund-admin-reason.png",
+      "sha256": "fa602eb5b00ec158f3fe2d41a4df8c0282d104ebfe9f64010c09c364a307a9c1"
+    },
+    {
+      "project": "mobile",
+      "file": "evidence/refund-mobile-guest-refund-pending.png",
+      "sha256": "d68dc5118d14a7e6413024f94b7f602ffa1759f248f318b7937a07b951a1f931"
+    },
+    {
+      "project": "mobile",
+      "file": "evidence/refund-mobile-guest-refund-partial.png",
+      "sha256": "0d54666ed4b5dc2d71efa4954f224c2a609071e80b5a020237241f22d5a9b41d"
+    },
+    {
+      "project": "mobile",
+      "file": "evidence/refund-mobile-guest-refund-complete.png",
+      "sha256": "d9864b0e5399b451a24fe57ebef3d0e8f0eb9c69b3d7f635d8d426842ac25212"
+    },
+    {
+      "project": "desktop",
+      "file": "evidence/refund-desktop-staff-refund-admin-reason.png",
+      "sha256": "4babcd0dc9f9d4042c6f63d295ecbaa33f1d236c0ae844eadfe3e0e2982f1ebb"
+    },
+    {
+      "project": "desktop",
+      "file": "evidence/refund-desktop-guest-refund-pending.png",
+      "sha256": "24118bd6c9b08ff1df48490230beff1cee843ef6d043df57aaa435fa4cb74738"
+    },
+    {
+      "project": "desktop",
+      "file": "evidence/refund-desktop-guest-refund-partial.png",
+      "sha256": "72bfa3a6bb861be8695879b1728894999d70d41df45d69d6261691be8c5ac3b3"
+    },
+    {
+      "project": "desktop",
+      "file": "evidence/refund-desktop-guest-refund-complete.png",
+      "sha256": "c134169141f30923165102292221317c64fe405bb0b52b698ca8585701222140"
+    },
+    {
+      "project": "webkit-mobile",
+      "file": "evidence/refund-webkit-mobile-staff-refund-admin-reason.png",
+      "sha256": "3580159e26647147d8c3aaa6ecd51455346fe0b9f6f0b51b58d3a5ba799f328c"
+    },
+    {
+      "project": "webkit-mobile",
+      "file": "evidence/refund-webkit-mobile-guest-refund-pending.png",
+      "sha256": "28b020a8d9a2aeab6bf6c6e9eb4fcdf1f2ad755b76c3728e5cc065fa55985a81"
+    },
+    {
+      "project": "webkit-mobile",
+      "file": "evidence/refund-webkit-mobile-guest-refund-partial.png",
+      "sha256": "5f196d29f305afb5ec179fb01a73f367f519745361a4948439e10cd83c775fbf"
+    },
+    {
+      "project": "webkit-mobile",
+      "file": "evidence/refund-webkit-mobile-guest-refund-complete.png",
+      "sha256": "82caf1deae75693187310306403b9eb42843083b09dc72d8fe5b477e90f924df"
+    }
+  ],
+  "filesChecked": 254,
+  "tables": 56,
+  "columns": 613,
+  "foreignKeys": 138,
+  "backendOperations": 128,
+  "appliedMigrations": 27,
+  "schemaUnchanged": true,
+  "routeRegistryUnchanged": true,
+  "noNewMigration": true,
+  "operationalDataReset": false,
+  "operationalSeedRun": false,
+  "guestRefundFields": [
+    "id",
+    "method",
+    "amount",
+    "processed_at"
+  ],
+  "limits": [
+    "Tiền hoàn được ghi nhận cho cả bàn; không giả lập phân bổ từng giao dịch vào từng món.",
+    "Chuyển khoản vẫn do nhân viên kiểm tra và xác nhận thực tế, chưa tích hợp ngân hàng.",
+    "Các hồ sơ ngoài luồng quyết định món của ADMIN vẫn có đường nhập lý do thủ công tương thích.",
+    "Không chạy lại toàn bộ bộ trình duyệt, kiểm tải lớn hoặc nghiệm thu nhiều ngày tại quán."
+  ],
+  "docsLayout": {
+    "code": 0,
+    "checks": [
+      {
+        "page": "06-thanh-toan.html",
+        "width": 320,
+        "scrollWidth": 320,
+        "headings": 16
+      },
+      {
+        "page": "06-thanh-toan.html",
+        "width": 768,
+        "scrollWidth": 768,
+        "headings": 16
+      },
+      {
+        "page": "06-thanh-toan.html",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "headings": 16
+      },
+      {
+        "page": "22-ho-tro-va-ban-giao.html",
+        "width": 320,
+        "scrollWidth": 320,
+        "headings": 19
+      },
+      {
+        "page": "22-ho-tro-va-ban-giao.html",
+        "width": 768,
+        "scrollWidth": 768,
+        "headings": 19
+      },
+      {
+        "page": "22-ho-tro-va-ban-giao.html",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "headings": 19
+      },
+      {
+        "page": "24-su-co-mon-va-phieu-thanh-toan.html",
+        "width": 320,
+        "scrollWidth": 320,
+        "headings": 12
+      },
+      {
+        "page": "24-su-co-mon-va-phieu-thanh-toan.html",
+        "width": 768,
+        "scrollWidth": 768,
+        "headings": 12
+      },
+      {
+        "page": "24-su-co-mon-va-phieu-thanh-toan.html",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "headings": 12
+      },
+      {
+        "page": "25-thu-tien-tai-ban.html",
+        "width": 320,
+        "scrollWidth": 320,
+        "headings": 9
+      },
+      {
+        "page": "25-thu-tien-tai-ban.html",
+        "width": 768,
+        "scrollWidth": 768,
+        "headings": 9
+      },
+      {
+        "page": "25-thu-tien-tai-ban.html",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "headings": 9
+      },
+      {
+        "page": "15-doi-chieu.html",
+        "width": 320,
+        "scrollWidth": 320,
+        "headings": 21
+      },
+      {
+        "page": "15-doi-chieu.html",
+        "width": 768,
+        "scrollWidth": 768,
+        "headings": 21
+      },
+      {
+        "page": "15-doi-chieu.html",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "headings": 21
+      }
+    ]
+  },
+  "sourceVerified": true,
+  "sourceVerification": {
+    "filesChecked": 254,
+    "changed": [],
+    "missingSourceLinks": []
+  },
+  "runtime": {
+    "checkedAt": "2026-10-03T10:27:31.263Z",
+    "code": 0,
+    "checks": [
+      {
+        "url": "http://127.0.0.1:3000/login",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "http://127.0.0.1:3000/guest",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "http://127.0.0.1:3000/workspace/staff",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "http://127.0.0.1:4000/health/ready",
+        "status": 200,
+        "ok": true
+      }
+    ]
+  }
+}

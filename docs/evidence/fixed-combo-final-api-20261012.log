@@ -1,0 +1,13 @@
+
+ RUN  v4.1.11 /home/quyettruong05/projects/qr-ordering-thesis
+
+ ✓ tests/combo.integration.test.ts (13 tests) 4979ms
+   ✓ seeds real fixed contents, lower bundle prices and aggregated recipes; reruns preserve custom prices and stock  350ms
+   ✓ merges shared ingredients, reserves for every combo and consumes once when the whole bundle starts preparation  334ms
+   ✓ refunds the whole prepaid combo only after admin approval and lets staff complete the approved payment  303ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  12:25:28
+   Duration  5.90s (transform 607ms, setup 0ms, import 805ms, tests 4.98s, environment 0ms)
+

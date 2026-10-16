@@ -1,0 +1,42 @@
+{
+  "date": "2026-09-30",
+  "scope": "Redesigned scheduling, attendance and payroll interfaces for ADMIN, STAFF and KITCHEN",
+  "research": [
+    "https://kb.7shifts.com/hc/en-us/articles/4417519877011-Employee-Dashboard-Overview",
+    "https://www.7shifts.com/restaurant-employee-scheduling-software/"
+  ],
+  "checks": {
+    "pnpm check": {"exitCode": 0, "unitPassed": 14, "includes": ["Prettier", "ESLint", "TypeScript", "Vitest"]},
+    "pnpm test:e2e": {"exitCode": 0, "passed": 29, "skipped": 1, "workforcePassed": 9, "durationMinutes": 2.3, "projects": ["desktop", "mobile", "webkit-mobile"], "skipReason": "Existing Swagger detail test intentionally skipped on Android mobile"},
+    "NEXT_DIST_DIR=.next-workforce-build pnpm build": {"exitCode": 0, "routes": 7},
+    "pnpm check:secrets": {"exitCode": 0}
+  },
+  "verifiedFlows": [
+    "Administrator creates an effective hourly rate, shift and assignment through UI",
+    "Administrator approves missing-clock attendance with explicit reason and 330 payable minutes",
+    "January, February and March payroll headings show the correct inclusive dates in the restaurant timezone",
+    "Draft payslips remain hidden from the employee endpoint",
+    "35000 VND/hour * 330 minutes / 60 + 7500 VND bonus = 200000 VND",
+    "Administrator finalizes payroll and records an explicitly fictitious payment reference in the temporary test database",
+    "Employee opens their finalized personal payslip",
+    "STAFF and KITCHEN check in and out, inspect shift details, navigate weeks and view attendance history",
+    "Desktop, Android mobile and WebKit mobile layouts have no document-wide horizontal overflow",
+    "No browser pageerror in tested workforce flows"
+  ],
+  "database": "Randomly named isolated database created and dropped by the repository browser-test harness",
+  "operationalDatabase": "qr_restaurant_ordering",
+  "operationalDatabaseChanged": false,
+  "sourceFiles": [
+    "apps/web/features/workforce/workforce-panel.tsx",
+    "apps/web/features/workforce/my-work.tsx",
+    "apps/web/features/workforce/payroll-panel.tsx",
+    "apps/web/features/workforce/ui.tsx",
+    "apps/web/features/workforce/format.ts",
+    "apps/web/features/workforce/format.test.ts",
+    "apps/web/styles/workforce.css",
+    "apps/web/app/globals.css",
+    "apps/web/features/shared/primitives.tsx",
+    "tests/browser/workforce.spec.ts"
+  ],
+  "limits": ["No long-term restaurant operation or load test", "No new automatic bank transfer, tax, insurance or overtime payroll engine"]
+}

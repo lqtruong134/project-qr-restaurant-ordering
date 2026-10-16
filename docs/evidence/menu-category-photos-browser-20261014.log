@@ -1,0 +1,11 @@
+
+Running 6 tests using 1 worker
+
+  ✓  1 [desktop] › tests/browser/menu-category-photos.spec.ts:176:1 › guest sees all products, separate Canh and Lau, correct combo order and real supplied image files (1.9s)
+  ✓  2 [desktop] › tests/browser/menu-category-photos.spec.ts:232:1 › admin category editor and product filter use the same 11 groups and new images (1.3s)
+  ✓  3 [mobile] › tests/browser/menu-category-photos.spec.ts:176:1 › guest sees all products, separate Canh and Lau, correct combo order and real supplied image files (2.2s)
+  ✓  4 [mobile] › tests/browser/menu-category-photos.spec.ts:232:1 › admin category editor and product filter use the same 11 groups and new images (1.4s)
+  ✓  5 [webkit-mobile] › tests/browser/menu-category-photos.spec.ts:176:1 › guest sees all products, separate Canh and Lau, correct combo order and real supplied image files (3.3s)
+  ✓  6 [webkit-mobile] › tests/browser/menu-category-photos.spec.ts:232:1 › admin category editor and product filter use the same 11 groups and new images (2.4s)
+
+  6 passed (14.9s)

@@ -1,0 +1,60 @@
+{
+  "reviewedAt": "2026-10-11",
+  "scope": "Đơn giá cá nhân, chính sách tính công, lịch nghỉ và phiếu lương",
+  "verification": {
+    "formatLintTypecheck": "passed",
+    "unit": { "passed": 117, "files": 21 },
+    "api": { "passed": 39, "new": 18, "regression": 21, "isolatedDatabase": true },
+    "browser": {
+      "uniquePassed": 12,
+      "projects": ["desktop", "mobile", "webkit-mobile"],
+      "savedPayslipFinalRerunPassed": 3,
+      "narrowestWidth": 320,
+      "fullSystemRerun": false
+    },
+    "productionBuild": "passed",
+    "liveSmoke": { "web": 200, "stylesheets": 200, "compileError": false }
+  },
+  "migration": {
+    "name": "202610100001_classified_workforce_pay",
+    "totalApplied": 32,
+    "liveDatabaseResetOrSeed": false
+  },
+  "preservedHistory": {
+    "approvedAttendance": { "rows": 368, "hashMatched": true },
+    "payrollLines": { "rows": 377, "hashMatched": true },
+    "personalRates": { "rows": 14, "hashMatched": true },
+    "shifts": { "rows": 151, "hashMatched": true }
+  },
+  "coveredCases": [
+    "Cùng ca đêm, mỗi người dùng đơn giá cá nhân; không áp đơn giá cố định cũ của ca vào chính sách mới",
+    "Tách công ngày thường, ban đêm, làm thêm, nghỉ tuần và ngày lễ",
+    "Ca qua ngày và giờ làm thêm ban ngày trước hoặc sau phần ban đêm",
+    "Khoảng nghỉ rõ ràng, không tự trừ vào phần đêm hoặc ngày lễ",
+    "Giữ giây chấm công gốc, tính các phút trọn vẹn",
+    "Nghỉ lễ hưởng lương tách khỏi giờ thực làm",
+    "Chặn khoảng công trùng, chưa kết thúc, thiếu căn cứ hoặc vượt giới hạn ca",
+    "Chặn duyệt khi số tiền xem trước khác kết quả tính lại",
+    "Ca kết thúc đúng 00:00 không chặn lịch nghỉ và đơn giá ngày kế tiếp",
+    "Giữ nguyên căn cứ đã duyệt khi đổi chính sách hoặc lương về sau",
+    "Phiếu đã chốt có các khoản cơ bản, khoản cộng thêm và khoảng tính công",
+    "Phiếu cá nhân hiển thị đủ số tiền trên 320 px ở admin, phục vụ và bếp"
+  ],
+  "correctedTestRuns": [
+    "Bước kiểm tra mới ban đầu khớp hai vùng cuộn; thu hẹp bộ chọn rồi chạy lại ba cấu hình đạt. Không tính lần lỗi đó là đạt."
+  ],
+  "limits": [
+    "Ngày lễ và ngày nghỉ tuần do quản trị khai báo; Chủ nhật không tự mặc định là ngày nghỉ của mọi người",
+    "Chưa quản lý hạn mức làm thêm ngày, tháng, năm và hồ sơ đồng ý làm thêm riêng",
+    "Chưa tự tính bảo hiểm, thuế thu nhập, phép năm hoặc phụ cấp từ hợp đồng",
+    "Không phải chứng nhận tuân thủ đầy đủ pháp luật lao động hoặc một hệ thống HRM hoàn chỉnh"
+  ],
+  "references": [
+    "https://helpamis.misa.vn/amis-cham-cong/kb/tinh-cong-theo-gio/",
+    "https://helpamis.misa.vn/amis-cham-cong/kb/thiet-lap-khung-gio-lam-them/",
+    "https://helpamis.misa.vn/amis-cham-cong/kb/thiet-lap-cach-tinh-he-so-gio-lam-them-qua-dem/",
+    "https://www.kiotviet.vn/tang-mien-phi-mau-bang-luong-chi-tiet-cho-nhan-vien-nha-hang/",
+    "https://vanban.chinhphu.vn/?docid=198540&pageid=27160",
+    "https://vanban.chinhphu.vn/default.aspx?docid=201967&pageid=27160"
+  ]
+}

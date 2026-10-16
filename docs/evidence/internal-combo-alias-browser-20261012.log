@@ -1,0 +1,6 @@
+Running 3 tests using 1 worker
+
+[1/3] [desktop] › tests/browser/internal-combo.spec.ts:414:1 › admin preserves its configured selling state when stock blocks the combo during edit or image upload
+[2/3] [mobile] › tests/browser/internal-combo.spec.ts:414:1 › admin preserves its configured selling state when stock blocks the combo during edit or image upload
+[3/3] [webkit-mobile] › tests/browser/internal-combo.spec.ts:414:1 › admin preserves its configured selling state when stock blocks the combo during edit or image upload
+  3 passed (25.8s)

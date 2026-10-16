@@ -1,0 +1,77 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/home/quyettruong05/projects/qr-ordering-thesis[39m
+
+(node:269002) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ [32m✓[39m tests/restaurant-workforce-history.integration.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 19249[2mms[22m[39m
+   [33m[2m✓[22m[39m bootstrap retains personal hierarchy and policy premiums instead of a flat night-shift rate [33m 582[2mms[22m[39m
+   [33m[2m✓[22m[39m previews using database guards, rolls back everything, and truncates operational work at the supplied clock [33m 355[2mms[22m[39m
+   [33m[2m✓[22m[39m calculates historical attendance with holiday and night premiums, retains exceptions, and agrees with staff actions [33m 8306[2mms[22m[39m
+ [32m✓[39m tests/payment-collection.integration.test.ts [2m([22m[2m33 tests[22m[2m)[22m[33m 14378[2mms[22m[39m
+   [33m[2m✓[22m[39m guest calls staff once with preferred method and reserves no money, including concurrent retries [33m 412[2mms[22m[39m
+   [33m[2m✓[22m[39m own-dish collection allocates only to that guest, even when another guest ordered first [33m 394[2mms[22m[39m
+   [33m[2m✓[22m[39m handoff transfers payment confirmation, proof upload and cancellation rights only after acceptance [33m 331[2mms[22m[39m
+   [33m[2m✓[22m[39m paid before kitchen acceptance shows exact blockers and closing creates shared cleaning work for both employees [33m 429[2mms[22m[39m
+   [33m[2m✓[22m[39m admin approves the refund document before staff execute it; guest sees safe partial/full history and alerts clear only after return [33m 464[2mms[22m[39m
+   [33m[2m✓[22m[39m requires explicit admin approval for old refund documents and deduplicates concurrent approvals [33m 303[2mms[22m[39m
+   [33m[2m✓[22m[39m rechecks the whole session balance before approving an old document, including a second guest order [33m 586[2mms[22m[39m
+   [33m[2m✓[22m[39m requires actual change handover, safely deduplicates concurrent confirmations, and invalidates a receipt after new items [33m 485[2mms[22m[39m
+   [33m[2m✓[22m[39m 'fully prepaid': a pre-preparation stop preserves history and refunds only the actual overpayment [33m 521[2mms[22m[39m
+   [33m[2m✓[22m[39m 'partly prepaid': a pre-preparation stop preserves history and refunds only the actual overpayment [33m 495[2mms[22m[39m
+   [33m[2m✓[22m[39m 'still owes for the remaining dish': a pre-preparation stop preserves history and refunds only the actual overpayment [33m 395[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps two cash tenders, actual change, invoice credits and refunds distinct across guest, admin and frozen receipts [33m 397[2mms[22m[39m
+   [33m[2m✓[22m[39m refund documents use the remaining invoice payment, not cash tender, and can split across two original payments [33m 483[2mms[22m[39m
+ [32m✓[39m tests/core45.integration.test.ts [2m([22m[2m22 tests[22m[2m)[22m[33m 10554[2mms[22m[39m
+   [33m[2m✓[22m[39m searches old history before pagination, validates periods and enforces role and personal scope [33m 1096[2mms[22m[39m
+   [33m[2m✓[22m[39m executes a reviewed guest order, stock consumption, split payment, snapshot and close without duplicates [33m 551[2mms[22m[39m
+   [33m[2m✓[22m[39m can reserve one serving of every canonical dish in valid batches and release exactly once [33m 1878[2mms[22m[39m
+   [33m[2m✓[22m[39m UAT v2: item ownership, partial cancellation, individual acceptance and atomic same-session serving [33m 401[2mms[22m[39m
+   [33m[2m✓[22m[39m UAT v2: unmanaged menu, late cancellation retains stock and money, explicit waiver and partial refund [33m 372[2mms[22m[39m
+ [32m✓[39m tests/policy.integration.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 6685[2mms[22m[39m
+   [33m[2m✓[22m[39m restaurant fault at IN_PREPARATION retains stock/COGS, needs admin and reverses paid money once in one decision [33m 500[2mms[22m[39m
+   [33m[2m✓[22m[39m restaurant fault at READY retains stock/COGS, needs admin and reverses paid money once in one decision [33m 496[2mms[22m[39m
+ [32m✓[39m tests/restaurant-history.integration.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 12412[2mms[22m[39m
+   [33m[2m✓[22m[39m plans the complete operating period with several thousand sessions and diverse menu items [33m 3051[2mms[22m[39m
+   [33m[2m✓[22m[39m imports settled sessions with frozen combo contents, approved refunds, cash change and balanced inventory [33m 6524[2mms[22m[39m
+ [32m✓[39m tests/combo.integration.test.ts [2m([22m[2m19 tests[22m[2m)[22m[33m 10771[2mms[22m[39m
+   [33m[2m✓[22m[39m adds poster dishes across categories and units with audited opening stock only for new ingredients, preserving legacy records [33m 921[2mms[22m[39m
+   [33m[2m✓[22m[39m upgrades only the exact earlier set template, preserves already ordered four-part snapshots and money, and reruns without changes [33m 574[2mms[22m[39m
+   [33m[2m✓[22m[39m skips a customized earlier set when its name, description, price, photo, selling state or component portions differ [33m 1379[2mms[22m[39m
+   [33m[2m✓[22m[39m seeds real fixed contents, lower bundle prices and aggregated recipes; reruns preserve custom prices and stock [33m 739[2mms[22m[39m
+   [33m[2m✓[22m[39m adds only missing dishes and combos while preserving current users, prices, recipes, stock and movements [33m 319[2mms[22m[39m
+   [33m[2m✓[22m[39m merges shared ingredients, reserves for every combo and consumes once when the whole bundle starts preparation [33m 416[2mms[22m[39m
+   [33m[2m✓[22m[39m blocks a combo when separate portions fit the stock but the shared aggregate does not, rolling back every reservation [33m 316[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps the configured selling state separate from stock availability when admin changes images [33m 406[2mms[22m[39m
+   [33m[2m✓[22m[39m shows fixed contents in a guest cart and rejects sending a silently changed combo at the same price [33m 354[2mms[22m[39m
+   [33m[2m✓[22m[39m refunds the whole prepaid combo only after admin approval and lets staff complete the approved payment [33m 395[2mms[22m[39m
+ [32m✓[39m tests/review.integration.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 9285[2mms[22m[39m
+   [33m[2m✓[22m[39m reserves exact guest names per session ignoring case, Unicode representation and extra spaces [33m 379[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps the same participant on QR reuse and returns only names from the current session [33m 388[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps edited master data when bootstrap seed is repeated [33m 573[2mms[22m[39m
+   [33m[2m✓[22m[39m expires stale guest credentials and hides recipes using inactive ingredients or no ingredients [32m 300[2mms[22m[39m
+ [32m✓[39m tests/support.integration.test.ts [2m([22m[2m29 tests[22m[2m)[22m[33m 5733[2mms[22m[39m
+ [32m✓[39m tests/table-transfer.integration.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 5420[2mms[22m[39m
+   [33m[2m✓[22m[39m preserves session, participants, unsent cart, orders, account, payments and support; freezes the final destination on receipt [33m 527[2mms[22m[39m
+ [32m✓[39m tests/table-access.integration.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 5874[2mms[22m[39m
+ [32m✓[39m tests/admin-overview.integration.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 4717[2mms[22m[39m
+ [32m✓[39m tests/workforce.integration.test.ts [2m([22m[2m21 tests[22m[2m)[22m[33m 5493[2mms[22m[39m
+   [33m[2m✓[22m[39m reverses an unavailable paid dish and freezes a printable final receipt after refund and close [33m 377[2mms[22m[39m
+(node:271588) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ [32m✓[39m tests/workforce-pay.integration.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 4013[2mms[22m[39m
+ [32m✓[39m tests/sprint1.integration.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 6079[2mms[22m[39m
+   [33m[2m✓[22m[39m migrates the complete business schema and seed twice preserves counts and passwords [33m 656[2mms[22m[39m
+   [33m[2m✓[22m[39m repeated seed preserves changed stock, table state, prices and disabled employees [33m 605[2mms[22m[39m
+ [32m✓[39m tests/workforce-demo.integration.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 2941[2mms[22m[39m
+ [32m✓[39m tests/order-history.integration.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 4488[2mms[22m[39m
+   [33m[2m✓[22m[39m cancelled lookup retains the session, decision actor and actual partial/full refunds after closing [33m 402[2mms[22m[39m
+ [32m✓[39m tests/menu-promotions.integration.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 3003[2mms[22m[39m
+ [32m✓[39m tests/catalog-refresh.integration.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 2924[2mms[22m[39m
+ [32m✓[39m tests/database.integration.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 98[2mms[22m[39m
+ [32m✓[39m tests/restaurant-data-refresh.integration.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m20 passed[39m[22m[90m (20)[39m
+[2m      Tests [22m [1m[32m252 passed[39m[22m[90m (252)[39m
+[2m   Start at [22m 12:58:40
+[2m   Duration [22m 139.74s[2m (transform 821ms, setup 0ms, import 3.71s, tests 134.12s, environment 1ms)[22m
+

@@ -1,0 +1,28 @@
+$ pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
+$ prettier --check "apps/**/*.{ts,tsx,mjs,js,css}" "packages/**/src/**/*.{ts,tsx}" "scripts/*.{ts,mjs}" "tests/**/*.{ts,tsx}" "*.{ts,mjs,json}"
+Checking formatting...
+All matched files use Prettier code style!
+$ eslint . --max-warnings 0
+$ pnpm -r --if-present typecheck && tsc --noEmit -p tsconfig.tools.json
+packages/database typecheck$ tsc --noEmit
+packages/contracts typecheck$ tsc --noEmit
+packages/ui typecheck$ tsc --noEmit
+packages/contracts typecheck: Done
+packages/ui typecheck: Done
+apps/web typecheck$ next typegen && tsc --noEmit
+apps/web typecheck: Generating route types...
+apps/web typecheck: ✓ Types generated successfully
+packages/database typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/api typecheck: Done
+apps/web typecheck: lib/api-client.ts(58,20): error TS2339: Property 'ok' does not exist on type 'Response | Promise<Response>'.
+apps/web typecheck:   Property 'ok' does not exist on type 'Promise<Response>'.
+apps/web typecheck: Failed
+[ELIFECYCLE] Command failed with exit code 2.
+Error: ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL
+
+  × "pnpm recursive run" failed in /home/quyettruong05/projects/qr-ordering-
+  │ thesis/apps/web
+
+[ELIFECYCLE] Command failed with exit code 1.
+[ELIFECYCLE] Command failed with exit code 1.

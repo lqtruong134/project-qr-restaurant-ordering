@@ -1,0 +1,338 @@
+{
+  "date": "2026-10-01T15:10:15.151Z",
+  "scope": "Guest support request, STAFF claim/resolve, acknowledged handoff and ADMIN read-only history",
+  "baselineCommit": "7b6301aeb2b7bd6bc519b8cc018506d2ab92f649",
+  "uncommitted": true,
+  "database": {
+    "name": "qr_restaurant_ordering",
+    "tables": 56,
+    "columns": 609,
+    "foreignKeys": 137,
+    "successfulMigrations": 26,
+    "rolledBackAttempts": 2,
+    "apiOperations": 124,
+    "operationalSeedReset": false
+  },
+  "migrations": [
+    "202610010002_support_handoffs",
+    "202610010003_support_outbox_guards"
+  ],
+  "supportStates": [
+    "NEW",
+    "ACKNOWLEDGED",
+    "RESOLVED"
+  ],
+  "historicalCompatibility": [
+    "CANCELLED",
+    "SUPPORT_REASSIGN audit"
+  ],
+  "handoffStates": [
+    "PENDING",
+    "ACCEPTED",
+    "DECLINED",
+    "CANCELLED"
+  ],
+  "ownership": "Sender retains responsibility while pending or declined; acceptance transfers responsibility atomically to target. Owner resolve cancels pending handoff atomically.",
+  "visibility": "All active users with staff.workspace within restaurant can see active requests; on-duty and same-area matches are highlighted and prioritized for handoff selection, with valid service-staff fallback.",
+  "notifications": "Existing transactional outbox/PostgreSQL NOTIFY; browser polling 3000ms and refresh on focus, visible tab and online. Visual incoming banner and badge; sound opt-in.",
+  "concurrency": "Sorted account locks, then table session, request and handoff locks; partial unique active guest/type and pending handoff; deferred pending-owner consistency checks; immutable finished handoff history.",
+  "guestPrivacy": "Only own participant requests, max 20 active first; Vietnamese labels and no internal staff identity/handoff/audit fields.",
+  "audit": "Request participant and creation outbox; staff business_audit_event and separate handoff history. Repeatable-read history snapshots.",
+  "files": [
+    {
+      "path": "apps/api/src/modules/support/support.routes.ts",
+      "change": "added",
+      "sha256": "6d9d85500411554030d6bcb316eba7658521f9b337fad741d78f261340745c43"
+    },
+    {
+      "path": "apps/api/src/modules/support/support.service.ts",
+      "change": "added",
+      "sha256": "efd6b91955879b6fafbbb7e6fb4ff7573ce082844bcc0b67a2d9d8875919a66f"
+    },
+    {
+      "path": "apps/web/app/support.css",
+      "change": "added",
+      "sha256": "f40c66531381c33dd7235ac5a157582a6824e356032af1c5edc4daf41010d851"
+    },
+    {
+      "path": "apps/web/features/admin/support-report.tsx",
+      "change": "added",
+      "sha256": "1f128303f3ce38cd587a648d805fa00f473930b3157f6f5c9b660dd6b26ec7fe"
+    },
+    {
+      "path": "apps/web/features/guest/guest-support.tsx",
+      "change": "added",
+      "sha256": "7d776fea9cf08e59f1ce3665138af62a25f7264bee8130991885ee3b27205ffe"
+    },
+    {
+      "path": "apps/web/features/workspace/support-history.tsx",
+      "change": "added",
+      "sha256": "1d223f5f771c4a1467da6d6f97c306f46f31581d34b05d9ba5322b5f07135a7b"
+    },
+    {
+      "path": "apps/web/features/workspace/support-panel.tsx",
+      "change": "added",
+      "sha256": "fcea7580a21c4a00103afa3105836148f481197dc41a5217fcfd9b884855371e"
+    },
+    {
+      "path": "packages/contracts/src/restaurant-policy.ts",
+      "change": "modified",
+      "sha256": "1e4772720bc951da3f34e8776e7de4b094da3fd7922863077a4d54d91afb77a4"
+    },
+    {
+      "path": "packages/contracts/src/support-policy.ts",
+      "change": "added",
+      "sha256": "18627d5164e4b40298c32209d9636c19711ee90430727529b62691c3d20a8bf3"
+    },
+    {
+      "path": "packages/database/prisma/migrations/202610010002_support_handoffs/migration.sql",
+      "change": "added",
+      "sha256": "df8c7c6a98ed27d6c72326a5849dddc42a43246bfd8bee4720e4c0dee5ec7e9d"
+    },
+    {
+      "path": "packages/database/prisma/migrations/202610010003_support_outbox_guards/migration.sql",
+      "change": "added",
+      "sha256": "dfe81a12cc704d1f4285a82fb41fba7f2d91ebcafa601f27786beb4ccf388a99"
+    },
+    {
+      "path": "tests/browser/support.spec.ts",
+      "change": "added",
+      "sha256": "57ef097915b9c31b8b37f526896d75953176b24da3ba8f01e62a30c65f98f1fd"
+    },
+    {
+      "path": "tests/support.integration.test.ts",
+      "change": "added",
+      "sha256": "a3ec80de4e1a278a88213f55a6059850f6e9383ac39bc3eddce2d42c71ae256e"
+    },
+    {
+      "path": "apps/api/src/modules/dining/dining.routes.ts",
+      "change": "modified",
+      "sha256": "c8054d85e08a95ace75811a16c4561a15b2f64b9312eb48d7578ac5894df77d9"
+    },
+    {
+      "path": "apps/api/src/modules/index.ts",
+      "change": "modified",
+      "sha256": "ede296454120b03cdd6437392e6f05570ee9109202d5f4a6281ba92de4639270"
+    },
+    {
+      "path": "apps/api/src/modules/sessions/guest.routes.ts",
+      "change": "modified",
+      "sha256": "b32a8806e63494252322f2f3405d1dfe5cdd1cee88dfe12e886845a5f75c34ca"
+    },
+    {
+      "path": "apps/api/src/modules/staff-access/staff-access.routes.ts",
+      "change": "modified",
+      "sha256": "cb259f9da4d0a7c6baf5f2b1b928fb79b49e7d5655d7f3ed3abf1359842c7581"
+    },
+    {
+      "path": "apps/web/app/layout.tsx",
+      "change": "modified",
+      "sha256": "3988973f16e232bc926760e95eb576c8abc422e93a6bfc78caaeb869aadc8a14"
+    },
+    {
+      "path": "apps/web/features/admin/reports-panel.tsx",
+      "change": "modified",
+      "sha256": "75f808e1e2ced12fecb6c4f145b41a5f3d60310f9c3815fbd1582e0e5e07f45d"
+    },
+    {
+      "path": "apps/web/features/guest/guest.tsx",
+      "change": "modified",
+      "sha256": "fcc2f9b45047267cfe985d31a3610c68b40f030e77df17da189b119ab60708cb"
+    },
+    {
+      "path": "apps/web/features/workspace/service-actions.tsx",
+      "change": "modified",
+      "sha256": "7dc9f8ce78f775ea751408c440cbe6a17e2fa48991fc237b82e9e5030b971e14"
+    },
+    {
+      "path": "apps/web/features/workspace/service.tsx",
+      "change": "modified",
+      "sha256": "df593711c49dfd1216369692024a2bcce546416ad0ff4b7309398844fa17cb35"
+    },
+    {
+      "path": "packages/contracts/src/index.ts",
+      "change": "modified",
+      "sha256": "d55b1def5b21252faff657226814e641103c9950056a827b53309586fe11d4f5"
+    },
+    {
+      "path": "packages/database/prisma/schema.prisma",
+      "change": "modified",
+      "sha256": "98f51349ff4beda850863eee32049d2256a497aec6ac48d3b03370de525788c5"
+    },
+    {
+      "path": "scripts/core-api-docs.ts",
+      "change": "modified",
+      "sha256": "50cfbcbbf3ea1563bdc82de5a06b5336c2226561c306af867d2924345e156e50"
+    },
+    {
+      "path": "tests/core45.integration.test.ts",
+      "change": "modified",
+      "sha256": "2c6fd045ef30e456348288b49bb51064b66313ae33f0387ff499ab869c52ff96"
+    },
+    {
+      "path": "tests/sprint1.integration.test.ts",
+      "change": "modified",
+      "sha256": "f180f502bab0478f966437a3fcae27e1b142667f739a31cbede0ee0df8bb1409"
+    }
+  ],
+  "removedFiles": [],
+  "tests": {
+    "unit": 21,
+    "apiIntegrationPassed": 91,
+    "apiIntegrationFiles": 7,
+    "newSupportIntegration": 29,
+    "supportBrowserProjectsPassed": 3,
+    "fullBrowserPassed": 53,
+    "fullBrowserSkipped": 1,
+    "skipReason": "Swagger mobile explicitly skipped",
+    "buildRoutes": 7,
+    "widthsChecked": [
+      320,
+      768,
+      1440
+    ],
+    "agingFixture": "Six-minute timestamp in support-list response fixture; actions use real test API"
+  },
+  "checks": [
+    {
+      "label": "baseline-check",
+      "started": "2026-10-01T13:19:43.524Z",
+      "finished": "2026-10-01T13:19:55.045Z",
+      "args": [
+        "check"
+      ],
+      "code": 0,
+      "log": "../evidence/support-baseline-check.log"
+    },
+    {
+      "label": "baseline-integration",
+      "started": "2026-10-01T13:19:59.086Z",
+      "finished": "2026-10-01T13:20:09.735Z",
+      "args": [
+        "test:integration"
+      ],
+      "code": 0,
+      "log": "../evidence/support-baseline-integration.log"
+    },
+    {
+      "label": "final-check",
+      "started": "2026-10-01T14:46:08.501Z",
+      "finished": "2026-10-01T14:46:23.129Z",
+      "args": [
+        "check"
+      ],
+      "code": 0,
+      "log": "../evidence/support-final-check.log"
+    },
+    {
+      "label": "integration-third",
+      "started": "2026-10-01T14:27:10.741Z",
+      "finished": "2026-10-01T14:27:25.571Z",
+      "args": [
+        "test:integration"
+      ],
+      "code": 0,
+      "log": "../evidence/support-integration-third.log"
+    },
+    {
+      "label": "e2e-support-second",
+      "started": "2026-10-01T14:27:37.435Z",
+      "finished": "2026-10-01T14:28:52.114Z",
+      "args": [
+        "test:e2e",
+        "support.spec.ts"
+      ],
+      "code": 0,
+      "log": "../evidence/support-e2e-support-second.log"
+    },
+    {
+      "label": "final-e2e",
+      "started": "2026-10-01T14:45:50.596Z",
+      "finished": "2026-10-01T14:51:03.870Z",
+      "args": [
+        "test:e2e"
+      ],
+      "code": 0,
+      "log": "../evidence/support-final-e2e.log"
+    },
+    {
+      "label": "final-build",
+      "started": "2026-10-01T14:51:36.297Z",
+      "finished": "2026-10-01T14:51:42.227Z",
+      "args": [
+        "build"
+      ],
+      "code": 0,
+      "log": "../evidence/support-final-build.log"
+    },
+    {
+      "label": "schema-diff",
+      "started": "2026-10-01T14:30:50.269Z",
+      "finished": "2026-10-01T14:30:52.483Z",
+      "args": [
+        "exec",
+        "tsx",
+        "/mnt/c/Users/Admin/.codex/.chatgpt-projects/g-p-6abb725d13508191b0b02a8845acc6cd/business-review/schema-diff.mjs"
+      ],
+      "code": 0,
+      "log": "../evidence/support-schema-diff.log"
+    },
+    {
+      "label": "secrets",
+      "started": "2026-10-01T14:40:48.143Z",
+      "finished": "2026-10-01T14:40:48.383Z",
+      "args": [
+        "check:secrets"
+      ],
+      "code": 0,
+      "log": "../evidence/support-secrets.log"
+    },
+    {
+      "label": "inspect-final",
+      "started": "2026-10-01T15:10:13.842Z",
+      "finished": "2026-10-01T15:10:15.250Z",
+      "args": [
+        "exec",
+        "tsx",
+        "/mnt/c/Users/Admin/.codex/.chatgpt-projects/g-p-6abb725d13508191b0b02a8845acc6cd/documentation-work/inspect.ts"
+      ],
+      "code": 0,
+      "log": "../evidence/support-inspect-final.log"
+    },
+    {
+      "label": "published-build",
+      "started": "2026-10-01T15:14:28.112Z",
+      "finished": "2026-10-01T15:14:33.576Z",
+      "args": [
+        "build"
+      ],
+      "code": 0,
+      "log": "../evidence/support-published-build.log"
+    },
+    {
+      "label": "published-secrets",
+      "started": "2026-10-01T15:14:35.024Z",
+      "finished": "2026-10-01T15:14:35.223Z",
+      "args": [
+        "check:secrets"
+      ],
+      "code": 0,
+      "log": "../evidence/support-published-secrets.log"
+    }
+  ],
+  "limits": [
+    "No long-running restaurant acceptance or load test",
+    "No offline workflow",
+    "No WebSocket/SSE implementation",
+    "No automatic routing or expiry",
+    "No assertion that software proves real-world service completion"
+  ],
+  "finishedAt": "2026-10-01T15:28:54.997Z",
+  "documentation": {
+    "sourceHashesChecked": 219,
+    "swaggerOperations": 122,
+    "inlineScriptsParsed": 1,
+    "htmlPages": 25,
+    "issues": []
+  }
+}

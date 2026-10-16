@@ -1,0 +1,2 @@
+# Preserve original test output, including line endings and console spacing.
+*.log -text -whitespace

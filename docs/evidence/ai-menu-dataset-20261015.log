@@ -1,0 +1,12 @@
+$ node --import tsx scripts/menu-assistant-data.ts validate
+{
+  "validationType": "SCHEMA_SPLIT_AND_GOLD_GUARDS_ONLY",
+  "modelQualityMeasured": false,
+  "valid": true,
+  "counts": {
+    "train": 24,
+    "validation": 6,
+    "evaluation": 6
+  },
+  "issues": []
+}

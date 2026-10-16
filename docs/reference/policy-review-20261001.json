@@ -1,0 +1,339 @@
+{
+  "date": "2026-10-01",
+  "capturedAt": "2026-10-01T12:39:11.312Z",
+  "baseCommit": "7b6301aeb2b7bd6bc519b8cc018506d2ab92f649",
+  "committed": false,
+  "database": "qr_restaurant_ordering",
+  "tables": 55,
+  "columns": 598,
+  "foreignKeys": 132,
+  "migrations": 24,
+  "apiOperations": 118,
+  "migration": "202610010001_guest_policy_order_reasons",
+  "operationalReset": false,
+  "policyVersion": "2026-10-v1",
+  "sourceFiles": [
+    {
+      "path": "apps/api/src/app.ts",
+      "kind": "updated",
+      "sha256": "2da05c34226574db15f13a83c249e56490f44ac8f90b3310a2bd3fdf7803a692"
+    },
+    {
+      "path": "apps/api/src/modules/dining/dining.routes.ts",
+      "kind": "updated",
+      "sha256": "82b0d20de93c6d00d73f84a90b96929059c630094561232be64aef7132aa15e1"
+    },
+    {
+      "path": "apps/api/src/modules/finance/ledger.service.ts",
+      "kind": "updated",
+      "sha256": "c6e28bec5b71885e628355ed881edf6d5499977fc6b63c45f494f029e68891a7"
+    },
+    {
+      "path": "apps/api/src/modules/index.ts",
+      "kind": "updated",
+      "sha256": "d216105e7c80e3113c50d7e7f25909dfdc21d9200918984541918762881a4fc8"
+    },
+    {
+      "path": "apps/api/src/modules/orders/cancellation.service.ts",
+      "kind": "updated",
+      "sha256": "c3cde0d81d778ef4fef0b49763fa67955891e00648b17617328823560ae6c8bb"
+    },
+    {
+      "path": "apps/api/src/modules/orders/exception.routes.ts",
+      "kind": "updated",
+      "sha256": "3dda3f1963cb4e947e69d5eab14d7fea820799afdaa702304d42a8e161d3ac25"
+    },
+    {
+      "path": "apps/api/src/modules/orders/issue.routes.ts",
+      "kind": "new",
+      "sha256": "c8a981f4bbd3f9f39cc88e6e2368ae48c77c4ab37adc230c23f7b81ca722e2f2"
+    },
+    {
+      "path": "apps/api/src/modules/orders/item-lifecycle.service.ts",
+      "kind": "updated",
+      "sha256": "4ebe15317577a11b326ae58f0d73c5b78142245868297fa7a2c82c49fcd4f0cd"
+    },
+    {
+      "path": "apps/api/src/modules/orders/orders.routes.ts",
+      "kind": "updated",
+      "sha256": "8c12b36ebb004d829294583f1f3e1367d4d8d6ab7c10c36b5a233e7918f94d92"
+    },
+    {
+      "path": "apps/api/src/modules/orders/reasons.test.ts",
+      "kind": "new",
+      "sha256": "91ed79a67fc928a6fe2fda7e2cea0f0357a570c7e59167484d2cda82d7b02492"
+    },
+    {
+      "path": "apps/api/src/modules/orders/reasons.ts",
+      "kind": "new",
+      "sha256": "ecd9297f6681b7b4ca33d90933549f7652d42eccb211b0e6bd3f85651bf15898"
+    },
+    {
+      "path": "apps/api/src/modules/payments/payments.routes.ts",
+      "kind": "updated",
+      "sha256": "19b5daa48f4070a1e5ac5105b43a90145d5226d279c16eed0b7befa467844ec0"
+    },
+    {
+      "path": "apps/api/src/modules/payments/receipt.service.ts",
+      "kind": "updated",
+      "sha256": "babe335805e79044e071eba6a7ee0657ca87c1ef10b82f3de9b64ab83f354454"
+    },
+    {
+      "path": "apps/api/src/modules/sessions/guest.routes.ts",
+      "kind": "updated",
+      "sha256": "97743ce31e078333affe51dbced35ee517277c721f287463c737faded0285ea6"
+    },
+    {
+      "path": "apps/web/app/workspace/[area]/page.tsx",
+      "kind": "updated",
+      "sha256": "d10495a12fa20302d6a12d5b7c45f9aacff19d6a5548d3d51f090150e994ea7e"
+    },
+    {
+      "path": "apps/web/features/admin/order-exceptions.tsx",
+      "kind": "updated",
+      "sha256": "5a304a29857f6c652486b3f1664fb5d7145745ce5ee15bca05c2e6e859a3e7cd"
+    },
+    {
+      "path": "apps/web/features/admin/reports-panel.tsx",
+      "kind": "updated",
+      "sha256": "7a8a0d146dd2bb7db51dbfb179df4625781e08100571c9519dc0c33f6448b773"
+    },
+    {
+      "path": "apps/web/features/admin/risk-panel.tsx",
+      "kind": "updated",
+      "sha256": "5ce65404e6455f79c6f9348b84bdf7736d2a5df70891752855e3d776533b0dea"
+    },
+    {
+      "path": "apps/web/features/admin/stock-adjustment.tsx",
+      "kind": "updated",
+      "sha256": "21cb8c3cfc9d2bfe227b1ee6886c284087120cbb628a3deec32c1d09701f5d79"
+    },
+    {
+      "path": "apps/web/features/admin/users-panel.tsx",
+      "kind": "updated",
+      "sha256": "019159ff74af433ce8d4ce00232c14f1753aa77305880996cd7fa39f0fff01f5"
+    },
+    {
+      "path": "apps/web/features/guest/bill-lines.tsx",
+      "kind": "new",
+      "sha256": "3d6b0caffbe92b362a4ab72753078ec7b5015cacbf89adbd4ed0328d6ad3f110"
+    },
+    {
+      "path": "apps/web/features/guest/guest-panels.tsx",
+      "kind": "updated",
+      "sha256": "21aa1cea253181f48bd6f964917a3755d51361f4905e37c6fd6b19d7ff99fbe5"
+    },
+    {
+      "path": "apps/web/features/guest/guest.tsx",
+      "kind": "updated",
+      "sha256": "0c86692b78bf27cf8fec7fa26a2a02c33343fcbefdac935f62e067ef457101aa"
+    },
+    {
+      "path": "apps/web/features/guest/join-form.tsx",
+      "kind": "new",
+      "sha256": "ca5162ffaf6232432b286ff9e99848e14ad1b518af308c3ff42b9bbd5de30baf"
+    },
+    {
+      "path": "apps/web/features/shared/components.tsx",
+      "kind": "updated",
+      "sha256": "d07e9df5680b26f0f692089898a23263dd522f4a5d17047d40ff1157fa51d0eb"
+    },
+    {
+      "path": "apps/web/features/shared/policy-ui.tsx",
+      "kind": "new",
+      "sha256": "e335dfb058427a6d1a673669de99de26fe47303c79a3a56b6ccee364dbd8d0a6"
+    },
+    {
+      "path": "apps/web/features/shared/primitives.tsx",
+      "kind": "updated",
+      "sha256": "b6061b9bf015af082de6fd9197e76f83c9b29f159a7158eeb417d031ae2c606e"
+    },
+    {
+      "path": "apps/web/features/workforce/payroll-panel.tsx",
+      "kind": "updated",
+      "sha256": "6bde3b55dca4ffc3d83f2a4e87784561a870c846802b945f7549b33020012c04"
+    },
+    {
+      "path": "apps/web/features/workforce/workforce-panel.tsx",
+      "kind": "updated",
+      "sha256": "f7698aeb8c5cdd9ec142741c95981ed671a67286b9082d4b9d0fd0c2c5bd0d30"
+    },
+    {
+      "path": "apps/web/features/workspace/bill-panel.tsx",
+      "kind": "updated",
+      "sha256": "e359dd1855f5b57824c74832de297921da9671679ca3c37aa20b9bcc48b9b773"
+    },
+    {
+      "path": "apps/web/features/workspace/order-card.tsx",
+      "kind": "updated",
+      "sha256": "79de4ee8e01c888aade21818c7bc909930fd3d61f84910081dbf69b7af268828"
+    },
+    {
+      "path": "apps/web/features/workspace/receipt.tsx",
+      "kind": "updated",
+      "sha256": "49da9e38346954cdd0a9dfa5c44c0e2193b809711ce661089ecfec6b4a4b8715"
+    },
+    {
+      "path": "apps/web/features/workspace/service-actions.tsx",
+      "kind": "updated",
+      "sha256": "2b757326aadab3069e8d05bb28a7dc13af1d4e7d8bee3af86976fcf0c64901a4"
+    },
+    {
+      "path": "apps/web/styles/interface.css",
+      "kind": "updated",
+      "sha256": "210e23fbafe886c37987d9fd7ba1af79f2fea65ef7e0ccd347cdea9f74c7335a"
+    },
+    {
+      "path": "packages/contracts/src/index.ts",
+      "kind": "updated",
+      "sha256": "c4427fa7757ddedf509e5766461c515536baa643601a4ea08b326779ca4f6bfb"
+    },
+    {
+      "path": "packages/contracts/src/order-reasons.ts",
+      "kind": "new",
+      "sha256": "9c5f10a8f083a21e0486d3d6c2dc5ba61b28e782f358e21859eb2ab2d0221d90"
+    },
+    {
+      "path": "packages/contracts/src/restaurant-policy.ts",
+      "kind": "new",
+      "sha256": "04c17f816c7b24c45cfca5286f0cc52d0fcdb8718cf06f6b71e681f257b4dc8b"
+    },
+    {
+      "path": "packages/database/prisma/migrations/202610010001_guest_policy_order_reasons/migration.sql",
+      "kind": "new",
+      "sha256": "d044ff6f6782520f9cd53d7866a1d35bd41e149bf576255d108130f1e795aec5"
+    },
+    {
+      "path": "packages/database/prisma/schema.prisma",
+      "kind": "updated",
+      "sha256": "db749af45950fde7f80a7b3224643751c1db8c1128c80c760153e25b56b2e405"
+    },
+    {
+      "path": "scripts/core-api-docs.ts",
+      "kind": "updated",
+      "sha256": "087ceaf7404924214cd342061044851f9679e692c4d76d3a8de9ecbd5ce85aae"
+    },
+    {
+      "path": "tests/browser/core45.spec.ts",
+      "kind": "updated",
+      "sha256": "a5460ca9df6a1c9826619aec187a3570d4d9d4e57a2f7d5eafb6ed8bad65f895"
+    },
+    {
+      "path": "tests/browser/interface.spec.ts",
+      "kind": "updated",
+      "sha256": "844e8373c86b60f21128a5a03946eb68431835b3ec94d20a987c1438d2537d3f"
+    },
+    {
+      "path": "tests/browser/policy.spec.ts",
+      "kind": "new",
+      "sha256": "20600a9851ca15f7a557cd49bf44569fd86f6d3cdb87cdac38bb1b25186cb364"
+    },
+    {
+      "path": "tests/browser/workforce.spec.ts",
+      "kind": "updated",
+      "sha256": "33b52d05bb967b98f46ef103c06537fcbe9dbfc3d854b8ff4aa4d60aacc217b4"
+    },
+    {
+      "path": "tests/core45.integration.test.ts",
+      "kind": "updated",
+      "sha256": "5004ffab18352e79ea654720b86741c7322742190df3269360fa54c72297de1f"
+    },
+    {
+      "path": "tests/policy.integration.test.ts",
+      "kind": "new",
+      "sha256": "971fb0dbc769dddbb342047c72da45143f3362019978230356bca9dfd0cbb54e"
+    },
+    {
+      "path": "tests/review.integration.test.ts",
+      "kind": "updated",
+      "sha256": "f92b7f8a2c526c9982d1831d3465f9a117f8f382883bc8f84f4de176078dc68e"
+    },
+    {
+      "path": "tests/workforce.integration.test.ts",
+      "kind": "updated",
+      "sha256": "8cccb8e1736821102b3f43f2e70f5ea23c8db163488f0fb7fb3774e8ccce15a3"
+    }
+  ],
+  "tests": {
+    "before": {
+      "unit": 19,
+      "integration": 51,
+      "preExistingFailures": 0
+    },
+    "finalCheck": {
+      "passed": true,
+      "unit": 21,
+      "unitFiles": 6
+    },
+    "integration": {
+      "passed": 62,
+      "failed": 0,
+      "files": 6
+    },
+    "migrationSql": {
+      "passed": 6
+    },
+    "schemaDiff": {
+      "readOnly": true,
+      "exitCode": 0,
+      "empty": true
+    },
+    "earlierFullBrowser": {
+      "passed": 49,
+      "skipped": 1,
+      "failed": 1,
+      "fixed": "Mobile attendance wide table obscured review button"
+    },
+    "guestAssertionSelectorRun": {
+      "passed": 47,
+      "skipped": 1,
+      "failed": 3,
+      "fixed": "Scope guest alert assertion to guest welcome; exclude Next empty route announcer"
+    },
+    "qrNavigationRun": {
+      "passed": 46,
+      "skipped": 1,
+      "failed": 4,
+      "fixed": "Handle QR hash changes and stale responses; wait for actual cart submission completion before navigating in WebKit test"
+    },
+    "workforceAfterFix": {
+      "passed": 9,
+      "duration": "39.0s"
+    },
+    "qrAfterFix": {
+      "passed": 9,
+      "duration": "1.7m"
+    },
+    "finalBrowser": {
+      "passed": 50,
+      "skipped": 1,
+      "failed": 0,
+      "total": 51,
+      "duration": "4.3m"
+    },
+    "build": true,
+    "secrets": true
+  },
+  "businessDecision": "Kitchen reports and stops prepared/ready item; ADMIN confirms restaurant fault and reverses charge in one transaction. Retain consumed stock/COGS; refund received money separately.",
+  "limits": [
+    "No production load/long-duration acceptance",
+    "No complete online checkout or AI chatbot",
+    "Human managerial review required for fault truth",
+    "One intentionally skipped Swagger mobile scenario",
+    "Basic secret scan is not security audit"
+  ],
+  "screenshots": [
+    "evidence/policy-policy-dialog-desktop.png",
+    "evidence/policy-guest-order-review-desktop.png",
+    "evidence/policy-guest-fault-bill-desktop.png",
+    "evidence/policy-attendance-desktop.png",
+    "evidence/policy-policy-dialog-mobile.png",
+    "evidence/policy-guest-order-review-mobile.png",
+    "evidence/policy-guest-fault-bill-mobile.png",
+    "evidence/policy-attendance-mobile.png",
+    "evidence/policy-policy-dialog-webkit-mobile.png",
+    "evidence/policy-guest-order-review-webkit-mobile.png",
+    "evidence/policy-guest-fault-bill-webkit-mobile.png",
+    "evidence/policy-attendance-webkit-mobile.png"
+  ]
+}

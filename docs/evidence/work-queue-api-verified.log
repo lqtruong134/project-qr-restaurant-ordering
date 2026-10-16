@@ -1,0 +1,33 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/home/quyettruong05/projects/qr-ordering-thesis[39m
+
+ [32m✓[39m tests/core45.integration.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 9562[2mms[22m[39m
+   [33m[2m✓[22m[39m executes a reviewed guest order, stock consumption, split payment, snapshot and close without duplicates [33m 903[2mms[22m[39m
+   [33m[2m✓[22m[39m cancels a paid unprepared order and refunds once with a reconciled zero balance [33m 302[2mms[22m[39m
+   [33m[2m✓[22m[39m expires reviews and payments, releases stock and publishes the committed outbox [33m 331[2mms[22m[39m
+   [33m[2m✓[22m[39m restricts debt write-off to admin and only after the kitchen has finished [33m 302[2mms[22m[39m
+   [33m[2m✓[22m[39m can reserve one serving of every seeded dish without adding ingredients or recipes manually [33m 847[2mms[22m[39m
+   [33m[2m✓[22m[39m UAT v2: item ownership, partial cancellation, individual acceptance and atomic same-session serving [33m 717[2mms[22m[39m
+   [33m[2m✓[22m[39m UAT v2: unmanaged menu, late cancellation retains stock and money, explicit waiver and partial refund [33m 592[2mms[22m[39m
+ [32m✓[39m tests/policy.integration.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 8858[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps leave behavior: deletes only unsent own cart, retains orders, acceptance and debt, clears cookie [33m 362[2mms[22m[39m
+   [33m[2m✓[22m[39m guest cancels only own submitted items, and staff cancels accepted items with release, reversal and audit [33m 397[2mms[22m[39m
+   [33m[2m✓[22m[39m restaurant fault at IN_PREPARATION retains stock/COGS, needs admin and reverses paid money once in one decision [33m 698[2mms[22m[39m
+   [33m[2m✓[22m[39m restaurant fault at READY retains stock/COGS, needs admin and reverses paid money once in one decision [33m 704[2mms[22m[39m
+   [33m[2m✓[22m[39m late customer change retains charge; rejecting a kitchen claim records the managerial decision [33m 391[2mms[22m[39m
+ [32m✓[39m tests/support.integration.test.ts [2m([22m[2m29 tests[22m[2m)[22m[33m 4659[2mms[22m[39m
+ [32m✓[39m tests/payment-collection.integration.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 5628[2mms[22m[39m
+   [33m[2m✓[22m[39m own-dish collection allocates only to that guest, even when another guest ordered first [33m 322[2mms[22m[39m
+ [32m✓[39m tests/sprint1.integration.test.ts [2m([22m[2m15 tests[22m[2m)[22m[33m 4305[2mms[22m[39m
+   [33m[2m✓[22m[39m migrates exactly 56 business tables and seed twice preserves counts and passwords [33m 327[2mms[22m[39m
+ [32m✓[39m tests/review.integration.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 3600[2mms[22m[39m
+ [32m✓[39m tests/table-transfer.integration.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 3553[2mms[22m[39m
+   [33m[2m✓[22m[39m preserves session, participants, unsent cart, orders, account, payments and support; freezes the final destination on receipt [33m 365[2mms[22m[39m
+ [32m✓[39m tests/workforce.integration.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 2423[2mms[22m[39m
+ [32m✓[39m tests/database.integration.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 88[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m      Tests [22m [1m[32m121 passed[39m[22m[90m (121)[39m
+[2m   Start at [22m 18:09:33
+[2m   Duration [22m 45.19s[2m (transform 462ms, setup 0ms, import 1.69s, tests 42.68s, environment 1ms)[22m
+

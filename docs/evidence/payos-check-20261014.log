@@ -1,0 +1,58 @@
+$ pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
+$ prettier --check "apps/**/*.{ts,tsx,mjs,js,css}" "packages/**/src/**/*.{ts,tsx}" "scripts/*.{ts,mjs}" "tests/**/*.{ts,tsx}" "*.{ts,mjs,json}"
+Checking formatting...
+All matched files use Prettier code style!
+$ eslint . --max-warnings 0
+$ pnpm -r --if-present typecheck && tsc --noEmit -p tsconfig.tools.json
+packages/contracts typecheck$ tsc --noEmit
+packages/ui typecheck$ tsc --noEmit
+packages/contracts typecheck: Done
+packages/database typecheck$ tsc --noEmit
+packages/ui typecheck: Done
+apps/web typecheck$ next typegen && tsc --noEmit
+apps/web typecheck: Generating route types...
+apps/web typecheck: ✓ Types generated successfully
+apps/web typecheck: Done
+packages/database typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/api typecheck: Done
+$ vitest run
+
+ RUN  v4.1.11 /home/quyettruong05/projects/qr-ordering-thesis
+
+ ✓ apps/web/lib/api-client.test.ts (8 tests) 83ms
+ ✓ apps/web/features/shared/money-format.test.ts (2 tests) 38ms
+ ✓ apps/web/features/shared/history-range.test.ts (2 tests) 40ms
+ ✓ apps/web/features/shared/payment-summary.test.ts (11 tests) 10ms
+ ✓ apps/web/lib/auth-renewal.test.ts (8 tests) 112ms
+ ✓ apps/web/features/admin/pricing-admin-model.test.ts (15 tests) 62ms
+ ✓ apps/web/features/shared/restaurant-time.test.ts (2 tests) 24ms
+ ✓ apps/api/src/modules/workforce/pay-calculation.test.ts (11 tests) 119ms
+ ✓ apps/web/features/shared/billing-summary.test.ts (4 tests) 17ms
+ ✓ apps/web/features/workforce/format.test.ts (6 tests) 28ms
+ ✓ apps/web/features/workforce/schedule-data.test.ts (3 tests) 31ms
+ ✓ apps/web/features/guest/dish-notices.test.ts (8 tests) 9ms
+ ✓ apps/api/src/modules/workforce/attendance.test.ts (10 tests) 10ms
+ ✓ apps/api/src/modules/workforce/workforce.service.test.ts (13 tests) 16ms
+ ✓ apps/web/features/workforce/timesheet-data.test.ts (4 tests) 26ms
+ ✓ apps/api/src/modules/admin/report-range.test.ts (3 tests) 5ms
+ ✓ apps/api/src/modules/finance/billing-math.test.ts (4 tests) 9ms
+ ✓ apps/api/src/app.test.ts (4 tests) 91ms
+ ✓ apps/web/features/guest/payment-status.test.ts (9 tests) 19ms
+ ✓ apps/web/features/shared/online-payment.test.ts (12 tests) 8ms
+ ✓ apps/api/src/modules/inventory/receipt-number.test.ts (1 test) 5ms
+ ✓ apps/web/features/workspace/receipt-lines.test.ts (7 tests) 10ms
+ ✓ packages/database/src/database-doc-inventory.test.ts (2 tests) 7ms
+ ✓ apps/api/src/modules/orders/reasons.test.ts (2 tests) 7ms
+ ✓ apps/web/features/shared/refund-source.test.ts (3 tests) 8ms
+ ✓ apps/web/features/shared/money-suggestions.test.ts (2 tests) 4ms
+ ✓ apps/web/lib/media.test.ts (3 tests) 3ms
+ ✓ apps/web/features/guest/menu-promotions.test.ts (7 tests) 18ms
+ ✓ apps/api/src/modules/finance/tax-classification.test.ts (2 tests) 3ms
+ ✓ packages/database/src/menu-images.test.ts (8 tests) 403ms
+
+ Test Files  30 passed (30)
+      Tests  176 passed (176)
+   Start at  12:29:59
+   Duration  893ms (transform 3.49s, setup 0ms, import 4.56s, tests 1.22s, environment 4ms)
+

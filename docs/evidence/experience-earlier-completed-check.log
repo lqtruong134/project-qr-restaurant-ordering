@@ -1,0 +1,14 @@
+$ pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
+$ prettier --check "apps/**/*.{ts,tsx,mjs,js,css}" "packages/**/src/**/*.{ts,tsx}" "scripts/*.{ts,mjs}" "tests/**/*.{ts,tsx}" "*.{ts,mjs,json}"
+Checking formatting...
+All matched files use Prettier code style!
+$ eslint . --max-warnings 0
+
+/home/quyettruong05/projects/qr-ordering-thesis/tests/browser/operations-experience.spec.ts
+  112:9  error  'dialog' is never reassigned. Use 'const' instead  prefer-const
+
+✖ 1 problem (1 error, 0 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+
+[ELIFECYCLE] Command failed with exit code 1.
+[ELIFECYCLE] Command failed with exit code 1.

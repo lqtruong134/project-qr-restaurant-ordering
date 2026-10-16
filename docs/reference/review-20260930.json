@@ -1,0 +1,36 @@
+{
+  "checkedAt": "2026-09-29T18:37:02.615Z",
+  "database": "thesis_demo_20260923173259",
+  "counts": {
+    "accounts": 16,
+    "tables": 24,
+    "products": 48,
+    "ingredients": 50,
+    "locations": 3,
+    "recipes": 48,
+    "closedSessions": 12,
+    "activeSessions": 3,
+    "payments": 16,
+    "refunds": 1
+  },
+  "stockAndFinance": "PASS",
+  "migrations": 23,
+  "prismaDiff": "empty migration",
+  "tests": {
+    "unit": 12,
+    "integration": 51,
+    "e2ePassed": 20,
+    "e2eSkipped": 1
+  },
+  "build": "PASS",
+  "lint": "PASS",
+  "typecheck": "PASS",
+  "currentDatabase": "qr_restaurant_ordering",
+  "rename": {
+    "from": "thesis_demo_20260923173259",
+    "to": "qr_restaurant_ordering",
+    "verifiedAt": "2026-09-30T04:34:02.636Z",
+    "allBusinessTableRowCountsPreserved": true,
+    "migrationHistoryPreserved": true
+  }
+}

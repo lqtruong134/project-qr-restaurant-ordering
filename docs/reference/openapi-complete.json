@@ -1,0 +1,5087 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QR Ordering — hệ thống hiện hành",
+    "version": "2026-10-02",
+    "description": "Tài liệu đối chiếu mã nguồn; thao tác Execute tác động backend thật."
+  },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "accessCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "access"
+      }
+    },
+    "parameters": {
+      "Csrf": {
+        "name": "X-CSRF-Protection",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "1"
+          ],
+          "default": "1"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health/live": {
+      "get": {
+        "tags": [
+          "Công khai / auth cookie tùy route"
+        ],
+        "summary": "GET /health/live",
+        "operationId": "GET__health_live",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/app.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "Công khai / auth cookie tùy route"
+        ],
+        "summary": "GET /health/ready",
+        "operationId": "GET__health_ready",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/app.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "Công khai / auth cookie tùy route"
+        ],
+        "summary": "POST /auth/login",
+        "operationId": "POST__auth_login",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/auth/index.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "username",
+                  "password"
+                ],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 64
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                }
+              },
+              "example": {
+                "username": "pv001",
+                "password": "NHAP_MAT_KHAU_TREN_MAY"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": [
+          "Công khai / auth cookie tùy route"
+        ],
+        "summary": "POST /auth/refresh",
+        "operationId": "POST__auth_refresh",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/auth/index.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "Công khai / auth cookie tùy route"
+        ],
+        "summary": "POST /auth/logout",
+        "operationId": "POST__auth_logout",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/auth/index.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "responses": {
+          "204": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "Nhân viên đã đăng nhập"
+        ],
+        "summary": "GET /auth/me",
+        "operationId": "GET__auth_me",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/auth/index.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/workspaces/staff": {
+      "get": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "GET /workspaces/staff",
+        "operationId": "GET__workspaces_staff",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workspaces/routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/workspaces/kitchen": {
+      "get": {
+        "tags": [
+          "kitchen.workspace"
+        ],
+        "summary": "GET /workspaces/kitchen",
+        "operationId": "GET__workspaces_kitchen",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workspaces/routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/workspaces/admin": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /workspaces/admin",
+        "operationId": "GET__workspaces_admin",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workspaces/routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/workforce": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/workforce",
+        "operationId": "GET__core_workforce",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/workforce.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/workforce/me": {
+      "get": {
+        "tags": [
+          "Nhân viên đã đăng nhập"
+        ],
+        "summary": "GET /core/workforce/me",
+        "operationId": "GET__core_workforce_me",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/workforce.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/workforce/shifts": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/workforce/shifts",
+        "operationId": "POST__core_workforce_shifts",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/workforce.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "code": "CA-SANG-20260925",
+                "name": "Ca sáng",
+                "startsAt": "2026-09-25T07:00:00+07:00",
+                "endsAt": "2026-09-25T15:00:00+07:00",
+                "breakMinutes": 30
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/workforce/assignments": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/workforce/assignments",
+        "operationId": "POST__core_workforce_assignments",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/workforce.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "userId": "00000000-0000-4000-8000-000000000001",
+                "shiftId": "00000000-0000-4000-8000-000000000001",
+                "areaId": "00000000-0000-4000-8000-000000000001"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/workforce/assignments/{id}/cancel": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/workforce/assignments/{id}/cancel",
+        "operationId": "POST__core_workforce_assignments__id_cancel",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/workforce.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reason": "Ca thay đổi trước khi chấm công"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/workforce/assignments/{id}/check-in": {
+      "post": {
+        "tags": [
+          "Nhân viên đã đăng nhập"
+        ],
+        "summary": "POST /core/workforce/assignments/{id}/check-in",
+        "operationId": "POST__core_workforce_assignments__id_check_in",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/workforce.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/workforce/assignments/{id}/check-out": {
+      "post": {
+        "tags": [
+          "Nhân viên đã đăng nhập"
+        ],
+        "summary": "POST /core/workforce/assignments/{id}/check-out",
+        "operationId": "POST__core_workforce_assignments__id_check_out",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/workforce.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/workforce/pay-rates": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/workforce/pay-rates",
+        "operationId": "POST__core_workforce_pay_rates",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/workforce.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "userId": "00000000-0000-4000-8000-000000000001",
+                "effectiveFrom": "2026-09-01T00:00:00+07:00",
+                "hourlyRate": "30000",
+                "reason": "Đơn giá mới"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/workforce/assignments/{id}/approve": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/workforce/assignments/{id}/approve",
+        "operationId": "POST__core_workforce_assignments__id_approve",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/workforce.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "minutes": 420,
+                "note": "Đã đối chiếu giờ vào ra",
+                "outcome": "WORKED",
+                "approveExtra": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/payroll": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/payroll",
+        "operationId": "GET__core_payroll",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/payroll.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/payroll",
+        "operationId": "POST__core_payroll",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/payroll.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "periodStart": "2026-09-01",
+                "periodEnd": "2026-09-15"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/payroll/me": {
+      "get": {
+        "tags": [
+          "Nhân viên đã đăng nhập"
+        ],
+        "summary": "GET /core/payroll/me",
+        "operationId": "GET__core_payroll_me",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/payroll.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/payroll/{id}": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/payroll/{id}",
+        "operationId": "GET__core_payroll__id",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/payroll.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "DELETE /core/payroll/{id}",
+        "operationId": "DELETE__core_payroll__id",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/payroll.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/payroll/{id}/adjustments": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/payroll/{id}/adjustments",
+        "operationId": "POST__core_payroll__id_adjustments",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/payroll.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "slipId": "00000000-0000-4000-8000-000000000001",
+                "type": "BONUS",
+                "amount": "20000",
+                "description": "Thưởng ca"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/payroll/{id}/finalize": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/payroll/{id}/finalize",
+        "operationId": "POST__core_payroll__id_finalize",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/payroll.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/payroll/{id}/paid": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/payroll/{id}/paid",
+        "operationId": "POST__core_payroll__id_paid",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/workforce/payroll.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reference": "MA_PHIEU_CHI_THUC_TE"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/sessions/{id}/transfers": {
+      "get": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "GET /core/sessions/{id}/transfers",
+        "operationId": "GET__core_sessions__id_transfers",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/dining/table-transfer.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/sessions/{id}/transfer": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/sessions/{id}/transfer",
+        "operationId": "POST__core_sessions__id_transfer",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/dining/table-transfer.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "tableId": "00000000-0000-4000-8000-000000000001",
+                "fromTableId": "00000000-0000-4000-8000-000000000002",
+                "partySize": 4,
+                "reasonCode": "AREA_CHANGE",
+                "note": "Khách muốn chuyển sang khu vực yên tĩnh"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/menu-images": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/menu-images",
+        "operationId": "POST__core_menu_images",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/images.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "data": "BASE64_NOI_DUNG_ANH_PNG_JPEG_WEBP"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/menu-images/{name}": {
+      "get": {
+        "tags": [
+          "Công khai / auth cookie tùy route"
+        ],
+        "summary": "GET /menu-images/{name}",
+        "operationId": "GET__menu_images__name",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/images.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/categories/{id}": {
+      "patch": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "PATCH /core/categories/{id}",
+        "operationId": "PATCH__core_categories__id",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/catalog.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "name": "Món chính",
+                "sortOrder": 0,
+                "active": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/areas/{id}": {
+      "patch": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "PATCH /core/areas/{id}",
+        "operationId": "PATCH__core_areas__id",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/catalog.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "name": "Tầng 1",
+                "sortOrder": 0,
+                "active": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/tables/{id}": {
+      "patch": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "PATCH /core/tables/{id}",
+        "operationId": "PATCH__core_tables__id",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/catalog.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "name": "Bàn A05",
+                "areaId": "00000000-0000-4000-8000-000000000001",
+                "capacity": 4,
+                "active": true,
+                "version": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/catalog": {
+      "get": {
+        "tags": [
+          "Nhân viên đã đăng nhập"
+        ],
+        "summary": "GET /core/catalog",
+        "operationId": "GET__core_catalog",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/catalog.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/categories": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/categories",
+        "operationId": "POST__core_categories",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/catalog.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "code": "MON-CHINH",
+                "name": "Món chính"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/products": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/products",
+        "operationId": "POST__core_products",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/catalog.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "code": "BUN-BO",
+                "name": "Bún bò Huế",
+                "categoryId": "00000000-0000-4000-8000-000000000001",
+                "price": "69000"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/products/{id}": {
+      "patch": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "PATCH /core/products/{id}",
+        "operationId": "PATCH__core_products__id",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/catalog.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "name": "Bún bò Huế",
+                "categoryId": "00000000-0000-4000-8000-000000000001",
+                "description": "Bún bò nóng, dùng cùng rau thơm.",
+                "imageUrl": "/menu/rice.svg",
+                "price": "75000",
+                "active": true,
+                "availability": "AVAILABLE",
+                "version": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/tables": {
+      "get": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "GET /core/tables",
+        "operationId": "GET__core_tables",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/catalog.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/tables",
+        "operationId": "POST__core_tables",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/catalog.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "code": "A05",
+                "name": "Bàn A05",
+                "areaId": "00000000-0000-4000-8000-000000000001",
+                "capacity": 4
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/admin/tables": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/admin/tables",
+        "operationId": "GET__core_admin_tables",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/catalog.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/areas": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/areas",
+        "operationId": "GET__core_areas",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/catalog.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/areas",
+        "operationId": "POST__core_areas",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/catalog.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "code": "TANG-1",
+                "name": "Tầng 1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/tables/{id}/qr": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/tables/{id}/qr",
+        "operationId": "POST__core_tables__id_qr",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/catalog.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/tables/{id}/qr",
+        "operationId": "GET__core_tables__id_qr",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/catalog/catalog.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/guest/policy": {
+      "get": {
+        "tags": [
+          "Công khai / auth cookie tùy route"
+        ],
+        "summary": "GET /guest/policy",
+        "operationId": "GET__guest_policy",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/sessions/guest.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/guest/qr-info": {
+      "post": {
+        "tags": [
+          "Công khai / auth cookie tùy route"
+        ],
+        "summary": "POST /guest/qr-info",
+        "operationId": "POST__guest_qr_info",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/sessions/guest.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "token": "TOKEN_TU_QR_HIEN_TAI"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/guest/profile": {
+      "patch": {
+        "tags": [
+          "Guest cookie"
+        ],
+        "summary": "PATCH /guest/profile",
+        "operationId": "PATCH__guest_profile",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/sessions/guest.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "name": "Tên khách mới"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/guest/leave": {
+      "post": {
+        "tags": [
+          "Guest cookie"
+        ],
+        "summary": "POST /guest/leave",
+        "operationId": "POST__guest_leave",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/sessions/guest.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/guest/orders/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Guest cookie"
+        ],
+        "summary": "POST /guest/orders/{id}/cancel",
+        "operationId": "POST__guest_orders__id_cancel",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/sessions/guest.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reasonCode": "CUSTOMER_CHANGED_MIND"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/guest/join": {
+      "post": {
+        "tags": [
+          "Công khai / auth cookie tùy route"
+        ],
+        "summary": "POST /guest/join",
+        "operationId": "POST__guest_join",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/sessions/guest.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "token": "LAY_TU_MA_QR_MOI",
+                "name": "Khách",
+                "acceptedPolicyVersion": "2026-10-v2"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/guest/state": {
+      "get": {
+        "tags": [
+          "Guest cookie"
+        ],
+        "summary": "GET /guest/state",
+        "operationId": "GET__guest_state",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/sessions/guest.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/guest/cart": {
+      "post": {
+        "tags": [
+          "Guest cookie"
+        ],
+        "summary": "POST /guest/cart",
+        "operationId": "POST__guest_cart",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/sessions/guest.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "productId": "00000000-0000-4000-8000-000000000001",
+                "quantity": 1,
+                "cartVersion": 1,
+                "note": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/guest/cart/{id}": {
+      "delete": {
+        "tags": [
+          "Guest cookie"
+        ],
+        "summary": "DELETE /guest/cart/{id}",
+        "operationId": "DELETE__guest_cart__id",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/sessions/guest.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "cartVersion": 2
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Guest cookie"
+        ],
+        "summary": "PATCH /guest/cart/{id}",
+        "operationId": "PATCH__guest_cart__id",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/sessions/guest.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "quantity": 2,
+                "cartVersion": 2,
+                "note": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/guest/support": {
+      "post": {
+        "tags": [
+          "Guest cookie"
+        ],
+        "summary": "POST /guest/support",
+        "operationId": "POST__guest_support",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/sessions/guest.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "type": "ASSISTANCE",
+                "content": "Cần hỗ trợ tại bàn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/inventory": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/inventory",
+        "operationId": "GET__core_inventory",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/inventory/inventory.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/inventory/adjustments": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/inventory/adjustments",
+        "operationId": "POST__core_inventory_adjustments",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/inventory/inventory.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "balanceId": "00000000-0000-4000-8000-000000000001",
+                "expectedVersion": 1,
+                "requestId": "MA_MOI_MOI_LAN_DIEU_CHINH",
+                "mode": "WASTE",
+                "quantity": "0.5",
+                "reason": "Nguyên liệu hỏng, kiểm tra đầu ca"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/units": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/units",
+        "operationId": "POST__core_units",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/inventory/inventory.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "code": "KG",
+                "name": "Kilogram",
+                "dimension": "MASS"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/ingredients": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/ingredients",
+        "operationId": "POST__core_ingredients",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/inventory/inventory.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "code": "GAO",
+                "name": "Gạo",
+                "unitId": "00000000-0000-4000-8000-000000000001",
+                "minStock": "2"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/locations": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/locations",
+        "operationId": "POST__core_locations",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/inventory/inventory.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "code": "KHO-BEP",
+                "name": "Kho bếp"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/products/{id}/bom": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/products/{id}/bom",
+        "operationId": "POST__core_products__id_bom",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/inventory/inventory.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "yield": "1",
+                "lines": [
+                  {
+                    "ingredientId": "00000000-0000-4000-8000-000000000001",
+                    "quantity": "0.2",
+                    "waste": "0"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/receipts": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/receipts",
+        "operationId": "POST__core_receipts",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/inventory/inventory.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "locationId": "00000000-0000-4000-8000-000000000001",
+                "number": "PN-001",
+                "supplier": "Nhà cung cấp",
+                "lines": [
+                  {
+                    "ingredientId": "00000000-0000-4000-8000-000000000001",
+                    "quantity": "10",
+                    "unitCost": "20000"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "GET /core/receipts",
+        "operationId": "GET__core_receipts",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/payments/payments.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/receipts/{id}": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/receipts/{id}",
+        "operationId": "GET__core_receipts__id",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/inventory/inventory.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "PATCH /core/receipts/{id}",
+        "operationId": "PATCH__core_receipts__id",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/inventory/inventory.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "expectedVersion": 1,
+                "locationId": "00000000-0000-4000-8000-000000000001",
+                "number": "PN-DEMO",
+                "supplier": "Nhà cung cấp",
+                "reason": "Điều chỉnh số lượng",
+                "lines": [
+                  {
+                    "ingredientId": "00000000-0000-4000-8000-000000000001",
+                    "quantity": "2",
+                    "unitCost": "20000"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/receipts/{id}/cancel": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/receipts/{id}/cancel",
+        "operationId": "POST__core_receipts__id_cancel",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/inventory/inventory.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reason": "Phiếu nháp nhập nhầm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/receipts/{id}/approve": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/receipts/{id}/approve",
+        "operationId": "POST__core_receipts__id_approve",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/inventory/inventory.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/guest/orders": {
+      "post": {
+        "tags": [
+          "Guest cookie"
+        ],
+        "summary": "POST /guest/orders",
+        "operationId": "POST__guest_orders",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/orders.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "requestId": "MA_MOI_CHO_MOI_LUOT",
+                "cartVersion": 2,
+                "itemIds": [
+                  "00000000-0000-4000-8000-000000000001"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/sessions/{id}/orders": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/sessions/{id}/orders",
+        "operationId": "POST__core_sessions__id_orders",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/orders.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "requestId": "MA_MOI_CHO_MOI_LUOT",
+                "lines": [
+                  {
+                    "productId": "00000000-0000-4000-8000-000000000001",
+                    "quantity": 1,
+                    "note": ""
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/orders": {
+      "get": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "GET /core/orders",
+        "operationId": "GET__core_orders",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/orders.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/kitchen": {
+      "get": {
+        "tags": [
+          "kitchen.workspace"
+        ],
+        "summary": "GET /core/kitchen",
+        "operationId": "GET__core_kitchen",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/orders.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/items/{id}/unavailable": {
+      "post": {
+        "tags": [
+          "kitchen.workspace"
+        ],
+        "summary": "POST /core/items/{id}/unavailable",
+        "operationId": "POST__core_items__id_unavailable",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/orders.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reasonCode": "OUT_OF_STOCK",
+                "note": "Đối chiếu hết nguyên liệu trước chế biến"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/orders/{id}/review": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/orders/{id}/review",
+        "operationId": "POST__core_orders__id_review",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/orders.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "approve": true,
+                "reason": "Đã kiểm tra"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/orders/{id}/accept": {
+      "post": {
+        "tags": [
+          "kitchen.workspace"
+        ],
+        "summary": "POST /core/orders/{id}/accept",
+        "operationId": "POST__core_orders__id_accept",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/orders.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/items/{id}/accept": {
+      "post": {
+        "tags": [
+          "kitchen.workspace"
+        ],
+        "summary": "POST /core/items/{id}/accept",
+        "operationId": "POST__core_items__id_accept",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/orders.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/items/{id}/prepare": {
+      "post": {
+        "tags": [
+          "kitchen.workspace"
+        ],
+        "summary": "POST /core/items/{id}/prepare",
+        "operationId": "POST__core_items__id_prepare",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/orders.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/items/{id}/ready": {
+      "post": {
+        "tags": [
+          "kitchen.workspace"
+        ],
+        "summary": "POST /core/items/{id}/ready",
+        "operationId": "POST__core_items__id_ready",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/orders.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/items/{id}/serve": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/items/{id}/serve",
+        "operationId": "POST__core_items__id_serve",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/orders.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/sessions/{id}/serve-items": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/sessions/{id}/serve-items",
+        "operationId": "POST__core_sessions__id_serve_items",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/orders.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "itemIds": [
+                  "00000000-0000-4000-8000-000000000001"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/items/cancel": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/items/cancel",
+        "operationId": "POST__core_items_cancel",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/orders.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "itemIds": [
+                  "00000000-0000-4000-8000-000000000001"
+                ],
+                "reasonCode": "CUSTOMER_CHANGED_MIND",
+                "note": "Khách yêu cầu trước chế biến"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/guest/items/cancel": {
+      "post": {
+        "tags": [
+          "Guest cookie"
+        ],
+        "summary": "POST /guest/items/cancel",
+        "operationId": "POST__guest_items_cancel",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/orders.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "itemIds": [
+                  "00000000-0000-4000-8000-000000000001"
+                ],
+                "reasonCode": "CUSTOMER_CHANGED_MIND"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/order-exceptions": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/order-exceptions",
+        "operationId": "GET__core_order_exceptions",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/exception.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/items/{id}/late-cancel": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/items/{id}/late-cancel",
+        "operationId": "POST__core_items__id_late_cancel",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/exception.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reasonCode": "KITCHEN_ERROR",
+                "note": "Quản trị xác minh món lỗi trước phục vụ"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/items/{id}/waive": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/items/{id}/waive",
+        "operationId": "POST__core_items__id_waive",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/exception.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reasonCode": "CUSTOMER_COMPLAINT",
+                "note": "Quản trị đối chiếu khiếu nại sau phục vụ"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/items/{id}/report-issue": {
+      "post": {
+        "tags": [
+          "kitchen.workspace"
+        ],
+        "summary": "POST /core/items/{id}/report-issue",
+        "operationId": "POST__core_items__id_report_issue",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/orders/issue.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reasonCode": "KITCHEN_ERROR",
+                "note": "Món cháy, bếp dừng phục vụ"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/guest/payment-requests": {
+      "post": {
+        "tags": [
+          "Guest cookie"
+        ],
+        "summary": "POST /guest/payment-requests",
+        "operationId": "POST__guest_payment_requests",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/payments/payment-requests.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "method": "CASH"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/payments/{id}/proof": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/payments/{id}/proof",
+        "operationId": "POST__core_payments__id_proof",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/payments/payment-proof.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "data": "BASE64_ANH_PNG_JPEG_WEBP_TOI_DA_2MB"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "staff.workspace hoặc admin.workspace"
+        ],
+        "summary": "GET /core/payments/{id}/proof",
+        "operationId": "GET__core_payments__id_proof",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/payments/payment-proof.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/sessions/{id}/bill": {
+      "get": {
+        "tags": [
+          "staff.workspace hoặc admin.workspace"
+        ],
+        "summary": "GET /core/sessions/{id}/bill",
+        "operationId": "GET__core_sessions__id_bill",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/payments/payments.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/guest/payments": {
+      "post": {
+        "tags": [
+          "Guest cookie"
+        ],
+        "summary": "POST /guest/payments",
+        "operationId": "POST__guest_payments",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/payments/payments.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "requestId": "MA_MOI_CHO_MOI_LUOT",
+                "method": "CASH",
+                "amount": "55000"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/sessions/{id}/payments": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/sessions/{id}/payments",
+        "operationId": "POST__core_sessions__id_payments",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/payments/payments.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "requestId": "KHOA_THU_MOI",
+                "method": "CASH",
+                "amount": "40000",
+                "collectionScope": "TABLE",
+                "supportRequestId": "00000000-0000-4000-8000-000000000001"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/payments/{id}/confirm": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/payments/{id}/confirm",
+        "operationId": "POST__core_payments__id_confirm",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/payments/payments.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "amount": "55000",
+                "receivedAmount": "100000",
+                "reference": "CHI_CAN_CHO_BANK_TRANSFER"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/payments/{id}/cancel": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/payments/{id}/cancel",
+        "operationId": "POST__core_payments__id_cancel",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/payments/payments.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/sessions/{id}/refunds": {
+      "post": {
+        "tags": [
+          "staff.workspace hoặc admin.workspace"
+        ],
+        "summary": "POST /core/sessions/{id}/refunds",
+        "operationId": "POST__core_sessions__id_refunds",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/payments/payments.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "paymentId": "00000000-0000-4000-8000-000000000001",
+                "amount": "20000",
+                "reason": "Hoàn khoản đã miễn",
+                "requestId": "HO_SO_MOI"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/refunds/{id}/complete": {
+      "post": {
+        "tags": [
+          "staff.workspace hoặc admin.workspace"
+        ],
+        "summary": "POST /core/refunds/{id}/complete",
+        "operationId": "POST__core_refunds__id_complete",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/payments/payments.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "method": "CASH",
+                "amount": "20000",
+                "requestId": "HOAN_MOI_MOT_LAN"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/reports/sessions/{id}": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/reports/sessions/{id}",
+        "operationId": "GET__core_reports_sessions__id",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/payments/payments.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/reports": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/reports",
+        "operationId": "GET__core_reports",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/payments/payments.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/alerts/{id}/guest-notified": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/alerts/{id}/guest-notified",
+        "operationId": "POST__core_alerts__id_guest_notified",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/dining/dish-notice.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/tables/{id}/open": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/tables/{id}/open",
+        "operationId": "POST__core_tables__id_open",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/dining/dining.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/sessions/{id}/verify": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/sessions/{id}/verify",
+        "operationId": "POST__core_sessions__id_verify",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/dining/dining.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/orders/{id}/cancel": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/orders/{id}/cancel",
+        "operationId": "POST__core_orders__id_cancel",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/dining/dining.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reasonCode": "CUSTOMER_CHANGED_MIND",
+                "note": "Khách yêu cầu trước chế biến"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/sessions/{id}/close": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/sessions/{id}/close",
+        "operationId": "POST__core_sessions__id_close",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/dining/dining.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/tables/{id}/clean": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/tables/{id}/clean",
+        "operationId": "POST__core_tables__id_clean",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/dining/dining.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/alerts": {
+      "get": {
+        "tags": [
+          "staff.workspace hoặc admin.workspace"
+        ],
+        "summary": "GET /core/alerts",
+        "operationId": "GET__core_alerts",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/dining/dining.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/alerts/{id}/acknowledge": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/alerts/{id}/acknowledge",
+        "operationId": "POST__core_alerts__id_acknowledge",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/dining/dining.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/alerts/{id}/resolve": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/alerts/{id}/resolve",
+        "operationId": "POST__core_alerts__id_resolve",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/dining/dining.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reason": "Đã xử lý và đối chiếu"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/sessions/{id}/outstanding": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/sessions/{id}/outstanding",
+        "operationId": "POST__core_sessions__id_outstanding",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/dining/dining.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reason": "LEFT_WITHOUT_PAYING",
+                "notes": "Diễn biến sự việc"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/outstanding": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/outstanding",
+        "operationId": "GET__core_outstanding",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/dining/dining.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/outstanding/{id}/write-off": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/outstanding/{id}/write-off",
+        "operationId": "POST__core_outstanding__id_write_off",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/dining/dining.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reason": "Đã xác minh không thu hồi được"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/outstanding/{id}/recovered": {
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/outstanding/{id}/recovered",
+        "operationId": "POST__core_outstanding__id_recovered",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/dining/dining.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reason": "Đã đối chiếu thu đủ"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/support": {
+      "get": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "GET /core/support",
+        "operationId": "GET__core_support",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/support/support.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/support/{id}/history": {
+      "get": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "GET /core/support/{id}/history",
+        "operationId": "GET__core_support__id_history",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/support/support.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/admin/support": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/admin/support",
+        "operationId": "GET__core_admin_support",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/support/support.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/admin/support/{id}/history": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/admin/support/{id}/history",
+        "operationId": "GET__core_admin_support__id_history",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/support/support.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/support/{id}/claim": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/support/{id}/claim",
+        "operationId": "POST__core_support__id_claim",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/support/support.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/support/{id}/resolve": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/support/{id}/resolve",
+        "operationId": "POST__core_support__id_resolve",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/support/support.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reason": "Khách muốn tiếp tục dùng bữa, chưa thanh toán"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/support-assignees": {
+      "get": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "GET /core/support-assignees",
+        "operationId": "GET__core_support_assignees",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/support/support.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/support/{id}/reassign": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/support/{id}/reassign",
+        "operationId": "POST__core_support__id_reassign",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/support/support.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "userId": "00000000-0000-4000-8000-000000000001",
+                "reason": "Bàn giao ca phục vụ"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/support/{id}/handoffs/{handoffId}/accept": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/support/{id}/handoffs/{handoffId}/accept",
+        "operationId": "POST__core_support__id_handoffs__handoffId_accept",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/support/support.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "handoffId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/support/{id}/handoffs/{handoffId}/decline": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/support/{id}/handoffs/{handoffId}/decline",
+        "operationId": "POST__core_support__id_handoffs__handoffId_decline",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/support/support.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "handoffId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reason": "Đang thu tiền bàn khác"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/support/{id}/handoffs/{handoffId}/cancel": {
+      "post": {
+        "tags": [
+          "staff.workspace"
+        ],
+        "summary": "POST /core/support/{id}/handoffs/{handoffId}/cancel",
+        "operationId": "POST__core_support__id_handoffs__handoffId_cancel",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/support/support.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "handoffId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "reason": "Tiếp tục tự xử lý"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/risk": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/risk",
+        "operationId": "GET__core_risk",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/risk/risk.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/risk",
+        "operationId": "POST__core_risk",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/risk/risk.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "LINE_QTY_REVIEW": 5
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/users": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/users",
+        "operationId": "GET__core_users",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/staff-access/staff-access.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "POST /core/users",
+        "operationId": "POST__core_users",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/staff-access/staff-access.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "username": "pv005",
+                "staffCode": "NV005",
+                "name": "Nhân viên mới",
+                "role": "STAFF",
+                "password": "THAY_BANG_MAT_KHAU_RIENG"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/users/{id}": {
+      "patch": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "PATCH /core/users/{id}",
+        "operationId": "PATCH__core_users__id",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/staff-access/staff-access.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "name": "Nhân viên",
+                "role": "STAFF",
+                "status": "ACTIVE",
+                "reason": "Cập nhật phân công nhân viên"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/payments/webhooks/connector": {
+      "post": {
+        "tags": [
+          "Connector + chữ ký"
+        ],
+        "summary": "POST /payments/webhooks/connector",
+        "operationId": "POST__payments_webhooks_connector",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/payments/webhooks.routes.ts. Hợp đồng connector nội bộ; chưa phải tích hợp trực tiếp nhà cung cấp.",
+        "parameters": [
+          {
+            "name": "x-payment-signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "HMAC của connectorMessage; không phải chữ ký cổng VNPay/MoMo."
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "example": {
+                "eventId": "ID_SU_KIEN",
+                "transactionId": "ID_GIAO_DICH",
+                "intentId": "00000000-0000-4000-8000-000000000001",
+                "amount": "55000",
+                "currency": "VND",
+                "timestamp": 0
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/core/payment-events": {
+      "get": {
+        "tags": [
+          "admin.workspace"
+        ],
+        "summary": "GET /core/payment-events",
+        "operationId": "GET__core_payment_events",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/payments/webhooks.routes.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    }
+  }
+}

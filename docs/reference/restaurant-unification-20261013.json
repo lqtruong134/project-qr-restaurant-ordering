@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-13",
+  "activated": true,
+  "synthetic": true,
+  "range": {
+    "from": "2026-08-01",
+    "through": "2026-10-12"
+  },
+  "counts": {
+    "database": "qr_restaurant_ordering",
+    "products": 91,
+    "ingredients": 113,
+    "sessions": 4264,
+    "items": 34156,
+    "payments": 4576,
+    "refunds": 515,
+    "shifts": 174,
+    "assignments": 1044,
+    "attendance": 876,
+    "payroll_slips": 42,
+    "payroll_payments": 28
+  },
+  "productImages": 58,
+  "missingImages": 33,
+  "uniqueImageUrlsChecked": 57,
+  "imageFailures": [],
+  "verification": {
+    "verified": true,
+    "invariants": {
+      "itemAmounts": 0,
+      "batchAmounts": 0,
+      "approvedChargeChronology": 0,
+      "receiptSnapshots": 0,
+      "refundCaseAmounts": 0,
+      "lingeringReservations": 0,
+      "unsettledClosedSessions": 0,
+      "financialTotals": 0,
+      "allocations": 0,
+      "unpaidActiveCharges": 0,
+      "refundSourceLimits": 0,
+      "refundApprovals": 0,
+      "cashArithmetic": 0,
+      "cashChangeUnconfirmed": 0,
+      "unfinishedClosedOrders": 0,
+      "recipeTimelines": 0,
+      "recipePartsChronology": 0,
+      "ingredientSnapshots": 0,
+      "inventoryBalances": 0,
+      "stockWentNegative": 0,
+      "overlappingTables": 0,
+      "futureEvents": 0,
+      "roleAssignmentChronology": 0,
+      "payPolicyChronology": 0,
+      "offDutyActions": 0
+    },
+    "retention": {
+      "administratorCount": 2,
+      "administratorSecurityPreserved": true,
+      "restaurantProfilePreserved": true,
+      "qrPreserved": true,
+      "preservedQrCount": 24
+    },
+    "inactiveProducts": 0,
+    "missingPositiveBalances": 0
+  },
+  "checks": {
+    "unit": 137,
+    "integration": 252,
+    "browser": 39,
+    "productionBuild": true
+  }
+}

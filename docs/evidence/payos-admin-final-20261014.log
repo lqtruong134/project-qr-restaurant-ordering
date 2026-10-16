@@ -1,0 +1,8 @@
+
+Running 3 tests using 1 worker
+
+  ✓  1 [desktop] › tests/browser/payos-ui.spec.ts:495:1 › admin can record verified reconciliation outcome with reference, without changing payment state (1.4s)
+  ✓  2 [mobile] › tests/browser/payos-ui.spec.ts:495:1 › admin can record verified reconciliation outcome with reference, without changing payment state (1.5s)
+  ✓  3 [webkit-mobile] › tests/browser/payos-ui.spec.ts:495:1 › admin can record verified reconciliation outcome with reference, without changing payment state (2.7s)
+
+  3 passed (8.3s)

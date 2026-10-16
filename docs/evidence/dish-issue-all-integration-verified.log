@@ -1,0 +1,30 @@
+
+ RUN  v4.1.11 /home/quyettruong05/projects/qr-ordering-thesis
+
+ ✓ tests/core45.integration.test.ts (20 tests) 8797ms
+   ✓ executes a reviewed guest order, stock consumption, split payment, snapshot and close without duplicates  449ms
+   ✓ can reserve one serving of every seeded dish without adding ingredients or recipes manually  1152ms
+   ✓ UAT v2: item ownership, partial cancellation, individual acceptance and atomic same-session serving  468ms
+   ✓ UAT v2: unmanaged menu, late cancellation retains stock and money, explicit waiver and partial refund  328ms
+ ✓ tests/workforce.integration.test.ts (8 tests) 2696ms
+ ✓ tests/policy.integration.test.ts (17 tests) 6497ms
+   ✓ restaurant fault at IN_PREPARATION retains stock/COGS, needs admin and reverses paid money once in one decision  519ms
+   ✓ restaurant fault at READY retains stock/COGS, needs admin and reverses paid money once in one decision  486ms
+ ✓ tests/support.integration.test.ts (29 tests) 6807ms
+ ✓ tests/sprint1.integration.test.ts (15 tests) 6383ms
+   ✓ migrates exactly 56 business tables and seed twice preserves counts and passwords  375ms
+   ✓ repeated seed preserves changed stock, table state, prices and disabled employees  310ms
+ ✓ tests/review.integration.test.ts (7 tests) 5238ms
+   ✓ keeps edited master data when bootstrap seed is repeated  336ms
+   ✓ requires outstanding service work before write-off and closes only the debt alert with an audit record  307ms
+   ✓ rejects refunds pointing to another session item or another source allocation at the SQL boundary  356ms
+   ✓ deduplicates outgoing bank references across refund cases and records each refund only once  336ms
+ ✓ tests/table-transfer.integration.test.ts (10 tests) 6156ms
+   ✓ preserves session, participants, unsent cart, orders, account, payments and support; freezes the final destination on receipt  635ms
+ ✓ tests/database.integration.test.ts (1 test) 101ms
+
+ Test Files  8 passed (8)
+      Tests  107 passed (107)
+   Start at  12:29:51
+   Duration  45.52s (transform 576ms, setup 0ms, import 1.93s, tests 42.68s, environment 1ms)
+

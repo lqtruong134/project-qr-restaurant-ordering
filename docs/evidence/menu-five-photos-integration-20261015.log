@@ -1,0 +1,11 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/home/quyettruong05/projects/qr-ordering-thesis[39m
+
+ [32m✓[39m tests/catalog-refresh.integration.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 3855[2mms[22m[39m
+   [33m[2m✓[22m[39m legacy category IDs retain positions 0–6 and a second seed preserves IDs, assignments and operational data [33m 544[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+[2m   Start at [22m 13:18:05
+[2m   Duration [22m 4.53s[2m (transform 469ms, setup 0ms, import 561ms, tests 3.85s, environment 0ms)[22m
+

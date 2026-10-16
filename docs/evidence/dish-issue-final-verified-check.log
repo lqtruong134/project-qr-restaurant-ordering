@@ -1,0 +1,35 @@
+$ pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
+$ prettier --check "apps/**/*.{ts,tsx,mjs,js,css}" "packages/**/src/**/*.{ts,tsx}" "scripts/*.{ts,mjs}" "tests/**/*.{ts,tsx}" "*.{ts,mjs,json}"
+Checking formatting...
+All matched files use Prettier code style!
+$ eslint . --max-warnings 0
+$ pnpm -r --if-present typecheck && tsc --noEmit -p tsconfig.tools.json
+packages/contracts typecheck$ tsc --noEmit
+packages/database typecheck$ tsc --noEmit
+packages/ui typecheck$ tsc --noEmit
+packages/contracts typecheck: Done
+packages/ui typecheck: Done
+apps/web typecheck$ next typegen && tsc --noEmit
+apps/web typecheck: Generating route types...
+apps/web typecheck: ✓ Types generated successfully
+packages/database typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/web typecheck: Done
+apps/api typecheck: Done
+$ vitest run
+
+ RUN  v4.1.11 /home/quyettruong05/projects/qr-ordering-thesis
+
+ ✓ apps/web/features/workforce/format.test.ts (2 tests) 20ms
+ ✓ apps/web/features/workforce/schedule-data.test.ts (3 tests) 23ms
+ ✓ apps/web/features/shared/restaurant-time.test.ts (2 tests) 25ms
+ ✓ apps/web/lib/api-client.test.ts (8 tests) 50ms
+ ✓ apps/web/features/workspace/receipt-lines.test.ts (5 tests) 4ms
+ ✓ apps/api/src/modules/orders/reasons.test.ts (2 tests) 4ms
+ ✓ apps/api/src/app.test.ts (4 tests) 63ms
+
+ Test Files  7 passed (7)
+      Tests  26 passed (26)
+   Start at  12:54:27
+   Duration  317ms (transform 355ms, setup 0ms, import 506ms, tests 190ms, environment 1ms)
+

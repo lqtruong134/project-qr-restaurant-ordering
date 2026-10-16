@@ -1,0 +1,331 @@
+{
+  "date": "2026-10-02",
+  "task": "Redesign whole-active-session table transfer only",
+  "commit": "7b6301aeb2b7bd6bc519b8cc018506d2ab92f649",
+  "workingTree": true,
+  "database": "qr_restaurant_ordering",
+  "metadata": {
+    "tables": 56,
+    "columns": 609,
+    "foreignKeys": 137,
+    "successfulMigrations": 26,
+    "routeOperations": 124,
+    "sourceFiles": 225
+  },
+  "migration": null,
+  "operationalDataReset": false,
+  "sourceChanges": [
+    {
+      "path": "apps/api/src/modules/dining/transfer-reasons.ts",
+      "lines": 20,
+      "sha256": "47f4247f36205b8334e49728367fdf9bfe11350c2cfdc22adb888135be7c49eb",
+      "change": "added",
+      "before": null
+    },
+    {
+      "path": "apps/web/app/table-transfer.css",
+      "lines": 363,
+      "sha256": "1aad23e82d063e289b8076cee1158475d24a68017944a8a0621fa88beaea30e3",
+      "change": "added",
+      "before": null
+    },
+    {
+      "path": "apps/web/features/workspace/table-transfer-data.ts",
+      "lines": 30,
+      "sha256": "c35377fd9f9beaf928dbf2b8a13a2d7bcbb691c8447c4dc28ca67ecf64554dbd",
+      "change": "added",
+      "before": null
+    },
+    {
+      "path": "packages/contracts/src/table-transfer-policy.ts",
+      "lines": 13,
+      "sha256": "7308ec3bdf50ff5e2d9f62c4ccdb2dcc4321c80f3d8085739cbd9e50a27331aa",
+      "change": "added",
+      "before": null
+    },
+    {
+      "path": "tests/browser/table-transfer.spec.ts",
+      "lines": 283,
+      "sha256": "77dd5255636d985f68a991fc0055d1059ba537cb1984e7cf946991a4e6916c4d",
+      "change": "added",
+      "before": null
+    },
+    {
+      "path": "tests/support.integration.test.ts",
+      "lines": 592,
+      "sha256": "a6c0804004e61ade9a583a7f668a6466e267dec64869140e66966a006f25cb79",
+      "change": "modified",
+      "before": "a3ec80de4e1a278a88213f55a6059850f6e9383ac39bc3eddce2d42c71ae256e"
+    },
+    {
+      "path": "tests/table-transfer.integration.test.ts",
+      "lines": 419,
+      "sha256": "15b015bdc390bebe2f51c0725506520ee3ff38c32bbc5d2eb124b7a090e62a7a",
+      "change": "added",
+      "before": null
+    },
+    {
+      "path": "apps/api/src/modules/catalog/catalog.routes.ts",
+      "lines": 284,
+      "sha256": "d160f38547e16373aac883fe8acfdc88af5a4521c1048fa8ed44edcd3c3d0b9e",
+      "change": "modified",
+      "before": "6e3f97517cb5015aa8da0264ade6f1552cdc0eeb129d44baccb347ef2b22e19b"
+    },
+    {
+      "path": "apps/api/src/modules/dining/table-transfer.routes.ts",
+      "lines": 98,
+      "sha256": "005c310176710a7f21de5e201e32bbb30154ed885446e6d6bf9c2a250fd266f9",
+      "change": "modified",
+      "before": "ed735feb0c6d66525837e66d015ea4129613ed16ede974fc1b423ffac824787b"
+    },
+    {
+      "path": "apps/api/src/modules/shared/core-persistence.ts",
+      "lines": 152,
+      "sha256": "1b1cc3774ff7d65581820d587ce05d2d4bc9936a36dbbb66332b64496078ba72",
+      "change": "modified",
+      "before": "22c3dc45e799bb1bfab6e367c103b0d9c8dc9035d9c745c93e42eb83543acbf4"
+    },
+    {
+      "path": "apps/web/app/layout.tsx",
+      "lines": 19,
+      "sha256": "58fa82f9a88231ea46cc1e8e907f24513a233f25ffcd1ae2a4913c285605f8e4",
+      "change": "modified",
+      "before": "3988973f16e232bc926760e95eb576c8abc422e93a6bfc78caaeb869aadc8a14"
+    },
+    {
+      "path": "apps/web/features/guest/guest.tsx",
+      "lines": 558,
+      "sha256": "d078102a031eb4b530d9fa54ac42ec4dc99e65e64ff31187cc576993394965c8",
+      "change": "modified",
+      "before": "fcc2f9b45047267cfe985d31a3610c68b40f030e77df17da189b119ab60708cb"
+    },
+    {
+      "path": "apps/web/features/shared/primitives.tsx",
+      "lines": 180,
+      "sha256": "9cc8d7694ef82b2b7371781482f0924dcca8af6c9574c4ba89ee3969c78e0cbc",
+      "change": "modified",
+      "before": "b6061b9bf015af082de6fd9197e76f83c9b29f159a7158eeb417d031ae2c606e"
+    },
+    {
+      "path": "apps/web/features/workspace/service.tsx",
+      "lines": 592,
+      "sha256": "ada962b3e1e0e7bb5e8c7e20a267a6f2312ccbab0eca87f2a293ea15b5d7855d",
+      "change": "modified",
+      "before": "df593711c49dfd1216369692024a2bcce546416ad0ff4b7309398844fa17cb35"
+    },
+    {
+      "path": "apps/web/features/workspace/table-transfer-panel.tsx",
+      "lines": 523,
+      "sha256": "fc204c0338bd31675177d4bdc4f65f8064aad03ec4adbeb18923d7c608373c51",
+      "change": "modified",
+      "before": "be48a4f687479f67edd5e3404f0fb1f4bf25d82dfc5275e587c5a19907b63a62"
+    },
+    {
+      "path": "packages/contracts/src/index.ts",
+      "lines": 18,
+      "sha256": "c85c881a341df1ee5beb5b6b73d3b9fb359642df2d45a6b3a265c14313d8b26d",
+      "change": "modified",
+      "before": "d55b1def5b21252faff657226814e641103c9950056a827b53309586fe11d4f5"
+    },
+    {
+      "path": "scripts/core-api-docs.ts",
+      "lines": 188,
+      "sha256": "f03b99ef31a5ffbb9e720a06754b7eec3874fd710f714e311b324eb817c69328",
+      "change": "modified",
+      "before": "50cfbcbbf3ea1563bdc82de5a06b5336c2226561c306af867d2924345e156e50"
+    },
+    {
+      "path": "tests/browser/core45.spec.ts",
+      "lines": 282,
+      "sha256": "49a3220b7c62e85eb98ca5af8a6bcb45ee52972b03eaced01611f37fdd62ee17",
+      "change": "modified",
+      "before": "a5460ca9df6a1c9826619aec187a3570d4d9d4e57a2f7d5eafb6ed8bad65f895"
+    }
+  ],
+  "checks": [
+    {
+      "label": "pnpm check",
+      "started": "2026-10-02T03:44:49.209Z",
+      "finished": "2026-10-02T03:45:09.318Z",
+      "args": [
+        "check"
+      ],
+      "code": 0,
+      "result": "Format/lint/TypeScript đạt; 21/21 unit",
+      "log": "table-transfer-check-verified.log"
+    },
+    {
+      "label": "pnpm build",
+      "started": "2026-10-02T03:57:02.569Z",
+      "finished": "2026-10-02T03:57:09.663Z",
+      "args": [
+        "build"
+      ],
+      "code": 0,
+      "result": "Production build 7 route; Swagger đã sinh từ tài liệu hiện hành",
+      "log": "table-transfer-build-published.log"
+    },
+    {
+      "label": "pnpm exec vitest run --config vitest.integration.config.ts --maxWorkers=1",
+      "started": "2026-10-02T03:31:18.854Z",
+      "finished": "2026-10-02T03:32:37.146Z",
+      "args": [
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.integration.config.ts",
+        "--maxWorkers=1"
+      ],
+      "code": 0,
+      "result": "101/101 API/database, 8 tệp; gồm 10 test chuyển bàn",
+      "log": "table-transfer-integration-complete.log"
+    },
+    {
+      "label": "pnpm test:e2e table-transfer.spec.ts",
+      "started": "2026-10-02T03:31:16.091Z",
+      "finished": "2026-10-02T03:32:45.879Z",
+      "args": [
+        "test:e2e",
+        "table-transfer.spec.ts"
+      ],
+      "code": 0,
+      "result": "6/6, desktop/Android/WebKit mobile",
+      "log": "table-transfer-browser-transfer-final.log"
+    },
+    {
+      "label": "pnpm test:e2e",
+      "started": "2026-10-02T03:44:31.739Z",
+      "finished": "2026-10-02T03:51:48.174Z",
+      "args": [
+        "test:e2e"
+      ],
+      "code": 0,
+      "result": "59 đạt/1 Swagger mobile chủ động bỏ qua; 60 trường hợp",
+      "log": "table-transfer-browser-all-complete.log"
+    },
+    {
+      "label": "pnpm check:secrets",
+      "started": "2026-10-02T03:38:25.077Z",
+      "finished": "2026-10-02T03:38:25.477Z",
+      "args": [
+        "check:secrets"
+      ],
+      "code": 0,
+      "result": "Quét bí mật đạt",
+      "log": "table-transfer-secrets-complete.log"
+    },
+    {
+      "label": "HTML cục bộ trên trình duyệt",
+      "started": "2026-10-02T03:55:30.410Z",
+      "finished": "2026-10-02T03:55:32.778Z",
+      "args": [
+        "exec",
+        "node",
+        "/mnt/c/Users/Admin/.codex/.chatgpt-projects/g-p-6abb725d13508191b0b02a8845acc6cd/transfer-review/docs-qa.mjs"
+      ],
+      "code": 0,
+      "result": "Bài 23 và 15 ở 320/768/1440 px; không tràn ngang",
+      "log": "table-transfer-docs-qa.log"
+    }
+  ],
+  "images": [
+    {
+      "path": "evidence/transfer-guest-desktop.png",
+      "sha256": "443e6af3c89450fcc4af85ba296a668bca1ba48be1f43054d714c547e73abfda"
+    },
+    {
+      "path": "evidence/transfer-guest-mobile.png",
+      "sha256": "a0ead73d9750c0707d80376895708ada9b71805b7e65e1dc96f320f8011add8c"
+    },
+    {
+      "path": "evidence/transfer-guest-webkit-mobile.png",
+      "sha256": "720e6691f0f3c458eb4e886fb2c82308f02f2f092814e93eb3f0d0a4733a5035"
+    },
+    {
+      "path": "evidence/transfer-history-desktop.png",
+      "sha256": "d38622dfc6e4a5a1b1e3a34df7f171189ea7426009a4df8bc93d10288cdebad1"
+    },
+    {
+      "path": "evidence/transfer-history-mobile.png",
+      "sha256": "c4228005870dac594076597c7adb1fd2e36889c752421336632bb9fdfb34bfdc"
+    },
+    {
+      "path": "evidence/transfer-history-webkit-mobile.png",
+      "sha256": "a780e9f41a3836d651ef35b7d4021779000703f868c016b17d7f5f6dae732857"
+    },
+    {
+      "path": "evidence/transfer-picker-desktop.png",
+      "sha256": "37ea6b02ef53da39348d34ff223550d66140d045ae1c336b2e86d960c9ebc63f"
+    },
+    {
+      "path": "evidence/transfer-picker-mobile.png",
+      "sha256": "65afc6909c42e16f4205a02b196fe2ddf6ad2a60ced08fe2a09d9211aa8e9712"
+    },
+    {
+      "path": "evidence/transfer-picker-webkit-mobile.png",
+      "sha256": "11412b83410f4c69b2cada58751b6a3c3c460b7ad488195e94a59130838da383"
+    },
+    {
+      "path": "evidence/transfer-review-desktop.png",
+      "sha256": "6448baf340452702b7086d5c9e415c6930821693a56f33009f781ba48e1de34e"
+    },
+    {
+      "path": "evidence/transfer-review-mobile.png",
+      "sha256": "fe9c30979a503484f035379593abd2324a646524d0ebc4532cec4a8d5f6325b1"
+    },
+    {
+      "path": "evidence/transfer-review-webkit-mobile.png",
+      "sha256": "cf1f7b7caf9ff9c5798512b6bcc70031029b7f455aff0c65cf028bf7ff98baf9"
+    }
+  ],
+  "sources": [
+    "https://k-series-support.lightspeedhq.com/hc/en-us/articles/10032856591643-Transferring-items-and-orders-to-other-tables",
+    "https://resto-support.lightspeedhq.com/hc/en-us/articles/226405488-Transferring-and-merging-orders",
+    "https://squareup.com/help/us/en/article/8166-comp-void-and-reassign-checks-with-square-for-restaurants",
+    "https://support.toasttab.com/en/article/Transferring-Items-Checks-and-Payments",
+    "https://docs.oracle.com/en/industries/food-beverage/simphony/simcg/c_tms_chapter_heading.htm"
+  ],
+  "findingsFixed": [
+    "Concurrent transfers of one session could return 404 due to the mutable table join during PostgreSQL row recheck; stable session lock with tenant checks before/after fixes it.",
+    "Escape from a nested dialog could also close the session detail; stop event propagation and portal the transfer dialog.",
+    "Explicit accessible names for area/reason selects; keyboard focus to Cancel during review and back to action buttons.",
+    "Existing support priority test collided with date-relative seed shifts; isolated test employee instead of mutating seed.",
+    "WebKit full-page screenshots exceeded the 32767-pixel limit after test tables accumulated; normalize existing core45 captures to CSS pixels."
+  ],
+  "earlierRuns": [
+    {
+      "key": "baseline-integration",
+      "result": "91 testcase passed, but database cleanup timed out; exit 1. Serial baseline rerun passed 91/91."
+    },
+    {
+      "key": "transfer-integration-fixed",
+      "result": "8/9, concurrent same session returned 404. Fixed in shared session locking."
+    },
+    {
+      "key": "integration-final",
+      "result": "99/100; support test fixture overlap with date-relative seed. Fixture isolated; final full run passed."
+    },
+    {
+      "keys": [
+        "browser-transfer-initial",
+        "browser-transfer-second",
+        "browser-transfer-third",
+        "browser-transfer-fourth",
+        "browser-transfer-fifth",
+        "browser-transfer-sixth"
+      ],
+      "result": "Failed iterations: wrong search label/API fixture, request before join completed, nested Escape/focus, select accessible name and stale-action race in test. These runs are not counted as PASS."
+    },
+    {
+      "key": "browser-all-final",
+      "result": "58 passed, 1 intentional skip, 1 WebKit screenshot-size failure (32767-pixel cap). Capture fixed and full suite rerun; see final checks."
+    }
+  ],
+  "limits": [
+    "Guest notice occurs at next visible polling refresh, approximately 3 seconds; no new realtime service.",
+    "Party size validates destination capacity; it is not persisted as a transfer-history guest-count snapshot.",
+    "Transfer history JOINs current names; final closed receipt has its own immutable snapshot.",
+    "No merge/split/per-item transfer; no long-running restaurant load test or physical POS-device acceptance test."
+  ]
+}

@@ -1,0 +1,107 @@
+$ node scripts/run.mjs e2e
+$ node scripts/run.mjs migrate
+Loaded Prisma config from prisma.config.ts.
+
+Prisma schema loaded from prisma/schema.prisma.
+Datasource "db": PostgreSQL database "thesis_browser_917786b9e530dccb", schema "public" at "127.0.0.1:5433"
+
+24 migrations found in prisma/migrations
+
+Applying migration `202609100001_c0_c1`
+Applying migration `202609220001_core45`
+Applying migration `202609220002_core45_guards`
+Applying migration `202609220003_core45_session_guard`
+Applying migration `202609230001_core_ledger_guards`
+Applying migration `202609230002_review_withdrawal`
+Applying migration `202609230003_qr_token_recovery`
+Applying migration `202609240001_unavailable_inventory`
+Applying migration `202609240001_workforce_table_transfer`
+Applying migration `202609240002_receipt_snapshot`
+Applying migration `202609240003_payroll_snapshot_guard`
+Applying migration `202609270001_uat_item_lifecycle`
+Applying migration `202609270002_partial_refunds`
+Applying migration `202609270003_product_policy`
+Applying migration `202609270004_attendance_outcome`
+Applying migration `202609270005_operation_audit`
+Applying migration `202609270006_payroll_payment_audit`
+Applying migration `202609270007_receipt_draft_guard`
+Applying migration `202609270008_refund_request_key`
+Applying migration `202609270009_staff_code`
+Applying migration `202609280001_stock_adjustment_trace`
+Applying migration `202609300001_review_integrity`
+Applying migration `202609300002_schema_alignment`
+Applying migration `202610010001_guest_policy_order_reasons`
+
+┌─────────────────────────────────────────────────────────┐
+│  Update available 7.10.0 -> 8.0.0-rc.19                 │
+│                                                         │
+│  This is a major update - please follow the guide at    │
+│  https://pris.ly/d/major-version-upgrade                │
+│                                                         │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
+The following migration(s) have been applied:
+
+migrations/
+  └─ 202609100001_c0_c1/
+    └─ migration.sql
+  └─ 202609220001_core45/
+    └─ migration.sql
+  └─ 202609220002_core45_guards/
+    └─ migration.sql
+  └─ 202609220003_core45_session_guard/
+    └─ migration.sql
+  └─ 202609230001_core_ledger_guards/
+    └─ migration.sql
+  └─ 202609230002_review_withdrawal/
+    └─ migration.sql
+  └─ 202609230003_qr_token_recovery/
+    └─ migration.sql
+  └─ 202609240001_unavailable_inventory/
+    └─ migration.sql
+  └─ 202609240001_workforce_table_transfer/
+    └─ migration.sql
+  └─ 202609240002_receipt_snapshot/
+    └─ migration.sql
+  └─ 202609240003_payroll_snapshot_guard/
+    └─ migration.sql
+  └─ 202609270001_uat_item_lifecycle/
+    └─ migration.sql
+  └─ 202609270002_partial_refunds/
+    └─ migration.sql
+  └─ 202609270003_product_policy/
+    └─ migration.sql
+  └─ 202609270004_attendance_outcome/
+    └─ migration.sql
+  └─ 202609270005_operation_audit/
+    └─ migration.sql
+  └─ 202609270006_payroll_payment_audit/
+    └─ migration.sql
+  └─ 202609270007_receipt_draft_guard/
+    └─ migration.sql
+  └─ 202609270008_refund_request_key/
+    └─ migration.sql
+  └─ 202609270009_staff_code/
+    └─ migration.sql
+  └─ 202609280001_stock_adjustment_trace/
+    └─ migration.sql
+  └─ 202609300001_review_integrity/
+    └─ migration.sql
+  └─ 202609300002_schema_alignment/
+    └─ migration.sql
+  └─ 202610010001_guest_policy_order_reasons/
+    └─ migration.sql
+
+All migrations have been successfully applied.
+$ node scripts/run.mjs seed-core
+Demo seed ready: 16 accounts, 24 tables, 48 dishes with recipes, 50 ingredients, 3 stock locations and 14 days of shifts. Existing data preserved.
+[WebServer] $ node scripts/run.mjs dev
+[WebServer] $ tsx watch src/server.ts
+[WebServer] $ node scripts/prepare-docs.mjs && next dev --hostname 127.0.0.1 --port 13100
+
+Running 51 tests using 1 worker
+···························°·······················
+  1 skipped
+  50 passed (4.3m)

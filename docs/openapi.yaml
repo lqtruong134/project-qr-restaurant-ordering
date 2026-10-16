@@ -1,143 +1,244 @@
-openapi: 3.1.0
-info:
-  title: QR Ordering — Foundation API
-  version: 0.2.0
-  description: Health, internal login and workspace contracts. CORE business paths are generated into docs/core45/openapi-paths.json and merged by prepare-docs.mjs.
-servers:
-  - url: http://localhost:3000/api
-security:
-  - accessCookie: []
-paths:
-  /health/live:
-    get:
-      security: []
-      responses:
-        '200': {description: Process alive}
-  /health/ready:
-    get:
-      security: []
-      responses:
-        '200': {description: PostgreSQL connected}
-        '503': {description: PostgreSQL unavailable}
-  /auth/login:
-    post:
-      security: []
-      description: Five attempts per minute per account AND IP. New login revokes previous session. Origin must match APP_ORIGINS.
-      parameters:
-        - $ref: '#/components/parameters/Csrf'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [username, password]
-              properties:
-                username: {type: string, minLength: 3, maxLength: 64, pattern: '^[a-zA-Z0-9_.-]+$'}
-                password: {type: string, minLength: 1, maxLength: 256}
-      responses:
-        '200':
-          description: Sets HttpOnly access (15 minutes) and refresh (7 days absolute) cookies; Secure in production and SameSite Strict.
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/IdentityResponse'}
-        '400': {$ref: '#/components/responses/Invalid'}
-        '401': {$ref: '#/components/responses/Unauthorized'}
-        '403': {$ref: '#/components/responses/Forbidden'}
-        '429': {description: RATE_LIMITED; Retry-After 60 seconds}
-  /auth/refresh:
-    post:
-      security: [{refreshCookie: []}]
-      parameters:
-        - $ref: '#/components/parameters/Csrf'
-      description: Origin allowlist required. Atomic rotation; old credential unusable; absolute expiry is never extended.
-      responses:
-        '200': {description: New cookies and status ok}
-        '401': {$ref: '#/components/responses/Unauthorized'}
-        '403': {$ref: '#/components/responses/Forbidden'}
-  /auth/logout:
-    post:
-      security: [{refreshCookie: []}]
-      parameters:
-        - $ref: '#/components/parameters/Csrf'
-      description: Origin allowlist required. Idempotently revokes current refresh/access and clears cookies, including if short access has expired.
-      responses:
-        '204': {description: Signed out}
-        '403': {$ref: '#/components/responses/Forbidden'}
-  /auth/me:
-    get:
-      responses:
-        '200':
-          description: Current database identity and permissions
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/IdentityResponse'}
-        '401': {$ref: '#/components/responses/Unauthorized'}
-  /workspaces/{area}:
-    get:
-      description: Requires matching area.workspace permission resolved from database. These are access-check endpoints, not operational POS/KDS APIs.
-      parameters:
-        - in: path
-          name: area
-          required: true
-          schema: {type: string, enum: [staff, kitchen, admin]}
-      responses:
-        '200':
-          description: Permission granted
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/IdentityResponse'
-                  - type: object
-                    properties:
-                      area: {type: string}
-                      message: {type: string}
-        '401': {$ref: '#/components/responses/Unauthorized'}
-        '403': {$ref: '#/components/responses/Forbidden'}
-components:
-  securitySchemes:
-    accessCookie: {type: apiKey, in: cookie, name: access}
-    refreshCookie: {type: apiKey, in: cookie, name: refresh}
-  parameters:
-    Csrf:
-      in: header
-      name: X-CSRF-Protection
-      required: true
-      schema: {type: string, enum: ['1']}
-  schemas:
-    IdentityResponse:
-      type: object
-      properties:
-        user:
-          type: object
-          properties:
-            id: {type: string, format: uuid}
-            displayName: {type: string}
-            role: {type: string}
-            permissions: {type: array, items: {type: string}}
-            version: {type: integer}
-    Error:
-      type: object
-      required: [errorCode, userMessage, correlationId]
-      properties:
-        errorCode: {type: string}
-        userMessage: {type: string}
-        correlationId: {type: string}
-  responses:
-    Invalid:
-      description: INVALID_INPUT
-      content:
-        application/json:
-          schema: {$ref: '#/components/schemas/Error'}
-    Unauthorized:
-      description: INVALID_CREDENTIALS (login) or SESSION_EXPIRED (missing, expired, revoked or invalid session)
-      content:
-        application/json:
-          schema: {$ref: '#/components/schemas/Error'}
-    Forbidden:
-      description: ACCOUNT_LOCKED, PERMISSION_DENIED or CSRF_REJECTED
-      content:
-        application/json:
-          schema: {$ref: '#/components/schemas/Error'}
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "QR Ordering — hệ thống hiện hành",
+    "version": "2026-10-15",
+    "description": "Tài liệu đối chiếu mã nguồn; thao tác Execute tác động backend thật."
+  },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "accessCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "access"
+      }
+    },
+    "parameters": {
+      "Csrf": {
+        "name": "X-CSRF-Protection",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "1"
+          ],
+          "default": "1"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health/live": {
+      "get": {
+        "tags": [
+          "Công khai / auth cookie tùy route"
+        ],
+        "summary": "GET /health/live",
+        "operationId": "GET__health_live",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/app.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "Công khai / auth cookie tùy route"
+        ],
+        "summary": "GET /health/ready",
+        "operationId": "GET__health_ready",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/app.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "Công khai / auth cookie tùy route"
+        ],
+        "summary": "POST /auth/login",
+        "operationId": "POST__auth_login",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/auth/index.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "username",
+                  "password"
+                ],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 64
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                }
+              },
+              "example": {
+                "username": "pv001",
+                "password": "NHAP_MAT_KHAU_TREN_MAY"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": [
+          "Công khai / auth cookie tùy route"
+        ],
+        "summary": "POST /auth/refresh",
+        "operationId": "POST__auth_refresh",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/auth/index.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "Công khai / auth cookie tùy route"
+        ],
+        "summary": "POST /auth/logout",
+        "operationId": "POST__auth_logout",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/auth/index.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Csrf"
+          }
+        ],
+        "security": [],
+        "responses": {
+          "204": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "Nhân viên đã đăng nhập"
+        ],
+        "summary": "GET /auth/me",
+        "operationId": "GET__auth_me",
+        "description": "Đối chiếu code 02/10/2026. apps/api/src/modules/auth/index.ts. ID mẫu cần thay bằng dữ liệu demo. Kiểm tra nghiệp vụ đầy đủ nằm trong handler.",
+        "parameters": [],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công theo handler"
+          },
+          "default": {
+            "description": "Lỗi xác thực, đầu vào, quyền hoặc trạng thái; đọc userMessage/errorCode."
+          }
+        }
+      }
+    },
+    "/workspaces/{area}": {
+      "get": {
+        "tags": [
+          "Quyền"
+        ],
+        "summary": "Kiểm tra workspace theo vai trò",
+        "parameters": [
+          {
+            "name": "area",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "staff",
+                "kitchen",
+                "admin"
+              ]
+            }
+          }
+        ],
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Được phép"
+          },
+          "401": {
+            "description": "Chưa xác thực"
+          },
+          "403": {
+            "description": "Không có quyền"
+          }
+        }
+      }
+    }
+  }
+}

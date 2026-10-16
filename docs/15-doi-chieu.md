@@ -1,0 +1,810 @@
+# 15. Hồ sơ đối chiếu và giới hạn xác minh
+
+## Nền tảng AI Menu Assistant — 15/10/2026
+
+Đã audit dữ liệu và chuẩn bị API tư vấn guest chỉ đọc, provider thay thế được, structured output có xác minh, dữ liệu SFT/evaluation và notebook QLoRA ở mức scaffold. Cấu hình đang dùng **OFF**; không sửa .env, migration, seed hoặc bảng dữ liệu nghiệp vụ. Không tải model, chạy GPU/train/inference hoặc triển khai Ollama; chưa thêm giao diện AI.
+
+| Kiểm tra | Kết quả |
+| --- | --- |
+| Mã nguồn | `pnpm check`: format, lint, mọi package TypeScript và **225 unit tests / 33 suite** đạt |
+| Tích hợp | **367 integration tests / 25 suite** đạt trên database tạm; có **35 ca trợ lý** |
+| An toàn trợ lý | Tenant/guest/CSRF, tái xác thực sau inference, READ ONLY, không đổi last_seen, input clone, ID giả/trùng, giá tự tạo, giá/stock đổi, ngân sách, số lượng và nguyên liệu dùng chung, timeout/provider lỗi/rate/concurrency đạt |
+| Guard cuối | “món chay”, dị ứng có nhiều khoảng trắng và tránh nguyên liệu được chuyển nhân viên; ID không khả dụng trong context gốc bị từ chối dù vừa mở bán lại |
+| Dataset | **24 train / 6 validation / 6 evaluation**, schema/group/prompt kiểm tra đạt; không có dữ liệu khách hàng thật |
+| Bộ chấm | Dự đoán thiếu vẫn nằm trong mẫu số: kiểm tra 6 mẫu không có dự đoán cho kết quả 0/6; không lấy gold làm prediction; kiểm tra ID/schema/budget/preference/allergy và bảo vệ file nguồn |
+| Notebook | 7 code cell AST hợp lệ và chạy toàn bộ với cờ tắt: không import thư viện ML, không model/GPU; có nhánh BASE và ADAPTER riêng, chưa GPU-validated |
+| Production | Build **7 route** đạt; health web/API HTTP200; endpoint trợ lý không có guest trả401 |
+| Phạm vi | Không thêm UI nên không tạo browser AI giả; không đo chất lượng model hoặc tuyên bố fine-tune tốt hơn base |
+
+[Hướng dẫn và audit chi tiết](14-mo-rong.md) · [Bằng chứng tổng hợp](reference/ai-menu-foundation-20261015.json) · [Kiểm tra source](evidence/ai-menu-foundation-check-20261015.log) · [367 ca tích hợp](evidence/ai-menu-foundation-integration-20261015.log) · [Build](evidence/ai-menu-foundation-build-20261015.log) · [Dữ liệu](evidence/ai-menu-dataset-20261015.log) · [Notebook CPU](evidence/ai-menu-notebook-20261015.json).
+
+Các lần guard review đã phát hiện và sửa hai khoảng hở trước khi chạy lần cuối. Các cảnh báo pg về query đồng thời trong một số bài lịch sử cũ không làm hỏng test và chưa được sửa ngoài phạm vi; trước nâng pg cần rà riêng. Bộ profile ML được ghi là ứng viên chưa thử GPU, không coi AST/CPU preflight là bằng chứng train/export hoạt động.
+
+## Thông báo thao tác 5 giây — 15/10/2026
+
+Thông báo dùng chung có thanh thời gian, nút ×, tự đóng sau 5 giây và tạm dừng khi đang đọc bằng chuột/bàn phím hoặc tab bị ẩn. Khách dùng cùng component với nội bộ; giữ thông báo lỗi tại biểu mẫu và dòng trạng thái món riêng.
+
+Đạt **21/21 ca browser** trên desktop, Android và Safari: thêm món/chuyển bàn, hủy một phần trong hộp thoại, lập/sửa/hủy ca, từ chối trùng lịch, bộ đếm giảm và hết 5 giây, thông báo mới thay cũ, tạm dừng/tiếp tục và đóng bằng nút/bàn phím. Kiểm tra chiều rộng 320px; TypeScript frontend/công cụ, lint/format phạm vi sửa, production build 7 route và quét bí mật cơ bản đạt. Các request ghi nghiệp vụ trong browser được giả lập, không thêm món/ca/giao dịch thử vào database đang dùng.
+
+Đồng hồ giả lập kiểm tra thời gian ở chế độ giảm chuyển động để không đo nhầm chuyển tiếp CSS theo thời gian thực; các ca hiển thị khách/phục vụ chạy giao diện bình thường. Lượt nghiệm thu cuối chạy tuần tự vì đăng nhập song song cùng tài khoản sẽ vô hiệu phiên cũ theo quy định bảo mật hiện có. [Bằng chứng](reference/toast-countdown-20261015.json) · [21 ca browser](evidence/toast-countdown-browser-20261015.log) · [Build](evidence/toast-countdown-build-20261015.log).
+
+![Thông báo với thanh thời gian trên màn hình 320px](evidence/toast-countdown-320-20261015.png)
+
+## Bổ sung đủ năm ảnh còn lại — 15/10/2026
+
+Đã nhập và gắn **5 ảnh PNG** do chủ dự án gửi theo đúng thứ tự cho `CHINH-07`, `KHAI-09`, `LAU-09`, `LAU-10`, `DESSERT-13`. Manifest cài đặt và database đang dùng cùng URL ảnh trong kho chung; hiện **91/91 sản phẩm có ảnh**, không còn ảnh chờ bổ sung. [Metadata ảnh](../packages/database/resources/menu-images/owner-additions-20261015.json) ghi nhận nguồn chủ dự án cung cấp và ảnh minh họa, không tự xác nhận giấy phép.
+
+Đối chiếu khi cập nhật xác nhận hash **65 bảng được bảo vệ** không đổi; các trường nghiệp vụ của sản phẩm giữ nguyên ngoài `image_url`, phiên bản và thời điểm cập nhật. Không reset/seed lại dữ liệu, không đổi tên, giá, danh mục hoặc công thức để khớp ảnh. Các kết quả kiểm thử ngày 14/10 phía dưới thuộc lần nghiệm thu trước; không tính là kết quả của đợt bổ sung ngày 15/10.
+
+Kiểm tra đợt 15/10: **5/5 ca tích hợp catalog** trên database tạm và **6/6 ca browser** trên desktop, Android, Safari đạt. Browser giả lập dữ liệu nghiệp vụ để không ghi vào dữ liệu đang dùng, nhưng tải tệp ảnh thật qua HTTP; cả năm ảnh mới tải thành công, đúng hash và kích thước, không tràn ngang ở 320/390/1440px. [Bằng chứng tổng hợp](reference/menu-five-photos-20261015.json) · [Tích hợp](evidence/menu-five-photos-integration-20261015.log) · [Browser](evidence/menu-five-photos-browser-20261015.log).
+
+## Hồ sơ nghiệm thu ảnh và phân loại món — 14/10/2026
+
+Đã rà toàn bộ **91 sản phẩm**, phân thành **11 danh mục**, sửa nhóm cho **26 món** và bổ sung **28 ảnh** từ thư mục chủ dự án cung cấp. Tại thời điểm nghiệm thu 14/10, dữ liệu đang dùng và nguồn khởi tạo đồng nhất; **86/91 sản phẩm có ảnh**. Năm ảnh còn thiếu của đợt này đã được chủ dự án gửi bổ sung và gắn ngày 15/10 theo [bài 20](20-anh-va-giao-dien.md), không thay công thức để ép khớp ảnh.
+
+| Kiểm tra        | Kết quả                                                                                                                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mã nguồn        | Format, ESLint, TypeScript và **176 unit tests / 30 suite** đạt                                                                                                                                          |
+| API/CSDL        | **332 integration tests / 24 suite** đạt; gồm seed mới phân đúng toàn bộ món và chạy lại giữ ID/dữ liệu vận hành                                                                                         |
+| Khách và admin  | **6 ca browser** trên desktop/Android/Safari đạt: 91 sản phẩm, Combo cạnh Tất cả, Canh 11/Lẩu 5, ảnh thực và chiều rộng 320px                                                                            |
+| Ảnh công khai   | **85 URL ảnh khác nhau** HTTP 200; nội dung khớp filename immutable và đọc được kích thước                                                                                                               |
+| Bảo toàn        | 64 bảng được so hash trong transaction không đổi; các trường ngoài category/image/version/timestamp của product giữ nguyên. Không đổi giá, công thức, tồn kho hoặc chứng từ; 7 ID danh mục cũ giữ nguyên |
+| Thay đổi UI nhỏ | Ghi chú dưới ảnh ở hộp sửa món dùng cả hàng trên mobile, tránh chữ bị ép vào cột hẹp                                                                                                                     |
+| Build           | Production build cuối 7 route đạt trong cache riêng; web/API health HTTP 200, quét bí mật cơ bản và diff check đạt                                                                                       |
+
+Không reset/seed lại database đang dùng. Có bản lưu catalog trước chỉnh và dấu vết SYSTEM cho cập nhật danh mục/ảnh. Ảnh OneDrive gốc không bị sửa hoặc di chuyển; các ảnh có watermark giữ nguyên. Ảnh là tài nguyên do chủ dự án cung cấp, không tự gán giấy phép chưa xác minh. Các lần fixtures đầu thiếu mốc thống kê/nhầm tên truy cập bộ lọc đã sửa trước lần cuối đủ 6 ca đạt.
+
+[Bằng chứng tổng hợp](reference/menu-category-photos-20261014.json) · [Kiểm tra source](evidence/menu-category-photos-check-20261014.log) · [332 ca tích hợp](evidence/menu-category-photos-integration-20261014.log) · [6 ca browser](evidence/menu-category-photos-browser-20261014.log) · [Build cuối](evidence/menu-category-photos-build-20261014.log).
+
+![Ảnh và danh mục Canh trong hộp sửa món admin trên Safari 320px](evidence/menu-category-photos-admin-20261014.png)
+
+## Nghiệm thu payOS — 14/10/2026
+
+Đã áp dụng migration `202610140001_payos_online` vào database hiện hành sau sao lưu và kiểm thử. Không seed/reset. Tích hợp dùng SDK chính thức `@payos/node@2.0.5`, cùng sổ tiền/khóa phiên/allocation hiện có.
+
+| Nội dung               | Kết quả xác nhận                                                                                                                                                                                                                                            |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mã nguồn               | `pnpm check` đạt format, lint, toàn bộ TypeScript và **176 unit tests / 30 suite**                                                                                                                                                                          |
+| API/CSDL               | Toàn bộ **330 integration tests / 24 suite** đạt, gồm **52 ca payOS** về chữ ký, trả từng phần, đồng thời, retry, quyền, hết hạn/hủy, quota/VAT, đối soát và giữ phiếu đóng                                                                                 |
+| Giao diện fixtures     | **36 ca** trên desktop, Android và Safari; QR, số tiền, refresh, trạng thái lỗi/thiếu cấu hình, đối soát và chiều rộng 320px                                                                                                                                |
+| Giao diện với API thật | **3 ca** trên DB tạm với provider ngân hàng giả, các handler/auth/ledger thật: khách gọi → phục vụ nhận → CASH 200.000đ + online 150.000đ + online 100.000đ → webhook ký/replay → giao phiếu/đóng phiên. Không dùng phản hồi tài chính fixtures ở luồng này |
+| Phiếu                  | In 80mm đạt ba browser; VAT nằm trong giá, từng khoản online ghi Hệ thống xác nhận; tiền mặt/tiền thối/hoàn phân biệt rõ                                                                                                                                    |
+| Ngoại lệ cuối          | Tiền về trong lúc create chưa trả lời vẫn giữ PAID; trạng thái PROCESSING tiếp tục đối chiếu, FAILED đã xác minh giải phóng khi chưa nhận tiền; miễn món về 0đ vẫn chặn đóng nếu hủy QR chưa rõ                                                             |
+| Bảo toàn dữ liệu       | Hash theo mọi cột cũ của **66 bảng / 1.084.509 dòng** khớp trước/sau migration; **4.264 phiếu đóng, 4.576 giao dịch thu, 515 giao dịch hoàn** giữ nguyên                                                                                                    |
+| Build và dịch vụ       | Production build 7 route đạt trong cache riêng; web và API health HTTP 200. Quét bí mật cơ bản và diff check đạt                                                                                                                                            |
+
+Các lần chạy lại browser đồng bộ thao tác nhận việc và request polling trước reload trên WebKit; không lọc bỏ pageerror để báo đạt. 36 ca fixtures và 3 ca DB tạm là 39 tình huống khác nhau đã chạy, không cộng các lần chạy lặp.
+
+[Bằng chứng tổng hợp](reference/payos-20261014.json) · [Kiểm tra mã nguồn](evidence/payos-check-20261014.log) · [330 ca tích hợp](evidence/payos-integration-20261014.log) · [Giao diện fixtures](evidence/payos-ui-20261014.log) · [Build](evidence/payos-build-20261014.log).
+
+![Phiếu in 80mm sau các lần thu tiền mặt và payOS; VAT nằm trong giá](evidence/payos-receipt-20261014.png)
+
+**Chưa nghiệm thu merchant thật/public HTTPS:** không sao chép credential từ ảnh, không sửa `.env` thật, không gọi API merchant hoặc chuyển tiền thật. `payos:check` xác nhận môi trường hiện tại đang tắt online và chưa có các biến cần thiết; tiền mặt/chuyển khoản thủ công vẫn dùng. Người vận hành thực hiện hướng dẫn HTTPS/webhook/test thật ở [bài 12](12-van-hanh.md). Không có payout tự động, hóa đơn điện tử, thẻ quốc tế hoặc cam kết tải vận hành dài ngày. Hộp thư thông báo chưa khớp chỉ đọc: người phụ trách còn phải kiểm tra dashboard và sao kê, không tự gán giao dịch cho bàn.
+
+## Nghiệm thu khuyến mãi, VAT và phiếu — 13/10/2026
+
+Đã triển khai và áp dụng migration `202610130001_discount_vat` vào database đang dùng, không seed/reset. Giá thực đơn đã gồm VAT theo mô hình doanh nghiệp; admin quản lý chương trình giảm và thuế theo thời điểm. Khách/phục vụ sử dụng điều kiện do server kiểm tra; hoàn sau hủy tính theo tiền sau giảm. [Nghiệp vụ và nguồn tham khảo ở bài 06](06-thanh-toan.md).
+
+| Nội dung                           | Kết quả đã xác nhận                                                                                                                                                                                                                                                           |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mã nguồn                           | `pnpm check` đạt format, lint, TypeScript và **164 unit tests / 29 suite** sau sửa cuối                                                                                                                                                                                       |
+| API/CSDL                           | Toàn bộ **277 integration tests / 22 suite** đạt; sau sửa phần tra cứu tiền sau giảm, **6 kiểm thử tập trung** đạt, gồm 1 trường hợp mới. Tổng tình huống tích hợp khác nhau đã chạy: 278; không cộng lần chạy lặp                                                            |
+| Giao diện dữ liệu nhiều trạng thái | **30 ca browser** dùng API fixtures chặn ghi dữ liệu thật, desktop/Android/Safari: mã/quota/khóa, VAT nhiều mức, lịch sử thiếu VAT, biểu mẫu admin, báo cáo, phiếu 80mm và chiều rộng 320px                                                                                   |
+| Luồng trình duyệt với API thật     | **3/3 đạt** trên database tạm: QR/tham gia → gửi món → nhập mã trên giao diện → phục vụ thu/thối → bếp dừng → admin lập phiếu → phục vụ xác nhận hoàn → xử lý việc còn lại → giao phiếu/đóng và xem phiếu chốt. Không mock API, không ghi giao dịch thử vào database vận hành |
+| Ví dụ tiền thật trong kiểm thử     | Món 49.000đ − giảm 4.900đ = 44.100đ gồm VAT 3.267đ; khách đưa 100.000đ, thối 55.900đ; hủy sau thu hoàn 44.100đ. Kiểm tra riêng hai tờ 100.000đ, thu 84.600đ/thối 115.400đ/hoàn 84.600đ                                                                                        |
+| Bảo toàn trước/sau migration       | Hash theo mọi cột cũ của **62 bảng**, tổng 1.084.507 dòng, khớp hoàn toàn. **4.264 phiếu đóng**, 4.576 giao dịch thu và 515 giao dịch hoàn giữ nguyên. Không suy diễn VAT cho phiếu cũ                                                                                        |
+| Cấu trúc hiện tại                  | **66 bảng,759 cột, 159 khóa ngoại,35 migration**. Từ điển và ERD sinh từ metadata thật;4 bảng mới cho chương trình/phiên/lượt request/chính sách VAT                                                                                                                          |
+| API docs                           | **179 thao tác đăng ký**, gồm 170 nghiệp vụ, 7 auth/workspace, 2 health; Swagger 177 vì gộp 3 route workspace thành 1 route có tham số. Không tính HEAD tự sinh                                                                                                               |
+| Build và dịch vụ                   | Production build sau sửa cuối đạt đủ 7 route trong cache riêng; web và APIhealth HTTP 200. Quét bí mật cơ bản và `git diff --check` đạt                                                                                                                                       |
+
+Đối chiếu hash ngay sau migration khớp toàn bộ dữ liệu cũ. Ở lượt kiểm tra vận hành sau đó, chỉ hash token phiên nội bộ và thời điểm cập nhật tài khoản thay đổi do gia hạn đăng nhập; so sánh với backup xác nhận danh tính, hồ sơ, mật khẩu và các bảng nghiệp vụ còn lại không đổi. Không phục hồi đè token đang dùng của người sử dụng.
+
+[Bằng chứng tổng hợp](reference/promotions-vat-20261013.json) · [Mã nguồn](evidence/promotions-vat-check-20261013.log) · [277 ca tích hợp](evidence/promotions-vat-integration-20261013.log) · [Hồi quy cuối](evidence/promotions-vat-regression-20261013.log) · [Trình duyệt thật](evidence/promotions-vat-browser-20261013.log) · [Build](evidence/promotions-vat-build-20261013.log).
+
+![Phiếu chốt sau hoàn, tiền thối và hoàn món tách riêng](evidence/promotions-vat-receipt-20261013.png)
+
+Phiếu là chứng từ thanh toán nội bộ, **không thay thế hóa đơn điện tử**. Chưa tích hợp phát hành hóa đơn với cơ quan thuế, kiểm thử tải hoặc nghiệm thu vận hành dài ngày. Các biên bản lịch sử phía dưới giữ phạm vi/thời điểm của từng đợt; không coi số ca đã chạy là chứng minh đã phủ mọi tình huống.
+
+## Nghiệm thu đồng nhất danh mục, ảnh và dữ liệu — 13/10/2026
+
+Bộ dữ liệu mới **đã kích hoạt tại `qr_restaurant_ordering`**. Đây là dữ liệu vận hành mô phỏng từ **01/08 đến hết 12/10/2026**, dùng để kiểm tra hệ thống; danh mục và dữ liệu nhập qua ADMIN cùng sử dụng các thực thể/quy tắc hiện hành. Không coi các giao dịch này là phát sinh thật tại nhà hàng.
+
+| Nội dung           | Kết quả đã kiểm tra                                                                                                                                                                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Danh mục           | 86 món Việt + 5 combo, 113 nguyên liệu, 91 công thức hoạt động, 24 bàn, 3 khu vực và 3 kho; toàn bộ sản phẩm mở bán và đủ khả dụng                                                        |
+| Gọi món            | 4.264 phiên đã đóng, 8.528 lượt gọi, 34.156 dòng món; 91/91 sản phẩm có lịch sử bán                                                                                                       |
+| Tiền               | 4.576 giao dịch thu, 515 giao dịch hoàn; tiền khách đưa, tiền thối, tiền thu cho món và tiền hoàn được đối soát riêng                                                                     |
+| Nhân sự            | 174 ca, 1.044 phân công, 876 công đã duyệt; 42 phiếu lương, 28 ghi nhận chi tháng 8–9; tháng 10 nháp; lịch dự kiến 13–26/10 không có chấm công tương lai                                  |
+| Bảo toàn           | 2 tài khoản ADMIN giữ danh tính và thông tin bảo mật; hồ sơ nhà hàng và 24 QR bàn giữ nguyên                                                                                              |
+| Ảnh                | 58/91 sản phẩm có ảnh; 57 URL ảnh món/banner khác nhau đã trả HTTP 200 sau kích hoạt, 33 sản phẩm cần bổ sung ảnh                                                                         |
+| Mã nguồn           | `pnpm check` đạt định dạng, lint, TypeScript và **137 unit tests**; production build vào cache riêng đạt                                                                                  |
+| API/CSDL           | **252/252 integration tests** trên 20 suite độc lập; kiểm tra thêm 25 điều kiện lịch sử, 11 điều kiện công/lương và 9 đối chiếu độc lập không có vi phạm                                  |
+| Trình duyệt        | **39 ca khác nhau** trên desktop, Android/Chrome điện thoại và WebKit: 33 ảnh/banner/giỏ và 6 công/lương; 6 ca ảnh được chạy lại sau sửa CSS cuối                                         |
+| Dữ liệu lớn        | 19 tuyến GET quản trị, phục vụ, bếp, báo cáo/lịch sử được thử trên bộ dữ liệu đầy đủ, đều HTTP 200; báo cáo doanh số toàn kỳ dưới 1 giây tại máy thử, không phải cam kết tải trên mọi máy |
+| Sau chuyển dữ liệu | Web `/`, `/guest` và `/api/health/ready` HTTP 200, API đã khởi động lại; không còn thư mục public ảnh món cũ trong đường hiển thị                                                         |
+
+Công thức mới và ảnh được đối chiếu ở [bài 20](20-anh-va-giao-dien.md). Nguồn ảnh, tác giả và giấy phép vẫn giữ trong metadata. Không gán ảnh sai món để lấp danh sách; không tính poster combo thành ảnh riêng của mọi món thành phần.
+
+Tiền mặt trong toàn bộ bộ dữ liệu: **khách đưa 2.246.100.000 đ = thu cho món 2.060.744.750 đ + tiền thối 185.355.250 đ**. Tổng thu mọi hình thức **3.435.464.000 đ − hoàn món 40.927.000 đ = tiền món sau điều chỉnh 3.394.537.000 đ**. Tiền thối không được cộng vào tiền hoàn món hoặc doanh thu. Các số trên là tổng hợp mô phỏng, không phải doanh thu thực tế của nhà hàng.
+
+Việc thay dữ liệu thực hiện bằng database ứng viên: thử, sửa thứ tự thời gian khoản thu sau duyệt, kiểm tra rồi chuyển tên trong bước bảo trì riêng. Database thử cũ và tệp sao lưu vẫn giữ riêng để khôi phục, không xuất hiện trong giao diện hiện hành. Không tắt trigger bất biến hoặc xóa lịch sử bằng CASCADE. Kiểm thử danh mục xác nhận gọi được từng món trong các lượt dưới giới hạn 50 dòng của API rồi hủy/trả kho chính xác.
+
+[Bằng chứng tổng hợp](reference/restaurant-unification-20261013.json) · [Kiểm tra mã nguồn](evidence/restaurant-unification-check-20261013.log) · [252 ca tích hợp](evidence/restaurant-unification-integration-20261013.log) · [Build](evidence/restaurant-unification-build-20261013.log). Tệp tổng hợp không chứa mật khẩu, token hay bản ghi riêng; backup và manifest chi tiết nằm ngoài thư mục public/tài liệu.
+
+Phạm vi trình duyệt của đợt này tập trung các phần ảnh/banner, giỏ, chấm công và phiếu lương vừa thay đổi. Những biên bản cũ bên dưới giữ nguyên thời điểm/phạm vi; không coi số lượng kiểm thử là chứng minh mọi lỗi giao diện hoặc mọi tình huống triển khai đã được kiểm hết.
+
+Đối chiếu lại 03/10/2026. Commit nền: 7b6301aeb2b7bd6bc519b8cc018506d2ab92f649. Database: qr_restaurant_ordering. PostgreSQL 18.6. Working tree bao gồm sửa lỗi/CSDL/seed ngày 30/09 và giao diện/giờ hiển thị ngày 01/10; chưa commit. Thay đổi người dùng có sẵn trong test được bảo toàn, cập nhật thêm chính sách QR, lý do xử lý món và các bước xác nhận giao dịch. Đợt hỗ trợ thêm bàn giao có xác nhận, lịch sử và bảo vệ trách nhiệm.
+
+## Công lương theo nhân viên, chính sách và lịch nghỉ — hoàn tất đối chiếu 11/10/2026
+
+Phần này là hồ sơ bổ sung mới nhất cho nhóm ca làm và lương, đối chiếu kết thúc ngày 11/10/2026. Migration công lương được áp dụng ngày 10/10/2026. Các số bảng, cột, API và kết quả 03/10 ở những mục bên dưới thuộc lần kiểm tra lịch sử đó, không phải số liệu được đếm lại cho toàn bộ hệ thống trong đợt này.
+
+Lương cơ bản được đặt riêng cho từng người. Chính sách có ngày áp dụng quy định tiền làm đêm, làm thêm, ngày nghỉ hằng tuần và ngày lễ; lịch nghỉ hằng tuần gắn với từng nhân viên, không mặc định Chủ nhật. Quản trị chọn các khoảng tính công và khoảng nghỉ, xác nhận giờ làm thêm với nhân viên, xem kết quả tính tại máy chủ rồi duyệt. Giờ chấm công gốc được giữ nguyên. Nghỉ lễ hưởng lương được ghi riêng với giờ làm trong ngày lễ; công và phiếu lương lưu các khoản cùng căn cứ đã áp dụng.
+
+Khi số tiền tính lại lúc xác nhận khác kết quả đã xem, API chặn duyệt để quản trị xem dự kiến mới. Các bản công cũ đã duyệt và phiếu đã chốt không bị tính lại. Ghi nhận chi thực hiện trên phiếu riêng từng người, không xác nhận chi đồng loạt cả kỳ.
+
+| Kiểm tra                       | Kết quả đã xác nhận                                                               | Phạm vi và giới hạn                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------ | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit, kiểu dữ liệu và mã nguồn | `pnpm check` đạt: định dạng, ESLint, TypeScript và 117 kiểm thử unit              | Gồm công thức phân loại giờ, tỷ lệ đêm/làm thêm/lễ, phân bổ làm tròn và các kiểm thử nền. Không coi đây là chứng nhận tuân thủ pháp lý đầy đủ.                                                                                                                                                                                          |
+| API/CSDL nhân sự và công lương | 39 kiểm thử đạt: 18 mới và 21 hồi quy cũ                                          | Các tệp `tests/workforce-pay.integration.test.ts` và `tests/workforce.integration.test.ts`, database kiểm thử riêng. Hồi quy ca kết thúc đúng 00:00 xác nhận được đổi lịch/đơn giá của ngày sau; ngày đã dùng trong công duyệt vẫn bị chặn 409, snapshot giữ nguyên.                                                                    |
+| Trình duyệt liên quan          | 12 tình huống khác nhau đạt; 3 trường hợp phiếu lương đã lưu chạy lại đạt         | Chính sách, lịch ngày lễ/ngày nghỉ, khoảng công, dự kiến tiền, lỗi giữ dữ liệu, duyệt và giao diện cá nhân. Phiếu đã lưu được đối chiếu trên Chrome desktop, Android Chrome và WebKit: số tiền nằm trong hộp thoại ở 320 px. Không cộng lần chạy lại thành tình huống mới; không tuyên bố đã chạy lại toàn bộ trình duyệt của hệ thống. |
+| Migration vận hành             | 32 migration đã áp dụng; gồm `202610100001_classified_workforce_pay`              | Thêm hai bảng chính sách/lịch nghỉ và các cột căn cứ công, dòng lương. Khởi tạo chính sách mặc định từ ngày áp dụng tại múi giờ nhà hàng; không reset dữ liệu vận hành.                                                                                                                                                                 |
+| Bảo toàn lịch sử               | Đối chiếu hash trước/sau giữ nguyên 368 bản công đã duyệt và 377 dòng lương đã có | Không xuất tên tài khoản, số tiền cá nhân, chứng từ hoặc nội dung bản ghi riêng vào tài liệu. Không tính lại công/lương lịch sử để làm theo công thức mới.                                                                                                                                                                              |
+| Bảo toàn đơn giá và lịch ca    | 14 bản đơn giá cá nhân và 151 lịch ca giữ nguyên                                  | Không đổi lương thỏa thuận hoặc giờ ca đã tạo để chuyển sang chính sách mới.                                                                                                                                                                                                                                                            |
+| Giao diện vận hành             | Trang web và CSS trả HTTP 200; không xuất hiện lỗi biên dịch                      | Đối chiếu ứng dụng đang chạy sau các sửa cuối; kiểm tra này không thay kết quả production build.                                                                                                                                                                                                                                        |
+| Production build               | Bản cuối đạt: Next.js biên dịch, TypeScript và tạo đủ 7 route; exit 0             | Build sau các sửa mốc 00:00 và bố cục phiếu lương; không ghi đè cache dev.                                                                                                                                                                                                                                                              |
+
+Lần chạy bổ sung phiếu lương đã lưu ban đầu dừng vì bộ định vị `.wf-table-scroll` khớp hai vùng trong hộp thoại. Sau khi chọn đúng vùng bằng `.first()`, cả ba dự án trình duyệt đều đạt; đây là sửa bộ kiểm thử, không phải lỗi sản phẩm. Số tình huống trình duyệt khác nhau của đợt này vẫn là 12.
+
+Migration và seed cho cài đặt mới chỉ khởi tạo chính sách mặc định khi nhà hàng chưa có chính sách: cộng đêm 30%, làm thêm ngày thường 150%, ngày nghỉ 200%, ngày lễ 300%, có hiệu lực từ ngày khởi tạo ở múi giờ nhà hàng. Ca trước ngày áp dụng và các công đã duyệt giữ cách tính, snapshot lịch sử. Seed không được dùng để thay các đơn giá hoặc phiếu đã có.
+
+Lịch ngày lễ, Tết, nghỉ bù và nghỉ hằng tuần vẫn do quản trị xác nhận, chưa tự đồng bộ lịch pháp định. Hệ thống chưa tự tính thuế, bảo hiểm, quyền nghỉ theo hợp đồng, hạn mức làm thêm theo ngày/tháng/năm, GPS/vân tay hoặc chi lương nhiều đợt. Khoản hưởng nghỉ lễ cần quản trị xác nhận quyền hưởng; phần mềm chưa tự suy ra từ hợp đồng. Kiểm thử kỹ thuật không thay nghiệm thu tại quán hay rà soát chế độ lao động thực tế.
+
+[Hướng dẫn nghiệp vụ và công thức](09-nhan-su.md) · [Biên bản kiểm thử](reference/workforce-pay-20261011.json) · [Phiếu lương ở 320 px](evidence/workforce-pay-slip-320.png) · Mã tính: `apps/api/src/modules/workforce/pay-calculation.ts`, `pay.service.ts`, `pay.routes.ts` · Kiểm thử giao diện: `tests/browser/workforce-pay.spec.ts`.
+
+## Đã kiểm tra bằng cách nào
+
+- Đọc các route/service backend, các màn hình và client gọi API, cấu hình runtime, schema và 27 migration hiện hành.
+- Đăng ký Fastify với hook onRoute để thu 128 thao tác thực tế; không suy ra bằng tên tài liệu cũ.
+- Đọc metadata PostgreSQL bằng BEGIN READ ONLY, lấy 56 bảng, 613 cột, 138 FK, constraint/index/trigger; không xuất bản ghi người dùng/khách hoặc .env.
+- Đọc quyền: mỗi role ADMIN/STAFF/KITCHEN chỉ có workspace tương ứng; không giả định quyền kế thừa.
+- Kiểm tra migration ghi nhận: 27 migration có finished_at và không bị rollback; hai bản ghi thử trước đó đã rollback. Không có lần thất bại chưa xử lý.
+- Cấu hình risk_policy_config chưa có override cho nhà hàng cấu hình ở lúc đọc.
+
+## Kiểm tra đợt rà soát hệ thống
+
+| Kiểm tra                                                 | Kết quả                   | Phạm vi                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Thẻ bàn và trạng thái số tiền 0 — 03/10/2026             | ĐẠT SAU KIỂM TRA LẠI      | Format/ESLint/TypeScript và 33 unit đạt; 121/121 API trên 9 tệp đạt khi chạy tuần tự. Trình duyệt: toàn bộ 75 có 71 đạt, 3 test UI cũ sự cố chưa đạt, 1 Swagger mobile chủ động bỏ qua; kiểm tra lại 6/6 sự cố và hỗ trợ trên bản cuối đạt, hợp nhất 74 tình huống đạt/1 bỏ qua. Build production, secrets, diff đạt. 246 tệp khớp SHA256; metadata giữ 56 bảng, 613 cột, 138 FK, 27 migration thành công, 128 API; không reset dữ liệu vận hành. |
+| Hỗ trợ có bàn giao xác nhận — 01/10/2026                 | ĐẠT                       | Baseline check 21 unit/62 integration. Sau triển khai 29 integration mới; toàn bộ 91/91 trên 7 tệp. E2E 53 đạt/1 Swagger mobile chủ động bỏ qua (54), support riêng 3/3; check 21 unit, build 7 route, diff không khác biệt, secrets đạt. Hai migration hỗ trợ; dữ liệu vận hành không reset.                                                                                                                                                     |
+| Chính sách 01/10 — Schema/API hiện tại                   | ĐẠT                       | PostgreSQL qr_restaurant_ordering: 55 bảng, 598 cột, 132 FK, 24 migration hoàn tất; 118 thao tác API. Thêm ba cột, không thêm bảng hoặc reset dữ liệu vận hành.                                                                                                                                                                                                                                                                                   |
+| Chính sách 01/10 — pnpm check                            | ĐẠT                       | Sau sửa cuối: Format, ESLint, TypeScript và 21 unit test trên sáu tệp đạt.                                                                                                                                                                                                                                                                                                                                                                        |
+| Chính sách 01/10 — integration                           | 62/62 ĐẠT                 | Sáu tệp, gồm 11 bài mới về xác nhận chính sách, quyền/mã lý do, hủy/lỗi, kho đã tiêu hao, tiền đã thu/cần hoàn, audit/alert/chống gửi lặp. Database thử riêng.                                                                                                                                                                                                                                                                                    |
+| Chính sách 01/10 — SQL migration                         | 6/6 ĐẠT                   | Database tạm migrate deploy: cặp version/time, khách cũ NULL, bất biến bằng chứng và cập nhật tên hợp lệ.                                                                                                                                                                                                                                                                                                                                         |
+| Chính sách 01/10 — browser toàn hệ thống                 | 50 ĐẠT / 1 BỎ QUA / 0 LỖI | 50 đạt / 1 chủ động bỏ qua / 0 lỗi, 51 trường hợp; 4.3m. Desktop, Android Chrome và WebKit mobile; DB/ảnh thử riêng. Swagger mobile chủ động bỏ qua. Lần trước có một lỗi bảng công mobile đã sửa; xem bài 21.                                                                                                                                                                                                                                    |
+| Chính sách 01/10 — nhân sự sau sửa mobile                | 9/9 ĐẠT                   | Chạy riêng sau chuyển bảng duyệt công thành thẻ mobile; xác nhận nút nằm trong màn hình, không ép click xuyên phần che. Ba dự án trình duyệt, 39 giây.                                                                                                                                                                                                                                                                                            |
+| Chính sách 01/10 — build và secrets                      | ĐẠT                       | ĐẠT; bản production đủ 7 route, dùng thư mục build riêng. pnpm check:secrets đạt.                                                                                                                                                                                                                                                                                                                                                                 |
+| Lịch sử — Schema thực tế                                 | ĐẠT                       | PostgreSQL 18.6: 55 bảng,595 cột, 132 FK, 23 migration hoàn tất. Prisma migrate diff database→schema trả empty migration; CHECK/trigger kiểm tra riêng bằng SQL/test.                                                                                                                                                                                                                                                                             |
+| Lịch sử — pnpm check                                     | ĐẠT                       | Chạy lại 01/10/2026 sau thiết kế lại toàn giao diện: Format, ESLint, TypeScript và 19 unit test đạt.                                                                                                                                                                                                                                                                                                                                              |
+| Lịch sử — pnpm test:integration                          | ĐẠT                       | Chạy lại 01/10/2026: 51/51 test trên 5 tệp, kiểm tra quyền, gọi món, giữ/tiêu hao kho, thu/hoàn, cùng tenant/phiên, công/lương và SQL bất biến. Database thử riêng được dọn sau.                                                                                                                                                                                                                                                                  |
+| Lịch sử — pnpm test:e2e — 01/10, giao diện toàn hệ thống | 47 ĐẠT / 1 BỎ QUA         | 48 trường hợp trên desktop, Android Chrome và WebKit mobile. Gồm các luồng QR/gọi món/bếp/thu/đóng/dọn, kho, ca/công/lương, 8 mục ADMIN, các mục STAFF/KITCHEN/cá nhân/khách và ảnh. Swagger mobile chủ động bỏ qua. Kiểm tra nhiều độ rộng từ 320px đến 1440px; không reset database vận hành.                                                                                                                                                   |
+| Lịch sử — Thay ảnh và bảo vệ dữ liệu chưa lưu            | 3/3 ĐẠT                   | Một kịch bản trên ba dự án trình duyệt: phân trang 12 món, tìm/lọc, mở sửa; từ chối file sai định dạng; giữ mô tả chưa lưu khi hủy thay ảnh; tải ảnh PNG dọc, đối chiếu URL ADMIN với khách và hộp chọn món; ảnh tải lỗi chuyển hình giữ chỗ. File ảnh kiểm thử lưu trong thư mục tạm riêng và dọn sau.                                                                                                                                           |
+| Lịch sử — Ảnh đối chiếu luồng gọi món sau thiết kế       | 6/6 ĐẠT                   | Chạy lại riêng core45.spec.ts sau bổ sung chờ đúng trạng thái trước chụp ảnh bếp và tách thời gian chờ khỏi tên món. Desktop/Android/WebKit; luồng nghiệp vụ và kho/tiền vẫn đạt. Hai tệp CSS đã kiểm tra định dạng sau chỉnh sửa cuối.                                                                                                                                                                                                           |
+| Lịch sử — pnpm test:e2e — 01/10, sau đổi kho             | 44 ĐẠT / 1 BỎ QUA         | 45 trường hợp trên desktop/Android/WebKit: 6 bài kho mới, luồng QR/gọi món/bếp/thu/đóng/dọn, quyền, phân ca/công/lương và toàn bộ mục ADMIN/STAFF/KITCHEN. Swagger mobile chủ động skip. Database thử tạo và dọn riêng.                                                                                                                                                                                                                           |
+| Lịch sử — Giao diện kho mới — 01/10                      | 6/6 ĐẠT                   | Lọc kho/tình trạng, tìm kiếm, phân trang; đọc/thay công thức, bảo vệ thay đổi chưa lưu; danh mục; lập/sửa/duyệt/hủy phiếu. Đối chiếu số tồn qua API: nháp chưa tăng, duyệt tăng đúng 3 đơn vị, phiếu đã duyệt không còn nút duyệt; hủy nháp không đổi tồn. Kiểm tra không tràn ở desktop/mobile và 1024/801/800/540/320px.                                                                                                                        |
+| Lịch sử — pnpm test:e2e — 01/10, trước đổi kho           | 38 ĐẠT / 1 BỎ QUA         | 39 trường hợp trên desktop, Android và WebKit: luồng QR/gọi món/bếp/thu/đóng/dọn; quyền/xác thực; kho; ca/công/lương; 8 mục ADMIN với menu mở/thu gọn, tải lại và hộp sửa bàn; màn hình STAFF/KITCHEN và vùng cá nhân; 5 mục khách. Swagger mobile chủ động skip. Database kiểm thử được tạo và dọn riêng; không reset dữ liệu vận hành. Đây là lần chạy trước khi thiết kế lại kho.                                                              |
+| Lịch sử — pnpm test:e2e — 30/09                          | 29 ĐẠT / 1 BỎ QUA         | Lần chạy toàn bộ 30/09 trên desktop/mobile/WebKit, 2,3 phút. Gồm 9 bài nhân sự cho ADMIN/STAFF/KITCHEN. Swagger mobile chủ động skip; không tính ca đó là PASS. Không coi đây là kết quả chạy toàn bộ sau cập nhật 01/10.                                                                                                                                                                                                                         |
+| Lịch sử — Lịch ngày/tuần — 01/10                         | 9/9 ĐẠT                   | Chạy riêng workforce.spec.ts sau cập nhật, 39,1 giây; desktop/Android/WebKit. Đối chiếu số người/danh sách từng ca với API, lọc bếp, đổi ngày trống, kiểm tra 3 góc nhìn ADMIN và lịch ngày/tuần cá nhân. Đi hết phân ca/công/lương/tự chấm công trên database riêng.                                                                                                                                                                             |
+| Lịch sử — Giao diện ca, công và lương                    | 9/9 ĐẠT                   | ADMIN tạo ca, phân công, duyệt công thiếu chấm, lập nháp, thêm thưởng, chốt và ghi nhận chi; nhân viên tự vào/ra, xem lịch/chi tiết/lịch sử và phiếu cá nhân. Kiểm tra ngày kỳ lương tháng 1/2/3 đúng và không tràn ngang. Chỉ dùng database kiểm thử tạo/dọn riêng.                                                                                                                                                                              |
+| Lịch sử — Build và quét bí mật                           | ĐẠT                       | Chạy lại sau thiết kế toàn giao diện: Next production build đủ 7 route; pnpm check:secrets đạt. Quét cơ bản không thay thế kiểm toán an ninh chuyên sâu.                                                                                                                                                                                                                                                                                          |
+| Lịch sử — Seed và reset                                  | ĐÃ THỰC HIỆN              | Chạy thử database riêng trước, rồi thay toàn bộ dữ liệu nghiệp vụ trong qr_restaurant_ordering.16 tài khoản, 24 bàn, 48 món, 50 nguyên liệu, 3 kho, 48 công thức; 12 phiên đóng và 3 phiên mở; 16 lần thu và 1 lần hoàn. Không tác động database khác.                                                                                                                                                                                            |
+| Lịch sử — Đối soát seed                                  | ĐẠT                       | Movement/reservation khớp balance; charge/payment/refund khớp tài khoản phiên. Chạy bootstrap lần hai giữ số liệu và có test giữ tên/bàn/giá/mật khẩu/tồn đã sửa.                                                                                                                                                                                                                                                                                 |
+| Lịch sử — Kiểm tra giao diện thủ công                    | ĐẠT TRONG PHẠM VI ĐÃ XEM  | Mở dashboard, menu, tìm món, kho, lịch ca, bàn/QR và menu khách với seed mới. Desktop 1280×900 và mobile 390×844; không tràn ngang toàn trang. Sửa bố cục số tiền dashboard.                                                                                                                                                                                                                                                                      |
+| Lịch sử — API và tài liệu                                | ĐẠT                       | 116 thao tác đăng ký Fastify; từ điển đủ55 bảng/595 cột và sơ đồ 132 FK. Cập nhật phần miễn món/write-off/seed/thiết kế database.                                                                                                                                                                                                                                                                                                                 |
+| Lịch sử — Dọn tài liệu/Notion trước đó                   | ĐÃ THỰC HIỆN 29/09        | Thay 33 tệp docs và 45 tệp Tai-lieu; cây Notion dự án trong Thùng rác, không dựng bộ mới. Không phải thao tác lặp lại ngày 30/09.                                                                                                                                                                                                                                                                                                                 |
+| Lịch sử — Menu thu gọn và giờ vận hành — 01/10           | ĐÃ SỬA VÀ KIỂM TRA        | Nút tải lại và trạng thái đang tải chỉ hiện icon khi thu gọn, có tên hỗ trợ/tooltip; các mục canh giữa và không tràn. Kiểm tra thêm chiều rộng 320/540/800/801/1024/1280px. Giờ gọi món, giao dịch, kho, phiên và chuyển bàn thống nhất UTC+7; test kiểm tra qua ranh giới ngày với múi giờ thiết bị khác.                                                                                                                                        |
+| Giới hạn                                                 | CHƯA KIỂM                 | Chưa kiểm tải, vận hành nhiều ngày tại quán, gateway online, AI chat, hóa đơn thuế hoặc tuân thủ tính lương pháp lý. Kết quả hiện tại không phải cam kết không còn lỗi.                                                                                                                                                                                                                                                                           |
+
+Đợt 30/09 đã sửa runtime, áp dụng hai migration và thay dữ liệu theo yêu cầu; đợt giao diện 01/10 không lặp lại reset dữ liệu. Kết quả test là bằng chứng cho các tình huống đã chạy; chưa thực hiện kiểm thử tải dài ngày hoặc nghiệm thu tại quán thật. Mã nguồn nền chưa bao gồm các thay đổi chưa commit.
+
+## Những thay đổi đã áp dụng
+
+- Chặn đổi nhà hàng của dữ liệu cha và đổi đơn vị nền của nguyên liệu; cố định liên kết khách/giỏ với phiên.
+- Kiểm tra refund cùng phiên, cùng nguồn allocation; chặn trùng mã hoàn chuyển khoản trong nhà hàng.
+- Bỏ cột ingredient.current_avg_cost không dùng; bỏ hai index trùng chức năng; đồng bộ unique/partial index vào Prisma.
+- Write-off chặn support/refund/alert chưa xong, ghi business audit và giải quyết cảnh báo thiếu tiền.
+- ADMIN có thể miễn món đã phục vụ mà giữ đúng trạng thái bếp và tiêu hao; phiếu thu thể hiện món miễn.
+- Guest hết phiên được trả 401 và dừng polling; món dùng nguyên liệu ngừng hoạt động hoặc BOM rỗng bị báo không khả dụng.
+- Seed mới, lệnh reset có kiểm tra đúng database, và kịch bản qua API có đối soát kho/tiền.
+- Dashboard đổi số cột theo kích thước để đọc được số tiền đầy đủ.
+
+## Nguồn kiểm thử để đọc tiếp
+
+### apps/api/src/modules/orders/reasons.test.ts
+
+[apps/api/src/modules/orders/reasons.test.ts](../apps/api/src/modules/orders/reasons.test.ts)
+
+- rejects unknown/prototype reasons and reasons outside the actor scope
+- requires fault/other notes, bounds notes and does not grant fault status to legacy text
+
+### apps/web/features/guest/payment-status.test.ts
+
+[apps/web/features/guest/payment-status.test.ts](../apps/web/features/guest/payment-status.test.ts)
+
+- distinguishes partial refunds from fully returned money on a zero bill
+- still requests new charges after a prior refund and explains an adjusted paid bill
+
+### apps/web/features/shared/restaurant-time.test.ts
+
+[apps/web/features/shared/restaurant-time.test.ts](../apps/web/features/shared/restaurant-time.test.ts)
+
+### apps/web/features/workforce/format.test.ts
+
+[apps/web/features/workforce/format.test.ts](../apps/web/features/workforce/format.test.ts)
+
+### apps/web/features/workforce/schedule-data.test.ts
+
+[apps/web/features/workforce/schedule-data.test.ts](../apps/web/features/workforce/schedule-data.test.ts)
+
+### apps/web/features/workspace/receipt-lines.test.ts
+
+[apps/web/features/workspace/receipt-lines.test.ts](../apps/web/features/workspace/receipt-lines.test.ts)
+
+- zeroes a reversed charge in the same row without changing the original unit price or exposing internal notes
+- keeps a late customer cancellation payable and groups adjusted dishes after normal dishes
+- deduplicates charge, waived and cancelled representations while retaining free dishes and cancellations without charge
+- reads a legacy frozen receipt without altering it or guessing an unknown cancellation source
+- keeps the temporary charge while a kitchen issue awaits a decision, without labelling it as an approved customer cancellation
+
+### apps/web/lib/auth-renewal.test.ts
+
+[apps/web/lib/auth-renewal.test.ts](../apps/web/lib/auth-renewal.test.ts)
+
+- coalesces concurrent polling and mutation renewal into one refresh
+- uses cross-tab lock and rechecks current cookies before rotating
+- refresh revocation is terminal, while temporary server failure preserves the login and never replays
+- does not renew guest credentials or replay a mutation after a network failure
+
+### tests/browser/dish-issue.spec.ts
+
+[tests/browser/dish-issue.spec.ts](../tests/browser/dish-issue.spec.ts)
+
+- kitchen quick issue, global admin entry, durable staff conversation and aligned zero-price receipt
+
+### tests/browser/interface.spec.ts
+
+[tests/browser/interface.spec.ts](../tests/browser/interface.spec.ts)
+
+- catalog filters, editing and uploaded photographs work for guest on phones and desktops
+
+### tests/browser/inventory.spec.ts
+
+[tests/browser/inventory.spec.ts](../tests/browser/inventory.spec.ts)
+
+- inventory tasks have readable stock filters, pagination, recipe details, history and setup on every viewport
+- receipt draft is readable, editable, approved once into stock and cancellable without changing stock
+
+### tests/browser/operations-experience.spec.ts
+
+[tests/browser/operations-experience.spec.ts](../tests/browser/operations-experience.spec.ts)
+
+- four compact role layouts, precise paid-but-unserved blockers, shared cleaning and cross-tab renewal
+
+### tests/browser/payment-collection.spec.ts
+
+[tests/browser/payment-collection.spec.ts](../tests/browser/payment-collection.spec.ts)
+
+- guest calls staff without amount; cash partial/full collection clearly separates tender, change and invoice credit
+- one work queue shares ownership across two staff accounts, table map and payment; accepted handoff transfers rights
+- bank screenshot or reference supports own-dish collection, without allocating to the earlier guest
+
+### tests/browser/policy.spec.ts
+
+[tests/browser/policy.spec.ts](../tests/browser/policy.spec.ts)
+
+- policy validation, keyboard/mobile reading, cart review, payment/leave confirmations and kitchen-admin fault decision
+
+### tests/browser/refund-experience.spec.ts
+
+[tests/browser/refund-experience.spec.ts](../tests/browser/refund-experience.spec.ts)
+
+- staff opens real refund flow with admin reason; guest sees pending, partial and full refund history
+
+### tests/browser/support.spec.ts
+
+[tests/browser/support.spec.ts](../tests/browser/support.spec.ts)
+
+- guest support, duplicate notice, owner-only actions, recipient acceptance/decline, history and responsive keyboard UI
+
+### tests/browser/table-queue.spec.ts
+
+[tests/browser/table-queue.spec.ts](../tests/browser/table-queue.spec.ts)
+
+- one compact neutral card per table with several jobs; empty, cart, provisional and cancelled bills never claim payment
+
+### tests/browser/table-transfer.spec.ts
+
+[tests/browser/table-transfer.spec.ts](../tests/browser/table-transfer.spec.ts)
+
+- picker filters and capacity, keyboard confirmation, same guest cart, immediate tables and history on all viewport sizes
+- empty filter, occupied destination error with refreshed selection, and externally moved source
+
+### tests/browser/ui-review.spec.ts
+
+[tests/browser/ui-review.spec.ts](../tests/browser/ui-review.spec.ts)
+
+- all admin sections remain usable with an expanded or collapsed sidebar, dialogs and narrow layouts
+
+### tests/browser/workforce.spec.ts
+
+[tests/browser/workforce.spec.ts](../tests/browser/workforce.spec.ts)
+
+- manager schedules, reviews attendance and closes a readable payroll; employees see only their own finalized slip
+
+### tests/payment-collection.integration.test.ts
+
+[tests/payment-collection.integration.test.ts](../tests/payment-collection.integration.test.ts)
+
+- guest calls staff once with preferred method and reserves no money, including concurrent retries
+- own-dish collection allocates only to that guest, even when another guest ordered first
+- cash 500000 for a 40000 payment records 40000 revenue and 460000 change; retry records once
+- participant from another table and over-collection cannot reserve or pay
+- another staff cannot collect a claimed payment request without handoff
+- bank payment accepts a private screenshot in place of typed reference; image alone is not payment
+- proof rejects unsupported file content and duplicate successful screenshot
+- full payment completes all typed cash calls; partial payment leaves other guests waiting
+- a typed payment call requires explicit acceptance, cannot be bypassed by direct collection, and two claims have one owner
+- handoff transfers payment confirmation, proof upload and cancellation rights only after acceptance
+- an old unlinked intent cannot confirm after a payment call is claimed by another employee
+- ending a call without collecting money requires a reason and leaves the invoice unpaid
+- settling the table ends other payment calls, keeps unrelated support open and records money once
+- a legacy bill call without a preferred method follows the same acceptance and collection ownership rules
+- paid before kitchen acceptance shows exact blockers and closing creates shared cleaning work for both employees
+- close preview lists unpaid food, pending collection and support together without masking the cooking reason
+- staff uses the saved admin decision for refunds; guest sees safe partial/full history and alerts clear only after return
+- does not invent an admin refund decision when none exists
+
+### tests/policy.integration.test.ts
+
+[tests/policy.integration.test.ts](../tests/policy.integration.test.ts)
+
+- requires the current policy on new join, rejects before insertion and exposes the same public policy
+- stores server acceptance time and immutable version without demanding acceptance on active state/profile access
+- preserves legacy participant evidence as unknown and leaves its live session usable
+- keeps leave behavior: deletes only unsent own cart, retains orders, acceptance and debt, clears cookie
+- guest cancels only own submitted items, and staff cancels accepted items with release, reversal and audit
+- kitchen out-of-stock is allowed before preparation only and does not consume stock or charge twice
+- admin can stop an unreported faulty dish with one operation and no waiver
+- late customer change retains charge; rejecting a kitchen claim records the managerial decision
+- served complaint needs admin waiver, retains lifecycle and COGS, and reduces served net sales without changing cash history
+- kitchen reason alone creates two durable tasks; staff communication never waives money
+- concurrent admin approval adopts the saved kitchen reason once and preserves the separate guest task
+- admin first, staff second: unresolved guest communication blocks close until confirmed and freezes a correct bill
+- an already declined kitchen report cannot later be approved with a stale quick action
+- pending kitchen reports are not hidden by more than 200 recent normal items
+- admin can inspect and complete a real refund without gaining staff order or kitchen permissions
+
+### tests/review.integration.test.ts
+
+[tests/review.integration.test.ts](../tests/review.integration.test.ts)
+
+- keeps edited master data when bootstrap seed is repeated
+- prevents moving parent entities across restaurants and changing the base unit behind stock history
+- expires stale guest credentials and hides recipes using inactive ingredients or no ingredients
+- requires outstanding service work before write-off and closes only the debt alert with an audit record
+- comps a served item without falsifying its lifecycle or restoring consumed stock, and includes it on the frozen receipt
+- rejects refunds pointing to another session item or another source allocation at the SQL boundary
+- deduplicates outgoing bank references across refund cases and records each refund only once
+
+### tests/support.integration.test.ts
+
+[tests/support.integration.test.ts](../tests/support.integration.test.ts)
+
+- creates NEW and exposes only safe guest fields
+- reuses NEW including two simultaneous submissions and creates one event
+- reuses ACKNOWLEDGED and PENDING without altering owner
+- allows a new same-type request after RESOLVED
+- requires OTHER content, rejects unknown types and caps notes
+- claims once with assigned identity and first claim time
+- two different staff claim concurrently: one winner and clear loser
+- non-owner cannot resolve or propose handoff
+- owner resolves with timestamp and resolved identity
+- proposes PENDING with required reason, preserving owner and first claim timestamp
+- accept changes ownership only to recipient and former owner loses resolve
+- decline keeps old owner with reason and permits another handoff
+- third party and sender cannot accept or decline recipient handoff
+- resolve closes pending atomically and rejects stale accept
+- two concurrent proposals produce only one PENDING
+- resolve vs accept race ends in a coherent owner and handoff state
+- sender can cancel; recipient cannot; cancelled cannot be accepted
+- rejects self, inactive, kitchen and admin handoff recipients
+- inactive recipient cannot accept; old owner still resolves
+- rejects resolved claim and handoff
+- guest state follows NEW/ACK/RESOLVED and excludes other participants and handoff internals
+- records actor/timestamps/reasons and all support outbox events including decline
+- active staff fallback sees requests without shift; kitchen/admin cannot claim; admin can view history
+- blocks account lock or role removal while owner has unresolved tasks
+- SQL unique guard blocks duplicate active requests and second pending; history is immutable
+- SQL pending owner guard rejects ownership gaps and session cannot close with active support
+- prioritizes checked-in staff in table area, while every valid colleague remains visible
+- rejects cross-restaurant handoff at API and SQL boundaries
+- publishes support events through existing outbox maintenance with resolvable tenant
+
+### tests/table-transfer.integration.test.ts
+
+[tests/table-transfer.integration.test.ts](../tests/table-transfer.integration.test.ts)
+
+- preserves session, participants, unsent cart, orders, account, payments and support; freezes the final destination on receipt
+- rejects occupied, cleaning, inactive, inactive-area, cross-restaurant and same-table destinations without partial writes
+- enforces guest-count bounds and destination capacity with a clear message
+- validates coded reasons and OTHER note, stores readable text and supports the existing reason contract
+- allows exactly one of two staff moving the same session from the same source
+- allows exactly one of two active sessions moving to the same available table
+- rejects a target that gained an active session even if its status data is stale
+- rejects stale source and closed sessions and denies ADMIN/KITCHEN/guest transfer
+- keeps transfer history immutable at the SQL boundary
+- keeps the guest credential valid when state waits behind a concurrent transfer
+
+### apps/api/src/app.test.ts
+
+[apps/api/src/app.test.ts](../apps/api/src/app.test.ts)
+
+- preserves body limit and content-type errors instead of returning 500
+
+### apps/web/lib/api-client.test.ts
+
+[apps/web/lib/api-client.test.ts](../apps/web/lib/api-client.test.ts)
+
+- permission denial preserves session and subsequent requests
+- locked account is terminal; CSRF and network failures are not logout
+- late success cannot revive the screen after another request blocks it
+- keeps invalid login editable and guest expiry outside the employee auth boundary
+
+### tests/browser/auth-blocking.spec.ts
+
+[tests/browser/auth-blocking.spec.ts](../tests/browser/auth-blocking.spec.ts)
+
+- global locked screen removes business data, traps escape, and has a single login action
+- incorrect login preserves input and permission denial keeps authenticated workspace
+
+### tests/browser/auth.spec.ts
+
+[tests/browser/auth.spec.ts](../tests/browser/auth.spec.ts)
+
+- internal login, role workspace, direct forbidden navigation and logout
+
+### tests/browser/core45.spec.ts
+
+[tests/browser/core45.spec.ts](../tests/browser/core45.spec.ts)
+
+- CORE screens support QR guest order through review, kitchen, settlement and close
+- admin records stock waste with reason and sees immutable movement history
+
+### tests/browser/foundation.spec.ts
+
+[tests/browser/foundation.spec.ts](../tests/browser/foundation.spec.ts)
+
+- public landing renders restaurant entry while API is ready
+
+### tests/browser/swagger.spec.ts
+
+[tests/browser/swagger.spec.ts](../tests/browser/swagger.spec.ts)
+
+- Swagger Execute uses real cookie auth: 401, login, 200, 403, refresh, logout
+
+### tests/core45.integration.test.ts
+
+[tests/core45.integration.test.ts](../tests/core45.integration.test.ts)
+
+- executes a reviewed guest order, stock consumption, split payment, snapshot and close without duplicates
+- cancels a paid unprepared order and refunds once with a reconciled zero balance
+- expires reviews and payments, releases stock and publishes the committed outbox
+- rolls back partial expired-review cleanup and retries exactly once
+- enforces guest ownership and version conflicts, stock rollback, revoked QR and support claiming
+- versions policies and staff roles while never exposing password hashes
+- verifies connector signatures, deduplicates webhook events and retains late money for reconciliation
+- preserves ledger snapshots and guards allocation totals at the database boundary
+- restricts debt write-off to admin and only after the kitchen has finished
+- lets guests withdraw their own pending batch and closes only truly idle empty sessions
+- allows distinct employee IDs with the same name and revokes a disabled account
+- rejects expired or inactive-area QR while allowing an existing table session to finish
+- keeps hidden categories consistent across menu, cart edits and order submission
+- can reserve one serving of every seeded dish without adding ingredients or recipes manually
+- UAT v2: item ownership, partial cancellation, individual acceptance and atomic same-session serving
+- UAT v2: unmanaged menu, late cancellation retains stock and money, explicit waiver and partial refund
+- hands support over only by its owner, validates service permission and records the handover
+- edits draft stock receipts with version guards and cancels without posting stock
+- records counted stock and waste exactly once, rejects stale stock and protects reserved quantities
+- prevents counted stock below reserved stock and concurrent adjustments from stale observations
+
+### tests/database.integration.test.ts
+
+[tests/database.integration.test.ts](../tests/database.integration.test.ts)
+
+- readiness succeeds against the actual PostgreSQL database
+
+### tests/sprint1.integration.test.ts
+
+[tests/sprint1.integration.test.ts](../tests/sprint1.integration.test.ts)
+
+- migrates exactly 56 business tables and seed twice preserves counts and passwords
+- repeated seed preserves changed stock, table state, prices and disabled employees
+- three roles allow their own workspace and deny the other two at backend
+- unauthenticated is 401 and a newly added undeclared business route is deny by default
+- rejects CSRF, malformed input, unknown and wrong credentials without account disclosure
+- enforces five login attempts per account across IPs and per IP across accounts
+- rotates refresh atomically; old token cannot be reused; logout revokes both credentials
+- access expires at 15 minutes, refresh at absolute seven days; login invalidates prior access
+- disable and password change revoke refresh and access even after re-enabling
+- revoked role is effective immediately while role assignment history remains readable
+- database enforces unique, FK, tenant isolation, nonnegative VND and active QR/session/cart rules
+- two concurrent session opens have exactly one winner
+- production cookies are Secure, HttpOnly and SameSite Strict
+- an authenticated route still enforces its declared permission
+- classifies credentials, permission, locked and expired failures and clears HttpOnly cookies
+- expired access preserves the refresh cookie and rejects a mutation before business execution
+- renewal through an eight-hour shift keeps the original absolute expiry and rejects revoked refresh
+
+### tests/workforce.integration.test.ts
+
+[tests/workforce.integration.test.ts](../tests/workforce.integration.test.ts)
+
+- prevents concurrent overlapping assignments, cross-restaurant links and unauthorized management
+- records self attendance with server time and rejects another employee and safely replays check-in
+- snapshots approved pay, handles multiple shifts, locks payroll and keeps employee payslips private
+- deletes and rebuilds drafts without losing approved attendance; rejects negative net pay
+- moves the whole live session and preserves guest/cart/order/payment/history; rejects stale or busy targets
+- reverses an unavailable paid dish and freezes a printable final receipt after refund and close
+- suggests paid attendance only inside the scheduled overnight shift and separates breaks
+- requires explicit exceptional-hours approval and retains original attendance and audit
+
+## Ảnh kiểm tra trên dữ liệu mới
+
+[Dashboard desktop](evidence/admin-desktop.png) · [Menu khách điện thoại](evidence/guest-mobile.png) · [Phiếu có món miễn](evidence/receipt-waived.png)
+
+[Bằng chứng đối soát cuối dạng JSON](reference/review-20260930.json)
+
+Bản HTML được kiểm tra liên kết và cú pháp JavaScript. Lần kiểm tra cuối không tải lại file HTML trong trình duyệt Codex vì chính sách chặn giao thức file://; ảnh tài liệu ngày 29/09 là bằng chứng của bản trước, không được coi là ảnh nghiệm thu bản cập nhật 30/09. Giao diện ứng dụng localhost đã kiểm tra riêng.
+
+## Migration đã ghi nhận
+
+| Migration                               | Hoàn tất                                 |
+| --------------------------------------- | ---------------------------------------- |
+| 202609100001_c0_c1                      | 2026-09-23T17:33:01.152Z                 |
+| 202609220001_core45                     | 2026-09-23T17:33:01.290Z                 |
+| 202609220002_core45_guards              | 2026-09-23T17:33:01.300Z                 |
+| 202609220003_core45_session_guard       | 2026-09-23T17:33:01.306Z                 |
+| 202609230001_core_ledger_guards         | 2026-09-23T17:33:01.312Z                 |
+| 202609230002_review_withdrawal          | 2026-09-23T17:33:01.318Z                 |
+| 202609230003_qr_token_recovery          | 2026-09-23T17:33:01.323Z                 |
+| 202609240001_unavailable_inventory      | 2026-09-24T06:32:52.271Z                 |
+| 202609240001_workforce_table_transfer   | 2026-09-24T02:08:24.487Z                 |
+| 202609240002_receipt_snapshot           | 2026-09-24T06:32:52.298Z                 |
+| 202609240003_payroll_snapshot_guard     | 2026-09-24T06:32:52.315Z                 |
+| 202609270001_uat_item_lifecycle         | 2026-09-27T11:26:28.851Z                 |
+| 202609270002_partial_refunds            | 2026-09-27T11:26:28.876Z                 |
+| 202609270003_product_policy             | 2026-09-27T11:26:28.890Z                 |
+| 202609270004_attendance_outcome         | 2026-09-27T11:26:28.906Z                 |
+| 202609270005_operation_audit            | 2026-09-27T11:26:28.916Z                 |
+| 202609270006_payroll_payment_audit      | 2026-09-27T11:26:28.943Z                 |
+| 202609270007_receipt_draft_guard        | 2026-09-27T11:26:28.959Z                 |
+| 202609270008_refund_request_key         | 2026-09-27T11:26:28.969Z                 |
+| 202609270009_staff_code                 | 2026-09-27T16:16:23.435Z                 |
+| 202609280001_stock_adjustment_trace     | 2026-09-27T17:58:48.766Z                 |
+| 202609300001_review_integrity           | 2026-09-29T18:24:42.649Z                 |
+| 202609300002_schema_alignment           | 2026-09-29T18:27:24.527Z                 |
+| 202610010001_guest_policy_order_reasons | 2026-10-01T10:32:07.283Z                 |
+| 202610010002_support_handoffs           | Thử đã rollback 2026-10-01T13:36:51.341Z |
+| 202610010002_support_handoffs           | Thử đã rollback 2026-10-01T13:41:33.433Z |
+| 202610010002_support_handoffs           | 2026-10-01T13:41:43.829Z                 |
+| 202610010003_support_outbox_guards      | 2026-10-01T14:19:28.983Z                 |
+| 202610020001_payment_collection         | 2026-10-02T08:44:47.476Z                 |
+
+## Dọn bộ tài liệu cũ
+
+Đã thay 33 tệp cũ trong docs và 45 tệp trong Tai-lieu; README gốc được viết lại. Cây Thesis Project – QR Ordering AI trên Notion cùng các trang con/backlog đã chuyển vào Thùng rác. Notion hiển thị sẽ xóa vĩnh viễn sau 30 ngày. Không dựng bộ Notion mới.
+
+Việc dọn Notion được ghi nhận bằng chữ; ảnh không gian cá nhân và mã trang riêng không đưa vào bản công khai. [Bản đọc trên điện thoại](evidence/docs-mobile.png)
+
+Danh sách tệp đã xử lý nằm trong reference/cleanup.json; mã trang riêng được lược bỏ khi công bố. Không tạo bản sao lưu tài liệu cũ. Các tệp nguồn trong sources/ của ChatGPT project là tài liệu đồng bộ chỉ đọc theo AGENTS.md nên không thuộc phạm vi sửa/xóa được ở workspace này. Git có lịch sử tự nhiên của repository; nhiệm vụ không viết lại lịch sử Git hoặc xóa commit.
+
+## Giao diện nhân sự được thiết kế lại 30/09/2026
+
+ADMIN xem lịch tuần theo nhân viên, lọc công cần duyệt, kiểm tra một phiếu lương tại một thời điểm và quản lý đơn giá giờ. STAFF/KITCHEN có ba mục cá nhân, ưu tiên ca hiện tại và nút vào/ra ca. Biểu mẫu tạo, phân công và duyệt mở riêng, không trải dài trên màn hình.
+
+[Biên bản kiểm thử giao diện](reference/workforce-ui-20260930.json) · [Lịch ADMIN](evidence/workforce-admin.png) · [Nhân viên](evidence/workforce-staff.png) · [Bảng lương](evidence/workforce-payroll.png) · [Điện thoại](evidence/workforce-mobile.png)
+
+Mẫu tổ chức thông tin được tham khảo từ [7shifts Employee Dashboard](https://kb.7shifts.com/hc/en-us/articles/4417519877011-Employee-Dashboard-Overview) và [7shifts Scheduling](https://www.7shifts.com/restaurant-employee-scheduling-software/). Giao diện được viết cho nghiệp vụ hiện có của dự án; không sao chép sản phẩm hoặc thêm tích hợp dịch vụ đó.
+
+## Cập nhật lịch theo ngày và ca 01/10/2026
+
+Lịch ADMIN mặc định theo ngày, hiển thị tổng nhân viên khác nhau, số lượt phân công, phục vụ/bếp và các ca chưa có người. Mỗi ca có hai danh sách vai trò riêng. Bảng tuần theo ca gom khung ca vào cùng một hàng; chọn ô để mở ngày. Vẫn có tuần theo nhân viên và bộ lọc vai trò/khu vực/tên. STAFF/KITCHEN có lịch ngày cá nhân và nút chuyển sang cả tuần.
+
+Kiểm tra lại riêng nhóm nhân sự: 9/9 kiểm thử trình duyệt đạt trên desktop, Android và WebKit; pnpm check đạt với 17 unit test; production build đủ 7 route. Test xác nhận tổng người theo API, danh sách từng ca, lọc bếp, đổi sang ngày không có ca, cùng tạo/phân công/duyệt/lương và tự chấm công. Ca qua đêm, kết thúc 00:00 và một người có nhiều phân công được kiểm tra riêng bằng unit test. Không chạy lại toàn bộ 30 bài trình duyệt trong đợt này; kết quả 29 đạt/1 bỏ qua bên trên thuộc lần 30/09.
+
+[Biên bản 01/10](reference/staffing-ui-20261001.json) · [Ngày theo ca](evidence/staffing-day-admin.png) · [Tuần theo ca](evidence/staffing-week-shifts.png) · [Cá nhân theo ngày](evidence/staffing-personal-day.png) · [Điện thoại](evidence/staffing-day-mobile.png)
+
+Tham khảo thêm [7shifts: bố cục theo khung ca](https://kb.7shifts.com/hc/en-us/articles/31636487946387-How-to-customize-your-Schedule-layout), [Deputy: các góc nhìn lịch](https://help.deputy.com/hc/en-au/articles/4688713423759-Schedule-overview) và [Sling: lịch cá nhân](https://support.getsling.com/en/articles/5232837-my-schedule). Đây là nguồn tham khảo tổ chức thông tin, không phải dịch vụ tích hợp vào dự án.
+
+## Rà soát giao diện và sửa menu thu gọn 01/10/2026
+
+Sửa nút tải lại bị xuống chữ theo chiều dọc khi menu ADMIN thu gọn. Nhãn và trạng thái đang tải được ẩn đúng ở chế độ biểu tượng; tên hỗ trợ và tooltip vẫn có. Biểu tượng mở/thu gọn riêng; Ca làm & lương dùng hình đồng hồ để phân biệt với Nhân viên.
+
+Sửa giờ hiển thị đang phụ thuộc múi giờ thiết bị ở lịch sử kho, ngoại lệ báo cáo, món khách, lượt món bếp/phục vụ, giao dịch thu tiền, giờ mở/đóng phiên và chuyển bàn. Các màn hình này nay dùng giờ Việt Nam UTC+7, thống nhất với phiếu thanh toán.
+
+Sau sửa: pnpm check đạt với 19 unit test; bộ API/database chạy lại đạt 51/51; toàn bộ Playwright đạt 38/39, một Swagger mobile chủ động bỏ qua; production build đủ 7 route và quét bí mật đạt. Rà 8 mục ADMIN, 4 mục phục vụ, bếp, vùng cá nhân và 5 mục khách; kiểm tra menu mở/thu gọn, nút tải lại, tìm kiếm, hộp thoại và tràn ngang. Đây là các tình huống kiểm thử đã chạy, không phải cam kết mọi tình huống đều không lỗi.
+
+[Biên bản lần rà soát](reference/ui-review-20261001.json) · [Menu thu gọn đã sửa](evidence/admin-sidebar-fixed.png) · [ADMIN điện thoại](evidence/admin-review-mobile.png)
+
+## Thiết kế lại giao diện kho 01/10/2026
+
+Kho có năm mục theo công việc: Tồn kho, Phiếu nhập, Công thức món, Lịch sử kho, Danh mục. Mặc định xem lượng còn dùng ở từng kho, có số liệu tổng quan, lọc và tìm kiếm. Danh sách phân trang 12 dòng; trên điện thoại chuyển sang khối có nhãn. Phiếu và công thức mở chi tiết riêng, các biểu mẫu không dồn trên trang.
+
+Luồng nhập vẫn là nháp → kiểm tra → duyệt; chỉ duyệt mới tăng tồn. Sửa và hủy nháp cần lý do; phiếu đã duyệt chỉ xem. Công thức được đọc từ hai danh sách bổ sung trong GET /core/inventory rồi tạo phiên bản mới bằng API sẵn có. Không sửa quy tắc ghi kho, không thêm bảng/migration hoặc reset dữ liệu vận hành.
+
+Sau thay đổi: pnpm check đạt với 19 unit test, API/database 51/51, toàn bộ Playwright 44 đạt/1 chủ động bỏ qua (45 trường hợp), production build 7 route và quét bí mật đạt. Gồm 6 bài kho trên desktop/Android/WebKit: lọc/phân trang, đọc công thức, bảo vệ dữ liệu chưa lưu và đối chiếu tăng tồn đúng sau duyệt; nháp/hủy không đổi tồn. Ảnh được xem lại để kiểm tra bố cục.
+
+[Biên bản kho](reference/inventory-ui-20261001.json) · [Tồn kho](evidence/inventory-stock.png) · [Phiếu nhập](evidence/inventory-receipt.png) · [Công thức](evidence/inventory-recipes.png) · [Điện thoại](evidence/inventory-mobile.png)
+
+Tham khảo tổ chức thông tin từ [Restaurant365 Items Grid](https://docs.restaurant365.com/doc/docs/items-grid), [Restaurant365 Recipes](https://docs.restaurant365.com/docs/recipe-items-page) và [MarketMan Inventory](https://www.marketman.com/platform/restaurant-inventory-management-software). Áp dụng danh sách có lọc/tìm kiếm và chi tiết mở riêng vào các chức năng hiện có của dự án.
+
+## Lịch sử: giao diện và ảnh thật trước đợt chính sách — 01/10/2026
+
+Thiết kế hiện hành dùng nền sáng, chữ xanh đậm, điểm nhấn cam; khách có tông ấm. Khách/phục vụ ưu tiên điện thoại với điều hướng dưới, nút thao tác dễ chạm. Bếp chia ba nhóm trạng thái và bộ lọc. ADMIN có menu gọn, danh sách/chi tiết tách riêng, thực đơn 12 món mỗi trang, báo cáo năm mục và chính sách ba nhóm. Nhân sự/kho dùng cùng hệ màu; lịch sử công cá nhân đổi sang thẻ có nhãn trên điện thoại.
+
+Thành phần ảnh dùng chung nhận URL tải lên hoặc ảnh theo mã món trong media.ts. Thiếu ảnh/lỗi tải dùng hình giữ chỗ có nhãn; hình minh họa cũ không được mô tả là ảnh thật. ADMIN có thể thay ảnh PNG/JPEG/WebP tối đa 2 MB; thông tin chưa lưu được bảo vệ trước khi tải ảnh. Thư mục ảnh và cách thay ảnh thật được giải thích ở bài 20.
+
+Kết quả toàn bộ sau đợt giao diện, trước đợt chính sách: pnpm check đạt với 19 unit test; API/database 51/51; Playwright 47 đạt/1 Swagger mobile chủ động bỏ qua (48 trường hợp); production build 7 route và quét bí mật đạt. Riêng kịch bản ảnh 3/3 trên desktop/Android/WebKit; kiểm tra ảnh PNG dọc, URL khách/ADMIN, object-fit và ảnh lỗi. Chạy lại riêng luồng core45 sau điều chỉnh thời điểm chụp ảnh bếp: 6/6 đạt. Sau lần chạy toàn bộ, tách thời gian chờ mang món ra khỏi tên món bằng CSS và chạy lại 6 bài core45; định dạng CSS đạt. Thêm chú thích để máy chủ phát triển biên dịch lại; trang localhost đã mở lại thành công.
+
+Các bài dùng database kiểm thử riêng; ảnh kiểm thử dùng thư mục tạm riêng. Không lặp lại reset seed hoặc thay schema/migration của database vận hành. Metadata đọc lại vẫn là 55 bảng, 595 cột, 132 khóa ngoại và 23 migration.
+
+[Biên bản giao diện](reference/interface-redesign-20261001.json) · [Hướng dẫn ảnh và từng vai trò](20-anh-va-giao-dien.md)
+
+[Khách điện thoại](evidence/redesign-guest-mobile.png) · [Phục vụ điện thoại](evidence/redesign-staff-mobile.png) · [ADMIN điện thoại](evidence/redesign-admin-mobile.png) · [Thực đơn ADMIN](evidence/redesign-menu-admin.png) · [Bếp](evidence/redesign-kitchen.png) · [Kho](evidence/redesign-inventory.png)
+
+Ảnh này dùng dữ liệu kiểm thử có tên/mã tự sinh, để đối chiếu bố cục. Kết quả kiểm tra giới hạn ở các thiết bị/kích thước và tình huống đã chạy; không thay thế nghiệm thu dài ngày tại quán.
+
+## Chính sách khách và xử lý lỗi nhà hàng — 01/10/2026
+
+Có thêm migration 24, ba cột bằng chứng/lý do, API chính sách công khai và API bếp báo sự cố. Nội dung chính sách có một nguồn code. Quản trị xác nhận lỗi nhà hàng bỏ tiền món trong một quyết định; bếp không tự miễn. Tiêu hao và lịch sử thu giữ nguyên, hoàn thực tế theo hồ sơ riêng. Các mục trước đây là kết quả lịch sử từng đợt, không phải kết quả chạy lại của bản này.
+
+[Hồ sơ triển khai, ma trận và kiểm thử hiện tại](21-chinh-sach-va-ma-tran.md) · [Biên bản](reference/policy-review-20261001.json)
+
+## Hỗ trợ và bàn giao có xác nhận — 01/10/2026
+
+29 integration mới; 91/91 toàn bộ API/database; giao diện 53 đạt/1 Swagger mobile bỏ qua, 54 trường hợp; check 21 unit, build 7 route, schema diff và secrets đạt. Hai migration hỗ trợ, 56 bảng/613 cột/138 FK/27 migration thành công/124 API. Không reset seed vận hành.
+
+[Báo cáo 13 mục và ví dụ](22-ho-tro-va-ban-giao.md) · [Biên bản](reference/support-review-20261001.json)
+
+## Chuyển bàn — 02/10/2026
+
+Chọn bàn bằng thẻ tìm/lọc đủ chỗ, một bước xác nhận, timeline lịch sử và thông báo khách. Giữ cùng mã phiên và toàn bộ dữ liệu bữa ăn. Sửa khóa phiên ổn định cho các request đang chờ; backend vẫn kiểm tra nhà hàng trước/sau khóa, nguồn cũ, đích và sức chứa. Không thêm migration/reset dữ liệu.
+
+| Kiểm tra                                                                  | Kết quả thực chạy                                                       |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| pnpm check                                                                | Format/lint/TypeScript đạt; 21/21 unit; exit 0                          |
+| pnpm build                                                                | Production build 7 route; Swagger đã sinh từ tài liệu hiện hành; exit 0 |
+| pnpm exec vitest run --config vitest.integration.config.ts --maxWorkers=1 | 101/101 API/database, 8 tệp; gồm 10 test chuyển bàn; exit 0             |
+| pnpm test:e2e table-transfer.spec.ts                                      | 6/6, desktop/Android/WebKit mobile; exit 0                              |
+| pnpm test:e2e                                                             | 59 đạt/1 Swagger mobile chủ động bỏ qua; 60 trường hợp; exit 0          |
+| pnpm check:secrets                                                        | Quét bí mật đạt; exit 0                                                 |
+| HTML cục bộ trên trình duyệt                                              | Bài 23 và 15 ở 320/768/1440 px; không tràn ngang; exit 0                |
+
+Lỗi đã phát hiện khi làm: race cùng phiên trả 404 thay vì báo nguồn đã đổi; đã sửa. Fixture ca trực của test hỗ trợ có thể đụng seed theo ngày; đã tách nhân viên test. Trước sửa còn có lần cleanup database test timeout, kịch bản trình duyệt sai nhãn/chưa chờ join và ảnh WebKit vượt giới hạn pixel; kết quả đó không được tính là PASS.
+
+[Báo cáo đủ 14 mục và ví dụ](23-chuyen-ban.md) · [Biên bản/mã thoát](reference/table-transfer-review-20261002.json)
+
+## Sự cố món, báo khách và phiếu thanh toán — 02/10/2026
+
+Bếp chọn lý do nhanh, ghi chú tùy chọn. Admin có thanh cảnh báo chung và hàng đợi theo bàn; duyệt lý do báo cáo đã lưu, không nhập lại. Phục vụ xác nhận đã trao đổi tại bàn độc lập. Phiếu có một dòng tiền/món và nhóm hủy/miễn cuối; thành tiền 0 khi bỏ tiền. Admin/Staff dùng chung đúng các API cảnh báo/phiếu/hoàn tiền, không kế thừa toàn bộ workspace. Cảnh báo hoàn tiền tự hoàn tất sau ghi nhận thực hoàn đủ. Không thêm bảng/cột/migration hoặc reset dữ liệu vận hành.
+
+| Kiểm tra                                   | Kết quả thực chạy                                                                 |
+| ------------------------------------------ | --------------------------------------------------------------------------------- |
+| pnpm check                                 | Format/lint/TypeScript đạt; 26/26 unit; exit 0                                    |
+| API và PostgreSQL toàn bộ                  | 107/107, 8 tệp kiểm thử API/CSDL; exit 0                                          |
+| API sự cố món sau sửa nhãn chờ duyệt       | 17/17, gồm phân quyền, gửi lặp, đồng thời, báo khách độc lập và hoàn tiền; exit 0 |
+| Luồng mới + chính sách trên ba trình duyệt | 6/6: desktop, Android Chromium và WebKit mobile; exit 0                           |
+| Giao diện toàn hệ thống                    | 62 đạt, 1 Swagger mobile chủ động bỏ qua; tổng 63 trường hợp; exit 0              |
+| Production build                           | 7 route; thư mục build riêng, không ghi đè máy chủ phát triển; exit 0             |
+| Quét bí mật                                | Đạt; exit 0                                                                       |
+| Metadata PostgreSQL và ánh xạ source       | 56 bảng/609 cột/137 FK/125 thao tác API; chỉ đọc dữ liệu metadata; exit 0         |
+| Bản đọc HTML 24 và 15                      | 320/768/1440 px không tràn ngang; exit 0                                          |
+
+Những lỗi phát hiện trong quá trình làm: admin bị chặn API staff; đã giới hạn quyền chung đúng chức năng tài chính. Test cũ dùng nhãn xác nhận khác; test điện thoại đòi các cảnh báo của bàn khác biến mất; test đóng phiên còn chờ cảnh báo đã hoàn đủ tự giải quyết. Test bàn giao cũ nhận nhầm khung cảnh báo sự cố mới; đã giới hạn vào thông báo bàn giao và chạy lại toàn bộ. Có lần format chưa đạt; các lần đó không được tính PASS. Đã xem lại ảnh desktop/mobile và bản in.
+
+[Hướng dẫn và ví dụ](24-su-co-mon-va-phieu-thanh-toan.md) · [Biên bản kiểm tra](reference/dish-issue-review-20261002.json)
+
+## Khách gọi thu tiền và giao diện phục vụ — 02/10/2026
+
+Khách chọn hình thức, gọi nhân viên và chờ; không nhập số tiền. Nhân viên chọn cả bàn/món của một khách/số tiền khác; tiền mặt tách khoản thu, tiền khách đưa, tiền thối. Chuyển khoản dùng mã hoặc ảnh riêng, nhân viên kiểm tra tiền thực nhận. Chi tiết bàn có bốn mục, việc mới nhất và màu/chữ/icon theo công việc. Thêm 4 cột/1 FK bằng migration 27, không thêm bảng, không reset hoặc seed lại database vận hành.
+
+| Kiểm tra                         | Kết quả thực chạy                                                                                           |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Format, ESLint, TypeScript, unit | 26/26 unit trên 7 tệp; format/lint/typecheck đạt; exit 0                                                    |
+| API và PostgreSQL                | 115/115 trên 9 tệp; gồm 8 tình huống thu tiền mới; exit 0                                                   |
+| Trình duyệt toàn hệ thống        | 68 đạt / 1 Swagger mobile chủ động bỏ qua (69 trường hợp); desktop, Android Chromium, iPhone WebKit; exit 0 |
+| Giao diện thu tiền và ảnh cuối   | 6/6 trên desktop, Android Chromium và iPhone WebKit; gồm kiểm tra 320/768/1440 px; exit 0                   |
+| Build Next.js                    | Build production thành công; giữ cache dev riêng; exit 0                                                    |
+| Kiểm tra bí mật                  | Script check:secrets đạt; exit 0                                                                            |
+| Bố cục tài liệu                  | Bài 25, 06, 15 tại 320/768/1440px không tràn; 28 HTML, 1411 liên kết và 128 API được kiểm tra; exit 0       |
+
+Đợt đầu có test cũ còn đòi nhập tiền và hộp xác nhận của khách; đã cập nhật theo UI mới. Một test hợp đồng response cần bổ sung payment_method công khai (không chứa thông tin bàn giao). Các lần chưa đạt không tính PASS. Kiểm thử ảnh dùng dữ liệu thử, không phải bằng chứng ngân hàng thật. Chưa nghiệm thu dài ngày tại quán.
+
+[Hướng dẫn từng bước](25-thu-tien-tai-ban.md) · [Biên bản](reference/payment-review-20261002.json)
+
+## Hợp nhất việc cần làm và trách nhiệm thu tiền — 02/10/2026
+
+Một hàng đợi cho lời gọi khách và các việc phục vụ. Nhận việc ngay trên thẻ hoặc chi tiết thanh toán; tên người phụ trách thống nhất ở hàng đợi, sơ đồ bàn và cửa sổ. Backend chặn thu trực tiếp để bỏ qua lời gọi đang mở; bảo vệ xác nhận, tải chứng từ và hủy khoản thu đã liên kết. Cả BILL cũ chưa có phương thức theo cùng quy tắc. Thu thành công kết thúc lời gọi; các lời gọi khác khi bàn trả đủ được kết thúc đúng trạng thái và lưu người thực thu. Không thêm bảng/cột/migration; không reset/seed lại database vận hành.
+
+| Kiểm tra                         | Kết quả thực chạy                                                                                                                                                        |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Format, ESLint, TypeScript, unit | 26/26 unit trên 7 tệp; format/lint/typecheck đạt; exit 0                                                                                                                 |
+| API và PostgreSQL                | 121/121 trên 9 tệp, gồm 14 tình huống thu tiền, ownership, claim đồng thời và bàn giao; exit 0                                                                           |
+| Trình duyệt toàn hệ thống        | 71 đạt / 1 Swagger mobile chủ động bỏ qua (72 trường hợp); desktop, Android Chromium, iPhone WebKit; hai STAFF, ownership, bàn giao và giữ tiền nhập qua polling; exit 0 |
+| Build Next.js                    | Build production thành công; thư mục build riêng với dev; exit 0                                                                                                         |
+| Kiểm tra bí mật                  | Script check:secrets đạt; exit 0                                                                                                                                         |
+| Kiểm tra khoảng trắng diff       | git diff --check đạt; exit 0                                                                                                                                             |
+| Bố cục tài liệu                  | Bài 22, 25, 15 ở 320/768/1440 px không tràn ngang; exit 0                                                                                                                |
+| Đối chiếu tệp nguồn              | 242 tệp khớp SHA256; liên kết mã nguồn có tệp thật; exit 0                                                                                                               |
+
+Kiểm thử mới phát hiện giao dịch thu đủ cả bàn lỗi khi lời gọi khác do người khác nhận: đã sửa, giữ ràng buộc owner khi RESOLVED và ghi CANCELLED có lý do cho lời gọi không còn cần thu. Lỗi ghép mã và selector đóng dialog trong lần thử đầu đã được sửa; các lần chưa đạt không tính PASS. Kiểm tra tự động từng chặn một lệnh sửa có phạm vi quá rộng; bản áp dụng sau được xác minh giữ trọn hàm và chỉ bỏ đoạn JSX lặp.
+
+[Cách nhận và bàn giao](22-ho-tro-va-ban-giao.md) · [Cách thu tiền](25-thu-tien-tai-ban.md) · [Biên bản](reference/work-queue-review-20261002.json)
+
+## Thẻ bàn gọn và thông báo số tiền 0 — 03/10/2026
+
+Mỗi bàn một thẻ trong nhóm đang xem, nhãn màu nhỏ theo việc và một nút Chi tiết bàn. Bỏ hai góc nhìn tổng hợp chồng nhau; giữ bốn nhóm trách nhiệm. Mở xem không nhận việc, thao tác nhận/thu/bàn giao nằm bên trong. Trách nhiệm theo yêu cầu giữ nguyên. Khách phân biệt bàn trống, món trong giỏ, chờ duyệt, món hủy/miễn, cần hoàn và thanh toán đủ thật. Không thêm bảng/cột/migration, không reset/seed lại database vận hành.
+
+| Kiểm tra                                  | Kết quả thực chạy                                                                                                                                                                                                                                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Format, ESLint, TypeScript, unit          | 33/33 unit trên 8 tệp; format/lint/typecheck đạt; exit 0                                                                                                                                                                                                                              |
+| API và PostgreSQL                         | 121/121 trên 9 tệp; nhận việc đồng thời, ownership, bàn giao và ghi nhận tiền; exit 0                                                                                                                                                                                                 |
+| Trình duyệt toàn hệ thống và kiểm tra lại | Toàn bộ 75: 71 đạt, 3 test sự cố còn dùng thao tác ngoài thẻ chưa đạt, 1 Swagger mobile chủ động bỏ qua. Sau cập nhật bước mở chi tiết và đường dẫn cảnh báo, kiểm tra lại 6/6 sự cố/hỗ trợ trên desktop, Android, iPhone đạt. Kết quả hợp nhất: 74 tình huống đạt, 1 bỏ qua.; exit 0 |
+| Build Next.js                             | Build production thành công trong thư mục riêng với dev; exit 0                                                                                                                                                                                                                       |
+| Kiểm tra bí mật                           | Script check:secrets đạt; exit 0                                                                                                                                                                                                                                                      |
+| Kiểm tra khoảng trắng diff                | git diff --check đạt; exit 0                                                                                                                                                                                                                                                          |
+| Bố cục tài liệu                           | Bài 22, 25, 15 ở 320/768/1440 px không tràn ngang; exit 0                                                                                                                                                                                                                             |
+| Đối chiếu tệp nguồn                       | 246 tệp khớp SHA256; liên kết mã nguồn có tệp thật; exit 0                                                                                                                                                                                                                            |
+
+Kịch bản dùng database thử riêng và API thật; thời điểm chờ trong test hỗ trợ là response fixture như ghi ở bài 22. Lần kiểm tra đầu phát hiện một helper test chưa dùng và các test sự cố còn tìm thao tác bên ngoài thẻ; đã cập nhật bước mở chi tiết. Rà soát còn sửa đường dẫn cảnh báo để bỏ bộ lọc không phù hợp. Toàn bộ 75 trường hợp chạy một lần; ba tình huống sự cố chưa đạt do bước UI cũ được kiểm tra lại cùng ba tình huống hỗ trợ trên bản cuối. Kết quả hợp nhất giữ nguyên 74 tình huống đạt và một Swagger mobile bỏ qua; không ghi lần toàn bộ ban đầu là PASS. Lần API chạy song song gặp timeout ở dọn database thử dù 121 assertion đạt; chạy lại tuần tự chín tệp đã đạt hoàn toàn. Các lần không đạt không tính PASS.
+
+[Giao diện và nhận việc](22-ho-tro-va-ban-giao.md) · [Thông báo tiền bằng 0](25-thu-tien-tai-ban.md) · [Biên bản](reference/table-queue-review-20261003.json)
+
+## Kết thúc bàn, dọn bàn, đăng nhập và bố cục bốn vai trò — 03/10/2026
+
+Bill và API đóng dùng chung điều kiện theo tên món/giai đoạn, khoản thu, hoàn, hỗ trợ/cảnh báo. Bàn chờ dọn có việc chung cho STAFF khác. ACCESS_EXPIRED được tự gia hạn hợp lệ; các phiên thu hồi/khóa vẫn chặn. Bố cục mới ở cả bốn vai trò, ảnh món trên điện thoại không đè chữ. Không thêm schema/migration, không reset/seed dữ liệu vận hành.
+
+| Kiểm tra                         | Kết quả thực chạy                                                                                                                                                                                                                                     |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Format, ESLint, TypeScript, unit | Đạt format/lint/typecheck; 41/41 unit trên 9 tệp; exit 0                                                                                                                                                                                              |
+| API và PostgreSQL                | 125/125 integration trên 9 tệp chạy tuần tự; gồm chặn đóng theo món/công việc, dọn đồng thời và gia hạn phiên; exit 0                                                                                                                                 |
+| Trình duyệt toàn hệ thống        | Kết quả hợp nhất: 77 tình huống đạt, 1 Swagger mobile bỏ qua. Lần toàn bộ: 71 đạt, 6 bước UI cũ chưa đạt. Kiểm tra lại 18: 16 đạt, 2 bước mở phiếu tự hiện cần cập nhật. Sau cập nhật bước, kiểm tra lại cả 6 luồng CORE trên ba cấu hình đạt; exit 0 |
+| Build production                 | Next.js build đạt trong thư mục riêng, không ghi vào cache dev; exit 0                                                                                                                                                                                |
+| Kiểm tra bí mật                  | Script check:secrets đạt; exit 0                                                                                                                                                                                                                      |
+| Kiểm tra diff                    | git diff --check đạt; exit 0                                                                                                                                                                                                                          |
+| Bố cục tài liệu                  | 15 phép đối chiếu trang/kích thước ở 320/768/1440px không tràn ngang; exit 0                                                                                                                                                                          |
+| Đối chiếu tệp nguồn              | 251 tệp khớp SHA256; mọi liên kết mã nguồn trỏ tới tệp thật; exit 0                                                                                                                                                                                   |
+
+Các bài kiểm thử dùng database và tài nguyên thử riêng. Tám giờ đăng nhập là mô phỏng đồng hồ trong bài API; trình duyệt thử mất access cookie và hai tab, không phải vận hành thực tế tám giờ. Các lần chưa đạt được giữ trong biên bản, không tính PASS.
+
+[Đóng và dọn bàn](06-thanh-toan.md) · [Gia hạn đăng nhập](11-bao-mat.md) · [Ảnh bốn vai trò](20-anh-va-giao-dien.md) · [Biên bản và các lần chạy](reference/operations-experience-review-20261003.json)
+
+Kiểm tra ứng dụng đang chạy sau khi đồng bộ: trang đăng nhập cổng 3000 và API `/health/ready` cổng 4000 đều trả HTTP 200. Tiến trình dev cũ từng giữ lỗi không tìm thấy stylesheet mới; đã làm sạch riêng cache biên dịch `.next/dev` rồi khởi động lại. Không đổi dữ liệu vận hành.
+
+## Hoàn tiền rõ cho khách, đúng đường xử lý cho phục vụ — 03/10/2026
+
+Khách thấy tiền đã trả trước hoàn, đã hoàn lại, còn chờ hoàn, tiền nhà hàng còn giữ và lịch sử tiền mặt/chuyển khoản đã thành công. Các số này thuộc cả bàn, không tự phân bổ một giao dịch hoàn vào từng món. Cảnh báo hoàn tiền của STAFF mở đúng vùng xác nhận, không dùng biểu mẫu kết thúc cảnh báo chung. Lý do từ quyết định ADMIN được backend lấy và lưu vào hồ sơ; nhân viên không gõ lại trong luồng này. Lập hồ sơ chưa ghi nhận đã trả tiền; chỉ bước xác nhận hoàn thực tế mới đổi số dư và tự kết thúc cảnh báo khi hết tiền cần hoàn.
+
+| Kiểm tra                         | Kết quả thực chạy                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Format, ESLint, TypeScript, unit | Đạt format/lint/typecheck; 43/43 unit trên 9 tệp; exit 0                                                |
+| API và PostgreSQL                | 127/127 integration trên 9 tệp; lý do ADMIN, trả từng phần, idempotency và riêng tư dữ liệu; exit 0     |
+| Trình duyệt liên quan            | 15/15 tình huống hoàn tiền, sự cố món và thu tiền trên desktop, Android, WebKit mobile; exit 0          |
+| Kiểm tra sau chỉnh cuộn mobile   | 3/3 luồng hoàn tiền; lý do nằm dưới tiêu đề hộp thoại, khách thấy chờ → hoàn một phần → hoàn đủ; exit 0 |
+| Build production                 | Next.js build đạt với 7 route, thư mục build riêng không ghi cache dev; exit 0                          |
+| Kiểm tra bí mật                  | Script check:secrets đạt; exit 0                                                                        |
+| Kiểm tra diff                    | git diff --check đạt; exit 0                                                                            |
+
+Lần định dạng đầu có lỗi vị trí đóng section; đã sửa trước khi check đạt. Một bài API ban đầu dùng nhầm ID yêu cầu thanh toán thay ID giao dịch đã thu; sửa đầu vào kiểm thử rồi bộ API đạt 127/127. Các lần chưa đạt được giữ nguyên trong biên bản. Sau xem ảnh mobile, chỉnh vị trí cuộn để lý do không bị tiêu đề hộp thoại che; kiểm tra lại 3/3 luồng hoàn tiền trên ba cấu hình. Không chạy lại toàn bộ bộ trình duyệt trong đợt này. Không thêm migration hoặc reset/seed database vận hành.
+
+[Hướng dẫn và ví dụ hoàn tiền](24-su-co-mon-va-phieu-thanh-toan.md) · [Thu tiền tại bàn](25-thu-tien-tai-ban.md) · [Biên bản kiểm thử](reference/refund-experience-review-20261003.json)

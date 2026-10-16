@@ -1,0 +1,32 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/home/quyettruong05/projects/qr-ordering-thesis[39m
+
+ [32m✓[39m tests/payment-collection.integration.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 5979[2mms[22m[39m
+   [33m[2m✓[22m[39m own-dish collection allocates only to that guest, even when another guest ordered first [33m 314[2mms[22m[39m
+ [32m✓[39m tests/policy.integration.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 6076[2mms[22m[39m
+   [33m[2m✓[22m[39m restaurant fault at IN_PREPARATION retains stock/COGS, needs admin and reverses paid money once in one decision [33m 459[2mms[22m[39m
+   [33m[2m✓[22m[39m restaurant fault at READY retains stock/COGS, needs admin and reverses paid money once in one decision [33m 463[2mms[22m[39m
+ [32m✓[39m tests/core45.integration.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 9151[2mms[22m[39m
+   [33m[2m✓[22m[39m executes a reviewed guest order, stock consumption, split payment, snapshot and close without duplicates [33m 609[2mms[22m[39m
+   [33m[2m✓[22m[39m can reserve one serving of every seeded dish without adding ingredients or recipes manually [33m 1090[2mms[22m[39m
+   [33m[2m✓[22m[39m UAT v2: item ownership, partial cancellation, individual acceptance and atomic same-session serving [33m 457[2mms[22m[39m
+   [33m[2m✓[22m[39m UAT v2: unmanaged menu, late cancellation retains stock and money, explicit waiver and partial refund [33m 415[2mms[22m[39m
+ [32m✓[39m tests/support.integration.test.ts [2m([22m[2m29 tests[22m[2m)[22m[33m 6609[2mms[22m[39m
+ [32m✓[39m tests/sprint1.integration.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 6726[2mms[22m[39m
+   [33m[2m✓[22m[39m migrates exactly 56 business tables and seed twice preserves counts and passwords [33m 493[2mms[22m[39m
+   [33m[2m✓[22m[39m repeated seed preserves changed stock, table state, prices and disabled employees [33m 419[2mms[22m[39m
+   [33m[2m✓[22m[39m enforces five login attempts per account across IPs and per IP across accounts [33m 355[2mms[22m[39m
+ [32m✓[39m tests/review.integration.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 5199[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps edited master data when bootstrap seed is repeated [33m 350[2mms[22m[39m
+   [33m[2m✓[22m[39m rejects refunds pointing to another session item or another source allocation at the SQL boundary [33m 354[2mms[22m[39m
+ [32m✓[39m tests/table-transfer.integration.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 4688[2mms[22m[39m
+   [33m[2m✓[22m[39m preserves session, participants, unsent cart, orders, account, payments and support; freezes the final destination on receipt [33m 448[2mms[22m[39m
+ [32m✓[39m tests/workforce.integration.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 3405[2mms[22m[39m
+   [33m[2m✓[22m[39m reverses an unavailable paid dish and freezes a printable final receipt after refund and close [33m 343[2mms[22m[39m
+ [32m✓[39m tests/database.integration.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 111[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m      Tests [22m [1m[32m125 passed[39m[22m[90m (125)[39m
+[2m   Start at [22m 12:37:19
+[2m   Duration [22m 51.05s[2m (transform 488ms, setup 0ms, import 2.03s, tests 47.95s, environment 1ms)[22m
+

@@ -1,0 +1,94 @@
+$ node scripts/run.mjs integration --maxWorkers=1
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/home/quyettruong05/projects/qr-ordering-thesis[39m
+
+ [32m✓[39m tests/database.integration.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 180[2mms[22m[39m
+ [31m❯[39m tests/workforce.integration.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 14312[2mms[22m[39m
+   [33m[2m✓[22m[39m prevents concurrent overlapping assignments, cross-restaurant links and unauthorized management [33m 325[2mms[22m[39m
+   [32m✓[39m records self attendance with server time and rejects another employee and safely replays check-in[32m 292[2mms[22m[39m
+   [33m[2m✓[22m[39m snapshots approved pay, handles multiple shifts, locks payroll and keeps employee payslips private [33m 753[2mms[22m[39m
+   [33m[2m✓[22m[39m deletes and rebuilds drafts without losing approved attendance; rejects negative net pay [33m 313[2mms[22m[39m
+   [33m[2m✓[22m[39m moves the whole live session and preserves guest/cart/order/payment/history; rejects stale or busy targets [33m 622[2mms[22m[39m
+   [33m[2m✓[22m[39m reverses an unavailable paid dish and freezes a printable final receipt after refund and close [33m 952[2mms[22m[39m
+   [32m✓[39m suggests paid attendance only inside the scheduled overnight shift and separates breaks[32m 1[2mms[22m[39m
+   [32m✓[39m requires explicit exceptional-hours approval and retains original attendance and audit[32m 158[2mms[22m[39m
+ [32m✓[39m tests/review.integration.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 16790[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps edited master data when bootstrap seed is repeated [33m 1222[2mms[22m[39m
+   [33m[2m✓[22m[39m expires stale guest credentials and hides recipes using inactive ingredients or no ingredients [33m 340[2mms[22m[39m
+   [33m[2m✓[22m[39m requires outstanding service work before write-off and closes only the debt alert with an audit record [33m 587[2mms[22m[39m
+   [33m[2m✓[22m[39m comps a served item without falsifying its lifecycle or restoring consumed stock, and includes it on the frozen receipt [33m 436[2mms[22m[39m
+   [33m[2m✓[22m[39m rejects refunds pointing to another session item or another source allocation at the SQL boundary [33m 739[2mms[22m[39m
+   [33m[2m✓[22m[39m deduplicates outgoing bank references across refund cases and records each refund only once [33m 586[2mms[22m[39m
+ [32m✓[39m tests/support.integration.test.ts [2m([22m[2m29 tests[22m[2m)[22m[33m 16790[2mms[22m[39m
+   [33m[2m✓[22m[39m reuses ACKNOWLEDGED and PENDING without altering owner [33m 305[2mms[22m[39m
+   [33m[2m✓[22m[39m guest state follows NEW/ACK/RESOLVED and excludes other participants and handoff internals [33m 304[2mms[22m[39m
+   [33m[2m✓[22m[39m records actor/timestamps/reasons and all support outbox events including decline [33m 361[2mms[22m[39m
+   [33m[2m✓[22m[39m SQL pending owner guard rejects ownership gaps and session cannot close with active support [33m 304[2mms[22m[39m
+ [32m✓[39m tests/table-transfer.integration.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 16792[2mms[22m[39m
+   [33m[2m✓[22m[39m preserves session, participants, unsent cart, orders, account, payments and support; freezes the final destination on receipt [33m 1383[2mms[22m[39m
+ [32m✓[39m tests/sprint1.integration.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 17024[2mms[22m[39m
+   [33m[2m✓[22m[39m migrates exactly 56 business tables and seed twice preserves counts and passwords [33m 1496[2mms[22m[39m
+   [33m[2m✓[22m[39m repeated seed preserves changed stock, table state, prices and disabled employees [33m 1083[2mms[22m[39m
+   [33m[2m✓[22m[39m three roles allow their own workspace and deny the other two at backend [33m 501[2mms[22m[39m
+   [33m[2m✓[22m[39m enforces five login attempts per account across IPs and per IP across accounts [33m 597[2mms[22m[39m
+   [33m[2m✓[22m[39m renewal through an eight-hour shift keeps the original absolute expiry and rejects revoked refresh [33m 327[2mms[22m[39m
+ [32m✓[39m tests/policy.integration.test.ts [2m([22m[2m17 tests[22m[2m)[22m[33m 17132[2mms[22m[39m
+   [33m[2m✓[22m[39m stores server acceptance time and immutable version without demanding acceptance on active state/profile access [33m 348[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps leave behavior: deletes only unsent own cart, retains orders, acceptance and debt, clears cookie [33m 654[2mms[22m[39m
+   [33m[2m✓[22m[39m guest cancels only own submitted items, and staff cancels accepted items with release, reversal and audit [33m 726[2mms[22m[39m
+   [33m[2m✓[22m[39m kitchen out-of-stock is allowed before preparation only and does not consume stock or charge twice [33m 454[2mms[22m[39m
+   [33m[2m✓[22m[39m restaurant fault at IN_PREPARATION retains stock/COGS, needs admin and reverses paid money once in one decision [33m 1186[2mms[22m[39m
+   [33m[2m✓[22m[39m restaurant fault at READY retains stock/COGS, needs admin and reverses paid money once in one decision [33m 1102[2mms[22m[39m
+   [33m[2m✓[22m[39m admin can stop an unreported faulty dish with one operation and no waiver [33m 356[2mms[22m[39m
+   [33m[2m✓[22m[39m late customer change retains charge; rejecting a kitchen claim records the managerial decision [33m 543[2mms[22m[39m
+   [33m[2m✓[22m[39m served complaint needs admin waiver, retains lifecycle and COGS, and reduces served net sales without changing cash history [33m 393[2mms[22m[39m
+   [33m[2m✓[22m[39m concurrent admin approval adopts the saved kitchen reason once and preserves the separate guest task [33m 315[2mms[22m[39m
+   [33m[2m✓[22m[39m admin can inspect and complete a real refund without gaining staff order or kitchen permissions [33m 413[2mms[22m[39m
+ [32m✓[39m tests/payment-collection.integration.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 18510[2mms[22m[39m
+   [33m[2m✓[22m[39m guest calls staff once with preferred method and reserves no money, including concurrent retries [33m 1044[2mms[22m[39m
+   [33m[2m✓[22m[39m own-dish collection allocates only to that guest, even when another guest ordered first [33m 1116[2mms[22m[39m
+   [33m[2m✓[22m[39m cash 500000 for a 40000 payment records 40000 revenue and 460000 change; retry records once [33m 664[2mms[22m[39m
+   [33m[2m✓[22m[39m participant from another table and over-collection cannot reserve or pay [33m 621[2mms[22m[39m
+   [33m[2m✓[22m[39m another staff cannot collect a claimed payment request without handoff [33m 497[2mms[22m[39m
+   [33m[2m✓[22m[39m bank payment accepts a private screenshot in place of typed reference; image alone is not payment [33m 695[2mms[22m[39m
+   [33m[2m✓[22m[39m proof rejects unsupported file content and duplicate successful screenshot [33m 668[2mms[22m[39m
+   [33m[2m✓[22m[39m full payment completes all typed cash calls; partial payment leaves other guests waiting [33m 606[2mms[22m[39m
+   [33m[2m✓[22m[39m a typed payment call requires explicit acceptance, cannot be bypassed by direct collection, and two claims have one owner [33m 454[2mms[22m[39m
+   [33m[2m✓[22m[39m handoff transfers payment confirmation, proof upload and cancellation rights only after acceptance [33m 529[2mms[22m[39m
+   [33m[2m✓[22m[39m an old unlinked intent cannot confirm after a payment call is claimed by another employee [33m 403[2mms[22m[39m
+   [33m[2m✓[22m[39m ending a call without collecting money requires a reason and leaves the invoice unpaid [33m 365[2mms[22m[39m
+   [33m[2m✓[22m[39m settling the table ends other payment calls, keeps unrelated support open and records money once [33m 416[2mms[22m[39m
+   [33m[2m✓[22m[39m a legacy bill call without a preferred method follows the same acceptance and collection ownership rules [33m 372[2mms[22m[39m
+   [33m[2m✓[22m[39m paid before kitchen acceptance shows exact blockers and closing creates shared cleaning work for both employees [33m 516[2mms[22m[39m
+ [32m✓[39m tests/core45.integration.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 19290[2mms[22m[39m
+   [33m[2m✓[22m[39m executes a reviewed guest order, stock consumption, split payment, snapshot and close without duplicates [33m 1541[2mms[22m[39m
+   [33m[2m✓[22m[39m cancels a paid unprepared order and refunds once with a reconciled zero balance [33m 604[2mms[22m[39m
+   [33m[2m✓[22m[39m expires reviews and payments, releases stock and publishes the committed outbox [33m 514[2mms[22m[39m
+   [33m[2m✓[22m[39m enforces guest ownership and version conflicts, stock rollback, revoked QR and support claiming [33m 362[2mms[22m[39m
+   [33m[2m✓[22m[39m restricts debt write-off to admin and only after the kitchen has finished [33m 396[2mms[22m[39m
+   [33m[2m✓[22m[39m can reserve one serving of every seeded dish without adding ingredients or recipes manually [33m 1702[2mms[22m[39m
+   [33m[2m✓[22m[39m UAT v2: item ownership, partial cancellation, individual acceptance and atomic same-session serving [33m 542[2mms[22m[39m
+   [33m[2m✓[22m[39m UAT v2: unmanaged menu, late cancellation retains stock and money, explicit waiver and partial refund [33m 475[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Suites 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/workforce.integration.test.ts[2m [ tests/workforce.integration.test.ts ][22m
+[31m[1mError[22m: Query read timeout[39m
+[90m [2m❯[22m node_modules/.pnpm/pg-pool@3.14.0_pg@8.23.0/node_modules/pg-pool/index.js:[2m45:11[22m[39m
+[36m [2m❯[22m tests/workforce.integration.test.ts:[2m72:5[22m[39m
+    [90m 70|[39m   [35mif[39m (db) [35mawait[39m db[33m.[39m[34mclose[39m()[33m;[39m
+    [90m 71|[39m   [35mif[39m (host) {
+    [90m 72|[39m     await host.pool.query('DROP DATABASE ' + databaseName + ' WITH (FO…
+    [90m   |[39m     [31m^[39m
+    [90m 73|[39m     [35mawait[39m host[33m.[39m[34mclose[39m()[33m;[39m
+    [90m 74|[39m   }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m8 passed[39m[22m[90m (9)[39m
+[2m      Tests [22m [1m[32m125 passed[39m[22m[90m (125)[39m
+[2m   Start at [22m 12:32:09
+[2m   Duration [22m 20.38s[2m (transform 4.20s, setup 0ms, import 7.35s, tests 136.82s, environment 1ms)[22m
+
+[ELIFECYCLE] Command failed with exit code 1.

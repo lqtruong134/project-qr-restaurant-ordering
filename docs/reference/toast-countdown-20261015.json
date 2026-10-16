@@ -1,0 +1,41 @@
+{
+  "verifiedAt": "2026-10-15T06:49:11.354Z",
+  "durationMs": 5000,
+  "sharedFor": [
+    "ADMIN",
+    "STAFF",
+    "KITCHEN",
+    "GUEST"
+  ],
+  "behavior": [
+    "countdown-progress",
+    "automatic-dismiss",
+    "close-button",
+    "hover-pause",
+    "keyboard-focus-pause",
+    "hidden-tab-pause",
+    "new-notice-restarts",
+    "modal-top-layer"
+  ],
+  "checks": {
+    "browser": 21,
+    "projects": [
+      "desktop",
+      "Android Chromium",
+      "Safari WebKit"
+    ],
+    "responsiveWidths": [
+      320,
+      390,
+      1440
+    ],
+    "productionRoutes": 7,
+    "webTypecheck": true,
+    "toolsTypecheck": true,
+    "scopedLintFormat": true,
+    "basicSecretCheck": true
+  },
+  "browserScope": "Business writes mocked; real internal authentication. Guest cart/table-change, staff partial cancellation, admin scheduling/create/edit/cancel, five-second timing and reading controls.",
+  "changedBusinessData": false,
+  "notes": "Virtual timing assertions use reduced motion to avoid native CSS interpolation lag. Final browser run was sequential because concurrent logins to the same account invalidate older sessions. Errors remain inline and kitchen live updates remain separate."
+}

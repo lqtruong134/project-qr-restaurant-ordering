@@ -1,0 +1,43 @@
+{
+  "verifiedAt": "2026-10-14T05:49:14.290Z",
+  "scope": "payOS integration with existing restaurant financial ledger",
+  "sdk": "@payos/node@2.0.5",
+  "migration": "202610140001_payos_online",
+  "database": {
+    "migrations": 36,
+    "foreign_keys": 163,
+    "closed_sessions": 4264,
+    "frozen_receipts": 4264,
+    "payments": 4576,
+    "refunds": 515,
+    "payos_requests": 0,
+    "tables": 67,
+    "columns": 786
+  },
+  "preservation": {
+    "originalTables": 66,
+    "rows": 1084509,
+    "allOriginalColumnsAndRowsUnchanged": true,
+    "checksumComparison": "Sorted row hashes before/after live migration, new columns excluded only"
+  },
+  "checks": {
+    "unit": 176,
+    "unitSuites": 30,
+    "integration": 330,
+    "integrationSuites": 24,
+    "payosIntegration": 52,
+    "fixtureBrowser": 36,
+    "actualDomainBrowser": 3,
+    "productionRoutes": 7,
+    "sourceCheck": true,
+    "secretsCheck": true,
+    "diffCheck": true
+  },
+  "deployment": {
+    "livePayosEnabled": false,
+    "realCredentialsUsed": false,
+    "realProviderApiCalled": false,
+    "realBankTransferTested": false,
+    "publicHttpsWebhookE2eTested": false
+  }
+}

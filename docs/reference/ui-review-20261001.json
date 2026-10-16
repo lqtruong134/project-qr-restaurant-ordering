@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-01T05:01:32.426Z",
+  "database": "qr_restaurant_ordering",
+  "migrations": 23,
+  "metadata": {
+    "tables": 55,
+    "columns": 595,
+    "foreignKeys": 132,
+    "routes": 116
+  },
+  "check": {
+    "passed": true,
+    "unitTests": 19
+  },
+  "integration": {
+    "passed": 51,
+    "files": 5
+  },
+  "browser": {
+    "passed": 38,
+    "skipped": 1,
+    "total": 39,
+    "projects": [
+      "desktop",
+      "mobile",
+      "webkit-mobile"
+    ]
+  },
+  "productionBuild": {
+    "passed": true,
+    "routes": 7
+  },
+  "secretsScan": {
+    "passed": true
+  },
+  "fixes": [
+    "Collapsed sidebar labels/loading/alignment/accessibility",
+    "Vietnam restaurant timezone in operation timestamps"
+  ],
+  "operationalData": "Not reset or reseeded during this review. Tests created and dropped disposable databases.",
+  "limits": "No load test or prolonged use in a real restaurant. Tests verify covered scenarios."
+}

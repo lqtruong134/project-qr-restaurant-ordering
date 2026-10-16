@@ -1,0 +1,534 @@
+{
+  "date": "2026-10-02T06:01:49.144Z",
+  "task": "Bếp báo sự cố, phục vụ trao đổi khách, admin duyệt/hoàn và phiếu thanh toán gọn",
+  "commit": "7b6301aeb2b7bd6bc519b8cc018506d2ab92f649",
+  "workingTree": "Mã nguồn hiện hành có thay đổi chưa commit; không reset hoặc ghi đè công việc có sẵn.",
+  "database": "qr_restaurant_ordering",
+  "metadata": {
+    "readAt": "2026-10-02T05:53:38.361Z",
+    "tables": 56,
+    "columns": 609,
+    "foreignKeys": 137,
+    "backendOperations": 125,
+    "swaggerOperations": 123,
+    "permissions": [
+      {
+        "role": "ADMIN",
+        "permission": "admin.workspace"
+      },
+      {
+        "role": "KITCHEN",
+        "permission": "kitchen.workspace"
+      },
+      {
+        "role": "STAFF",
+        "permission": "staff.workspace"
+      }
+    ]
+  },
+  "migration": {
+    "added": 0,
+    "records": 28,
+    "completed": 26,
+    "rolledBack": 2
+  },
+  "operationalDataReset": false,
+  "existingPendingNoticeRepair": {
+    "ran": true,
+    "reportsFound": 0,
+    "noticesAdded": 0,
+    "record": "evidence/dish-issue-existing-notices-fixed.log"
+  },
+  "sourceChanges": [
+    {
+      "path": "apps/api/src/modules/dining/dish-notice.routes.ts",
+      "lines": 45,
+      "sha256": "0184e90ff78ed4a54e088a5e9d4549ba51f4a143e931556e6605e9f536f5029a",
+      "change": "added",
+      "before": null
+    },
+    {
+      "path": "apps/api/src/modules/orders/issue.routes.ts",
+      "lines": 139,
+      "sha256": "56fd8e8365e72d17bd13ac79187ded47365cd913c3e9ce9b24efd2c4376b345d",
+      "change": "modified",
+      "before": "c8a981f4bbd3f9f39cc88e6e2368ae48c77c4ab37adc230c23f7b81ca722e2f2"
+    },
+    {
+      "path": "apps/api/src/modules/orders/reasons.ts",
+      "lines": 40,
+      "sha256": "dbed212331d5dc5fe5455346c25aa8a101b3022d2c00daaebd8dfe9ff20fa5b1",
+      "change": "modified",
+      "before": "ecd9297f6681b7b4ca33d90933549f7652d42eccb211b0e6bd3f85651bf15898"
+    },
+    {
+      "path": "apps/web/features/admin/urgent-work.tsx",
+      "lines": 122,
+      "sha256": "a2a54a6edc27a1a795020de0bf4e2c816201ebabac6d244d867caffffff03768",
+      "change": "added",
+      "before": null
+    },
+    {
+      "path": "apps/web/features/guest/bill-lines.tsx",
+      "lines": 62,
+      "sha256": "93de1b51ffa35cbe62b8c3131d5c84212784bc22249da48835aaf2983762b473",
+      "change": "modified",
+      "before": "3d6b0caffbe92b362a4ab72753078ec7b5015cacbf89adbd4ed0328d6ad3f110"
+    },
+    {
+      "path": "apps/web/features/workspace/kitchen-issue.tsx",
+      "lines": 70,
+      "sha256": "12c87c6852b763087ee7cd417c44b72e6bcdcc5b98fb9e124830d8bc586bf11f",
+      "change": "added",
+      "before": null
+    },
+    {
+      "path": "apps/web/features/workspace/receipt-lines.test.ts",
+      "lines": 85,
+      "sha256": "68b52f3e4f562acfc60306639d15ac707c3ede802fe1d6e31dcc6825cede54e2",
+      "change": "added",
+      "before": null
+    },
+    {
+      "path": "apps/web/features/workspace/receipt-lines.ts",
+      "lines": 77,
+      "sha256": "dde1976ceeebcb8a03ed19647c3e7825adf92c4e52c5685de9629cfa486c30b5",
+      "change": "added",
+      "before": null
+    },
+    {
+      "path": "apps/web/styles/issue.css",
+      "lines": 341,
+      "sha256": "9f098e7427fbcc2cefef0275201182d76c414a06e6019b3ae15613414a870a85",
+      "change": "added",
+      "before": null
+    },
+    {
+      "path": "packages/contracts/src/restaurant-policy.ts",
+      "lines": 118,
+      "sha256": "3031d21dbf938f5cab104810c2de22d989db72b9280d9ebdde129c8060e7710d",
+      "change": "modified",
+      "before": "1e4772720bc951da3f34e8776e7de4b094da3fd7922863077a4d54d91afb77a4"
+    },
+    {
+      "path": "tests/browser/dish-issue.spec.ts",
+      "lines": 231,
+      "sha256": "b52e73908197643f86fae389a7aabc1260bc41472b2e550c8c828bc01c58dd1c",
+      "change": "added",
+      "before": null
+    },
+    {
+      "path": "tests/browser/policy.spec.ts",
+      "lines": 220,
+      "sha256": "5f72d3658153e744668e5315bcbaaed3ac26d57cc209022247fbf8526c36473e",
+      "change": "modified",
+      "before": "20600a9851ca15f7a557cd49bf44569fd86f6d3cdb87cdac38bb1b25186cb364"
+    },
+    {
+      "path": "tests/browser/support.spec.ts",
+      "lines": 209,
+      "sha256": "be258f6e1ef5aa43e682083a6d4734c3673e0f362553c5b881dcff119a095577",
+      "change": "modified",
+      "before": "57ef097915b9c31b8b37f526896d75953176b24da3ba8f01e62a30c65f98f1fd"
+    },
+    {
+      "path": "tests/policy.integration.test.ts",
+      "lines": 810,
+      "sha256": "5a44689707d624f7bf868ef6e31e2a14f0b05f9b3a8b38d2721e6002e84b91b3",
+      "change": "modified",
+      "before": "971fb0dbc769dddbb342047c72da45143f3362019978230356bca9dfd0cbb54e"
+    },
+    {
+      "path": "apps/api/src/modules/auth/index.ts",
+      "lines": 237,
+      "sha256": "0df9d17f9cc16f3a5b9127dd2fb15069dc7b0ef5d79d9a386209b3a2f4481b69",
+      "change": "modified",
+      "before": "44da796f8bdbfdf4104755fc0b148ae70aabf6948e67407ea148264588a4e067"
+    },
+    {
+      "path": "apps/api/src/modules/auth/types.ts",
+      "lines": 29,
+      "sha256": "e8b19587f8e987f77cb8e36d4236cacf41b2708d56c8fb670ad8a3f5a8653ac4",
+      "change": "modified",
+      "before": "bd492057329609c43c98e42deb25ce86fb41cec358ecc1d5e6948631aa2eb99d"
+    },
+    {
+      "path": "apps/api/src/modules/dining/dining.routes.ts",
+      "lines": 321,
+      "sha256": "f5992618fb99682704ce5959a9fe1d654eacb0996c1d682e113a1047ff8f1785",
+      "change": "modified",
+      "before": "c8054d85e08a95ace75811a16c4561a15b2f64b9312eb48d7578ac5894df77d9"
+    },
+    {
+      "path": "apps/api/src/modules/orders/exception.routes.ts",
+      "lines": 180,
+      "sha256": "bdbf8af6005d79f2b5d4ac4d92633630b8c2fd4c6d1e8f361d3579c0f6b03955",
+      "change": "modified",
+      "before": "3dda3f1963cb4e947e69d5eab14d7fea820799afdaa702304d42a8e161d3ac25"
+    },
+    {
+      "path": "apps/api/src/modules/payments/payments.routes.ts",
+      "lines": 350,
+      "sha256": "62e4c7816aaa7694a116f6f755a4e764022f5df6d8ede7d5c0e3fd38d2e3f152",
+      "change": "modified",
+      "before": "19b5daa48f4070a1e5ac5105b43a90145d5226d279c16eed0b7befa467844ec0"
+    },
+    {
+      "path": "apps/api/src/modules/payments/receipt.service.ts",
+      "lines": 88,
+      "sha256": "c12ae9cbcbcf98133d1774d8b3398625e0fac3e33c2b98c3357c929768f0d9c8",
+      "change": "modified",
+      "before": "babe335805e79044e071eba6a7ee0657ca87c1ef10b82f3de9b64ab83f354454"
+    },
+    {
+      "path": "apps/api/src/modules/sessions/guest.routes.ts",
+      "lines": 339,
+      "sha256": "dcc399980acd693359876531731266f32fe69716211ea86e9ace5c1c8a98b97a",
+      "change": "modified",
+      "before": "b32a8806e63494252322f2f3405d1dfe5cdd1cee88dfe12e886845a5f75c34ca"
+    },
+    {
+      "path": "apps/web/app/globals.css",
+      "lines": 39,
+      "sha256": "6efed7681f751104094a569ccc7f0eb83e721827bf03aac3b8d0da1d94c6a245",
+      "change": "modified",
+      "before": "29b47287a42861ccc40d4a45592fda74d9de487e9fe9a1da0c636e9fc903a034"
+    },
+    {
+      "path": "apps/web/features/admin/admin.tsx",
+      "lines": 592,
+      "sha256": "949a48aaf9198e63f4235330aa92d652c194ce461377d07aaf7224a4c75fad25",
+      "change": "modified",
+      "before": "da589487507a99225a2cd5df3befbb44d9cc9067f15ec59e1b3955a069de22d7"
+    },
+    {
+      "path": "apps/web/features/admin/order-exceptions.tsx",
+      "lines": 261,
+      "sha256": "51d6073aa3bf4f65414426abac266a4d0435c5786cf095ce19fb90de75ab21f6",
+      "change": "modified",
+      "before": "5a304a29857f6c652486b3f1664fb5d7145745ce5ee15bca05c2e6e859a3e7cd"
+    },
+    {
+      "path": "apps/web/features/workspace/bill-panel.tsx",
+      "lines": 392,
+      "sha256": "0d63509d21119d6fb0e331145aa03736870843ad4f1a17f6b2e1495d2e05f955",
+      "change": "modified",
+      "before": "e359dd1855f5b57824c74832de297921da9671679ca3c37aa20b9bcc48b9b773"
+    },
+    {
+      "path": "apps/web/features/workspace/order-card.tsx",
+      "lines": 160,
+      "sha256": "1ab1344675623e514d5575514d7974b8cbfc2f5133864f182c589e02d175c3b8",
+      "change": "modified",
+      "before": "79de4ee8e01c888aade21818c7bc909930fd3d61f84910081dbf69b7af268828"
+    },
+    {
+      "path": "apps/web/features/workspace/receipt.tsx",
+      "lines": 172,
+      "sha256": "1422f54607a877ea70454dbc5c0b998151857bbce4ff3ff69d6fa4feffb9cf44",
+      "change": "modified",
+      "before": "49da9e38346954cdd0a9dfa5c44c0e2193b809711ce661089ecfec6b4a4b8715"
+    },
+    {
+      "path": "apps/web/features/workspace/service-actions.tsx",
+      "lines": 66,
+      "sha256": "ed5b3d6cc59845af5f9d4f45f7faeca3a30183919ca776588e0c8150b5d0e67b",
+      "change": "modified",
+      "before": "7dc9f8ce78f775ea751408c440cbe6a17e2fa48991fc237b82e9e5030b971e14"
+    },
+    {
+      "path": "apps/web/features/workspace/service.tsx",
+      "lines": 618,
+      "sha256": "2c4253d9834fae430e070f198739188a7f72ec8f343bf82c41fa19546f8ebfe4",
+      "change": "modified",
+      "before": "ada962b3e1e0e7bb5e8c7e20a267a6f2312ccbab0eca87f2a293ea15b5d7855d"
+    },
+    {
+      "path": "scripts/core-api-docs.ts",
+      "lines": 189,
+      "sha256": "9cd72326058b52e15028d84699601d2d46966753b93aa21bd1fb44c5596ee384",
+      "change": "modified",
+      "before": "f03b99ef31a5ffbb9e720a06754b7eec3874fd710f714e311b324eb817c69328"
+    },
+    {
+      "path": "tests/browser/auth.spec.ts",
+      "lines": 41,
+      "sha256": "fba4cdde2422471b32edd3db66c4fe24c7dca6afcfd7476c8bb0c334c8ac9e8b",
+      "change": "modified",
+      "before": "395f466998dad05c44820e61a2bda3bd33c8afc89e4a5072aeeb95e4ef60c236"
+    },
+    {
+      "path": "tests/core45.integration.test.ts",
+      "lines": 1390,
+      "sha256": "53357065b75132cf8f7bb849c5e905a007a71d5228ed050b8c62d015e2022165",
+      "change": "modified",
+      "before": "2c6fd045ef30e456348288b49bb51064b66313ae33f0387ff499ab869c52ff96"
+    },
+    {
+      "path": "tests/workforce.integration.test.ts",
+      "lines": 544,
+      "sha256": "f002dbda7c7a16d046d21bba48f407c036e77f21da99a73bc779d9993bc0858a",
+      "change": "modified",
+      "before": "8cccb8e1736821102b3f43f2e70f5ea23c8db163488f0fb7fb3774e8ccce15a3"
+    }
+  ],
+  "checks": [
+    {
+      "label": "pnpm check",
+      "started": "2026-10-02T05:54:14.581Z",
+      "finished": "2026-10-02T05:54:28.148Z",
+      "args": [
+        "check"
+      ],
+      "code": 0,
+      "result": "Format/lint/TypeScript đạt; 26/26 unit",
+      "log": "../evidence/dish-issue-final-verified-check.log",
+      "logSha256": "d8015eb5163a7ce60336e83ce1625b24a8e1cf4ebbc606eb5812f989bbf8f31d"
+    },
+    {
+      "label": "API và PostgreSQL toàn bộ",
+      "started": "2026-10-02T05:29:50.888Z",
+      "finished": "2026-10-02T05:30:36.866Z",
+      "args": [
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.integration.config.ts",
+        "--maxWorkers=1"
+      ],
+      "code": 0,
+      "result": "107/107, 8 tệp kiểm thử API/CSDL",
+      "log": "../evidence/dish-issue-all-integration-verified.log",
+      "logSha256": "bceebf0e504247fdb13be3689d09107b0ebc2822f0c921c0592cc935149cfb1a"
+    },
+    {
+      "label": "API sự cố món sau sửa nhãn chờ duyệt",
+      "started": "2026-10-02T05:37:11.404Z",
+      "finished": "2026-10-02T05:37:20.905Z",
+      "args": [
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.integration.config.ts",
+        "tests/policy.integration.test.ts",
+        "--maxWorkers=1"
+      ],
+      "code": 0,
+      "result": "17/17, gồm phân quyền, gửi lặp, đồng thời, báo khách độc lập và hoàn tiền",
+      "log": "../evidence/dish-issue-final-policy-api.log",
+      "logSha256": "0c11e87750825267766229a82938fe000d1cfe38e324323898392150e1a86cc4"
+    },
+    {
+      "label": "Luồng mới + chính sách trên ba trình duyệt",
+      "started": "2026-10-02T05:29:36.686Z",
+      "finished": "2026-10-02T05:31:04.233Z",
+      "args": [
+        "test:e2e",
+        "tests/browser/dish-issue.spec.ts",
+        "tests/browser/policy.spec.ts"
+      ],
+      "code": 0,
+      "result": "6/6: desktop, Android Chromium và WebKit mobile",
+      "log": "../evidence/dish-issue-issue-e2e-verified.log",
+      "logSha256": "93476c97a683859f1a4aea115644686b1bbe06018898ccba294caba20a637335"
+    },
+    {
+      "label": "Giao diện toàn hệ thống",
+      "started": "2026-10-02T05:54:15.675Z",
+      "finished": "2026-10-02T06:00:52.769Z",
+      "args": [
+        "test:e2e"
+      ],
+      "code": 0,
+      "result": "62 đạt, 1 Swagger mobile chủ động bỏ qua; tổng 63 trường hợp",
+      "log": "../evidence/dish-issue-full-e2e-complete.log",
+      "logSha256": "3e168ab6465a97293c34a7f80d1376fdc9f4f712fc8578e3e9a0204cf407f636"
+    },
+    {
+      "label": "Production build",
+      "started": "2026-10-02T05:54:17.596Z",
+      "finished": "2026-10-02T05:54:24.125Z",
+      "args": [
+        "build"
+      ],
+      "code": 0,
+      "result": "7 route; thư mục build riêng, không ghi đè máy chủ phát triển",
+      "log": "../evidence/dish-issue-build-published.log",
+      "logSha256": "009599c5d5ff3dcae852209ed341a9edc0b9dfe0adea6d4de3152042ccb39236"
+    },
+    {
+      "label": "Quét bí mật",
+      "started": "2026-10-02T05:40:31.822Z",
+      "finished": "2026-10-02T05:40:32.427Z",
+      "args": [
+        "check:secrets"
+      ],
+      "code": 0,
+      "result": "Đạt",
+      "log": "../evidence/dish-issue-secrets.log",
+      "logSha256": "27b105ff0c6c1d00091fa99b4ae56a850c35306e61e9bc55b4f9d0056be0bbec"
+    },
+    {
+      "label": "Metadata PostgreSQL và ánh xạ source",
+      "started": "2026-10-02T05:53:36.812Z",
+      "finished": "2026-10-02T05:53:38.473Z",
+      "args": [
+        "exec",
+        "tsx",
+        "/mnt/c/Users/Admin/.codex/.chatgpt-projects/g-p-6abb725d13508191b0b02a8845acc6cd/documentation-work/inspect.ts"
+      ],
+      "code": 0,
+      "result": "56 bảng/609 cột/137 FK/125 thao tác API; chỉ đọc dữ liệu metadata",
+      "log": "../evidence/dish-issue-final-source-metadata.log",
+      "logSha256": "ba25769a2a004ae1e3f0dcdfd84348d32b3d965367839bc55add08d22e0e5e6c"
+    },
+    {
+      "label": "Bản đọc HTML 24 và 15",
+      "started": "2026-10-02T06:01:42.548Z",
+      "finished": "2026-10-02T06:01:43.804Z",
+      "args": [
+        "exec",
+        "node",
+        "/mnt/c/Users/Admin/.codex/.chatgpt-projects/g-p-6abb725d13508191b0b02a8845acc6cd/issue-review/docs-qa.mjs"
+      ],
+      "code": 0,
+      "result": "320/768/1440 px không tràn ngang",
+      "log": "../evidence/dish-issue-docs-qa.log",
+      "logSha256": "94e82280a60659048d1187dadd1dfafa94015955a09ca5b83ed5683eb2674e35"
+    }
+  ],
+  "images": [
+    {
+      "device": "desktop",
+      "path": "evidence/dish-issue-kitchen.png"
+    },
+    {
+      "device": "mobile",
+      "path": "evidence/dish-issue-admin-mobile.png"
+    },
+    {
+      "device": "mobile",
+      "path": "evidence/dish-issue-staff-mobile.png"
+    },
+    {
+      "device": "mobile",
+      "path": "evidence/dish-issue-guest-mobile.png"
+    },
+    {
+      "device": "desktop",
+      "path": "evidence/dish-issue-receipt.png"
+    },
+    {
+      "device": "desktop",
+      "path": "evidence/dish-issue-print.png"
+    }
+  ],
+  "sources": [
+    {
+      "title": "Square: Comp and void",
+      "url": "https://squareup.com/help/us/en/article/5814-get-started-with-comp-and-void"
+    },
+    {
+      "title": "Lightspeed: Editing and reviewing orders",
+      "url": "https://k-series-support.lightspeedhq.com/hc/en-us/articles/360050328554-Editing-and-reviewing-orders"
+    },
+    {
+      "title": "Toast: Void items, payments and checks",
+      "url": "https://support.toasttab.com/en/article/Voiding-Items-Payments-and-Checks"
+    }
+  ],
+  "findingsFixed": [
+    "Admin chỉ được dùng chung đúng các API đọc cảnh báo, phiếu và hoàn tiền; không kế thừa workspace phục vụ.",
+    "Lý do bếp có ghi chú tùy chọn; admin duyệt báo cáo đã lưu, kiểm tra mã báo cáo dưới khóa và chống miễn tiền hai lần.",
+    "Việc trao đổi khách và quyết định tiền có cảnh báo/audit riêng; xử lý một việc không làm biến mất việc còn lại.",
+    "Hàng đợi giữ mọi báo cáo chờ duyệt, kể cả khi đã có hơn 200 món thường.",
+    "Hoàn đủ tự giải quyết cảnh báo tiền; đóng phiên vẫn yêu cầu các việc khác hoàn tất.",
+    "Phiếu một dòng tiền/món, nhóm hủy cuối, giữ đơn giá gốc/net 0 và không đưa ghi chú nội bộ vào phiếu.",
+    "Món bếp vừa dừng nhưng chưa duyệt giữ tiền và nhãn Chờ duyệt tiền.",
+    "Test bàn giao giới hạn đúng khung bàn giao khi có thêm cảnh báo món; ảnh WebKit dùng CSS pixels để không vượt giới hạn pixel."
+  ],
+  "earlierRuns": [
+    {
+      "name": "issue-e2e",
+      "started": "2026-10-02T05:11:57.597Z",
+      "finished": "2026-10-02T05:18:47.414Z",
+      "args": [
+        "test:e2e",
+        "tests/browser/dish-issue.spec.ts",
+        "tests/browser/policy.spec.ts"
+      ],
+      "code": 1
+    },
+    {
+      "name": "issue-e2e-fixed",
+      "started": "2026-10-02T05:20:53.474Z",
+      "finished": "2026-10-02T05:22:13.242Z",
+      "args": [
+        "test:e2e",
+        "tests/browser/dish-issue.spec.ts",
+        "tests/browser/policy.spec.ts"
+      ],
+      "code": 1
+    },
+    {
+      "name": "issue-e2e-final",
+      "started": "2026-10-02T05:25:38.277Z",
+      "finished": "2026-10-02T05:26:56.880Z",
+      "args": [
+        "test:e2e",
+        "tests/browser/dish-issue.spec.ts",
+        "tests/browser/policy.spec.ts"
+      ],
+      "code": 1
+    },
+    {
+      "name": "final-integration",
+      "started": "2026-10-02T05:27:04.629Z",
+      "finished": "2026-10-02T05:27:38.985Z",
+      "args": [
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.integration.config.ts",
+        "--maxWorkers=1"
+      ],
+      "code": 1
+    },
+    {
+      "name": "final-check",
+      "started": "2026-10-02T05:27:18.401Z",
+      "finished": "2026-10-02T05:27:20.931Z",
+      "args": [
+        "check"
+      ],
+      "code": 1
+    },
+    {
+      "name": "full-e2e",
+      "started": "2026-10-02T05:36:28.365Z",
+      "finished": "2026-10-02T05:42:33.275Z",
+      "args": [
+        "test:e2e"
+      ],
+      "code": 1
+    },
+    {
+      "name": "full-e2e-verified",
+      "started": "2026-10-02T05:46:19.086Z",
+      "finished": "2026-10-02T05:52:44.739Z",
+      "args": [
+        "test:e2e"
+      ],
+      "code": 1
+    }
+  ],
+  "limits": [
+    "Dừng toàn bộ dòng món; chưa hủy một phần số lượng trong cùng dòng.",
+    "Thu/hoàn thủ công; ghi nhận đã hoàn không tự chuyển tiền ngân hàng.",
+    "Polling khoảng 3 giây khi tab đang hiển thị; không phải WebSocket hoặc push khi đóng trình duyệt.",
+    "Các test dùng database, cổng và ảnh riêng; không thay thế thử nghiệm vận hành dài ngày tại quán."
+  ]
+}

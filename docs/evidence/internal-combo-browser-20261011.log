@@ -1,0 +1,24 @@
+Running 21 tests using 1 worker
+
+[1/21] [desktop] › tests/browser/internal-combo.spec.ts:295:1 › admin creates and updates a managed combo without disabling its derived stock
+[2/21] [desktop] › tests/browser/internal-combo.spec.ts:358:1 › adding and removing members mark the combo dirty; discarding before image save restores persisted members
+[3/21] [desktop] › tests/browser/internal-combo.spec.ts:411:1 › combo recipes remain derived and read only, including a missing recipe
+[4/21] [desktop] › tests/browser/internal-combo.spec.ts:464:1 › staff assisted order reviews combo contents and sends its version; rejection keeps the unsent cart
+[5/21] [desktop] › tests/browser/internal-combo.spec.ts:495:1 › same-price component changes block a staff draft until the combo is selected again
+[6/21] [desktop] › tests/browser/internal-combo.spec.ts:532:1 › kitchen receives the entire combo and keeps frozen member names and quantities
+[7/21] [desktop] › tests/browser/internal-combo.spec.ts:556:1 › staff receipts show frozen whole-combo contents and each receipt button expands or collapses
+[8/21] [mobile] › tests/browser/internal-combo.spec.ts:295:1 › admin creates and updates a managed combo without disabling its derived stock
+[9/21] [mobile] › tests/browser/internal-combo.spec.ts:358:1 › adding and removing members mark the combo dirty; discarding before image save restores persisted members
+[10/21] [mobile] › tests/browser/internal-combo.spec.ts:411:1 › combo recipes remain derived and read only, including a missing recipe
+[11/21] [mobile] › tests/browser/internal-combo.spec.ts:464:1 › staff assisted order reviews combo contents and sends its version; rejection keeps the unsent cart
+[12/21] [mobile] › tests/browser/internal-combo.spec.ts:495:1 › same-price component changes block a staff draft until the combo is selected again
+[13/21] [mobile] › tests/browser/internal-combo.spec.ts:532:1 › kitchen receives the entire combo and keeps frozen member names and quantities
+[14/21] [mobile] › tests/browser/internal-combo.spec.ts:556:1 › staff receipts show frozen whole-combo contents and each receipt button expands or collapses
+[15/21] [webkit-mobile] › tests/browser/internal-combo.spec.ts:295:1 › admin creates and updates a managed combo without disabling its derived stock
+[16/21] [webkit-mobile] › tests/browser/internal-combo.spec.ts:358:1 › adding and removing members mark the combo dirty; discarding before image save restores persisted members
+[17/21] [webkit-mobile] › tests/browser/internal-combo.spec.ts:411:1 › combo recipes remain derived and read only, including a missing recipe
+[18/21] [webkit-mobile] › tests/browser/internal-combo.spec.ts:464:1 › staff assisted order reviews combo contents and sends its version; rejection keeps the unsent cart
+[19/21] [webkit-mobile] › tests/browser/internal-combo.spec.ts:495:1 › same-price component changes block a staff draft until the combo is selected again
+[20/21] [webkit-mobile] › tests/browser/internal-combo.spec.ts:532:1 › kitchen receives the entire combo and keeps frozen member names and quantities
+[21/21] [webkit-mobile] › tests/browser/internal-combo.spec.ts:556:1 › staff receipts show frozen whole-combo contents and each receipt button expands or collapses
+  21 passed (1.5m)

@@ -1,0 +1,36 @@
+$ pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
+$ prettier --check "apps/**/*.{ts,tsx,mjs,js,css}" "packages/**/src/**/*.{ts,tsx}" "scripts/*.{ts,mjs}" "tests/**/*.{ts,tsx}" "*.{ts,mjs,json}"
+Checking formatting...
+All matched files use Prettier code style!
+$ eslint . --max-warnings 0
+$ pnpm -r --if-present typecheck && tsc --noEmit -p tsconfig.tools.json
+packages/ui typecheck$ tsc --noEmit
+packages/database typecheck$ tsc --noEmit
+packages/contracts typecheck$ tsc --noEmit
+packages/contracts typecheck: Done
+packages/ui typecheck: Done
+apps/web typecheck$ next typegen && tsc --noEmit
+apps/web typecheck: Generating route types...
+apps/web typecheck: ✓ Types generated successfully
+packages/database typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/web typecheck: Done
+apps/api typecheck: Done
+$ vitest run
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/home/quyettruong05/projects/qr-ordering-thesis[39m
+
+ [32m✓[39m apps/web/lib/api-client.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 68[2mms[22m[39m
+ [32m✓[39m apps/web/features/workspace/receipt-lines.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m apps/web/features/workforce/format.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 92[2mms[22m[39m
+ [32m✓[39m apps/web/features/shared/restaurant-time.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 89[2mms[22m[39m
+ [32m✓[39m apps/web/features/workforce/schedule-data.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 72[2mms[22m[39m
+ [32m✓[39m apps/web/features/guest/payment-status.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/orders/reasons.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m apps/api/src/app.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 80[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[32m33 passed[39m[22m[90m (33)[39m
+[2m   Start at [22m 11:08:12
+[2m   Duration [22m 473ms[2m (transform 664ms, setup 0ms, import 960ms, tests 446ms, environment 1ms)[22m
+

@@ -1,0 +1,86 @@
+{
+  "date": "2026-10-01T09:03:44.434Z",
+  "scope": "Thiết kế giao diện tất cả vai trò và tổ chức ảnh",
+  "roles": [
+    "GUEST",
+    "STAFF",
+    "KITCHEN",
+    "ADMIN",
+    "Nhân viên xem lịch/công/lương cá nhân"
+  ],
+  "check": {
+    "passed": true,
+    "unitTests": 19
+  },
+  "integration": {
+    "passed": 51,
+    "files": 5
+  },
+  "browser": {
+    "passed": 47,
+    "skipped": 1,
+    "total": 48,
+    "imageCases": 3,
+    "projects": [
+      "desktop",
+      "mobile",
+      "webkit-mobile"
+    ],
+    "widthsChecked": [
+      320,
+      390,
+      540,
+      768,
+      800,
+      801,
+      1024,
+      1280,
+      1440
+    ],
+    "skipReason": "Swagger mobile chủ động bỏ qua"
+  },
+  "screenshotFollowup": {
+    "file": "tests/browser/core45.spec.ts",
+    "passed": 6,
+    "reason": "Chờ trạng thái READY trước chụp ảnh bếp; đối chiếu khoảng cách thời gian chờ"
+  },
+  "build": {
+    "passed": true,
+    "routes": 7,
+    "outputDirectory": ".next-workforce-build"
+  },
+  "secretsScan": {
+    "passed": true
+  },
+  "finalCssChange": "Sau lần chạy toàn bộ, bổ sung khoảng cách giữa tên món và thời gian chờ mang ra, thêm chú thích globals.css để máy chủ phát triển biên dịch lại. Chạy lại kiểm thử core45 và kiểm tra định dạng hai tệp CSS sau chỉnh sửa.",
+  "data": "Database thử riêng; không reset database vận hành. Harness dọn thư mục ảnh tạm riêng.",
+  "schema": {
+    "database": "qr_restaurant_ordering",
+    "tables": 55,
+    "columns": 595,
+    "foreignKeys": 132,
+    "migrations": 23,
+    "readOnlyInspection": true
+  },
+  "media": {
+    "static": "apps/web/public/images/",
+    "mapping": "apps/web/lib/media.ts",
+    "upload": "var/menu-images hoặc MENU_UPLOAD_DIR",
+    "database": "product.image_url",
+    "types": [
+      "PNG",
+      "JPEG",
+      "WebP"
+    ],
+    "maxBytes": 2097152,
+    "imageFallback": true
+  },
+  "sources": [
+    "https://squareup.com/us/en/online-ordering/qr-code-ordering",
+    "https://pos.toasttab.com/hardware/kitchen-display-system",
+    "https://docs.restaurant365.com/docs/items-grid",
+    "https://kb.7shifts.com/hc/en-us/articles/4417514375827-Check-Your-Schedule",
+    "https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns",
+    "https://developer.mozilla.org/en-US/docs/Learn_web_development/Howto/Solve_CSS_problems/Fill_a_box_with_an_image"
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "verifiedAt": "2026-10-15T13:42:34.073Z",
+  "actualMode": "OFF",
+  "liveDataAudit": {
+    "products": 91,
+    "dishes": 86,
+    "combos": 5,
+    "categories": 11,
+    "ingredients": 113,
+    "effectiveRecipes": 91,
+    "bomLines": 630,
+    "comboComponentRows": 16,
+    "numericServingDescriptions": 34,
+    "sharedDishDescriptions": 19,
+    "spiceDescriptions": 2,
+    "chiliBoms": 16,
+    "declaredAllergenDescriptions": 25,
+    "source": "READ_ONLY_DATABASE_AND_SOURCE_AUDIT"
+  },
+  "data": {
+    "train": 24,
+    "validation": 6,
+    "evaluation": 6,
+    "valid": true,
+    "source": "CURATED_SYNTHETIC",
+    "modelQualityMeasured": false
+  },
+  "evaluatorMissingPredictionTest": {
+    "expected": 6,
+    "missing": 6,
+    "passed": 0,
+    "denominator": 6
+  },
+  "effects": {
+    "liveBusinessWrites": false,
+    "migrationAdded": false,
+    "existingEnvEdited": false,
+    "realProviderInstalled": false,
+    "modelDownloaded": false,
+    "trainingRun": false,
+    "gpuValidated": false,
+    "assistantUiAdded": false
+  },
+  "notebook": {
+    "codeCells": 7,
+    "syntax": "PASS",
+    "allDisabledExecution": "PASS",
+    "mlImported": false,
+    "modelLoaded": false,
+    "trainingRun": false,
+    "basePredictionPathPrepared": true,
+    "gpuValidated": false,
+    "datasetTotal": 36
+  },
+  "checks": {
+    "unitTests": 225,
+    "unitSuites": 33,
+    "integrationTests": 367,
+    "integrationSuites": 25,
+    "assistantIntegrationTests": 35,
+    "datasetExamples": 36,
+    "notebookCodeCells": 7,
+    "productionRoutes": 7,
+    "apiRegistered": 186,
+    "businessOperations": 177,
+    "typescriptLintFormat": true,
+    "basicSecretCheck": true,
+    "liveSmoke": {
+      "web": 200,
+      "api": 200,
+      "assistantWithoutGuest": 401
+    }
+  },
+  "intentionalLimits": [
+    "No real model or natural-language extraction",
+    "No AI UI",
+    "No migration or semantic metadata confirmation",
+    "Diet/allergen/spice/portion metadata UNREVIEWED",
+    "Synthetic evaluation size does not establish model quality",
+    "Context token budget and GPU dependencies require later validation",
+    "Per-process limiter; IP may be shared across guests"
+  ]
+}

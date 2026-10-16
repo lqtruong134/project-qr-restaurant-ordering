@@ -1,0 +1,116 @@
+{
+  "verifiedAt": "2026-10-14T10:41:19.498Z",
+  "scope": "Menu taxonomy and user-provided food photos",
+  "products": 91,
+  "newImages": 28,
+  "productsWithImages": 86,
+  "missingImages": [
+    {
+      "code": "CHINH-07",
+      "name": "Bún gà sả",
+      "suggestedFilename": "chinh-07.jpg",
+      "reason": "Cần phần bún khô với gà xào sả, rau thơm và nước mắm; ảnh hiện tại là tô bún nước."
+    },
+    {
+      "code": "DESSERT-13",
+      "name": "Rau câu dừa sữa",
+      "suggestedFilename": "dessert-13.jpg",
+      "reason": "Cần rau câu dừa sữa; ảnh hiện tại có lớp xanh lá dứa, khác phiên bản món đang cấu hình."
+    },
+    {
+      "code": "KHAI-09",
+      "name": "Rau cải xào tỏi (phần cơm)",
+      "suggestedFilename": "khai-09.jpg",
+      "reason": "Cần cải thìa xào tỏi; ảnh hiện tại là rau muống xào tỏi."
+    },
+    {
+      "code": "LAU-09",
+      "name": "Lẩu Thái bò & tôm",
+      "suggestedFilename": "lau-09.jpg",
+      "reason": "Cần lẩu Thái bò và tôm đúng thành phần; ảnh hiện tại có thêm nghêu/mực."
+    },
+    {
+      "code": "LAU-10",
+      "name": "Canh rau củ (phần cơm)",
+      "suggestedFilename": "lau-10.jpg",
+      "reason": "Cần canh rau củ/nấm nước dùng rau củ; ảnh hiện tại có thịt/xương và củ dền."
+    }
+  ],
+  "categoryMembershipChanges": 26,
+  "categories": [
+    {
+      "code": "COMBO",
+      "name": "Combo",
+      "products": 5
+    },
+    {
+      "code": "KHAI-VI",
+      "name": "Khai vị & gỏi",
+      "products": 8
+    },
+    {
+      "code": "BANH-CUON",
+      "name": "Bánh & cuốn",
+      "products": 3
+    },
+    {
+      "code": "MON-CHINH",
+      "name": "Cơm",
+      "products": 8
+    },
+    {
+      "code": "BUN-PHO-MI",
+      "name": "Bún, phở & mì",
+      "products": 7
+    },
+    {
+      "code": "MON-NUONG",
+      "name": "Món mặn",
+      "products": 19
+    },
+    {
+      "code": "RAU-DAU-HU",
+      "name": "Rau & đậu hũ",
+      "products": 3
+    },
+    {
+      "code": "CANH",
+      "name": "Canh",
+      "products": 11
+    },
+    {
+      "code": "CANH-LAU",
+      "name": "Lẩu",
+      "products": 5
+    },
+    {
+      "code": "TRANG-MIENG",
+      "name": "Tráng miệng",
+      "products": 13
+    },
+    {
+      "code": "DO-UONG",
+      "name": "Thức uống",
+      "products": 9
+    }
+  ],
+  "preservation": {
+    "protectedTables": 64,
+    "operationalRecordsPreserved": true,
+    "pricesRecipesCodesUnchanged": true,
+    "oldCategoryIdsPreserved": true,
+    "noResetOrReseed": true
+  },
+  "checks": {
+    "unit": 176,
+    "integration": 332,
+    "integrationSuites": 24,
+    "productionRoutes": 7,
+    "verifiedImageUrls": 85,
+    "browser": 6,
+    "browserProjects": ["desktop", "Android Chromium", "Safari WebKit"],
+    "finalCssBuild": true
+  },
+  "source": "USER_PROVIDED",
+  "originalJpegPreserved": true
+}

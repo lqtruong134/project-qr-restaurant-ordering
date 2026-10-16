@@ -1,0 +1,221 @@
+$ node scripts/run.mjs e2e
+$ node scripts/run.mjs migrate
+Loaded Prisma config from prisma.config.ts.
+
+Prisma schema loaded from prisma/schema.prisma.
+Datasource "db": PostgreSQL database "thesis_browser_163a8dd2d3226838", schema "public" at "127.0.0.1:5433"
+
+27 migrations found in prisma/migrations
+
+Applying migration `202609100001_c0_c1`
+Applying migration `202609220001_core45`
+Applying migration `202609220002_core45_guards`
+Applying migration `202609220003_core45_session_guard`
+Applying migration `202609230001_core_ledger_guards`
+Applying migration `202609230002_review_withdrawal`
+Applying migration `202609230003_qr_token_recovery`
+Applying migration `202609240001_unavailable_inventory`
+Applying migration `202609240001_workforce_table_transfer`
+Applying migration `202609240002_receipt_snapshot`
+Applying migration `202609240003_payroll_snapshot_guard`
+Applying migration `202609270001_uat_item_lifecycle`
+Applying migration `202609270002_partial_refunds`
+Applying migration `202609270003_product_policy`
+Applying migration `202609270004_attendance_outcome`
+Applying migration `202609270005_operation_audit`
+Applying migration `202609270006_payroll_payment_audit`
+Applying migration `202609270007_receipt_draft_guard`
+Applying migration `202609270008_refund_request_key`
+Applying migration `202609270009_staff_code`
+Applying migration `202609280001_stock_adjustment_trace`
+Applying migration `202609300001_review_integrity`
+Applying migration `202609300002_schema_alignment`
+Applying migration `202610010001_guest_policy_order_reasons`
+Applying migration `202610010002_support_handoffs`
+Applying migration `202610010003_support_outbox_guards`
+Applying migration `202610020001_payment_collection`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 202609100001_c0_c1/
+    └─ migration.sql
+  └─ 202609220001_core45/
+    └─ migration.sql
+  └─ 202609220002_core45_guards/
+    └─ migration.sql
+  └─ 202609220003_core45_session_guard/
+    └─ migration.sql
+  └─ 202609230001_core_ledger_guards/
+    └─ migration.sql
+  └─ 202609230002_review_withdrawal/
+    └─ migration.sql
+  └─ 202609230003_qr_token_recovery/
+    └─ migration.sql
+  └─ 202609240001_unavailable_inventory/
+    └─ migration.sql
+  └─ 202609240001_workforce_table_transfer/
+    └─ migration.sql
+  └─ 202609240002_receipt_snapshot/
+    └─ migration.sql
+  └─ 202609240003_payroll_snapshot_guard/
+    └─ migration.sql
+  └─ 202609270001_uat_item_lifecycle/
+    └─ migration.sql
+  └─ 202609270002_partial_refunds/
+    └─ migration.sql
+  └─ 202609270003_product_policy/
+    └─ migration.sql
+  └─ 202609270004_attendance_outcome/
+    └─ migration.sql
+  └─ 202609270005_operation_audit/
+    └─ migration.sql
+  └─ 202609270006_payroll_payment_audit/
+    └─ migration.sql
+  └─ 202609270007_receipt_draft_guard/
+    └─ migration.sql
+  └─ 202609270008_refund_request_key/
+    └─ migration.sql
+  └─ 202609270009_staff_code/
+    └─ migration.sql
+  └─ 202609280001_stock_adjustment_trace/
+    └─ migration.sql
+  └─ 202609300001_review_integrity/
+    └─ migration.sql
+  └─ 202609300002_schema_alignment/
+    └─ migration.sql
+  └─ 202610010001_guest_policy_order_reasons/
+    └─ migration.sql
+  └─ 202610010002_support_handoffs/
+    └─ migration.sql
+  └─ 202610010003_support_outbox_guards/
+    └─ migration.sql
+  └─ 202610020001_payment_collection/
+    └─ migration.sql
+
+All migrations have been successfully applied.
+┌─────────────────────────────────────────────────────────┐
+│  Update available 7.10.0 -> 8.0.0-rc.19                 │
+│                                                         │
+│  This is a major update - please follow the guide at    │
+│  https://pris.ly/d/major-version-upgrade                │
+│                                                         │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
+$ node scripts/run.mjs seed-core
+Demo seed ready: 16 accounts, 24 tables, 48 dishes with recipes, 50 ingredients, 3 stock locations and 14 days of shifts. Existing data preserved.
+[WebServer] $ [WebServer] node scripts/run.mjs dev
+[WebServer] $ tsx watch src/server.ts
+[WebServer] $ node scripts/prepare-docs.mjs && next dev --hostname 127.0.0.1 --port 13100
+
+Running 75 tests using 1 worker
+·····F························F·········°··············F···················
+
+  1) [desktop] › tests/browser/dish-issue.spec.ts:17:1 › kitchen quick issue, global admin entry, durable staff conversation and aligned zero-price receipt 
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('.alert-card').filter({ has: locator('.dish-guest-task') }).filter({ hasText: 'SC-d-211743' })
+    Expected substring: "Bò nướng sốt tiêu"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toContainText" locator('.alert-card').filter({ has: locator('.dish-guest-task') }).filter({ hasText: 'SC-d-211743' }) with timeout 5000ms
+      - waiting for locator('.alert-card').filter({ has: locator('.dish-guest-task') }).filter({ hasText: 'SC-d-211743' })
+
+
+      132 |       .filter({ has: staff!.locator('.dish-guest-task') })
+      133 |       .filter({ hasText: code });
+    > 134 |     await expect(communication).toContainText(faulty.name);
+          |                                 ^
+      135 |     await staff!.screenshot({
+      136 |       path: info.outputPath('staff-guest-conversation.png'),
+      137 |       scale: 'css',
+        at /home/quyettruong05/projects/qr-ordering-thesis/tests/browser/dish-issue.spec.ts:134:33
+
+    Error Context: test-results/dish-issue-kitchen-quick-i-45cec--aligned-zero-price-receipt-desktop/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/dish-issue-kitchen-quick-i-45cec--aligned-zero-price-receipt-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/dish-issue-kitchen-quick-i-45cec--aligned-zero-price-receipt-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [mobile] › tests/browser/dish-issue.spec.ts:17:1 › kitchen quick issue, global admin entry, durable staff conversation and aligned zero-price receipt 
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('.alert-card').filter({ has: locator('.dish-guest-task') }).filter({ hasText: 'SC-m-397443' })
+    Expected substring: "Bò nướng sốt tiêu"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toContainText" locator('.alert-card').filter({ has: locator('.dish-guest-task') }).filter({ hasText: 'SC-m-397443' }) with timeout 5000ms
+      - waiting for locator('.alert-card').filter({ has: locator('.dish-guest-task') }).filter({ hasText: 'SC-m-397443' })
+
+
+      132 |       .filter({ has: staff!.locator('.dish-guest-task') })
+      133 |       .filter({ hasText: code });
+    > 134 |     await expect(communication).toContainText(faulty.name);
+          |                                 ^
+      135 |     await staff!.screenshot({
+      136 |       path: info.outputPath('staff-guest-conversation.png'),
+      137 |       scale: 'css',
+        at /home/quyettruong05/projects/qr-ordering-thesis/tests/browser/dish-issue.spec.ts:134:33
+
+    Error Context: test-results/dish-issue-kitchen-quick-i-45cec--aligned-zero-price-receipt-mobile/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/dish-issue-kitchen-quick-i-45cec--aligned-zero-price-receipt-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/dish-issue-kitchen-quick-i-45cec--aligned-zero-price-receipt-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [webkit-mobile] › tests/browser/dish-issue.spec.ts:17:1 › kitchen quick issue, global admin entry, durable staff conversation and aligned zero-price receipt 
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator('.alert-card').filter({ has: locator('.dish-guest-task') }).filter({ hasText: 'SC-w-584958' })
+    Expected substring: "Bò nướng sốt tiêu"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toContainText" locator('.alert-card').filter({ has: locator('.dish-guest-task') }).filter({ hasText: 'SC-w-584958' }) with timeout 5000ms
+      - waiting for locator('.alert-card').filter({ has: locator('.dish-guest-task') }).filter({ hasText: 'SC-w-584958' })
+
+
+      132 |       .click();
+      133 |     await staff!
+    > 134 |       .getByRole('navigation', { name: 'Người phụ trách công việc' })
+          |                                 ^
+      135 |       .getByRole('button', { name: /Tôi phụ trách/ })
+      136 |       .click();
+      137 |     await staff!.getByLabel('Loại công việc').selectOption('payment');
+        at /home/quyettruong05/projects/qr-ordering-thesis/tests/browser/dish-issue.spec.ts:134:33
+
+    Error Context: test-results/dish-issue-kitchen-quick-i-45cec--aligned-zero-price-receipt-webkit-mobile/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/dish-issue-kitchen-quick-i-45cec--aligned-zero-price-receipt-webkit-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/dish-issue-kitchen-quick-i-45cec--aligned-zero-price-receipt-webkit-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 failed
+    [desktop] › tests/browser/dish-issue.spec.ts:17:1 › kitchen quick issue, global admin entry, durable staff conversation and aligned zero-price receipt 
+    [mobile] › tests/browser/dish-issue.spec.ts:17:1 › kitchen quick issue, global admin entry, durable staff conversation and aligned zero-price receipt 
+    [webkit-mobile] › tests/browser/dish-issue.spec.ts:17:1 › kitchen quick issue, global admin entry, durable staff conversation and aligned zero-price receipt 
+  1 skipped
+  71 passed (11.0m)
+[ELIFECYCLE] Command failed with exit code 1.

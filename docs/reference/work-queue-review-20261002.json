@@ -1,0 +1,157 @@
+{
+  "date": "2026-10-02T11:34:31.416Z",
+  "database": "qr_restaurant_ordering",
+  "tables": 56,
+  "columns": 613,
+  "foreignKeys": 138,
+  "backendOperations": 128,
+  "appliedMigrations": 27,
+  "migrationRecords": 29,
+  "noNewMigration": true,
+  "schemaUnchanged": true,
+  "operationalDataReset": false,
+  "checks": [
+    {
+      "label": "Format, ESLint, TypeScript, unit",
+      "result": "26/26 unit trên 7 tệp; format/lint/typecheck đạt",
+      "code": 0,
+      "started": "2026-10-02T11:25:00.341Z",
+      "finished": "2026-10-02T11:25:14.160Z",
+      "command": "pnpm check"
+    },
+    {
+      "label": "API và PostgreSQL",
+      "result": "121/121 trên 9 tệp, gồm 14 tình huống thu tiền, ownership, claim đồng thời và bàn giao",
+      "code": 0,
+      "started": "2026-10-02T11:09:33.380Z",
+      "finished": "2026-10-02T11:10:18.871Z",
+      "command": "pnpm exec vitest run --config vitest.integration.config.ts --maxWorkers=1"
+    },
+    {
+      "label": "Trình duyệt toàn hệ thống",
+      "result": "71 đạt / 1 Swagger mobile chủ động bỏ qua (72 trường hợp); desktop, Android Chromium, iPhone WebKit; hai STAFF, ownership, bàn giao và giữ tiền nhập qua polling",
+      "code": 0,
+      "started": "2026-10-02T11:22:58.423Z",
+      "finished": "2026-10-02T11:31:09.405Z",
+      "command": "pnpm test:e2e --reporter=list --max-failures=1"
+    },
+    {
+      "label": "Build Next.js",
+      "result": "Build production thành công; thư mục build riêng với dev",
+      "code": 0,
+      "started": "2026-10-02T11:32:00.182Z",
+      "finished": "2026-10-02T11:32:09.016Z",
+      "command": "pnpm build"
+    },
+    {
+      "label": "Kiểm tra bí mật",
+      "result": "Script check:secrets đạt",
+      "code": 0,
+      "started": "2026-10-02T11:25:04.544Z",
+      "finished": "2026-10-02T11:25:05.068Z",
+      "command": "pnpm check:secrets"
+    },
+    {
+      "label": "Kiểm tra khoảng trắng diff",
+      "result": "git diff --check đạt",
+      "code": 0,
+      "started": "2026-10-02T11:29:38.070Z",
+      "finished": "2026-10-02T11:29:38.212Z",
+      "command": "pnpm exec git diff --check"
+    },
+    {
+      "label": "Bố cục tài liệu",
+      "result": "Bài 22, 25, 15 ở 320/768/1440 px không tràn ngang",
+      "code": 0
+    },
+    {
+      "label": "Đối chiếu tệp nguồn",
+      "result": "242 tệp khớp SHA256; liên kết mã nguồn có tệp thật",
+      "code": 0
+    }
+  ],
+  "changed": [
+    {
+      "path": "apps/api/src/modules/payments/collection.service.ts",
+      "new": false
+    },
+    {
+      "path": "apps/api/src/modules/payments/payment-proof.routes.ts",
+      "new": false
+    },
+    {
+      "path": "apps/api/src/modules/payments/payment-requests.routes.ts",
+      "new": false
+    },
+    {
+      "path": "apps/api/src/modules/support/support.routes.ts",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/admin/support-report.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/guest/guest-support.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/payment-collection.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/support-history.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/support-panel.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/table-work.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/work-queue.tsx",
+      "new": true
+    },
+    {
+      "path": "tests/browser/payment-collection.spec.ts",
+      "new": false
+    },
+    {
+      "path": "tests/browser/support.spec.ts",
+      "new": false
+    },
+    {
+      "path": "tests/payment-collection.integration.test.ts",
+      "new": false
+    },
+    {
+      "path": "apps/api/src/modules/payments/payments.routes.ts",
+      "new": false
+    },
+    {
+      "path": "apps/api/src/modules/payments/receipt.service.ts",
+      "new": false
+    },
+    {
+      "path": "apps/web/app/globals.css",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/bill-panel.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/service.tsx",
+      "new": false
+    },
+    {
+      "path": "tests/browser/core45.spec.ts",
+      "new": false
+    }
+  ],
+  "images": 6,
+  "scope": "Một hàng đợi Việc cần làm. BILL phải nhận trước khi thu; người phụ trách thống nhất ở thẻ/sơ đồ/chi tiết; bàn giao chỉ đổi quyền khi đồng ý. Chặn thu bỏ qua yêu cầu, bảo vệ xác nhận/chứng từ/hủy. Thu xong kết thúc lời gọi; lời gọi khác khi trả đủ CANCELLED có lý do. Không ghi nhận tiền khi khách chưa trả. Giữ số tiền đang nhập qua polling. Hỗ trợ thường và việc chung giữ phạm vi riêng."
+}

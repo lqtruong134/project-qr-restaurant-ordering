@@ -1,0 +1,14 @@
+Banner/menu guest E2E — 12/10/2026
+Result excerpt from /tmp/guest-banner-layout-e2e.log; migration listing omitted.
+$ node scripts/run.mjs e2e tests/browser/guest-banner-layout.spec.ts tests/browser/guest-refresh.spec.ts
+
+All migrations have been successfully applied.
+$ node scripts/run.mjs seed-core
+Restaurant bootstrap ready: 16 accounts, 24 tables, 62 dishes with recipes, 68 ingredients, 3 stock locations and 14 days of shifts. Existing data preserved.
+[WebServer] $ node scripts/run.mjs dev
+[WebServer] $ node scripts/prepare-docs.mjs && next dev --hostname 127.0.0.1 --port 13100
+[WebServer] $ tsx watch src/server.ts
+
+Running 27 tests using 1 worker
+···························
+  27 passed (2.3m)

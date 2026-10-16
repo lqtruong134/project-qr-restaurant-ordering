@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-01",
+  "scope": "Day-first rosters and weekly shift-group coverage, with personal daily schedules",
+  "references": [
+    "https://kb.7shifts.com/hc/en-us/articles/31586356663827-Customize-your-Schedule-view",
+    "https://kb.7shifts.com/hc/en-us/articles/31636487946387-How-to-customize-your-Schedule-layout",
+    "https://help.deputy.com/hc/en-au/articles/4688713423759-Schedule-overview",
+    "https://support.getsling.com/en/articles/5232837-my-schedule"
+  ],
+  "checks": {
+    "pnpm check": {"exitCode": 0, "unitPassed": 17, "includes": ["format", "lint", "typecheck", "unit tests"]},
+    "pnpm test:e2e workforce.spec.ts": {"exitCode": 0, "passed": 9, "skipped": 0, "durationSeconds": 39.1, "projects": ["desktop", "mobile", "webkit-mobile"]},
+    "NEXT_DIST_DIR=.next-workforce-build pnpm build": {"exitCode": 0, "routes": 7},
+    "pnpm check:secrets": {"exitCode": 0}
+  },
+  "counts": "Distinct assigned employees, separately from assignment count; cancelled assignments excluded",
+  "dayBoundary": "Asia/Ho_Chi_Minh, shifts overlap [00:00, next 00:00); overnight carryover included; exact midnight endings excluded from following day",
+  "weekGrouping": "Name, local start/end hours, overnight span and unpaid break; cells use starting date",
+  "browserVerified": [
+    "Default ADMIN view is day by shift",
+    "Unique employee total and roster count for each shift match API records",
+    "Week by shift and week by employee views can be opened",
+    "Kitchen role filter updates employee total",
+    "Date picker changes to an empty day with zero employees and returns to the selected date",
+    "Date display uses dd/mm/yyyy independently of browser locale",
+    "Create shift, assign, approve attendance, create payroll, add bonus, finalize, record payment and read personal payslip",
+    "Both STAFF and KITCHEN use personal daily agenda, self-clock, weekly schedule, details, history and payslips",
+    "No pageerror or document-wide horizontal overflow in tested flows"
+  ],
+  "database": "Disposable database created and dropped by the repository test harness",
+  "operationalDatabaseChanged": false,
+  "sourceFiles": [
+    "apps/web/features/workforce/schedule-board.tsx",
+    "apps/web/features/workforce/schedule-data.ts",
+    "apps/web/features/workforce/schedule-data.test.ts",
+    "apps/web/features/workforce/workforce-panel.tsx",
+    "apps/web/features/workforce/my-work.tsx",
+    "apps/web/styles/workforce.css",
+    "tests/browser/workforce.spec.ts"
+  ],
+  "previousFullSuite": {"date": "2026-09-30", "passed": 29, "skipped": 1, "rerunInThisUpdate": false},
+  "limits": [
+    "No configured target staffing per shift; unassigned does not imply a staffing deficit calculation",
+    "Existing admin API returns at most 500 shifts and 1000 assignments; displayed counts apply to returned records",
+    "No backend business rules or schema changed in this UI update"
+  ]
+}

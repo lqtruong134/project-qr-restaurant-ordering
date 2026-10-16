@@ -1,0 +1,418 @@
+{
+  "date": "2026-10-03T06:13:48.529Z",
+  "scope": "Điều kiện đóng bàn rõ từng món/công việc; việc chung dọn bàn cho STAFF khác; tự gia hạn ACCESS_EXPIRED còn hợp lệ và giữ thu hồi phiên; bố cục mới cả bốn vai trò và ảnh không che chữ trên điện thoại.",
+  "database": "qr_restaurant_ordering",
+  "tables": 56,
+  "columns": 613,
+  "foreignKeys": 138,
+  "backendOperations": 128,
+  "appliedMigrations": 27,
+  "migrationRecords": 29,
+  "noNewMigration": true,
+  "schemaUnchanged": true,
+  "routeRegistryUnchanged": true,
+  "billResponseExtended": true,
+  "operationalDataReset": false,
+  "operationalSeedRun": false,
+  "checks": [
+    {
+      "label": "Format, ESLint, TypeScript, unit",
+      "result": "Đạt format/lint/typecheck; 41/41 unit trên 9 tệp",
+      "code": 0,
+      "started": "2026-10-03T06:00:06.212Z",
+      "finished": "2026-10-03T06:00:32.543Z",
+      "command": "pnpm check",
+      "log": "evidence/experience-completed-check-final.log"
+    },
+    {
+      "label": "API và PostgreSQL",
+      "result": "125/125 integration trên 9 tệp chạy tuần tự; gồm chặn đóng theo món/công việc, dọn đồng thời và gia hạn phiên",
+      "code": 0,
+      "started": "2026-10-03T05:37:18.847Z",
+      "finished": "2026-10-03T05:38:10.157Z",
+      "command": "pnpm exec vitest run --config vitest.integration.config.ts --maxWorkers=1",
+      "log": "evidence/experience-api-final.log"
+    },
+    {
+      "label": "Trình duyệt toàn hệ thống",
+      "result": "Kết quả hợp nhất: 77 tình huống đạt, 1 Swagger mobile bỏ qua. Lần toàn bộ: 71 đạt, 6 bước UI cũ chưa đạt. Kiểm tra lại 18: 16 đạt, 2 bước mở phiếu tự hiện cần cập nhật. Sau cập nhật bước, kiểm tra lại cả 6 luồng CORE trên ba cấu hình đạt",
+      "code": 0,
+      "started": "2026-10-03T05:59:53.499Z",
+      "finished": "2026-10-03T06:01:31.334Z",
+      "command": "pnpm test:e2e core45.spec.ts",
+      "log": "evidence/experience-browser-verified.log"
+    },
+    {
+      "label": "Build production",
+      "result": "Next.js build đạt trong thư mục riêng, không ghi vào cache dev",
+      "code": 0,
+      "started": "2026-10-03T06:02:08.347Z",
+      "finished": "2026-10-03T06:02:20.549Z",
+      "command": "pnpm build",
+      "log": "evidence/experience-production-build.log"
+    },
+    {
+      "label": "Kiểm tra bí mật",
+      "result": "Script check:secrets đạt",
+      "code": 0,
+      "started": "2026-10-03T06:02:21.357Z",
+      "finished": "2026-10-03T06:02:22.004Z",
+      "command": "pnpm check:secrets",
+      "log": "evidence/experience-secrets.log"
+    },
+    {
+      "label": "Kiểm tra diff",
+      "result": "git diff --check đạt",
+      "code": 0,
+      "started": "2026-10-03T06:02:25.524Z",
+      "finished": "2026-10-03T06:02:25.641Z",
+      "command": "git diff --check",
+      "log": "evidence/experience-diff-check.log"
+    },
+    {
+      "label": "Bố cục tài liệu",
+      "result": "15 phép đối chiếu trang/kích thước ở 320/768/1440px không tràn ngang",
+      "code": 0
+    },
+    {
+      "label": "Đối chiếu tệp nguồn",
+      "result": "251 tệp khớp SHA256; mọi liên kết mã nguồn trỏ tới tệp thật",
+      "code": 0
+    }
+  ],
+  "earlierRuns": [
+    {
+      "started": "2026-10-03T04:49:41.343Z",
+      "finished": "2026-10-03T04:49:51.455Z",
+      "args": [
+        "check"
+      ],
+      "code": 1,
+      "log": "evidence/experience-earlier-check-initial.log"
+    },
+    {
+      "started": "2026-10-03T05:43:30.797Z",
+      "finished": "2026-10-03T05:43:43.961Z",
+      "args": [
+        "check"
+      ],
+      "code": 1,
+      "log": "evidence/experience-earlier-completed-check.log"
+    },
+    {
+      "started": "2026-10-03T05:22:59.267Z",
+      "finished": "2026-10-03T05:23:21.422Z",
+      "args": [
+        "test:e2e",
+        "tests/browser/operations-experience.spec.ts",
+        "--reporter=list",
+        "--max-failures=1"
+      ],
+      "code": 1,
+      "log": "evidence/experience-earlier-browser-focused.log"
+    },
+    {
+      "started": "2026-10-03T05:23:55.112Z",
+      "finished": "2026-10-03T05:24:13.722Z",
+      "args": [
+        "test:e2e",
+        "tests/browser/operations-experience.spec.ts",
+        "--reporter=list",
+        "--max-failures=1"
+      ],
+      "code": 1,
+      "log": "evidence/experience-earlier-browser-after-selector.log"
+    },
+    {
+      "started": "2026-10-03T05:30:00.620Z",
+      "finished": "2026-10-03T05:30:50.229Z",
+      "args": [
+        "test:e2e",
+        "operations-experience",
+        "--max-failures=1"
+      ],
+      "code": 0,
+      "log": "evidence/experience-earlier-browser-workflow.log"
+    },
+    {
+      "started": "2026-10-03T05:32:08.756Z",
+      "finished": "2026-10-03T05:32:29.807Z",
+      "args": [
+        "test:integration",
+        "--maxWorkers=1"
+      ],
+      "code": 1,
+      "log": "evidence/experience-earlier-api-full.log"
+    },
+    {
+      "started": "2026-10-03T05:34:38.470Z",
+      "finished": "2026-10-03T05:35:27.539Z",
+      "args": [
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vitest.integration.config.ts",
+        "--maxWorkers=1"
+      ],
+      "code": 0,
+      "log": "evidence/experience-earlier-api-full-serial.log"
+    },
+    {
+      "started": "2026-10-03T05:38:23.053Z",
+      "finished": "2026-10-03T05:50:01.920Z",
+      "args": [
+        "test:e2e"
+      ],
+      "code": 1,
+      "log": "evidence/experience-earlier-browser-full.log"
+    },
+    {
+      "started": "2026-10-03T05:51:13.505Z",
+      "finished": "2026-10-03T05:57:43.052Z",
+      "args": [
+        "test:e2e",
+        "core45.spec.ts",
+        "ui-review.spec.ts",
+        "operations-experience.spec.ts"
+      ],
+      "code": 1,
+      "log": "evidence/experience-earlier-browser-followup-initial.log"
+    }
+  ],
+  "changed": [
+    {
+      "path": "apps/api/src/modules/dining/close-readiness.ts",
+      "new": true
+    },
+    {
+      "path": "apps/web/features/admin/urgent-work.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/close-checklist.tsx",
+      "new": true
+    },
+    {
+      "path": "apps/web/features/workspace/payment-collection.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/table-work.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/work-queue.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/lib/auth-renewal.test.ts",
+      "new": true
+    },
+    {
+      "path": "apps/web/styles/experience.css",
+      "new": true
+    },
+    {
+      "path": "tests/browser/operations-experience.spec.ts",
+      "new": true
+    },
+    {
+      "path": "tests/browser/ui-review.spec.ts",
+      "new": false
+    },
+    {
+      "path": "tests/payment-collection.integration.test.ts",
+      "new": false
+    },
+    {
+      "path": "apps/api/src/app.ts",
+      "new": false
+    },
+    {
+      "path": "apps/api/src/modules/auth/index.ts",
+      "new": false
+    },
+    {
+      "path": "apps/api/src/modules/catalog/catalog.routes.ts",
+      "new": false
+    },
+    {
+      "path": "apps/api/src/modules/dining/dining.routes.ts",
+      "new": false
+    },
+    {
+      "path": "apps/api/src/modules/payments/receipt.service.ts",
+      "new": false
+    },
+    {
+      "path": "apps/web/app/globals.css",
+      "new": false
+    },
+    {
+      "path": "apps/web/app/workspace/[area]/page.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/admin/admin.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/guest/guest.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/shared/components.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/bill-panel.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/receipt.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/service.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/lib/api-client.ts",
+      "new": false
+    },
+    {
+      "path": "tests/browser/core45.spec.ts",
+      "new": false
+    },
+    {
+      "path": "tests/core45.integration.test.ts",
+      "new": false
+    },
+    {
+      "path": "tests/sprint1.integration.test.ts",
+      "new": false
+    }
+  ],
+  "filesChecked": 251,
+  "screenshots": [
+    {
+      "project": "desktop",
+      "file": "evidence/experience-desktop-admin-experience.png",
+      "sha256": "cc3eaa0b2a8eb6d5b02d80dbe9327cb0b8ee944bbeac3b00b91c138b18cc3fe1"
+    },
+    {
+      "project": "desktop",
+      "file": "evidence/experience-desktop-staff-experience.png",
+      "sha256": "8d4cbf5b2771268a9908834ee7b71c1525023b66f05f1ce437cba237d6265713"
+    },
+    {
+      "project": "desktop",
+      "file": "evidence/experience-desktop-kitchen-experience.png",
+      "sha256": "ae36d8fcebf51f0b122877ad66f7c78295a10a625ca063d2d28979dec696e6c0"
+    },
+    {
+      "project": "desktop",
+      "file": "evidence/experience-desktop-guest-experience.png",
+      "sha256": "d741ec61cece0856000d4f8cb92e178dcb52c9a5025de1b22837857197086074"
+    },
+    {
+      "project": "desktop",
+      "file": "evidence/experience-desktop-close-blocked-exact-dish.png",
+      "sha256": "8d7efc436c84355a34a6a74ed1a97f999405889e7ed361dd821a81cd43cfbfe5"
+    },
+    {
+      "project": "desktop",
+      "file": "evidence/experience-desktop-shared-cleaning-detail.png",
+      "sha256": "7033198add634a0805c4e34f567286eec8c5846af1c1f7ca64ccc3b826251874"
+    },
+    {
+      "project": "mobile",
+      "file": "evidence/experience-mobile-admin-experience.png",
+      "sha256": "ca2995df7e3253e14ee1a1d8f1e4de4fb70bdc60d16c7eba17e10ebc02d5e32a"
+    },
+    {
+      "project": "mobile",
+      "file": "evidence/experience-mobile-staff-experience.png",
+      "sha256": "9de7183b9a7c28ea34a52c5fceb79520100808583fc713d56696c3f462e93130"
+    },
+    {
+      "project": "mobile",
+      "file": "evidence/experience-mobile-kitchen-experience.png",
+      "sha256": "c7960a7f5925efdf51342f3a80e3d1d1071de1ae2dd229e6f36016084cf06253"
+    },
+    {
+      "project": "mobile",
+      "file": "evidence/experience-mobile-guest-experience.png",
+      "sha256": "920a1afb07e27667172029c86b51162e6dddb3898e735ace742db94d59b1fc92"
+    },
+    {
+      "project": "mobile",
+      "file": "evidence/experience-mobile-close-blocked-exact-dish.png",
+      "sha256": "187a01f2105fd23ded675d3666589d50be8f98255ccb5ad8f2f3ff8eab2c1057"
+    },
+    {
+      "project": "mobile",
+      "file": "evidence/experience-mobile-shared-cleaning-detail.png",
+      "sha256": "9b6b4912f8a2f64fef21a163200dd32e5623d66347f6eb7aa47de7e26b05969c"
+    },
+    {
+      "project": "webkit-mobile",
+      "file": "evidence/experience-webkit-mobile-admin-experience.png",
+      "sha256": "6b2b5900d5172f9c03618ce0df70b51d83cf98b2135d250683e19413f0cee12b"
+    },
+    {
+      "project": "webkit-mobile",
+      "file": "evidence/experience-webkit-mobile-staff-experience.png",
+      "sha256": "b330614ba03bc1416fbc747385153f70e09fb8f54fcec1f753599c686310da2d"
+    },
+    {
+      "project": "webkit-mobile",
+      "file": "evidence/experience-webkit-mobile-kitchen-experience.png",
+      "sha256": "afa8861112fc35ac59526c0e6a0fd764c2ec1a0291b55aea2d4af068ba88ca97"
+    },
+    {
+      "project": "webkit-mobile",
+      "file": "evidence/experience-webkit-mobile-guest-experience.png",
+      "sha256": "ed4ef53436985621ab297085889fd6dc11fd526c018021f89ac2b3939049752d"
+    },
+    {
+      "project": "webkit-mobile",
+      "file": "evidence/experience-webkit-mobile-close-blocked-exact-dish.png",
+      "sha256": "0e7a3b4b0f1a42a2ca26f7ae54f7b28edb4c418b2856c16b242b8d31f4d8bcce"
+    },
+    {
+      "project": "webkit-mobile",
+      "file": "evidence/experience-webkit-mobile-shared-cleaning-detail.png",
+      "sha256": "bd1de2d0955fddafc0ec11905d635e1a60364b3835366a5aebb227e59ebde99a"
+    }
+  ],
+  "references": [
+    "https://support.toasttab.com/en/article/Using-Toast-Tables-Waitlist",
+    "https://support.toasttab.com/en/article/New-POS-Managing-Tables",
+    "https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html"
+  ],
+  "limits": [
+    "Tám giờ phiên đăng nhập là mô phỏng đồng hồ backend; chưa chạy thực tế ngoài quán nhiều ngày.",
+    "Web vẫn polling khoảng 3 giây; không thêm WebSocket/SSE.",
+    "Chưa thêm cơ chế tự phân công hoặc lịch sử owner riêng cho việc dọn bàn.",
+    "Không kiểm tải lớn, ngoại tuyến hoặc mọi thiết bị/trình duyệt."
+  ],
+  "runtime": {
+    "checkedAt": "2026-10-03T06:12:48.364Z",
+    "code": 0,
+    "checks": [
+      {
+        "url": "http://127.0.0.1:3000/login",
+        "status": 200,
+        "ok": true
+      },
+      {
+        "url": "http://127.0.0.1:4000/health/ready",
+        "status": 200,
+        "ok": true
+      }
+    ]
+  },
+  "devCacheRecovery": "Tiến trình dev cũ giữ lỗi resolve experience.css. Đã dừng đúng tiến trình dự án, làm sạch riêng apps/web/.next/dev và khởi động lại; không đổi code, schema hay dữ liệu vận hành."
+}

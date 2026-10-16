@@ -1,0 +1,163 @@
+{
+  "date": "2026-10-03T04:20:36.834Z",
+  "database": "qr_restaurant_ordering",
+  "tables": 56,
+  "columns": 613,
+  "foreignKeys": 138,
+  "backendOperations": 128,
+  "appliedMigrations": 27,
+  "migrationRecords": 29,
+  "noNewMigration": true,
+  "schemaUnchanged": true,
+  "apiUnchanged": true,
+  "operationalDataReset": false,
+  "checks": [
+    {
+      "label": "Format, ESLint, TypeScript, unit",
+      "result": "33/33 unit trên 8 tệp; format/lint/typecheck đạt",
+      "code": 0,
+      "started": "2026-10-03T04:07:52.914Z",
+      "finished": "2026-10-03T04:08:13.433Z",
+      "command": "pnpm check"
+    },
+    {
+      "label": "API và PostgreSQL",
+      "result": "121/121 trên 9 tệp; nhận việc đồng thời, ownership, bàn giao và ghi nhận tiền",
+      "code": 0,
+      "started": "2026-10-03T04:13:02.631Z",
+      "finished": "2026-10-03T04:14:32.880Z",
+      "command": "pnpm exec vitest run --config vitest.integration.config.ts --maxWorkers=1"
+    },
+    {
+      "label": "Trình duyệt toàn hệ thống và kiểm tra lại",
+      "result": "Toàn bộ 75: 71 đạt, 3 test sự cố còn dùng thao tác ngoài thẻ chưa đạt, 1 Swagger mobile chủ động bỏ qua. Sau cập nhật bước mở chi tiết và đường dẫn cảnh báo, kiểm tra lại 6/6 sự cố/hỗ trợ trên desktop, Android, iPhone đạt. Kết quả hợp nhất: 74 tình huống đạt, 1 bỏ qua.",
+      "code": 0,
+      "started": "2026-10-03T04:02:27.745Z",
+      "finished": "2026-10-03T04:17:05.654Z",
+      "command": "Đối chiếu lần toàn bộ và lần kiểm tra lại các tình huống bị ảnh hưởng",
+      "runs": [
+        {
+          "started": "2026-10-03T04:02:27.745Z",
+          "finished": "2026-10-03T04:13:40.341Z",
+          "args": [
+            "test:e2e"
+          ],
+          "code": 1
+        },
+        {
+          "started": "2026-10-03T04:15:00.503Z",
+          "finished": "2026-10-03T04:17:05.654Z",
+          "args": [
+            "test:e2e",
+            "tests/browser/dish-issue.spec.ts",
+            "tests/browser/support.spec.ts",
+            "--reporter=list",
+            "--max-failures=1"
+          ],
+          "code": 0
+        }
+      ],
+      "distinctPassed": 74,
+      "skipped": 1
+    },
+    {
+      "label": "Build Next.js",
+      "result": "Build production thành công trong thư mục riêng với dev",
+      "code": 0,
+      "started": "2026-10-03T04:08:52.063Z",
+      "finished": "2026-10-03T04:09:01.251Z",
+      "command": "pnpm build"
+    },
+    {
+      "label": "Kiểm tra bí mật",
+      "result": "Script check:secrets đạt",
+      "code": 0,
+      "started": "2026-10-03T04:08:54.377Z",
+      "finished": "2026-10-03T04:08:55.116Z",
+      "command": "pnpm check:secrets"
+    },
+    {
+      "label": "Kiểm tra khoảng trắng diff",
+      "result": "git diff --check đạt",
+      "code": 0,
+      "started": "2026-10-03T04:10:13.951Z",
+      "finished": "2026-10-03T04:10:14.172Z",
+      "command": "git diff --check"
+    },
+    {
+      "label": "Bố cục tài liệu",
+      "result": "Bài 22, 25, 15 ở 320/768/1440 px không tràn ngang",
+      "code": 0
+    },
+    {
+      "label": "Đối chiếu tệp nguồn",
+      "result": "246 tệp khớp SHA256; liên kết mã nguồn có tệp thật",
+      "code": 0
+    }
+  ],
+  "changed": [
+    {
+      "path": "apps/web/features/guest/payment-status.test.ts",
+      "new": true
+    },
+    {
+      "path": "apps/web/features/guest/payment-status.ts",
+      "new": true
+    },
+    {
+      "path": "apps/web/features/workspace/table-work.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/work-queue.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/styles/work-queue.css",
+      "new": true
+    },
+    {
+      "path": "tests/browser/dish-issue.spec.ts",
+      "new": false
+    },
+    {
+      "path": "tests/browser/payment-collection.spec.ts",
+      "new": false
+    },
+    {
+      "path": "tests/browser/support.spec.ts",
+      "new": false
+    },
+    {
+      "path": "tests/browser/table-queue.spec.ts",
+      "new": true
+    },
+    {
+      "path": "apps/web/app/globals.css",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/guest/guest-panels.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/guest/guest.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/service.tsx",
+      "new": false
+    }
+  ],
+  "filesChecked": 246,
+  "images": 9,
+  "focusedBrowser": {
+    "code": 0,
+    "passed": 15
+  },
+  "references": [
+    "https://support.toasttab.com/en/article/New-POS-Managing-Tables",
+    "https://atlassian.design/components/lozenge/usage"
+  ],
+  "scope": "Mỗi bàn một thẻ trong nhóm đang xem; nền trung tính, nhãn màu có chữ, một nút Chi tiết bàn. Bốn nhóm trách nhiệm theo yêu cầu; mở xem không nhận việc. Nhận/thu/bàn giao/lịch sử trong chi tiết. Phân biệt bàn trống, giỏ chưa gửi, món chờ duyệt, hủy/miễn, cần hoàn và đã thanh toán đủ thật."
+}

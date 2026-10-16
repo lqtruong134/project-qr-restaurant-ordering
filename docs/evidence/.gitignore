@@ -1,0 +1,4 @@
+# Log bằng chứng đã rà có thể commit cùng tài liệu.
+!*.log
+# Ảnh không gian Notion cá nhân chỉ giữ cục bộ.
+/notion-deleted.png

@@ -1,0 +1,22 @@
+apps/api/src/modules/payments/refund-context.service.ts 61ms
+apps/web/features/guest/refund-summary.tsx 19ms
+apps/api/src/modules/payments/receipt.service.ts 16ms (unchanged)
+apps/api/src/modules/payments/payments.routes.ts 25ms (unchanged)
+apps/api/src/modules/sessions/guest.routes.ts 28ms (unchanged)
+apps/web/features/guest/guest-panels.tsx 34ms (unchanged)
+apps/web/features/workspace/receipt.tsx 22ms (unchanged)
+apps/web/features/workspace/service-actions.tsx 6ms
+apps/web/features/workspace/service.tsx 69ms
+[error] apps/web/features/workspace/bill-panel.tsx: SyntaxError: Expected corresponding closing tag for JSX fragment. (145:17)
+[error]   143 |           {bill.session.session_status === 'ACTIVE' && (
+[error]   144 |             <>
+[error] > 145 |               </section>
+[error]       |                 ^
+[error]   146 |               {!financialOnly && (
+[error]   147 |                 <>
+[error]   148 |                   {requests.length > 0 && userId && (
+apps/web/features/guest/guest.tsx 41ms
+apps/web/features/guest/payment-status.ts 6ms
+apps/web/styles/experience.css 136ms
+apps/web/features/guest/payment-status.test.ts 6ms
+tests/payment-collection.integration.test.ts 72ms

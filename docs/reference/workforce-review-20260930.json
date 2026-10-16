@@ -1,0 +1,34 @@
+{
+  "date": "2026-09-30",
+  "scope": "Workforce scheduling, attendance and payroll",
+  "command": "node --env-file=.env node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts tests/workforce.integration.test.ts",
+  "exitCode": 0,
+  "passed": 8,
+  "workforceTests": 6,
+  "otherTests": 2,
+  "database": "Randomly named isolated database created and dropped by test harness",
+  "operationalDatabaseChanged": false,
+  "uiReview": "Source inspected; full browser walkthrough not performed in this run",
+  "verifiedExample": {
+    "employee": "pv001",
+    "hourlyRateVnd": 35000,
+    "firstShiftMinutes": 330,
+    "secondShiftMinutes": 300,
+    "firstShiftAmountVnd": 192500,
+    "secondShiftAmountVnd": 175000,
+    "baseTotalVnd": 367500,
+    "bonusVnd": 50000,
+    "deductionVnd": 17500,
+    "finalTotalVnd": 400000,
+    "attendanceMethod": "Administrator supplementation of missing clock records; live self-clock API tested separately"
+  },
+  "sourceFiles": [
+    "apps/api/src/modules/workforce/workforce.routes.ts",
+    "apps/api/src/modules/workforce/workforce.service.ts",
+    "apps/api/src/modules/workforce/payroll.routes.ts",
+    "apps/web/features/workforce/workforce-panel.tsx",
+    "apps/web/features/workforce/my-work.tsx",
+    "apps/web/features/workforce/payroll-panel.tsx",
+    "tests/workforce.integration.test.ts"
+  ]
+}

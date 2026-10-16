@@ -1,0 +1,182 @@
+{
+  "date": "2026-10-02T09:33:52.465Z",
+  "database": "qr_restaurant_ordering",
+  "tables": 56,
+  "columns": 613,
+  "foreignKeys": 138,
+  "backendOperations": 128,
+  "appliedMigrations": 27,
+  "migrationRecords": 29,
+  "migration": "202610020001_payment_collection",
+  "operationalDataReset": false,
+  "checks": [
+    {
+      "label": "Format, ESLint, TypeScript, unit",
+      "result": "26/26 unit trên 7 tệp; format/lint/typecheck đạt",
+      "code": 0,
+      "started": "2026-10-02T09:25:39.983Z",
+      "finished": "2026-10-02T09:25:55.843Z",
+      "command": "pnpm check"
+    },
+    {
+      "label": "API và PostgreSQL",
+      "result": "115/115 trên 9 tệp; gồm 8 tình huống thu tiền mới",
+      "code": 0,
+      "started": "2026-10-02T09:04:56.423Z",
+      "finished": "2026-10-02T09:05:48.097Z",
+      "command": "pnpm exec vitest run --config vitest.integration.config.ts --maxWorkers=1"
+    },
+    {
+      "label": "Trình duyệt toàn hệ thống",
+      "result": "68 đạt / 1 Swagger mobile chủ động bỏ qua (69 trường hợp); desktop, Android Chromium, iPhone WebKit",
+      "code": 0,
+      "started": "2026-10-02T09:22:57.521Z",
+      "finished": "2026-10-02T09:30:22.181Z",
+      "command": "pnpm test:e2e --reporter=list --max-failures=3"
+    },
+    {
+      "label": "Giao diện thu tiền và ảnh cuối",
+      "result": "6/6 trên desktop, Android Chromium và iPhone WebKit; gồm kiểm tra 320/768/1440 px",
+      "code": 0,
+      "started": "2026-10-02T09:31:14.027Z",
+      "finished": "2026-10-02T09:32:15.311Z",
+      "command": "pnpm test:e2e tests/browser/payment-collection.spec.ts --reporter=list --max-failures=1"
+    },
+    {
+      "label": "Build Next.js",
+      "result": "Build production thành công; giữ cache dev riêng",
+      "code": 0,
+      "started": "2026-10-02T09:28:26.058Z",
+      "finished": "2026-10-02T09:28:44.440Z",
+      "command": "pnpm build"
+    },
+    {
+      "label": "Kiểm tra bí mật",
+      "result": "Script check:secrets đạt",
+      "code": 0,
+      "started": "2026-10-02T09:28:30.152Z",
+      "finished": "2026-10-02T09:28:32.608Z",
+      "command": "pnpm check:secrets"
+    },
+    {
+      "label": "Bố cục tài liệu",
+      "result": "Bài 25, 06, 15 tại 320/768/1440px không tràn; 28 HTML, 1411 liên kết và 128 API được kiểm tra",
+      "code": 0
+    }
+  ],
+  "changed": [
+    {
+      "path": "apps/api/src/modules/payments/collection.service.ts",
+      "new": true
+    },
+    {
+      "path": "apps/api/src/modules/payments/payment-proof.routes.ts",
+      "new": true
+    },
+    {
+      "path": "apps/api/src/modules/payments/payment-requests.routes.ts",
+      "new": true
+    },
+    {
+      "path": "apps/web/features/workspace/payment-collection.tsx",
+      "new": true
+    },
+    {
+      "path": "apps/web/features/workspace/support-panel.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/table-work.tsx",
+      "new": true
+    },
+    {
+      "path": "apps/web/styles/payment.css",
+      "new": true
+    },
+    {
+      "path": "packages/contracts/src/restaurant-policy.ts",
+      "new": false
+    },
+    {
+      "path": "packages/database/prisma/migrations/202610020001_payment_collection/migration.sql",
+      "new": true
+    },
+    {
+      "path": "tests/browser/payment-collection.spec.ts",
+      "new": true
+    },
+    {
+      "path": "tests/browser/policy.spec.ts",
+      "new": false
+    },
+    {
+      "path": "tests/browser/table-transfer.spec.ts",
+      "new": false
+    },
+    {
+      "path": "tests/payment-collection.integration.test.ts",
+      "new": true
+    },
+    {
+      "path": "tests/support.integration.test.ts",
+      "new": false
+    },
+    {
+      "path": ".env.example",
+      "new": false
+    },
+    {
+      "path": "apps/api/src/modules/payments/payments.routes.ts",
+      "new": false
+    },
+    {
+      "path": "apps/api/src/modules/payments/receipt.service.ts",
+      "new": false
+    },
+    {
+      "path": "apps/api/src/modules/sessions/guest.routes.ts",
+      "new": false
+    },
+    {
+      "path": "apps/web/app/globals.css",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/guest/guest-panels.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/guest/guest.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/shared/primitives.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/bill-panel.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/receipt.tsx",
+      "new": false
+    },
+    {
+      "path": "apps/web/features/workspace/service.tsx",
+      "new": false
+    },
+    {
+      "path": "packages/database/prisma/schema.prisma",
+      "new": false
+    },
+    {
+      "path": "scripts/browser-tests.ts",
+      "new": false
+    },
+    {
+      "path": "tests/browser/core45.spec.ts",
+      "new": false
+    }
+  ],
+  "scope": "Khách gọi nhân viên, thu cả bàn/món của một khách/một phần, tiền khách đưa/thối, ảnh riêng và việc tại bàn. Tiền mặt/chuyển khoản thủ công; không tự xác minh ngân hàng."
+}

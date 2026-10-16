@@ -1,0 +1,53 @@
+$ pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
+$ prettier --check "apps/**/*.{ts,tsx,mjs,js,css}" "packages/**/src/**/*.{ts,tsx}" "scripts/*.{ts,mjs}" "tests/**/*.{ts,tsx}" "*.{ts,mjs,json}"
+Checking formatting...
+All matched files use Prettier code style!
+$ eslint . --max-warnings 0
+$ pnpm -r --if-present typecheck && tsc --noEmit -p tsconfig.tools.json
+packages/contracts typecheck$ tsc --noEmit
+packages/ui typecheck$ tsc --noEmit
+packages/contracts typecheck: Done
+packages/database typecheck$ tsc --noEmit
+packages/ui typecheck: Done
+apps/web typecheck$ next typegen && tsc --noEmit
+apps/web typecheck: Generating route types...
+apps/web typecheck: ✓ Types generated successfully
+packages/database typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/web typecheck: Done
+apps/api typecheck: Done
+$ vitest run
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/home/quyettruong05/projects/qr-ordering-thesis[39m
+
+ [32m✓[39m apps/web/lib/api-client.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 47[2mms[22m[39m
+ [32m✓[39m apps/web/lib/auth-renewal.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 103[2mms[22m[39m
+ [32m✓[39m apps/web/features/shared/history-range.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m apps/web/features/shared/restaurant-time.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/workforce/pay-calculation.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 65[2mms[22m[39m
+ [32m✓[39m apps/web/features/shared/money-format.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 55[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/admin/report-range.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m apps/web/features/shared/payment-summary.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/workforce/attendance.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m apps/web/features/guest/dish-notices.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m apps/web/features/workforce/format.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m apps/web/features/workforce/schedule-data.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/workforce/workforce.service.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m apps/web/features/workforce/timesheet-data.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m apps/web/features/shared/refund-source.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m apps/web/features/workspace/receipt-lines.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m apps/web/features/guest/payment-status.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m apps/web/features/shared/money-suggestions.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m apps/api/src/app.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 92[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/inventory/receipt-number.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m apps/web/lib/media.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m apps/api/src/modules/orders/reasons.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m packages/database/src/database-doc-inventory.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m apps/web/features/guest/menu-promotions.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m packages/database/src/menu-images.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 261[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m25 passed[39m[22m[90m (25)[39m
+[2m      Tests [22m [1m[32m137 passed[39m[22m[90m (137)[39m
+[2m   Start at [22m 12:58:56
+[2m   Duration [22m 738ms[2m (transform 2.86s, setup 0ms, import 3.84s, tests 857ms, environment 3ms)[22m
+

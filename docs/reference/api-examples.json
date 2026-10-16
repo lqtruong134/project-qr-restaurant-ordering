@@ -1,0 +1,338 @@
+{
+  "POST /core/alerts/:id/guest-notified": {},
+  "POST /core/items/:id/report-issue": {
+    "reasonCode": "KITCHEN_ERROR",
+    "note": "Món cháy, bếp dừng phục vụ"
+  },
+  "POST /core/inventory/adjustments": {
+    "balanceId": "00000000-0000-4000-8000-000000000001",
+    "expectedVersion": 1,
+    "requestId": "MA_MOI_MOI_LAN_DIEU_CHINH",
+    "mode": "WASTE",
+    "quantity": "0.5",
+    "reason": "Nguyên liệu hỏng, kiểm tra đầu ca"
+  },
+  "PATCH /guest/profile": {
+    "name": "Tên khách mới"
+  },
+  "POST /guest/items/cancel": {
+    "itemIds": [
+      "00000000-0000-4000-8000-000000000001"
+    ],
+    "reasonCode": "CUSTOMER_CHANGED_MIND"
+  },
+  "POST /core/items/cancel": {
+    "itemIds": [
+      "00000000-0000-4000-8000-000000000001"
+    ],
+    "reasonCode": "CUSTOMER_CHANGED_MIND",
+    "note": "Khách yêu cầu trước chế biến"
+  },
+  "POST /core/sessions/:id/serve-items": {
+    "itemIds": [
+      "00000000-0000-4000-8000-000000000001"
+    ]
+  },
+  "POST /core/support/:id/handoffs/:handoffId/accept": {},
+  "POST /core/support/:id/handoffs/:handoffId/decline": {
+    "reason": "Đang thu tiền bàn khác"
+  },
+  "POST /core/support/:id/handoffs/:handoffId/cancel": {
+    "reason": "Tiếp tục tự xử lý"
+  },
+  "POST /core/support/:id/reassign": {
+    "userId": "00000000-0000-4000-8000-000000000001",
+    "reason": "Bàn giao ca phục vụ"
+  },
+  "POST /core/items/:id/late-cancel": {
+    "reasonCode": "KITCHEN_ERROR",
+    "note": "Quản trị xác minh món lỗi trước phục vụ"
+  },
+  "POST /core/items/:id/waive": {
+    "reasonCode": "CUSTOMER_COMPLAINT",
+    "note": "Quản trị đối chiếu khiếu nại sau phục vụ"
+  },
+  "POST /core/sessions/:id/transfer": {
+    "tableId": "00000000-0000-4000-8000-000000000001",
+    "fromTableId": "00000000-0000-4000-8000-000000000002",
+    "partySize": 4,
+    "reasonCode": "AREA_CHANGE",
+    "note": "Khách muốn chuyển sang khu vực yên tĩnh"
+  },
+  "POST /core/workforce/shifts": {
+    "code": "CA-SANG-20260925",
+    "name": "Ca sáng",
+    "startsAt": "2026-09-25T07:00:00+07:00",
+    "endsAt": "2026-09-25T15:00:00+07:00",
+    "breakMinutes": 30
+  },
+  "POST /guest/join": {
+    "token": "LAY_TU_MA_QR_MOI",
+    "name": "Khách",
+    "acceptedPolicyVersion": "2026-10-v2"
+  },
+  "POST /guest/cart": {
+    "productId": "00000000-0000-4000-8000-000000000001",
+    "quantity": 1,
+    "cartVersion": 1,
+    "note": ""
+  },
+  "PATCH /guest/cart/:id": {
+    "quantity": 2,
+    "cartVersion": 2,
+    "note": ""
+  },
+  "DELETE /guest/cart/:id": {
+    "cartVersion": 2
+  },
+  "POST /guest/orders": {
+    "requestId": "MA_MOI_CHO_MOI_LUOT",
+    "cartVersion": 2,
+    "itemIds": [
+      "00000000-0000-4000-8000-000000000001"
+    ]
+  },
+  "POST /guest/orders/:id/cancel": {
+    "reasonCode": "CUSTOMER_CHANGED_MIND"
+  },
+  "POST /guest/support": {
+    "type": "ASSISTANCE",
+    "content": "Cần hỗ trợ tại bàn"
+  },
+  "POST /guest/payments": {
+    "requestId": "MA_MOI_CHO_MOI_LUOT",
+    "method": "CASH",
+    "amount": "55000"
+  },
+  "POST /core/categories": {
+    "code": "MON-CHINH",
+    "name": "Món chính"
+  },
+  "PATCH /core/categories/:id": {
+    "name": "Món chính",
+    "sortOrder": 0,
+    "active": true
+  },
+  "POST /core/areas": {
+    "code": "TANG-1",
+    "name": "Tầng 1"
+  },
+  "PATCH /core/areas/:id": {
+    "name": "Tầng 1",
+    "sortOrder": 0,
+    "active": true
+  },
+  "POST /core/tables": {
+    "code": "A05",
+    "name": "Bàn A05",
+    "areaId": "00000000-0000-4000-8000-000000000001",
+    "capacity": 4
+  },
+  "PATCH /core/tables/:id": {
+    "name": "Bàn A05",
+    "areaId": "00000000-0000-4000-8000-000000000001",
+    "capacity": 4,
+    "active": true,
+    "version": 1
+  },
+  "POST /core/products": {
+    "code": "BUN-BO",
+    "name": "Bún bò Huế",
+    "categoryId": "00000000-0000-4000-8000-000000000001",
+    "price": "69000"
+  },
+  "PATCH /core/products/:id": {
+    "name": "Bún bò Huế",
+    "categoryId": "00000000-0000-4000-8000-000000000001",
+    "description": "Bún bò nóng, dùng cùng rau thơm.",
+    "imageUrl": "/menu/rice.svg",
+    "price": "75000",
+    "active": true,
+    "availability": "AVAILABLE",
+    "version": 1
+  },
+  "POST /core/users": {
+    "username": "pv005",
+    "staffCode": "NV005",
+    "name": "Nhân viên mới",
+    "role": "STAFF",
+    "password": "THAY_BANG_MAT_KHAU_RIENG"
+  },
+  "PATCH /core/users/:id": {
+    "name": "Nhân viên",
+    "role": "STAFF",
+    "status": "ACTIVE",
+    "reason": "Cập nhật phân công nhân viên"
+  },
+  "POST /core/risk": {
+    "LINE_QTY_REVIEW": 5
+  },
+  "POST /core/units": {
+    "code": "KG",
+    "name": "Kilogram",
+    "dimension": "MASS"
+  },
+  "POST /core/ingredients": {
+    "code": "GAO",
+    "name": "Gạo",
+    "unitId": "00000000-0000-4000-8000-000000000001",
+    "minStock": "2"
+  },
+  "POST /core/locations": {
+    "code": "KHO-BEP",
+    "name": "Kho bếp"
+  },
+  "POST /core/products/:id/bom": {
+    "yield": "1",
+    "lines": [
+      {
+        "ingredientId": "00000000-0000-4000-8000-000000000001",
+        "quantity": "0.2",
+        "waste": "0"
+      }
+    ]
+  },
+  "POST /core/receipts": {
+    "locationId": "00000000-0000-4000-8000-000000000001",
+    "number": "PN-001",
+    "supplier": "Nhà cung cấp",
+    "lines": [
+      {
+        "ingredientId": "00000000-0000-4000-8000-000000000001",
+        "quantity": "10",
+        "unitCost": "20000"
+      }
+    ]
+  },
+  "POST /core/sessions/:id/orders": {
+    "requestId": "MA_MOI_CHO_MOI_LUOT",
+    "lines": [
+      {
+        "productId": "00000000-0000-4000-8000-000000000001",
+        "quantity": 1,
+        "note": ""
+      }
+    ]
+  },
+  "POST /core/orders/:id/review": {
+    "approve": true,
+    "reason": "Đã kiểm tra"
+  },
+  "POST /core/orders/:id/cancel": {
+    "reasonCode": "CUSTOMER_CHANGED_MIND",
+    "note": "Khách yêu cầu trước chế biến"
+  },
+  "POST /core/sessions/:id/payments": {
+    "requestId": "KHOA_THU_MOI",
+    "method": "CASH",
+    "amount": "40000",
+    "collectionScope": "TABLE",
+    "supportRequestId": "00000000-0000-4000-8000-000000000001"
+  },
+  "POST /core/payments/:id/confirm": {
+    "amount": "55000",
+    "receivedAmount": "100000",
+    "reference": "CHI_CAN_CHO_BANK_TRANSFER"
+  },
+  "POST /core/sessions/:id/refunds": {
+    "paymentId": "00000000-0000-4000-8000-000000000001",
+    "amount": "20000",
+    "reason": "Hoàn khoản đã miễn",
+    "requestId": "HO_SO_MOI"
+  },
+  "POST /core/refunds/:id/complete": {
+    "method": "CASH",
+    "amount": "20000",
+    "requestId": "HOAN_MOI_MOT_LAN"
+  },
+  "POST /core/sessions/:id/outstanding": {
+    "reason": "LEFT_WITHOUT_PAYING",
+    "notes": "Diễn biến sự việc"
+  },
+  "POST /core/outstanding/:id/write-off": {
+    "reason": "Đã xác minh không thu hồi được"
+  },
+  "POST /core/outstanding/:id/recovered": {
+    "reason": "Đã đối chiếu thu đủ"
+  },
+  "POST /guest/qr-info": {
+    "token": "TOKEN_TU_QR_HIEN_TAI"
+  },
+  "POST /core/menu-images": {
+    "data": "BASE64_NOI_DUNG_ANH_PNG_JPEG_WEBP"
+  },
+  "POST /core/workforce/assignments": {
+    "userId": "00000000-0000-4000-8000-000000000001",
+    "shiftId": "00000000-0000-4000-8000-000000000001",
+    "areaId": "00000000-0000-4000-8000-000000000001"
+  },
+  "POST /core/workforce/assignments/:id/cancel": {
+    "reason": "Ca thay đổi trước khi chấm công"
+  },
+  "POST /core/workforce/pay-rates": {
+    "userId": "00000000-0000-4000-8000-000000000001",
+    "effectiveFrom": "2026-09-01T00:00:00+07:00",
+    "hourlyRate": "30000",
+    "reason": "Đơn giá mới"
+  },
+  "POST /core/workforce/assignments/:id/approve": {
+    "minutes": 420,
+    "note": "Đã đối chiếu giờ vào ra",
+    "outcome": "WORKED",
+    "approveExtra": false
+  },
+  "POST /core/payroll": {
+    "periodStart": "2026-09-01",
+    "periodEnd": "2026-09-15"
+  },
+  "POST /core/payroll/:id/adjustments": {
+    "slipId": "00000000-0000-4000-8000-000000000001",
+    "type": "BONUS",
+    "amount": "20000",
+    "description": "Thưởng ca"
+  },
+  "POST /core/payroll/:id/paid": {
+    "reference": "MA_PHIEU_CHI_THUC_TE"
+  },
+  "POST /core/items/:id/unavailable": {
+    "reasonCode": "OUT_OF_STOCK",
+    "note": "Đối chiếu hết nguyên liệu trước chế biến"
+  },
+  "POST /core/alerts/:id/resolve": {
+    "reason": "Đã xử lý và đối chiếu"
+  },
+  "POST /core/receipts/:id/cancel": {
+    "reason": "Phiếu nháp nhập nhầm"
+  },
+  "PATCH /core/receipts/:id": {
+    "expectedVersion": 1,
+    "locationId": "00000000-0000-4000-8000-000000000001",
+    "number": "PN-DEMO",
+    "supplier": "Nhà cung cấp",
+    "reason": "Điều chỉnh số lượng",
+    "lines": [
+      {
+        "ingredientId": "00000000-0000-4000-8000-000000000001",
+        "quantity": "2",
+        "unitCost": "20000"
+      }
+    ]
+  },
+  "POST /guest/payment-requests": {
+    "method": "CASH"
+  },
+  "POST /core/support/:id/resolve": {
+    "reason": "Khách muốn tiếp tục dùng bữa, chưa thanh toán"
+  },
+  "POST /core/payments/:id/proof": {
+    "data": "BASE64_ANH_PNG_JPEG_WEBP_TOI_DA_2MB"
+  },
+  "POST /payments/webhooks/connector": {
+    "eventId": "ID_SU_KIEN",
+    "transactionId": "ID_GIAO_DICH",
+    "intentId": "00000000-0000-4000-8000-000000000001",
+    "amount": "55000",
+    "currency": "VND",
+    "timestamp": 0
+  }
+}

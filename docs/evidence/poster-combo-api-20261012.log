@@ -1,0 +1,18 @@
+
+ RUN  v4.1.11 /home/quyettruong05/projects/qr-ordering-thesis
+
+ ✓ tests/catalog-refresh.integration.test.ts (3 tests) 5377ms
+ ✓ tests/combo.integration.test.ts (16 tests) 8915ms
+   ✓ adds poster dishes across categories and units with audited opening stock only for new ingredients, preserving legacy records  732ms
+   ✓ ordering two weekend combos reserves four teas and cancel-before-preparation releases every reservation with a frozen bill line  539ms
+   ✓ seeds real fixed contents, lower bundle prices and aggregated recipes; reruns preserve custom prices and stock  559ms
+   ✓ merges shared ingredients, reserves for every combo and consumes once when the whole bundle starts preparation  360ms
+   ✓ keeps the configured selling state separate from stock availability when admin changes images  391ms
+   ✓ shows fixed contents in a guest cart and rejects sending a silently changed combo at the same price  368ms
+   ✓ refunds the whole prepaid combo only after admin approval and lets staff complete the approved payment  398ms
+
+ Test Files  2 passed (2)
+      Tests  19 passed (19)
+   Start at  16:16:08
+   Duration  9.80s (transform 782ms, setup 0ms, import 1.09s, tests 14.29s, environment 0ms)
+

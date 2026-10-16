@@ -1,0 +1,13 @@
+
+ RUN  v4.1.11 /home/quyettruong05/projects/qr-ordering-thesis
+
+ ✓ tests/order-history.integration.test.ts (2 tests) 6653ms
+   ✓ cancelled lookup retains the session, decision actor and actual partial/full refunds after closing  443ms
+ ✓ tests/pricing-finance-regression.integration.test.ts (4 tests) 3805ms
+   ✓ reconciles two 100k cash tenders, discounted payments, kitchen cancellation and staff refunds through actual APIs  609ms
+
+ Test Files  2 passed (2)
+      Tests  6 passed (6)
+   Start at  22:56:56
+   Duration  11.91s (transform 675ms, setup 0ms, import 1.21s, tests 10.46s, environment 0ms)
+

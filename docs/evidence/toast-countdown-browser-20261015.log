@@ -1,0 +1,26 @@
+
+Running 21 tests using 1 worker
+
+  ✓   1 [desktop] › tests/browser/guest-toast.spec.ts:3:1 › guest cart success and table move use the shared dismissible countdown notice (1.1s)
+  ✓   2 [desktop] › tests/browser/operation-notice.spec.ts:3:1 › staff partial order cancellation reports the exact result inside the table dialog and keeps skipped dishes (1.7s)
+  ✓   3 [desktop] › tests/browser/workforce-notices.spec.ts:236:1 › schedule notices survive modal close, report real changes and describe duplicates without a success claim (4.2s)
+  ✓   4 [desktop] › tests/browser/workforce-notices.spec.ts:290:1 › overlap rejection remains readable and preserves dates, templates, employee and area for correction (3.2s)
+  ✓   5 [desktop] › tests/browser/workforce-notices.spec.ts:340:1 › template create and update and assignment cancellation retain notices; a failed save retains the form without success (4.0s)
+  ✓   6 [desktop] › tests/browser/workforce-notices.spec.ts:435:1 › toast countdown decreases, closes after five seconds and restarts for a replacement notice (4.0s)
+  ✓   7 [desktop] › tests/browser/workforce-notices.spec.ts:489:1 › toast reading pauses on hover and keyboard focus and the close button dismisses immediately (3.5s)
+  ✓   8 [mobile] › tests/browser/guest-toast.spec.ts:3:1 › guest cart success and table move use the shared dismissible countdown notice (1.0s)
+  ✓   9 [mobile] › tests/browser/operation-notice.spec.ts:3:1 › staff partial order cancellation reports the exact result inside the table dialog and keeps skipped dishes (2.1s)
+  ✓  10 [mobile] › tests/browser/workforce-notices.spec.ts:236:1 › schedule notices survive modal close, report real changes and describe duplicates without a success claim (4.1s)
+  ✓  11 [mobile] › tests/browser/workforce-notices.spec.ts:290:1 › overlap rejection remains readable and preserves dates, templates, employee and area for correction (2.8s)
+  ✓  12 [mobile] › tests/browser/workforce-notices.spec.ts:340:1 › template create and update and assignment cancellation retain notices; a failed save retains the form without success (3.7s)
+  ✓  13 [mobile] › tests/browser/workforce-notices.spec.ts:435:1 › toast countdown decreases, closes after five seconds and restarts for a replacement notice (3.9s)
+  ✓  14 [mobile] › tests/browser/workforce-notices.spec.ts:489:1 › toast reading pauses on hover and keyboard focus and the close button dismisses immediately (3.3s)
+  ✓  15 [webkit-mobile] › tests/browser/guest-toast.spec.ts:3:1 › guest cart success and table move use the shared dismissible countdown notice (1.9s)
+  ✓  16 [webkit-mobile] › tests/browser/operation-notice.spec.ts:3:1 › staff partial order cancellation reports the exact result inside the table dialog and keeps skipped dishes (3.5s)
+  ✓  17 [webkit-mobile] › tests/browser/workforce-notices.spec.ts:236:1 › schedule notices survive modal close, report real changes and describe duplicates without a success claim (6.7s)
+  ✓  18 [webkit-mobile] › tests/browser/workforce-notices.spec.ts:290:1 › overlap rejection remains readable and preserves dates, templates, employee and area for correction (3.8s)
+  ✓  19 [webkit-mobile] › tests/browser/workforce-notices.spec.ts:340:1 › template create and update and assignment cancellation retain notices; a failed save retains the form without success (6.5s)
+  ✓  20 [webkit-mobile] › tests/browser/workforce-notices.spec.ts:435:1 › toast countdown decreases, closes after five seconds and restarts for a replacement notice (6.4s)
+  ✓  21 [webkit-mobile] › tests/browser/workforce-notices.spec.ts:489:1 › toast reading pauses on hover and keyboard focus and the close button dismisses immediately (4.9s)
+
+  21 passed (1.3m)

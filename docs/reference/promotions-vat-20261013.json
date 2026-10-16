@@ -1,0 +1,53 @@
+{
+  "verifiedAt": "2026-10-13T11:42:03.249Z",
+  "scope": "Basic restaurant promotions and enterprise VAT-inclusive menu pricing",
+  "database": {
+    "tables": 66,
+    "columns": 759,
+    "foreign_keys": 159,
+    "migrations": 35,
+    "closed_sessions": 4264,
+    "frozen_receipts": 4264,
+    "payments": 4576,
+    "refunds": 515,
+    "discount_programs": 0,
+    "tax_captured_charges": 0,
+    "current_default_vat": 8
+  },
+  "migration": "202610130001_discount_vat",
+  "preservation": {
+    "originalTables": 62,
+    "allOriginalColumnsAndRowsUnchanged": true,
+    "checksumComparison": "Per-table sorted row hashes before and after migration; excluded only new columns",
+    "immediateMigrationChecksumMatch": true,
+    "subsequentRuntimeAccountChanges": {
+      "columns": [
+        "refresh_token_hash",
+        "updated_at"
+      ],
+      "meaning": "Normal internal session refresh rotates token hash; credentials, identity, profile, roles and all other original tables unchanged",
+      "accountsPreserved": true
+    }
+  },
+  "checks": {
+    "unit": 164,
+    "integration": 277,
+    "integrationSuites": 22,
+    "mockedBrowser": 30,
+    "productionRoutes": 7,
+    "fullIntegrationBeforeLastLookupFix": 277,
+    "focusedFinalRegression": 6,
+    "uniqueIntegrationCovered": 278,
+    "liveBrowser": 3,
+    "totalBrowserCases": 33,
+    "registeredApiOperations": 179,
+    "swaggerOperations": 177,
+    "productionBuildAfterLastChanges": true,
+    "secretScan": "Basic scan passed; not a security audit"
+  },
+  "limitations": [
+    "Payment receipt is not an electronic VAT invoice",
+    "Legacy closed receipts have no inferred VAT",
+    "One promotion per session, no combo stacking or authenticated membership quota"
+  ]
+}

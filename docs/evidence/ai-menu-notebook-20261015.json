@@ -1,0 +1,11 @@
+{
+  "codeCells": 7,
+  "syntax": "PASS",
+  "allDisabledExecution": "PASS",
+  "mlImported": false,
+  "modelLoaded": false,
+  "trainingRun": false,
+  "basePredictionPathPrepared": true,
+  "gpuValidated": false,
+  "datasetTotal": 36
+}

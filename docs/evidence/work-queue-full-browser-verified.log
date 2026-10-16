@@ -1,0 +1,179 @@
+$ node scripts/run.mjs e2e --reporter=list --max-failures=1
+$ node scripts/run.mjs migrate
+Loaded Prisma config from prisma.config.ts.
+
+Prisma schema loaded from prisma/schema.prisma.
+Datasource "db": PostgreSQL database "thesis_browser_e3d35615a824df82", schema "public" at "127.0.0.1:5433"
+
+27 migrations found in prisma/migrations
+
+Applying migration `202609100001_c0_c1`
+Applying migration `202609220001_core45`
+Applying migration `202609220002_core45_guards`
+Applying migration `202609220003_core45_session_guard`
+Applying migration `202609230001_core_ledger_guards`
+Applying migration `202609230002_review_withdrawal`
+Applying migration `202609230003_qr_token_recovery`
+Applying migration `202609240001_unavailable_inventory`
+Applying migration `202609240001_workforce_table_transfer`
+Applying migration `202609240002_receipt_snapshot`
+Applying migration `202609240003_payroll_snapshot_guard`
+Applying migration `202609270001_uat_item_lifecycle`
+Applying migration `202609270002_partial_refunds`
+Applying migration `202609270003_product_policy`
+Applying migration `202609270004_attendance_outcome`
+Applying migration `202609270005_operation_audit`
+Applying migration `202609270006_payroll_payment_audit`
+Applying migration `202609270007_receipt_draft_guard`
+Applying migration `202609270008_refund_request_key`
+Applying migration `202609270009_staff_code`
+Applying migration `202609280001_stock_adjustment_trace`
+Applying migration `202609300001_review_integrity`
+Applying migration `202609300002_schema_alignment`
+Applying migration `202610010001_guest_policy_order_reasons`
+Applying migration `202610010002_support_handoffs`
+Applying migration `202610010003_support_outbox_guards`
+Applying migration `202610020001_payment_collection`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 202609100001_c0_c1/
+    └─ migration.sql
+  └─ 202609220001_core45/
+    └─ migration.sql
+  └─ 202609220002_core45_guards/
+    └─ migration.sql
+  └─ 202609220003_core45_session_guard/
+    └─ migration.sql
+  └─ 202609230001_core_ledger_guards/
+    └─ migration.sql
+  └─ 202609230002_review_withdrawal/
+    └─ migration.sql
+  └─ 202609230003_qr_token_recovery/
+    └─ migration.sql
+  └─ 202609240001_unavailable_inventory/
+    └─ migration.sql
+  └─ 202609240001_workforce_table_transfer/
+    └─ migration.sql
+  └─ 202609240002_receipt_snapshot/
+    └─ migration.sql
+  └─ 202609240003_payroll_snapshot_guard/
+    └─ migration.sql
+  └─ 202609270001_uat_item_lifecycle/
+    └─ migration.sql
+  └─ 202609270002_partial_refunds/
+    └─ migration.sql
+  └─ 202609270003_product_policy/
+    └─ migration.sql
+  └─ 202609270004_attendance_outcome/
+    └─ migration.sql
+  └─ 202609270005_operation_audit/
+    └─ migration.sql
+  └─ 202609270006_payroll_payment_audit/
+    └─ migration.sql
+  └─ 202609270007_receipt_draft_guard/
+    └─ migration.sql
+  └─ 202609270008_refund_request_key/
+    └─ migration.sql
+  └─ 202609270009_staff_code/
+    └─ migration.sql
+  └─ 202609280001_stock_adjustment_trace/
+    └─ migration.sql
+  └─ 202609300001_review_integrity/
+    └─ migration.sql
+  └─ 202609300002_schema_alignment/
+    └─ migration.sql
+  └─ 202610010001_guest_policy_order_reasons/
+    └─ migration.sql
+  └─ 202610010002_support_handoffs/
+    └─ migration.sql
+  └─ 202610010003_support_outbox_guards/
+    └─ migration.sql
+  └─ 202610020001_payment_collection/
+    └─ migration.sql
+
+All migrations have been successfully applied.
+$ node scripts/run.mjs seed-core
+Demo seed ready: 16 accounts, 24 tables, 48 dishes with recipes, 50 ingredients, 3 stock locations and 14 days of shifts. Existing data preserved.
+[WebServer] $ node scripts/run.mjs dev
+[WebServer] $ tsx watch src/server.ts
+[WebServer] $ node scripts/prepare-docs.mjs && next dev --hostname 127.0.0.1 --port 13100
+
+Running 72 tests using 1 worker
+
+  ✓   1 [desktop] › tests/browser/auth-blocking.spec.ts:2:1 › global locked screen removes business data, traps escape, and has a single login action (1.8s)
+  ✓   2 [desktop] › tests/browser/auth-blocking.spec.ts:32:1 › incorrect login preserves input and permission denial keeps authenticated workspace (4.4s)
+  ✓   3 [desktop] › tests/browser/auth.spec.ts:4:1 › internal login, role workspace, direct forbidden navigation and logout (1.4s)
+  ✓   4 [desktop] › tests/browser/core45.spec.ts:9:1 › CORE screens support QR guest order through review, kitchen, settlement and close (18.6s)
+  ✓   5 [desktop] › tests/browser/core45.spec.ts:262:1 › admin records stock waste with reason and sees immutable movement history (1.3s)
+  ✓   6 [desktop] › tests/browser/dish-issue.spec.ts:17:1 › kitchen quick issue, global admin entry, durable staff conversation and aligned zero-price receipt (11.5s)
+  ✓   7 [desktop] › tests/browser/foundation.spec.ts:2:1 › public landing renders restaurant entry while API is ready (395ms)
+  ✓   8 [desktop] › tests/browser/interface.spec.ts:20:1 › catalog filters, editing and uploaded photographs work for guest on phones and desktops (3.5s)
+  ✓   9 [desktop] › tests/browser/inventory.spec.ts:37:1 › inventory tasks have readable stock filters, pagination, recipe details, history and setup on every viewport (2.6s)
+  ✓  10 [desktop] › tests/browser/inventory.spec.ts:127:1 › receipt draft is readable, editable, approved once into stock and cancellable without changing stock (3.2s)
+  ✓  11 [desktop] › tests/browser/payment-collection.spec.ts:131:1 › guest calls staff without amount; cash partial/full collection clearly separates tender, change and invoice credit (6.2s)
+  ✓  12 [desktop] › tests/browser/payment-collection.spec.ts:203:1 › one work queue shares ownership across two staff accounts, table map and payment; accepted handoff transfers rights (13.8s)
+  ✓  13 [desktop] › tests/browser/payment-collection.spec.ts:332:1 › bank screenshot or reference supports own-dish collection, without allocating to the earlier guest (5.1s)
+  ✓  14 [desktop] › tests/browser/policy.spec.ts:18:1 › policy validation, keyboard/mobile reading, cart review, payment/leave confirmations and kitchen-admin fault decision (8.2s)
+  ✓  15 [desktop] › tests/browser/support.spec.ts:18:1 › guest support, duplicate notice, owner-only actions, recipient acceptance/decline, history and responsive keyboard UI (14.8s)
+  ✓  16 [desktop] › tests/browser/swagger.spec.ts:4:1 › Swagger Execute uses real cookie auth: 401, login, 200, 403, refresh, logout (7.1s)
+  ✓  17 [desktop] › tests/browser/table-transfer.spec.ts:97:1 › picker filters and capacity, keyboard confirmation, same guest cart, immediate tables and history on all viewport sizes (9.2s)
+  ✓  18 [desktop] › tests/browser/table-transfer.spec.ts:227:1 › empty filter, occupied destination error with refreshed selection, and externally moved source (4.6s)
+  ✓  19 [desktop] › tests/browser/ui-review.spec.ts:26:1 › all admin sections remain usable with an expanded or collapsed sidebar, dialogs and narrow layouts (7.6s)
+  ✓  20 [desktop] › tests/browser/ui-review.spec.ts:125:3 › staff operational and personal screens fit with search, filters and receipt history (2.8s)
+  ✓  21 [desktop] › tests/browser/ui-review.spec.ts:125:3 › kitchen operational and personal screens fit with search, filters and receipt history (1.7s)
+  ✓  22 [desktop] › tests/browser/workforce.spec.ts:18:1 › manager schedules, reviews attendance and closes a readable payroll; employees see only their own finalized slip (5.8s)
+  ✓  23 [desktop] › tests/browser/workforce.spec.ts:242:3 › staff has a clear personal shift, weekly schedule, history and empty payslip view (2.2s)
+  ✓  24 [desktop] › tests/browser/workforce.spec.ts:242:3 › kitchen has a clear personal shift, weekly schedule, history and empty payslip view (2.2s)
+  ✓  25 [mobile] › tests/browser/auth-blocking.spec.ts:2:1 › global locked screen removes business data, traps escape, and has a single login action (1.2s)
+  ✓  26 [mobile] › tests/browser/auth-blocking.spec.ts:32:1 › incorrect login preserves input and permission denial keeps authenticated workspace (4.3s)
+  ✓  27 [mobile] › tests/browser/auth.spec.ts:4:1 › internal login, role workspace, direct forbidden navigation and logout (1.4s)
+  ✓  28 [mobile] › tests/browser/core45.spec.ts:9:1 › CORE screens support QR guest order through review, kitchen, settlement and close (15.2s)
+  ✓  29 [mobile] › tests/browser/core45.spec.ts:262:1 › admin records stock waste with reason and sees immutable movement history (1.3s)
+  ✓  30 [mobile] › tests/browser/dish-issue.spec.ts:17:1 › kitchen quick issue, global admin entry, durable staff conversation and aligned zero-price receipt (10.7s)
+  ✓  31 [mobile] › tests/browser/foundation.spec.ts:2:1 › public landing renders restaurant entry while API is ready (496ms)
+  ✓  32 [mobile] › tests/browser/interface.spec.ts:20:1 › catalog filters, editing and uploaded photographs work for guest on phones and desktops (3.3s)
+  ✓  33 [mobile] › tests/browser/inventory.spec.ts:37:1 › inventory tasks have readable stock filters, pagination, recipe details, history and setup on every viewport (2.3s)
+  ✓  34 [mobile] › tests/browser/inventory.spec.ts:127:1 › receipt draft is readable, editable, approved once into stock and cancellable without changing stock (2.7s)
+  ✓  35 [mobile] › tests/browser/payment-collection.spec.ts:131:1 › guest calls staff without amount; cash partial/full collection clearly separates tender, change and invoice credit (6.5s)
+  ✓  36 [mobile] › tests/browser/payment-collection.spec.ts:203:1 › one work queue shares ownership across two staff accounts, table map and payment; accepted handoff transfers rights (13.8s)
+  ✓  37 [mobile] › tests/browser/payment-collection.spec.ts:332:1 › bank screenshot or reference supports own-dish collection, without allocating to the earlier guest (4.8s)
+  ✓  38 [mobile] › tests/browser/policy.spec.ts:18:1 › policy validation, keyboard/mobile reading, cart review, payment/leave confirmations and kitchen-admin fault decision (8.2s)
+  ✓  39 [mobile] › tests/browser/support.spec.ts:18:1 › guest support, duplicate notice, owner-only actions, recipient acceptance/decline, history and responsive keyboard UI (14.9s)
+  -  40 [mobile] › tests/browser/swagger.spec.ts:4:1 › Swagger Execute uses real cookie auth: 401, login, 200, 403, refresh, logout
+  ✓  41 [mobile] › tests/browser/table-transfer.spec.ts:97:1 › picker filters and capacity, keyboard confirmation, same guest cart, immediate tables and history on all viewport sizes (6.5s)
+  ✓  42 [mobile] › tests/browser/table-transfer.spec.ts:227:1 › empty filter, occupied destination error with refreshed selection, and externally moved source (4.9s)
+  ✓  43 [mobile] › tests/browser/ui-review.spec.ts:26:1 › all admin sections remain usable with an expanded or collapsed sidebar, dialogs and narrow layouts (3.5s)
+  ✓  44 [mobile] › tests/browser/ui-review.spec.ts:125:3 › staff operational and personal screens fit with search, filters and receipt history (1.8s)
+  ✓  45 [mobile] › tests/browser/ui-review.spec.ts:125:3 › kitchen operational and personal screens fit with search, filters and receipt history (1.0s)
+  ✓  46 [mobile] › tests/browser/workforce.spec.ts:18:1 › manager schedules, reviews attendance and closes a readable payroll; employees see only their own finalized slip (5.9s)
+  ✓  47 [mobile] › tests/browser/workforce.spec.ts:242:3 › staff has a clear personal shift, weekly schedule, history and empty payslip view (2.1s)
+  ✓  48 [mobile] › tests/browser/workforce.spec.ts:242:3 › kitchen has a clear personal shift, weekly schedule, history and empty payslip view (2.2s)
+  ✓  49 [webkit-mobile] › tests/browser/auth-blocking.spec.ts:2:1 › global locked screen removes business data, traps escape, and has a single login action (4.4s)
+  ✓  50 [webkit-mobile] › tests/browser/auth-blocking.spec.ts:32:1 › incorrect login preserves input and permission denial keeps authenticated workspace (4.3s)
+  ✓  51 [webkit-mobile] › tests/browser/auth.spec.ts:4:1 › internal login, role workspace, direct forbidden navigation and logout (2.3s)
+  ✓  52 [webkit-mobile] › tests/browser/core45.spec.ts:9:1 › CORE screens support QR guest order through review, kitchen, settlement and close (25.5s)
+  ✓  53 [webkit-mobile] › tests/browser/core45.spec.ts:262:1 › admin records stock waste with reason and sees immutable movement history (2.8s)
+  ✓  54 [webkit-mobile] › tests/browser/dish-issue.spec.ts:17:1 › kitchen quick issue, global admin entry, durable staff conversation and aligned zero-price receipt (12.4s)
+  ✓  55 [webkit-mobile] › tests/browser/foundation.spec.ts:2:1 › public landing renders restaurant entry while API is ready (1.6s)
+  ✓  56 [webkit-mobile] › tests/browser/interface.spec.ts:20:1 › catalog filters, editing and uploaded photographs work for guest on phones and desktops (7.0s)
+  ✓  57 [webkit-mobile] › tests/browser/inventory.spec.ts:37:1 › inventory tasks have readable stock filters, pagination, recipe details, history and setup on every viewport (5.5s)
+  ✓  58 [webkit-mobile] › tests/browser/inventory.spec.ts:127:1 › receipt draft is readable, editable, approved once into stock and cancellable without changing stock (6.0s)
+  ✓  59 [webkit-mobile] › tests/browser/payment-collection.spec.ts:131:1 › guest calls staff without amount; cash partial/full collection clearly separates tender, change and invoice credit (11.8s)
+  ✓  60 [webkit-mobile] › tests/browser/payment-collection.spec.ts:203:1 › one work queue shares ownership across two staff accounts, table map and payment; accepted handoff transfers rights (24.1s)
+  ✓  61 [webkit-mobile] › tests/browser/payment-collection.spec.ts:332:1 › bank screenshot or reference supports own-dish collection, without allocating to the earlier guest (9.6s)
+  ✓  62 [webkit-mobile] › tests/browser/policy.spec.ts:18:1 › policy validation, keyboard/mobile reading, cart review, payment/leave confirmations and kitchen-admin fault decision (15.2s)
+  ✓  63 [webkit-mobile] › tests/browser/support.spec.ts:18:1 › guest support, duplicate notice, owner-only actions, recipient acceptance/decline, history and responsive keyboard UI (23.7s)
+  ✓  64 [webkit-mobile] › tests/browser/swagger.spec.ts:4:1 › Swagger Execute uses real cookie auth: 401, login, 200, 403, refresh, logout (13.3s)
+  ✓  65 [webkit-mobile] › tests/browser/table-transfer.spec.ts:97:1 › picker filters and capacity, keyboard confirmation, same guest cart, immediate tables and history on all viewport sizes (16.5s)
+  ✓  66 [webkit-mobile] › tests/browser/table-transfer.spec.ts:227:1 › empty filter, occupied destination error with refreshed selection, and externally moved source (9.0s)
+  ✓  67 [webkit-mobile] › tests/browser/ui-review.spec.ts:26:1 › all admin sections remain usable with an expanded or collapsed sidebar, dialogs and narrow layouts (6.1s)
+  ✓  68 [webkit-mobile] › tests/browser/ui-review.spec.ts:125:3 › staff operational and personal screens fit with search, filters and receipt history (3.2s)
+  ✓  69 [webkit-mobile] › tests/browser/ui-review.spec.ts:125:3 › kitchen operational and personal screens fit with search, filters and receipt history (1.6s)
+  ✓  70 [webkit-mobile] › tests/browser/workforce.spec.ts:18:1 › manager schedules, reviews attendance and closes a readable payroll; employees see only their own finalized slip (10.9s)
+  ✓  71 [webkit-mobile] › tests/browser/workforce.spec.ts:242:3 › staff has a clear personal shift, weekly schedule, history and empty payslip view (3.9s)
+  ✓  72 [webkit-mobile] › tests/browser/workforce.spec.ts:242:3 › kitchen has a clear personal shift, weekly schedule, history and empty payslip view (3.5s)
+
+  1 skipped
+  71 passed (8.1m)

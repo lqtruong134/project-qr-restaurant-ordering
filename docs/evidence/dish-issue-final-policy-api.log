@@ -1,0 +1,15 @@
+
+ RUN  v4.1.11 /home/quyettruong05/projects/qr-ordering-thesis
+
+ ✓ tests/policy.integration.test.ts (17 tests) 8261ms
+   ✓ guest cancels only own submitted items, and staff cancels accepted items with release, reversal and audit  316ms
+   ✓ restaurant fault at IN_PREPARATION retains stock/COGS, needs admin and reverses paid money once in one decision  654ms
+   ✓ restaurant fault at READY retains stock/COGS, needs admin and reverses paid money once in one decision  514ms
+   ✓ served complaint needs admin waiver, retains lifecycle and COGS, and reduces served net sales without changing cash history  307ms
+   ✓ concurrent admin approval adopts the saved kitchen reason once and preserves the separate guest task  323ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  12:37:11
+   Duration  9.06s (transform 479ms, setup 0ms, import 664ms, tests 8.26s, environment 0ms)
+
