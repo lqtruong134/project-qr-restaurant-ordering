@@ -1,0 +1,47 @@
+
+ RUN  v4.1.11 /home/quyettruong05/projects/qr-ordering-thesis
+
+ ✓ tests/core45.integration.test.ts (20 tests) 14027ms
+   ✓ executes a reviewed guest order, stock consumption, split payment, snapshot and close without duplicates  1042ms
+   ✓ cancels a paid unprepared order and refunds once with a reconciled zero balance  402ms
+   ✓ restricts debt write-off to admin and only after the kitchen has finished  370ms
+   ✓ lets guests withdraw their own pending batch and closes only truly idle empty sessions  304ms
+   ✓ can reserve one serving of every seeded dish without adding ingredients or recipes manually  1773ms
+   ✓ UAT v2: item ownership, partial cancellation, individual acceptance and atomic same-session serving  748ms
+   ✓ UAT v2: unmanaged menu, late cancellation retains stock and money, explicit waiver and partial refund  542ms
+ ✓ tests/support.integration.test.ts (29 tests) 10615ms
+   ✓ SQL pending owner guard rejects ownership gaps and session cannot close with active support  397ms
+ ✓ tests/policy.integration.test.ts (11 tests) 10698ms
+   ✓ keeps leave behavior: deletes only unsent own cart, retains orders, acceptance and debt, clears cookie  344ms
+   ✓ guest cancels only own submitted items, and staff cancels accepted items with release, reversal and audit  441ms
+   ✓ restaurant fault at IN_PREPARATION retains stock/COGS, needs admin and reverses paid money once in one decision  888ms
+   ✓ restaurant fault at READY retains stock/COGS, needs admin and reverses paid money once in one decision  875ms
+   ✓ late customer change retains charge; rejecting a kitchen claim records the managerial decision  504ms
+   ✓ served complaint needs admin waiver, retains lifecycle and COGS, and reduces served net sales without changing cash history  389ms
+ ✓ tests/sprint1.integration.test.ts (15 tests) 9360ms
+   ✓ migrates exactly 56 business tables and seed twice preserves counts and passwords  585ms
+   ✓ repeated seed preserves changed stock, table state, prices and disabled employees  554ms
+   ✓ three roles allow their own workspace and deny the other two at backend  335ms
+   ✓ enforces five login attempts per account across IPs and per IP across accounts  451ms
+ ✓ tests/review.integration.test.ts (7 tests) 11244ms
+   ✓ keeps edited master data when bootstrap seed is repeated  541ms
+   ✓ expires stale guest credentials and hides recipes using inactive ingredients or no ingredients  322ms
+   ✓ requires outstanding service work before write-off and closes only the debt alert with an audit record  526ms
+   ✓ comps a served item without falsifying its lifecycle or restoring consumed stock, and includes it on the frozen receipt  304ms
+   ✓ rejects refunds pointing to another session item or another source allocation at the SQL boundary  442ms
+   ✓ deduplicates outgoing bank references across refund cases and records each refund only once  530ms
+ ✓ tests/table-transfer.integration.test.ts (10 tests) 10426ms
+   ✓ preserves session, participants, unsent cart, orders, account, payments and support; freezes the final destination on receipt  993ms
+   ✓ validates coded reasons and OTHER note, stores readable text and supports the existing reason contract  335ms
+   ✓ keeps the guest credential valid when state waits behind a concurrent transfer  308ms
+ ✓ tests/workforce.integration.test.ts (8 tests) 6943ms
+   ✓ snapshots approved pay, handles multiple shifts, locks payroll and keeps employee payslips private  643ms
+   ✓ moves the whole live session and preserves guest/cart/order/payment/history; rejects stale or busy targets  398ms
+   ✓ reverses an unavailable paid dish and freezes a printable final receipt after refund and close  590ms
+ ✓ tests/database.integration.test.ts (1 test) 167ms
+
+ Test Files  8 passed (8)
+      Tests  101 passed (101)
+   Start at  10:31:19
+   Duration  77.79s (transform 780ms, setup 0ms, import 2.97s, tests 73.48s, environment 1ms)
+
