@@ -27,8 +27,8 @@
     "docs:database": "node scripts/run.mjs docs",
     "demo:rehearse": "node scripts/run.mjs rehearsal",
     "test:coverage": "node scripts/run.mjs coverage",
-    "format": "prettier --write \"apps/**/*.{ts,tsx,mjs,js,css}\" \"packages/**/src/**/*.{ts,tsx}\" \"scripts/*.{ts,mjs}\" \"tests/**/*.{ts,tsx}\" \"*.{ts,mjs,json}\"",
-    "format:check": "prettier --check \"apps/**/*.{ts,tsx,mjs,js,css}\" \"packages/**/src/**/*.{ts,tsx}\" \"scripts/*.{ts,mjs}\" \"tests/**/*.{ts,tsx}\" \"*.{ts,mjs,json}\"",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,mjs,js,css}\" \"packages/**/src/**/*.{ts,tsx}\" \"scripts/*.{ts,mjs}\" \"deploy/**/*.mjs\" \"tests/**/*.{ts,tsx}\" \"*.{ts,mjs,json}\"",
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx,mjs,js,css}\" \"packages/**/src/**/*.{ts,tsx}\" \"scripts/*.{ts,mjs}\" \"deploy/**/*.mjs\" \"tests/**/*.{ts,tsx}\" \"*.{ts,mjs,json}\"",
     "db:reset-demo": "node scripts/run.mjs reset-demo",
     "db:seed:core": "node scripts/run.mjs seed-core",
     "dev:lan": "node scripts/run.mjs dev-lan",
@@ -36,7 +36,9 @@
     "payos:check": "node --env-file=.env --import tsx scripts/payos-config.ts check",
     "payos:register-webhook": "node --env-file=.env --import tsx scripts/payos-config.ts register-webhook",
     "ai:data:validate": "node --import tsx scripts/menu-assistant-data.ts validate",
-    "ai:evaluate": "node --import tsx scripts/menu-assistant-data.ts evaluate"
+    "ai:evaluate": "node --import tsx scripts/menu-assistant-data.ts evaluate",
+    "deploy": "node scripts/deploy.mjs",
+    "test:deploy": "node --test scripts/deploy.test.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

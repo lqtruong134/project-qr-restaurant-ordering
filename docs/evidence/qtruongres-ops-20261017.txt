@@ -1,0 +1,27 @@
+✔ operation parser requires explicit restore source and rejects unknown options (0.996828ms)
+✔ production env accepts literal configuration, rejects duplicate/interpolated entries (1.658726ms)
+✔ configuration enforces HTTPS, private postgres, preserved strong key and AI off (1.29226ms)
+✔ env loader refuses development .env and symlinks without reading their contents (7.021172ms)
+✔ restore requires stopped application writers and controlled migration jobs (0.259259ms)
+✔ archive path allowlist excludes secrets, traversal, absolute paths and nested stores (0.34809ms)
+✔ menu images and private proofs roundtrip through bounded file archive without extra resources (17.159814ms)
+✔ archive validation rejects corruption, duplicates and unsafe paths before any target write (5.433555ms)
+✔ runtime restore and backup refuse symlink stores/files rather than follow them (2.335993ms)
+✔ bundle manifest requires both exact payloads, valid checksums and safe regular files (4.729616ms)
+✔ validated production values override inherited settings and remove all ambient Compose controls (0.489983ms)
+✔ backup guard refuses an active one-shot migration (0.101969ms)
+Restoring trusted private backup into empty target; writers will remain stopped.
+✔ stream restore uses private data-root scratch and cleans it on successful or malformed input (8.60433ms)
+✔ restore orchestration never imports into running or nonempty targets (0.569343ms)
+✔ DB/files restore failure is explicit and never starts writers or overwrites an existing target (0.28282ms)
+✔ isolated deployment project names cannot target the development stack (0.236555ms)
+✔ production image builds run sequentially instead of competing for VM memory (0.084379ms)
+✔ Docker Desktop plugin discovery keeps standard Windows installation roots without application overrides (0.115385ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 114.414761

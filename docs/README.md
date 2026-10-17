@@ -9,12 +9,17 @@ Bộ tài liệu hiện hành của dự án QR Restaurant Ordering. Bản `Tai-
 - [Hồ sơ đối chiếu và giới hạn đã kiểm tra](15-doi-chieu.md)
 - [Nền tảng AI Menu Assistant và hướng phát triển](14-mo-rong.md)
 - [Vận hành, cài đặt và bàn giao](12-van-hanh.md)
+- [Triển khai qtruongres trên laptop/VPS, chuyển dữ liệu và sao lưu](26-trien-khai-qtruongres.md)
 - [Danh mục API](17-api.md) · [OpenAPI](openapi.yaml)
 - [Từ điển dữ liệu](16-tu-dien-du-lieu.md) · [Chi tiết bảng và cột](database/data-dictionary.md)
 
 GitHub hiển thị trực tiếp các tệp `.md`. Các tệp `.html` được giữ để tải về và mở bằng trình duyệt; liên kết GitHub tới HTML là trang xem mã nguồn, không phải website đã triển khai. Chưa bật GitHub Pages trong lần cập nhật này.
 
 Nếu công cụ AI cần nội dung thô, dùng [bản Markdown bắt đầu](https://raw.githubusercontent.com/lqtruong134/project-qr-restaurant-ordering/main/docs/00-bat-dau.md) hoặc [bài AI Menu Assistant](https://raw.githubusercontent.com/lqtruong134/project-qr-restaurant-ordering/main/docs/14-mo-rong.md). Khả năng truy cập liên kết vẫn phụ thuộc công cụ AI có hỗ trợ đọc web hay không.
+
+## Triển khai qtruongres — 17/10/2026
+
+[Bài 26](26-trien-khai-qtruongres.md) là hướng dẫn chính cho stack Docker production, cấu hình riêng, chuyển dữ liệu hiện có, migration, sao lưu/khôi phục và Cloudflare Named Tunnel. Hiện mới chuẩn bị và diễn tập cục bộ, **chưa công bố website trên Internet**; domain, tài khoản/token Cloudflare và payOS thật cần người vận hành hoàn tất. AI tiếp tục OFF. Đối chiếu kết quả thực tế trong [bài 15](15-doi-chieu.md); các số liệu AI/database ngày cũ bên dưới giữ nguyên mốc kiểm tra.
 
 ## Mã nguồn và tài liệu AI v2 — 16/10/2026
 
@@ -52,6 +57,7 @@ Kết quả kiểm tra có ngày và phạm vi riêng ở [bài 15](15-doi-chieu
 | 23 | [Chuyển bàn](23-chuyen-ban.md) |
 | 24 | [Sự cố món và phiếu thanh toán](24-su-co-mon-va-phieu-thanh-toan.md) |
 | 25 | [Thu tiền tại bàn](25-thu-tien-tai-ban.md) |
+| 26 | [Triển khai qtruongres trên laptop và VPS](26-trien-khai-qtruongres.md) |
 
 ## Cập nhật tài liệu
 

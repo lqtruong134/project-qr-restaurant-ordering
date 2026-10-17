@@ -1,5 +1,11 @@
 # Học và làm chủ hệ thống gọi món QR
 
+## Triển khai qtruongres — 17/10/2026
+
+Đọc [bài 26 — Triển khai trên laptop và chuyển sang VPS](26-trien-khai-qtruongres.md) khi cần chạy stack Docker riêng, chuyển dữ liệu hiện có hoặc sao lưu/khôi phục. Bài hướng dẫn tách cấu hình production khỏi `.env` phát triển, giữ PostgreSQL và ảnh tải lên trong volume riêng, chạy migration có kiểm soát và không tự seed khi khởi động.
+
+Trạng thái hiện tại là chuẩn bị và diễn tập cục bộ; **chưa công bố website trên Internet**. Domain/Cloudflare và nghiệm thu payOS thật cần người vận hành hoàn tất; AI tiếp tục OFF. [Bài 15](15-doi-chieu.md) ghi chính xác phạm vi đã kiểm tra. Lộ trình học bên dưới vẫn dùng môi trường phát triển ở [bài 12](12-van-hanh.md).
+
 ## Nền tảng AI Menu Assistant v2 — 16/10/2026
 
 AI sở hữu việc đọc tools thực đơn, hiểu câu hỏi, tư vấn và hội thoại. API kiểm tra bảo mật/kỹ thuật và trả nguyên decision; core vẫn kiểm tra đầy đủ khi khách thêm giỏ/gửi đơn thật. Mặc định OFF, chưa có model, huấn luyện hoặc UI AI. Đọc [bài 14](14-mo-rong.md) về ranh giới read-only, contract v2 và lộ trình model; [bài 15](15-doi-chieu.md) ghi bằng chứng kiểm thử. Dữ liệu/tool trajectory và notebook chỉ ở mức scaffold nghiên cứu, không phải benchmark model.
@@ -86,6 +92,7 @@ Các đoạn `apps/...` là đường dẫn tính từ gốc repository. Liên k
 - [Danh mục API](17-api.md): đủ route đang đăng ký, quyền và tệp xử lý.
 - [Bản đồ tệp](18-ban-do-tep.md): từng tệp được Git quản lý và vai trò của nó.
 - [Thuật ngữ và câu hỏi tự kiểm tra](19-thuat-ngu.md).
+- [Triển khai qtruongres trên laptop/VPS, chuyển dữ liệu và sao lưu](26-trien-khai-qtruongres.md).
 - [Giao diện mới và cách thay ảnh thật](20-anh-va-giao-dien.md): cách sử dụng theo vai trò, ảnh theo mã món và lưu ảnh tải lên.
 
 ## Chính sách khách và xử lý lỗi món mới

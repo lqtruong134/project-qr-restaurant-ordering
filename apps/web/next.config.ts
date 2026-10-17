@@ -1,6 +1,9 @@
 import type { NextConfig } from 'next';
+import { fileURLToPath } from 'node:url';
 const config: NextConfig = {
   devIndicators: false,
+  output: 'standalone',
+  outputFileTracingRoot: fileURLToPath(new URL('../../', import.meta.url)),
   distDir: process.env.NEXT_DIST_DIR ?? '.next',
   transpilePackages: ['@thesis/ui', '@thesis/contracts'],
   poweredByHeader: false,

@@ -1,5 +1,13 @@
 # 12. Mở dự án, chạy và xử lý lỗi
 
+## Vận hành stack qtruongres — 17/10/2026
+
+Quy trình production nằm tại [bài 26 — Triển khai qtruongres](26-trien-khai-qtruongres.md): cấu hình riêng từ `deploy/.env.example`, build lần lượt, chuyển dữ liệu vào đích rỗng, migration chủ động, khởi động/dừng và sao lưu/khôi phục. Dùng `node scripts/deploy.mjs <lệnh> --env-file <tệp-riêng>` theo bài đó; không dùng các lệnh khởi động hoặc seed phát triển bên dưới để nâng cấp production. Giữ `AUTH_SECRET` và `RESTAURANT_ID` phù hợp khi chuyển dữ liệu hiện có; lưu bí mật riêng với mã nguồn và tài liệu.
+
+Hiện đã chuẩn bị và diễn tập cục bộ, **chưa công bố trên Internet**. Domain/Cloudflare, tunnel và payOS thật cần cấu hình/nghiệm thu riêng; AI vẫn OFF. [Bài 15](15-doi-chieu.md) là nơi đối chiếu kiểm tra đã đạt và phần chưa kiểm tra. Backup chứa dữ liệu riêng của nhà hàng dù không đóng gói tệp môi trường; không đưa backup lên Git hoặc thư mục web.
+
+Các mục còn lại của bài này mô tả môi trường phát triển và nghiệp vụ vận hành chung. Chi tiết production chỉ duy trì tại bài 26 để tránh hai quy trình khác nhau.
+
 ## Trợ lý thực đơn tùy chọn — 16/10/2026
 
 Giữ `MENU_ASSISTANT_MODE=OFF` khi deploy giai đoạn này. `MOCK` chỉ là provider xác định kiểm tra contract/tools; chưa hiểu đầy đủ câu tự nhiên. `CUSTOM` cần adapter tin cậy được inject phía server, hiện chưa có adapter model thật. Timeout provider/tools mặc định 8000ms, 6 lượt/60000ms theo khách/IP, tối đa 4 tác vụ inference. Cấu hình sai tắt riêng trợ lý. Các biến chỉ ở backend, không dùng NEXT_PUBLIC; không cần Ollama để chạy nhà hàng.
@@ -29,6 +37,8 @@ Bảng chỉ ghi **tên biến**, không ghi giá trị khóa. Nếu khóa đã 
 `PAYOS_RETURN_URL` và `PAYOS_CANCEL_URL` do người vận hành cấu hình. Luồng phục vụ quản lý khoản thu dùng đường dẫn `/workspace/staff` trên đúng host của môi trường; nếu chưa đăng nhập thì đăng nhập nội bộ trước khi kiểm tra khoản thu. Khách theo dõi trạng thái ở phần Thanh toán của bàn, không cần dùng trang quản trị/nhân viên để xác nhận tiền. Production yêu cầu HTTPS. Webhook đăng ký phải tới **`/api/payments/webhooks/payos`** nếu đi qua web/proxy của dự án; nếu reverse proxy đi thẳng API thì backend nhận **`/payments/webhooks/payos`**. Địa chỉ localhost hoặc IP LAN chưa phải URL công khai mà payOS có thể gọi từ bên ngoài. Không tự mở toàn bộ máy hay database chỉ để nhận webhook.
 
 ### Kiểm tra cấu hình và đăng ký webhook
+
+Các lệnh `pnpm payos:*` dưới đây nạp `.env` phát triển. Với production qtruongres, dùng cách nạp tệp cấu hình riêng trong [bài 26](26-trien-khai-qtruongres.md) để kiểm tra hoặc đăng ký đúng môi trường.
 
 Trong gốc repository:
 
@@ -84,7 +94,7 @@ Lệnh `pnpm db:seed:workforce` dùng bộ tính công hiện hành, mặc đị
 
 Quy trình thay dữ liệu thử lần này dùng `scripts/restaurant-data-refresh.ts` với ba bước `--prepare`, `--history --with-workforce`, `--verify` trên database ứng viên riêng. Lệnh từ chối database từ xa, tên nguồn khác, tên ứng viên trùng nguồn và ứng viên chưa có manifest phù hợp. Sau khi kiểm tra mới chuyển database tại bước bảo trì riêng. Không có lệnh TRUNCATE/CASCADE áp dụng trực tiếp toàn bộ database đang vận hành.
 
-Sao lưu cả PostgreSQL và `var/menu-images`; tệp sao lưu và manifest chi tiết ở `var/backups`/`var/data` là dữ liệu riêng, không đưa vào public hoặc tài liệu chia sẻ. [Cách thay ảnh và danh sách còn thiếu](20-anh-va-giao-dien.md).
+Sao lưu cả PostgreSQL, `var/menu-images` và `var/payment-proofs` nếu dùng đường dẫn phát triển mặc định; đường dẫn thực tế có thể được cấu hình riêng. Trong stack qtruongres, hai kho tệp nằm trong volume `/data`; sao lưu/khôi phục đồng bộ theo [bài 26](26-trien-khai-qtruongres.md). Tệp sao lưu và manifest chi tiết ở `var/backups`/`var/data` là dữ liệu riêng, không đưa vào public hoặc tài liệu chia sẻ. [Cách thay ảnh và danh sách còn thiếu](20-anh-va-giao-dien.md).
 
 ## Ba nơi khác nhau
 

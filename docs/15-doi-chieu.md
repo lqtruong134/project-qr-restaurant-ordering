@@ -1,5 +1,26 @@
 # 15. Hồ sơ đối chiếu và giới hạn xác minh
 
+## Deployment qtruongres — 17/10/2026
+
+Đã thêm stack production riêng **Cloudflare Named Tunnel → Caddy → Next.js/Fastify → PostgreSQL**, Docker images, persistent volume và CLI vận hành/backup/restore. Giữ nguyên `.env`, compose dev, schema/migration, AI v2 và các assertion nghiệp vụ. Đây là chuẩn bị và diễn tập local, **chưa công bố Internet, chưa chuyển database đang vận hành**. Biên bản kiểm thử được ghi trước bước công bố mã nguồn. Bước chốt Git chỉ commit/push deployment và tài liệu lên `main`; thao tác này không công bố website hoặc bật các dịch vụ bên ngoài. Dùng commit chứa tài liệu này để đối chiếu phiên bản.
+
+| Kiểm tra | Kết quả |
+| --- | --- |
+| Quality gate | `pnpm check` đạt format/lint/TypeScript và **213 unit / 34 tệp**; tăng đúng 3 ca proxy so với 210/33 của AI v2, không xóa test cũ |
+| Ops và integration | **18/18** node:test; **373/373 / 26 tệp** tích hợp trên DB thử; không dùng tiền thật |
+| Build/config | Bốn Docker image API/maintenance/web/Caddy đạt; Next production **7 route**; Compose cả profile maintenance/tunnel và Caddyfile validate đạt |
+| Runtime local | Cả 4 service healthy; web/live/ready qua Caddy 200; PostgreSQL truy vấn thật; DB network internal; chỉ Caddy bind loopback; app/proxy không root |
+| Persistence/riêng tư | Row DB và hai hash tệp giữ sau recreate; ảnh món public đúng bytes; chứng từ không bị public file serving |
+| Backup/restore thật | Dump/archive vào backup riêng, restore vào project trống khác giữ row/36 migration/hai hash; từ chối writers đang chạy hoặc DB không trống |
+| Sự cố và trust | PostgreSQL dừng: live 200/ready 503, sau restart phục hồi; header giả từ localhost bị bỏ, chỉ peer connector cố định được tin |
+| Bảo toàn | `.env` thật và `compose.yaml` dev khớp hash baseline; AI/schema/migrations không có diff; secret check cơ bản đạt; không stage credentials hoặc model artifacts |
+
+Nghiệm thu Docker dùng source copy riêng trên Windows do socket Docker Desktop của Ubuntu WSL thiếu; chưa sửa cấu hình WSL toàn máy. Hai project thử riêng đã dừng, dữ liệu hiện hành không bị restart/reset/restore. Đã sửa ba lỗi tìm được trong build/runtime: Prisma hardlink khi đóng gói pnpm, gọi pnpm ở maintenance production và file capability của binary Caddy khi bỏ toàn bộ capabilities. Archive restore dùng scratch riêng trên volume dữ liệu thay tmpfs giới hạn 64MiB; CLI chặn ambient env ghi đè cấu hình production.
+
+Giới hạn: backup loại `.env`/token hạ tầng nhưng vẫn có bản ghi/hash tài khoản/chứng từ nhạy cảm; AUTH_SECRET nguồn phải bảo quản riêng để QR cũ giải mã được. Database và file không có transaction chung; lỗi phục hồi có thể cần đích mới trống. Chưa chạy tunnel/DNS/TLS thật, 4G/5G, HTTPS login, payOS thật hoặc git-pull update trên production. Laptop sleep/tắt/mất mạng thì dịch vụ ngừng. Không có model/Ollama/GPU/UI AI; AI OFF.
+
+[Runbook đầy đủ 13 bước và lệnh vận hành](26-trien-khai-qtruongres.md) · [Biên bản kèm image ID và kết quả runtime](reference/qtruongres-deployment-20261017.json) · [Check](evidence/qtruongres-check-20261017.txt) · [Ops](evidence/qtruongres-ops-20261017.txt) · [Integration](evidence/qtruongres-integration-20261017.txt) · [Build](evidence/qtruongres-docker-build-20261017.txt) · [Migration](evidence/qtruongres-migrate-20261017.txt).
+
 ## AI advisory v2 — 16/10/2026
 
 Đã thay ranh giới v1: provider chủ động đọc ba tools thực đơn và sở hữu hiểu câu hỏi, lựa chọn, ngân sách, giải thích/hội thoại. API chỉ giữ guard kỹ thuật/bảo mật và trả nguyên decision đúng định dạng. Giá/tổng sai, UUID bịa hợp cú pháp, vượt ngân sách, sai sở thích, món hết, dòng trùng và Unicode không bị backend sửa. Core giỏ/đơn/kho/tiền hiện có tiếp tục authoritative khi thực hiện hành động thật. [Thiết kế và giới hạn](14-mo-rong.md).

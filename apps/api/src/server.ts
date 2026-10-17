@@ -5,11 +5,14 @@ import { registerAuth } from './auth.js';
 import { readConfig } from './config.js';
 const config = readConfig(process.env);
 const database = createDatabase(config.databaseUrl);
-const app = buildApp(database, true);
+const app = buildApp(database, true, config.trustedProxies);
 await registerAuth(app, database, {
   secret: process.env.AUTH_SECRET ?? '',
   restaurantId: process.env.RESTAURANT_ID ?? '',
-  origins: (process.env.APP_ORIGINS ?? '').split(','),
+  origins: (process.env.APP_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
   secure: process.env.NODE_ENV === 'production',
   loginLimit: Number(process.env.LOGIN_LIMIT ?? 5),
   loginWindowSeconds: Number(process.env.LOGIN_WINDOW_SECONDS ?? 60),

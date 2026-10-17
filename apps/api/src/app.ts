@@ -1,8 +1,13 @@
 import { fail, authMessages } from './shared/http-errors.js';
 import Fastify from 'fastify';
 import type { ServiceHealth } from '@thesis/contracts';
-export function buildApp(database: { ping(): Promise<void> }, logging = false) {
+export function buildApp(
+  database: { ping(): Promise<void> },
+  logging = false,
+  trustedProxies: readonly string[] = [],
+) {
   const app = Fastify({
+    trustProxy: trustedProxies.length ? [...trustedProxies] : false,
     ajv: { customOptions: { removeAdditional: false, coerceTypes: false } },
     logger: logging
       ? {

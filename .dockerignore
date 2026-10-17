@@ -1,0 +1,37 @@
+.git
+.github
+**/node_modules
+**/.next
+**/.next-*
+**/dist
+**/coverage
+**/test-results
+**/playwright-report
+**/*.tsbuildinfo
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+!deploy/.env.production.example
+**/__pycache__
+**/.ipynb_checkpoints
+**/.cache
+.runtime
+var
+backups
+restaurant-media-work
+packages/database/generated
+ai
+sources
+Tai-lieu
+samples
+# Only these documentation inputs are needed to build Swagger.
+docs/**
+!docs/openapi.yaml
+!docs/core45/
+docs/core45/**
+!docs/core45/openapi-paths.json
+# Cloudflare credentials and local tunnel files never enter an image.
+deploy/cloudflared/*.json
+deploy/cloudflared/*.pem
+deploy/secrets

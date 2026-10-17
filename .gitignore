@@ -40,3 +40,8 @@ var/
 
 # Intermediate photo selection/preparation; packaged runtime assets are under packages/database/resources.
 /restaurant-media-work/
+
+# Private deployment credentials; public templates are kept separately.
+/deploy/secrets/
+/deploy/cloudflared/*.json
+/deploy/cloudflared/*.pem

@@ -1,0 +1,816 @@
+#1 [internal] load local bake definitions
+#1 reading from stdin 775B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.api
+#2 transferring dockerfile: 2.66kB 0.0s done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1
+#3 DONE 1.9s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#4 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e 0.0s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/node:24.21.0-bookworm-slim
+#5 DONE 1.5s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 674B done
+#6 DONE 0.0s
+
+#7 [toolchain 1/3] FROM docker.io/library/node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+#7 resolve docker.io/library/node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 0.0s done
+#7 DONE 0.0s
+
+#8 [runtime 2/8] RUN apt-get update     && apt-get install --no-install-recommends -y ca-certificates openssl     && rm -rf /var/lib/apt/lists/*     && groupadd --gid 10001 app     && useradd --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin app     && mkdir -p /data/menu-images /data/payment-proofs     && chown -R 10001:10001 /data
+#8 CACHED
+
+#9 [runtime 3/8] WORKDIR /app
+#9 CACHED
+
+#10 [internal] load build context
+#10 transferring context: 95.97kB 0.2s done
+#10 DONE 0.2s
+
+#11 [toolchain 2/3] RUN apt-get update     && apt-get install --no-install-recommends -y ca-certificates openssl     && rm -rf /var/lib/apt/lists/*     && npm install --global pnpm@12.3.4
+#11 CACHED
+
+#12 [toolchain 3/3] WORKDIR /workspace
+#12 CACHED
+
+#13 [source 1/3] COPY . .
+#13 DONE 0.2s
+
+#14 [source 2/3] RUN pnpm install --frozen-lockfile
+#14 0.255 Scope: all 7 workspace projects
+#14 0.279 ? Verifying lockfile against supply-chain policies (527 entries)...
+#14 1.289 Progress: resolved 424, reused 0, downloaded 1, added 0
+#14 1.339 Downloading @img/sharp-libvips-linux-x64@1.3.4: 0.00 B/8.21 MB
+#14 1.669 Packages are hard linked from the content-addressable store to the virtual store.
+#14 1.669   Content-addressable store is at: /root/.local/share/pnpm/store/v11
+#14 1.669   Virtual store is at:             node_modules/.pnpm
+#14 2.768 Progress: resolved 424, reused 0, downloaded 59, added 32
+#14 2.880 Downloading prisma@7.10.0: 0.00 B/14.17 MB
+#14 3.056 Update available! 12.3.4 → 12.14.0.
+#14 3.056 Changelog: https://pnpm.io/v/12.14.0
+#14 3.056 To update, run: curl -fsSL https://get.pnpm.io/install.sh | sh -
+#14 3.258 Downloading @electric-sql/pglite@0.4.3: 0.00 B/8.29 MB
+#14 4.289 Progress: resolved 424, reused 0, downloaded 92, added 64
+#14 4.798 Downloading @rolldown/binding-linux-x64-gnu@1.2.7: 0.00 B/7.96 MB
+#14 5.807 Downloading @img/sharp-libvips-linux-x64@1.3.4: 499.15 kB/8.21 MB
+#14 6.903 Downloading @electric-sql/pglite@0.4.3: 318.92 kB/8.29 MB
+#14 7.791 Downloading @prisma/studio-core@0.33.0: 0.00 B/10.12 MB
+#14 8.748 Downloading next@16.3.8: 0.00 B/42.04 MB
+#14 9.762 Progress: resolved 424, reused 0, downloaded 196, added 192
+#14 10.79 Progress: resolved 424, reused 0, downloaded 215, added 192
+#14 11.25 [WARN] Request took 10164ms: https://registry.npmjs.org/@next%2Fswc-linux-x64-musl
+#14 12.29 Progress: resolved 424, reused 0, downloaded 235, added 224
+#14 13.29 Progress: resolved 424, reused 0, downloaded 246, added 224
+#14 13.41 [WARN] Request took 11060ms: https://registry.npmjs.org/@prisma%2Fadapter-pg
+#14 13.67 [WARN] Request took 12610ms: https://registry.npmjs.org/@next%2Fswc-linux-arm64-musl
+#14 14.39 [WARN] Request took 13312ms: https://registry.npmjs.org/@next%2Fswc-win32-x64-msvc
+#14 15.22 [WARN] Request took 14134ms: https://registry.npmjs.org/@next%2Fswc-win32-arm64-msvc
+#14 15.99 [WARN] Request took 14939ms: https://registry.npmjs.org/@next%2Fswc-linux-arm64-gnu
+#14 16.27 [WARN] Request took 15228ms: https://registry.npmjs.org/@next%2Fswc-darwin-x64
+#14 16.81 Downloading @prisma/client@7.10.0: 0.00 B/26.82 MB
+#14 17.51 [WARN] Request took 15162ms: https://registry.npmjs.org/@prisma%2Fdriver-adapter-utils
+#14 18.04 [WARN] Request took 16256ms: https://registry.npmjs.org/@next%2Fswc-linux-x64-gnu
+#14 18.20 [WARN] Tarball download average speed 23 KiB/s (size 100 KiB) is below 50 KiB/s: https://registry.npmjs.org/@types/lodash/-/lodash-4.17.25.tgz (GET)
+#14 18.37 [WARN] Request took 17334ms: https://registry.npmjs.org/@next%2Fswc-darwin-arm64
+#14 19.38 Downloading @img/sharp-libvips-linux-x64@1.3.4: 1.28 MB/8.21 MB
+#14 20.27 [WARN] Request took 18513ms: https://registry.npmjs.org/@next%2Fenv
+#14 20.58 [WARN] Tarball download average speed 32 KiB/s (size 46 KiB) is below 50 KiB/s: https://registry.npmjs.org/postgres/-/postgres-3.4.7.tgz (GET)
+#14 21.59 Progress: resolved 424, reused 0, downloaded 320, added 288
+#14 22.54 Downloading @prisma/dev@0.24.17: 0.00 B/9.16 MB
+#14 23.56 Downloading next@16.3.8: 1.30 MB/42.04 MB
+#14 23.97 Downloading @next/swc-linux-x64-gnu@16.3.8: 0.00 B/33.79 MB
+#14 25.01 Progress: resolved 424, reused 0, downloaded 353, added 352
+#14 25.92 [WARN] Request took 16960ms: https://registry.npmjs.org/@typescript-eslint%2Ftype-utils
+#14 26.23 [WARN] Request took 24080ms: https://registry.npmjs.org/@playwright%2Ftest
+#14 27.13 [WARN] Request took 18173ms: https://registry.npmjs.org/@typescript-eslint%2Feslint-plugin
+#14 28.23 Downloading @next/swc-linux-x64-gnu@16.3.8: 679.35 kB/33.79 MB
+#14 28.62 [WARN] Request took 19676ms: https://registry.npmjs.org/@typescript-eslint%2Fscope-manager
+#14 29.70 Downloading @prisma/client@7.10.0: 933.05 kB/26.82 MB
+#14 30.72 Progress: resolved 424, reused 0, downloaded 403, added 384
+#14 31.34 [WARN] Request took 22116ms: https://registry.npmjs.org/@typescript-eslint%2Ftypes
+#14 32.46 Downloading @next/swc-linux-x64-gnu@16.3.8: 1.41 MB/33.79 MB
+#14 33.24 [WARN] Request took 23929ms: https://registry.npmjs.org/@typescript-eslint%2Ftypescript-estree
+#14 34.25 Downloading @rolldown/binding-linux-x64-gnu@1.2.7: 2.49 MB/7.96 MB
+#14 34.85 [WARN] Request took 25597ms: https://registry.npmjs.org/@typescript-eslint%2Futils
+#14 35.39 [WARN] Request took 26455ms: https://registry.npmjs.org/@typescript-eslint%2Fparser
+#14 36.62 Downloading @next/swc-linux-x64-gnu@16.3.8: 2.03 MB/33.79 MB
+#14 37.75 Downloading @prisma/dev@0.24.17: 2.20 MB/9.16 MB
+#14 38.59 [WARN] Request took 10371ms: https://registry.npmjs.org/playwright-core
+#14 39.63 Downloading @rolldown/binding-linux-x64-gnu@1.2.7: 3.03 MB/7.96 MB
+#14 40.68 Downloading @rolldown/binding-linux-x64-gnu@1.2.7: 3.14 MB/7.96 MB
+#14 40.91 [WARN] Request took 14938ms: https://registry.npmjs.org/next
+#14 41.92 Downloading @prisma/studio-core@0.33.0: 8.88 MB/10.12 MB
+#14 42.97 Downloading @prisma/studio-core@0.33.0: 9.28 MB/10.12 MB
+#14 42.99 [WARN] Request took 11028ms: https://registry.npmjs.org/typescript
+#14 43.54 [WARN] Request took 33907ms: https://registry.npmjs.org/@typescript-eslint%2Fvisitor-keys
+#14 44.40 [WARN] Request took 12748ms: https://registry.npmjs.org/tailwindcss
+#14 45.40 Downloading @next/swc-linux-x64-gnu@16.3.8: 3.85 MB/33.79 MB
+#14 46.43 Downloading @next/swc-linux-x64-gnu@16.3.8: 4.07 MB/33.79 MB
+#14 47.57 Downloading @prisma/client@7.10.0: 2.60 MB/26.82 MB
+#14 48.62 Downloading prisma@7.10.0: 2.87 MB/14.17 MB
+#14 49.73 Downloading @next/swc-linux-x64-gnu@16.3.8: 4.80 MB/33.79 MB
+#14 50.25 [WARN] Request took 48044ms: https://registry.npmjs.org/@prisma%2Ffetch-engine
+#14 51.34 Downloading prisma@7.10.0: 3.06 MB/14.17 MB
+#14 51.96 [WARN] Request took 49579ms: https://registry.npmjs.org/@prisma%2Fdebug
+#14 53.09 Downloading @electric-sql/pglite@0.4.3: 2.84 MB/8.29 MB
+#14 54.13 Downloading @rolldown/binding-linux-x64-gnu@1.2.7: 4.91 MB/7.96 MB
+#14 55.19 Downloading next@16.3.8: 4.74 MB/42.04 MB
+#14 55.41 [WARN] Request took 12123ms: https://registry.npmjs.org/typescript
+#14 56.55 Downloading @rolldown/binding-linux-x64-gnu@1.2.7: 5.26 MB/7.96 MB
+#14 56.82 [WARN] Request took 54611ms: https://registry.npmjs.org/@prisma%2Fengines
+#14 57.26 [WARN] Request took 29036ms: https://registry.npmjs.org/playwright
+#14 58.26 Downloading @img/sharp-libvips-linux-x64@1.3.4: 5.44 MB/8.21 MB
+#14 59.21 [WARN] Request took 29996ms: https://registry.npmjs.org/prisma
+#14 60.21 Downloading next@16.3.8: 5.66 MB/42.04 MB
+#14 60.89 [WARN] GET https://registry.npmjs.org/@img/sharp-libvips-linux-x64/-/sharp-libvips-linux-x64-1.3.4.tgz error (Failed to fetch https://registry.npmjs.org/@img/sharp-libvips-linux-x64/-/sharp-libvips-linux-x64-1.3.4.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 60.89 Will retry in 10s. 1 retries left.
+#14 61.84 [WARN] GET https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz error (Failed to fetch https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 61.84 Will retry in 10s. 1 retries left.
+#14 61.99 [WARN] GET https://registry.npmjs.org/prisma/-/prisma-7.10.0.tgz error (Failed to fetch https://registry.npmjs.org/prisma/-/prisma-7.10.0.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 61.99 Will retry in 10s. 1 retries left.
+#14 62.19 [WARN] GET https://registry.npmjs.org/@electric-sql/pglite/-/pglite-0.4.3.tgz error (Failed to fetch https://registry.npmjs.org/@electric-sql/pglite/-/pglite-0.4.3.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 62.19 Will retry in 10s. 1 retries left.
+#14 63.31 Downloading @next/swc-linux-x64-gnu@16.3.8: 7.56 MB/33.79 MB
+#14 64.04 [WARN] GET https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.2.7.tgz error (Failed to fetch https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.2.7.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 64.04 Will retry in 10s. 1 retries left.
+#14 65.23 Downloading @prisma/dev@0.24.17: 8.99 MB/9.16 MB
+#14 66.62 Downloading @prisma/client@7.10.0: 5.89 MB/26.82 MB
+#14 67.65 Downloading @prisma/client@7.10.0: 6.37 MB/26.82 MB
+#14 67.82 [WARN] GET https://registry.npmjs.org/next/-/next-16.3.8.tgz error (Failed to fetch https://registry.npmjs.org/next/-/next-16.3.8.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 67.82 Will retry in 10s. 1 retries left.
+#14 69.18 Downloading @prisma/client@7.10.0: 7.12 MB/26.82 MB
+#14 70.21 Downloading @prisma/client@7.10.0: 7.89 MB/26.82 MB
+#14 71.29 Downloading @next/swc-linux-x64-gnu@16.3.8: 12.84 MB/33.79 MB
+#14 71.60 [WARN] Request took 11494ms: https://registry.npmjs.org/prisma
+#14 72.62 Downloading @next/swc-linux-x64-gnu@16.3.8: 14.20 MB/33.79 MB
+#14 73.96 [WARN] GET https://registry.npmjs.org/@prisma/client/-/client-7.10.0.tgz error (Failed to fetch https://registry.npmjs.org/@prisma/client/-/client-7.10.0.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 73.96 Will retry in 10s. 1 retries left.
+#14 74.99 Downloading @next/swc-linux-x64-gnu@16.3.8: 16.25 MB/33.79 MB
+#14 76.03 Downloading @next/swc-linux-x64-gnu@16.3.8: 17.44 MB/33.79 MB
+#14 77.27 Downloading @electric-sql/pglite@0.4.3: 753.66 kB/8.29 MB
+#14 78.35 Downloading @img/sharp-libvips-linux-x64@1.3.4: 4.05 MB/8.21 MB
+#14 79.43 Downloading prisma@7.10.0: 978.27 kB/14.17 MB
+#14 80.56 Downloading @electric-sql/pglite@0.4.3: 1.42 MB/8.29 MB
+#14 81.86 Downloading @next/swc-linux-x64-gnu@16.3.8: 21.36 MB/33.79 MB
+#14 82.83 [WARN] GET https://registry.npmjs.org/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-16.3.8.tgz error (Failed to fetch https://registry.npmjs.org/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-16.3.8.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 82.83 Will retry in 10s. 1 retries left.
+#14 83.86 Downloading @img/sharp-libvips-linux-x64@1.3.4: 5.60 MB/8.21 MB
+#14 84.90 Downloading @img/sharp-libvips-linux-x64@1.3.4: 5.83 MB/8.21 MB
+#14 85.94 Downloading @img/sharp-libvips-linux-x64@1.3.4: 6.26 MB/8.21 MB
+#14 86.27 [WARN] Request took 13006ms: https://registry.npmjs.org/@prisma%2Fclient
+#14 87.64 Downloading @prisma/client@7.10.0: 2.03 MB/26.82 MB
+#14 87.70 [WARN] Request took 13561ms: https://registry.npmjs.org/@prisma%2Fget-platform
+#14 88.08 ✓ Lockfile passes supply-chain policies (527 entries in 1m 27.8s)
+#14 88.08 Lockfile is up to date, resolution step is skipped
+#14 89.17 Downloading @electric-sql/pglite@0.4.3: 2.83 MB/8.29 MB
+#14 90.17 Downloading prisma@7.10.0: 1.71 MB/14.17 MB
+#14 91.22 Downloading next@16.3.8: 2.23 MB/42.04 MB
+#14 92.29 Downloading prisma@7.10.0: 1.84 MB/14.17 MB
+#14 93.39 Downloading @prisma/client@7.10.0: 6.57 MB/26.82 MB
+#14 94.47 Downloading @electric-sql/pglite@0.4.3: 3.60 MB/8.29 MB
+#14 95.54 Downloading @electric-sql/pglite@0.4.3: 3.86 MB/8.29 MB
+#14 96.62 Downloading @electric-sql/pglite@0.4.3: 4.06 MB/8.29 MB
+#14 97.70 Downloading @prisma/client@7.10.0: 11.50 MB/26.82 MB
+#14 98.74 Downloading @prisma/client@7.10.0: 12.99 MB/26.82 MB
+#14 99.75 Downloading @prisma/client@7.10.0: 14.80 MB/26.82 MB
+#14 100.8 Downloading @prisma/client@7.10.0: 16.70 MB/26.82 MB
+#14 101.8 Downloading @prisma/client@7.10.0: 18.40 MB/26.82 MB
+#14 102.8 Downloading @prisma/client@7.10.0: 20.43 MB/26.82 MB
+#14 103.9 Downloading @prisma/client@7.10.0: 21.97 MB/26.82 MB
+#14 104.9 Downloading @prisma/client@7.10.0: 23.45 MB/26.82 MB
+#14 106.0 Downloading @prisma/client@7.10.0: 24.27 MB/26.82 MB
+#14 107.0 Downloading @prisma/client@7.10.0: 25.23 MB/26.82 MB
+#14 108.1 Downloading @next/swc-linux-x64-gnu@16.3.8: 3.19 MB/33.79 MB
+#14 109.1 Downloading @prisma/client@7.10.0: 26.56 MB/26.82 MB
+#14 110.1 Downloading prisma@7.10.0: 4.41 MB/14.17 MB
+#14 111.2 Downloading prisma@7.10.0: 4.90 MB/14.17 MB
+#14 112.2 Downloading prisma@7.10.0: 5.78 MB/14.17 MB
+#14 113.2 Downloading prisma@7.10.0: 6.56 MB/14.17 MB
+#14 114.4 Downloading prisma@7.10.0: 7.56 MB/14.17 MB
+#14 115.4 Downloading @next/swc-linux-x64-gnu@16.3.8: 7.76 MB/33.79 MB
+#14 116.4 Downloading @next/swc-linux-x64-gnu@16.3.8: 8.99 MB/33.79 MB
+#14 117.4 Downloading @next/swc-linux-x64-gnu@16.3.8: 9.99 MB/33.79 MB
+#14 118.4 Downloading @next/swc-linux-x64-gnu@16.3.8: 11.06 MB/33.79 MB
+#14 119.5 Downloading prisma@7.10.0: 13.26 MB/14.17 MB
+#14 120.6 Downloading @next/swc-linux-x64-gnu@16.3.8: 13.34 MB/33.79 MB
+#14 121.7 Downloading @next/swc-linux-x64-gnu@16.3.8: 14.17 MB/33.79 MB
+#14 122.7 Downloading next@16.3.8: 16.88 MB/42.04 MB
+#14 123.7 Downloading next@16.3.8: 18.50 MB/42.04 MB
+#14 124.7 Downloading next@16.3.8: 20.22 MB/42.04 MB
+#14 125.7 Downloading @next/swc-linux-x64-gnu@16.3.8: 19.35 MB/33.79 MB
+#14 127.0 Downloading next@16.3.8: 23.21 MB/42.04 MB
+#14 128.0 Downloading next@16.3.8: 24.27 MB/42.04 MB
+#14 129.1 Downloading next@16.3.8: 25.11 MB/42.04 MB
+#14 130.1 Downloading next@16.3.8: 25.70 MB/42.04 MB
+#14 131.1 Downloading next@16.3.8: 26.45 MB/42.04 MB
+#14 132.2 Downloading next@16.3.8: 26.96 MB/42.04 MB
+#14 133.2 Downloading next@16.3.8: 27.87 MB/42.04 MB
+#14 134.2 Downloading next@16.3.8: 28.74 MB/42.04 MB
+#14 135.3 Downloading @next/swc-linux-x64-gnu@16.3.8: 27.30 MB/33.79 MB
+#14 136.4 Downloading next@16.3.8: 30.18 MB/42.04 MB
+#14 137.4 Downloading next@16.3.8: 30.73 MB/42.04 MB
+#14 137.8 [WARN] GET https://registry.npmjs.org/next/-/next-16.3.8.tgz error (Failed to fetch https://registry.npmjs.org/next/-/next-16.3.8.tgz: error decoding response body: request or response body error: operation timed out) — 2
+#14 137.8 Will retry in 1m. 0 retries left.
+#14 139.0 Downloading @next/swc-linux-x64-gnu@16.3.8: 31.66 MB/33.79 MB
+#14 140.0 Downloading @next/swc-linux-x64-gnu@16.3.8: 32.56 MB/33.79 MB
+#14 141.1 Downloading @next/swc-linux-x64-gnu@16.3.8: 33.41 MB/33.79 MB
+#14 198.0 Downloading next@16.3.8: 625.00 B/42.04 MB
+#14 199.0 Downloading next@16.3.8: 1.40 MB/42.04 MB
+#14 200.3 Downloading next@16.3.8: 2.83 MB/42.04 MB
+#14 201.3 Downloading next@16.3.8: 4.89 MB/42.04 MB
+#14 202.4 Downloading next@16.3.8: 6.92 MB/42.04 MB
+#14 203.5 Downloading next@16.3.8: 9.50 MB/42.04 MB
+#14 204.6 Downloading next@16.3.8: 12.76 MB/42.04 MB
+#14 205.6 Downloading next@16.3.8: 15.76 MB/42.04 MB
+#14 206.6 Downloading next@16.3.8: 18.28 MB/42.04 MB
+#14 207.7 Downloading next@16.3.8: 21.42 MB/42.04 MB
+#14 208.7 Downloading next@16.3.8: 24.30 MB/42.04 MB
+#14 209.7 Downloading next@16.3.8: 26.78 MB/42.04 MB
+#14 210.7 Downloading next@16.3.8: 30.21 MB/42.04 MB
+#14 211.7 Downloading next@16.3.8: 33.30 MB/42.04 MB
+#14 212.8 Downloading next@16.3.8: 36.13 MB/42.04 MB
+#14 213.8 Downloading next@16.3.8: 39.79 MB/42.04 MB
+#14 214.6 Packages: +424
+#14 214.6 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#14 214.6 Progress: resolved 424, reused 0, downloaded 424, added 424, done
+#14 214.7 .../argon2@0.44.0/node_modules/argon2 install$ cross-env ZERO_AR_DATE=1 node-gyp-build
+#14 214.7 .../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js
+#14 214.7 .../node_modules/@prisma/engines postinstall$ node scripts/postinstall.js
+#14 214.8 .../esbuild@0.28.2/node_modules/esbuild postinstall: Done
+#14 214.9 .../argon2@0.44.0/node_modules/argon2 install: Done
+#14 219.4 .../node_modules/@prisma/engines postinstall: Done
+#14 219.5 .../node_modules/prisma preinstall$ node scripts/preinstall-entry.js
+#14 219.8 .../node_modules/prisma preinstall: Done
+#14 220.2
+#14 220.2 devDependencies:
+#14 220.2 + @eslint/js 9.39.5
+#14 220.2 + @playwright/test 1.63.0
+#14 220.2 + @types/node 24.13.3
+#14 220.2 + @vitest/coverage-v8 4.1.11
+#14 220.2 + eslint 9.39.5
+#14 220.2 + globals 16.5.0
+#14 220.2 + prettier 3.9.6
+#14 220.2 + tsx 4.23.13
+#14 220.2 + typescript 5.9.3
+#14 220.2 + typescript-eslint 8.70.0
+#14 220.2 + vitest 4.1.11
+#14 220.2
+#14 220.3 Done in 3m 40s using pnpm v12.3.4
+#14 DONE 220.5s
+
+#15 [source 3/3] RUN DATABASE_URL=postgresql://localhost/build pnpm --filter @thesis/database exec prisma generate
+#15 1.617 Loaded Prisma config from prisma.config.ts.
+#15 1.617
+#15 1.752 Prisma schema loaded from prisma/schema.prisma.
+#15 2.672
+#15 2.672 ✔ Generated Prisma Client (7.10.0) to ./generated/prisma in 583ms
+#15 2.672
+#15 DONE 2.7s
+
+#16 [production-dependencies 1/1] RUN pnpm --filter @thesis/api deploy --prod --legacy --frozen-lockfile /opt/api
+#16 0.322 [WARN] Shared workspace lockfile detected but configuration forces legacy deploy implementation.
+#16 0.338 Packages are copied from the content-addressable store to the virtual store.
+#16 0.338   Content-addressable store is at: /root/.local/share/pnpm/store/v11
+#16 0.338   Virtual store is at:             ../opt/api/node_modules/.pnpm
+#16 1.344 Progress: resolved 0, reused 28, downloaded 10, added 0
+#16 2.896 Progress: resolved 0, reused 57, downloaded 24, added 0
+#16 4.013 Progress: resolved 0, reused 59, downloaded 25, added 0
+#16 6.979 Progress: resolved 0, reused 61, downloaded 26, added 0
+#16 8.218 Progress: resolved 0, reused 63, downloaded 26, added 0
+#16 9.221 Progress: resolved 79, reused 63, downloaded 26, added 56
+#16 10.13 Packages: +91
+#16 10.13 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#16 10.15 Progress: resolved 91, reused 63, downloaded 26, added 91, done
+#16 10.19 Done in 9.9s using pnpm v12.3.4
+#16 DONE 10.3s
+
+#17 [runtime 4/8] COPY --from=production-dependencies /opt/api/ ./
+#17 DONE 0.5s
+
+#18 [runtime 5/8] COPY --from=source /workspace/packages/database/generated/ ./node_modules/@thesis/database/generated/
+#18 DONE 0.1s
+
+#19 [runtime 6/8] COPY --from=source /workspace/packages/database/resources/ ./node_modules/@thesis/database/resources/
+#19 DONE 0.1s
+
+#20 [runtime 7/8] COPY --from=source /workspace/packages/config/tsconfig.base.json ./tsconfig.runtime.json
+#20 DONE 0.0s
+
+#21 [runtime 8/8] COPY --from=source /workspace/deploy/runtime-files.mjs ./deploy/runtime-files.mjs
+#21 DONE 0.0s
+
+#22 exporting to image
+#22 exporting layers
+#22 exporting layers 3.3s done
+#22 exporting manifest sha256:d955ebe00b2d34bc75fca6d1b2a75d710d5e7372b4fbc0f9cfe2bfbaac1fac86 0.0s done
+#22 exporting config sha256:c1ff1e6902630c24eb078d2c789cc9d3e75e108bbd1769eabb723d539f0558fe 0.0s done
+#22 exporting attestation manifest sha256:a140d6cd75fb814f66596154bcb97092fc0ee0a46a25724726879095a2e70686 0.0s done
+#22 exporting manifest list sha256:e3003e6b447fbf70f5916dd6e810737966710672cdf5ee66cf9388a7b91a3f29 0.0s done
+#22 naming to docker.io/library/qtruongres-rehearsal-api:local done
+#22 unpacking to docker.io/library/qtruongres-rehearsal-api:local
+#22 unpacking to docker.io/library/qtruongres-rehearsal-api:local 0.9s done
+#22 DONE 4.4s
+
+#23 resolving provenance for metadata file
+#23 DONE 0.1s
+#1 [internal] load local bake definitions
+#1 reading from stdin 799B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.api
+#2 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.api
+#2 transferring dockerfile: 2.66kB done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1
+#3 DONE 1.0s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#4 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e 0.0s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/node:24.21.0-bookworm-slim
+#5 DONE 0.9s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 674B done
+#6 DONE 0.0s
+
+#7 [toolchain 1/3] FROM docker.io/library/node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+#7 resolve docker.io/library/node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 0.0s done
+#7 DONE 0.0s
+
+#8 [internal] load build context
+#8 transferring context: 47.90kB 0.1s done
+#8 DONE 0.1s
+
+#9 [toolchain 2/3] RUN apt-get update     && apt-get install --no-install-recommends -y ca-certificates openssl     && rm -rf /var/lib/apt/lists/*     && npm install --global pnpm@12.3.4
+#9 CACHED
+
+#10 [toolchain 3/3] WORKDIR /workspace
+#10 CACHED
+
+#11 [source 1/3] COPY . .
+#11 CACHED
+
+#12 [source 2/3] RUN pnpm install --frozen-lockfile
+#12 CACHED
+
+#13 [source 3/3] RUN DATABASE_URL=postgresql://localhost/build pnpm --filter @thesis/database exec prisma generate
+#13 CACHED
+
+#14 [maintenance 1/1] RUN groupadd --gid 10001 app     && useradd --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin app
+#14 DONE 0.4s
+
+#15 exporting to image
+#15 exporting layers
+#15 exporting layers 30.7s done
+#15 exporting manifest sha256:0b552005e64edf6db0f00a68fbecc5379c05e0745e62ae2756f333601d072bbd 0.0s done
+#15 exporting config sha256:183883822c6bde17ec0b294e9a141acc5655b82b8eec125a6e86e7222b67720f 0.0s done
+#15 exporting attestation manifest sha256:e76a8c6bf9f0f835b58a93928ffbe5e867ef82ed4f4619431dd3c0cad92924f8
+#15 exporting attestation manifest sha256:e76a8c6bf9f0f835b58a93928ffbe5e867ef82ed4f4619431dd3c0cad92924f8 0.1s done
+#15 exporting manifest list sha256:cad47411bb62e6c2638701fb4a55bb9f3160e683d222ec2d40189a2854744e28 0.0s done
+#15 naming to docker.io/library/qtruongres-rehearsal-maintenance:local done
+#15 unpacking to docker.io/library/qtruongres-rehearsal-maintenance:local
+#15 unpacking to docker.io/library/qtruongres-rehearsal-maintenance:local 19.7s done
+#15 DONE 50.7s
+
+#16 resolving provenance for metadata file
+#16 DONE 0.0s
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.51kB done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.web
+#2 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile.web
+#2 transferring dockerfile: 1.38kB 0.0s done
+#2 DONE 0.0s
+
+#3 resolve image config for docker-image://docker.io/docker/dockerfile:1
+#3 DONE 1.7s
+
+#4 docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#4 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e 0.0s done
+#4 CACHED
+
+#5 [internal] load metadata for docker.io/library/node:24.21.0-bookworm-slim
+#5 DONE 1.4s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 674B 0.0s done
+#6 DONE 0.0s
+
+#7 [builder 1/6] FROM docker.io/library/node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+#7 resolve docker.io/library/node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 0.0s done
+#7 CACHED
+
+#8 [internal] load build context
+#8 transferring context: 47.90kB 0.1s done
+#8 DONE 0.2s
+
+#9 [builder 2/6] RUN apt-get update     && apt-get install --no-install-recommends -y ca-certificates     && rm -rf /var/lib/apt/lists/*     && npm install --global pnpm@12.3.4
+#9 ...
+
+#10 [runtime 2/6] RUN groupadd --gid 10001 app     && useradd --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin app
+#10 DONE 0.6s
+
+#11 [runtime 3/6] WORKDIR /app
+#11 DONE 0.1s
+
+#9 [builder 2/6] RUN apt-get update     && apt-get install --no-install-recommends -y ca-certificates     && rm -rf /var/lib/apt/lists/*     && npm install --global pnpm@12.3.4
+#9 0.813 Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+#9 1.066 Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+#9 1.122 Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [34.8 kB]
+#9 1.186 Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+#9 15.46 Get:5 http://deb.debian.org/debian bookworm-updates/main amd64 Packages [6924 B]
+#9 15.49 Get:6 http://deb.debian.org/debian-security bookworm-security/main amd64 Packages [353 kB]
+#9 16.17 Fetched 9391 kB in 16s (602 kB/s)
+#9 16.17 Reading package lists...
+#9 16.66 Reading package lists...
+#9 17.09 Building dependency tree...
+#9 17.20 Reading state information...
+#9 17.32 The following additional packages will be installed:
+#9 17.32   libssl3 openssl
+#9 17.34 The following NEW packages will be installed:
+#9 17.34   ca-certificates libssl3 openssl
+#9 17.49 0 upgraded, 3 newly installed, 0 to remove and 1 not upgraded.
+#9 17.49 Need to get 3643 kB of archives.
+#9 17.49 After this operation, 8955 kB of additional disk space will be used.
+#9 17.49 Get:1 http://deb.debian.org/debian-security bookworm-security/main amd64 libssl3 amd64 3.0.22-1~deb12u1 [2039 kB]
+#9 18.94 Get:2 http://deb.debian.org/debian-security bookworm-security/main amd64 openssl amd64 3.0.22-1~deb12u1 [1442 kB]
+#9 19.54 Get:3 http://deb.debian.org/debian-security bookworm-security/main amd64 ca-certificates all 20250419~deb12u1 [162 kB]
+#9 19.78 debconf: delaying package configuration, since apt-utils is not installed
+#9 19.82 Fetched 3643 kB in 2s (1614 kB/s)
+#9 19.86 Selecting previously unselected package libssl3:amd64.
+#9 19.86 (Reading database ...
+(Reading database ... 5%
+(Reading database ... 10%
+(Reading database ... 15%
+(Reading database ... 20%
+(Reading database ... 25%
+(Reading database ... 30%
+(Reading database ... 35%
+(Reading database ... 40%
+(Reading database ... 45%
+(Reading database ... 50%
+(Reading database ... 55%
+(Reading database ... 60%
+(Reading database ... 65%
+(Reading database ... 70%
+(Reading database ... 75%
+(Reading database ... 80%
+(Reading database ... 85%
+(Reading database ... 90%
+(Reading database ... 95%
+(Reading database ... 100%
+(Reading database ... 6096 files and directories currently installed.)
+#9 19.89 Preparing to unpack .../libssl3_3.0.22-1~deb12u1_amd64.deb ...
+#9 19.90 Unpacking libssl3:amd64 (3.0.22-1~deb12u1) ...
+#9 20.11 Selecting previously unselected package openssl.
+#9 20.12 Preparing to unpack .../openssl_3.0.22-1~deb12u1_amd64.deb ...
+#9 20.12 Unpacking openssl (3.0.22-1~deb12u1) ...
+#9 20.35 Selecting previously unselected package ca-certificates.
+#9 20.35 Preparing to unpack .../ca-certificates_20250419~deb12u1_all.deb ...
+#9 20.36 Unpacking ca-certificates (20250419~deb12u1) ...
+#9 20.44 Setting up libssl3:amd64 (3.0.22-1~deb12u1) ...
+#9 20.45 Setting up openssl (3.0.22-1~deb12u1) ...
+#9 20.48 Setting up ca-certificates (20250419~deb12u1) ...
+#9 20.57 debconf: unable to initialize frontend: Dialog
+#9 20.57 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#9 20.57 debconf: falling back to frontend: Readline
+#9 20.57 debconf: unable to initialize frontend: Readline
+#9 20.57 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.36.0 /usr/local/share/perl/5.36.0 /usr/lib/x86_64-linux-gnu/perl5/5.36 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.36 /usr/share/perl/5.36 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7.)
+#9 20.57 debconf: falling back to frontend: Teletype
+#9 20.92 Updating certificates in /etc/ssl/certs...
+#9 21.44 150 added, 0 removed; done.
+#9 21.53 Processing triggers for libc-bin (2.36-9+deb12u14) ...
+#9 21.59 Processing triggers for ca-certificates (20250419~deb12u1) ...
+#9 21.60 Updating certificates in /etc/ssl/certs...
+#9 21.93 0 added, 0 removed; done.
+#9 21.93 Running hooks in /etc/ca-certificates/update.d...
+#9 21.93 done.
+#9 31.71
+#9 31.71 added 2 packages in 10s
+#9 31.71 npm warn install-scripts 1 package has install scripts not yet covered by allowScripts:
+#9 31.71 npm warn install-scripts   pnpm@12.3.4 (preinstall: node install.js; postinstall: node install.js)
+#9 31.71 npm warn install-scripts
+#9 31.71 npm warn install-scripts Run `npm install -g --allow-scripts=pnpm` to allow these scripts once, or `npm config set allow-scripts=pnpm --location=user` to allow them for all global installs.
+#9 31.71 npm notice
+#9 31.71 npm notice New major version of npm available! 11.19.0 -> 12.2.0
+#9 31.71 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+#9 31.71 npm notice To update run: npm install -g npm@12.2.0
+#9 31.71 npm notice
+#9 DONE 31.7s
+
+#12 [builder 3/6] WORKDIR /workspace
+#12 DONE 0.1s
+
+#13 [builder 4/6] COPY . .
+#13 DONE 0.5s
+
+#14 [builder 5/6] RUN pnpm install --frozen-lockfile
+#14 0.433 Scope: all 7 workspace projects
+#14 0.455 ? Verifying lockfile against supply-chain policies (527 entries)...
+#14 1.269 Downloading next@16.3.8: 0.00 B/42.04 MB
+#14 1.994 Packages are hard linked from the content-addressable store to the virtual store.
+#14 1.994   Content-addressable store is at: /root/.local/share/pnpm/store/v11
+#14 1.994   Virtual store is at:             node_modules/.pnpm
+#14 2.808 Downloading @prisma/client@7.10.0: 0.00 B/26.82 MB
+#14 3.872 Progress: resolved 424, reused 0, downloaded 79, added 64
+#14 4.889 Update available! 12.3.4 → 12.14.0.
+#14 4.889 Changelog: https://pnpm.io/v/12.14.0
+#14 4.889 To update, run: curl -fsSL https://get.pnpm.io/install.sh | sh -
+#14 5.580 Downloading @rolldown/binding-linux-x64-gnu@1.2.7: 0.00 B/7.96 MB
+#14 6.687 Progress: resolved 424, reused 0, downloaded 133, added 128
+#14 7.761 Downloading @rolldown/binding-linux-x64-gnu@1.2.7: 228.54 kB/7.96 MB
+#14 8.777 Progress: resolved 424, reused 0, downloaded 183, added 160
+#14 9.887 Downloading @rolldown/binding-linux-x64-gnu@1.2.7: 507.07 kB/7.96 MB
+#14 11.04 Progress: resolved 424, reused 0, downloaded 212, added 192
+#14 12.10 Progress: resolved 424, reused 0, downloaded 231, added 224
+#14 12.59 [WARN] Request took 10420ms: https://registry.npmjs.org/@prisma%2Fdriver-adapter-utils
+#14 13.12 Downloading @prisma/studio-core@0.33.0: 0.00 B/10.12 MB
+#14 13.50 [WARN] Request took 12508ms: https://registry.npmjs.org/@next%2Fswc-linux-x64-musl
+#14 14.09 Downloading @img/sharp-libvips-linux-x64@1.3.4: 0.00 B/8.21 MB
+#14 15.18 Progress: resolved 424, reused 0, downloaded 248, added 224
+#14 15.46 Downloading @next/swc-linux-x64-gnu@16.3.8: 0.00 B/33.79 MB
+#14 15.76 [WARN] Request took 14768ms: https://registry.npmjs.org/@next%2Fswc-win32-x64-msvc
+#14 16.62 [WARN] Tarball download average speed 30 KiB/s (size 55 KiB) is below 50 KiB/s: https://registry.npmjs.org/@vitest/mocker/-/mocker-4.1.11.tgz (GET)
+#14 16.87 [WARN] Request took 15877ms: https://registry.npmjs.org/@next%2Fswc-win32-arm64-msvc
+#14 17.32 [WARN] Tarball download average speed 41 KiB/s (size 451 KiB) is below 50 KiB/s: https://registry.npmjs.org/@types/node/-/node-24.13.3.tgz (GET)
+#14 17.36 [WARN] Request took 16397ms: https://registry.npmjs.org/@next%2Fswc-linux-arm64-gnu
+#14 18.19 [WARN] Request took 17196ms: https://registry.npmjs.org/@next%2Fswc-linux-arm64-musl
+#14 18.22 [WARN] Request took 16633ms: https://registry.npmjs.org/@next%2Fswc-linux-x64-gnu
+#14 18.61 [WARN] Request took 17665ms: https://registry.npmjs.org/@next%2Fswc-darwin-arm64
+#14 18.64 [WARN] Request took 17648ms: https://registry.npmjs.org/@next%2Fswc-darwin-x64
+#14 18.80 [WARN] Request took 16307ms: https://registry.npmjs.org/@prisma%2Fengines
+#14 19.81 Downloading @prisma/client@7.10.0: 1.01 MB/26.82 MB
+#14 20.28 [WARN] Request took 18674ms: https://registry.npmjs.org/@next%2Fenv
+#14 20.83 [WARN] Request took 12606ms: https://registry.npmjs.org/@typescript-eslint%2Feslint-plugin
+#14 21.04 [WARN] Request took 12386ms: https://registry.npmjs.org/@typescript-eslint%2Ftype-utils
+#14 21.10 [WARN] Request took 18827ms: https://registry.npmjs.org/@playwright%2Ftest
+#14 22.10 Progress: resolved 424, reused 0, downloaded 316, added 288
+#14 23.18 [WARN] Tarball download average speed 5 KiB/s (size 8 KiB) is below 50 KiB/s: https://registry.npmjs.org/lru.min/-/lru.min-1.1.5.tgz (GET)
+#14 24.28 Progress: resolved 424, reused 0, downloaded 339, added 320
+#14 24.86 Downloading @prisma/dev@0.24.17: 0.00 B/9.16 MB
+#14 25.31 [WARN] Request took 22980ms: https://registry.npmjs.org/@prisma%2Ffetch-engine
+#14 26.32 Downloading next@16.3.8: 1.13 MB/42.04 MB
+#14 27.48 Downloading @prisma/studio-core@0.33.0: 884.73 kB/10.12 MB
+#14 27.71 [WARN] Request took 18913ms: https://registry.npmjs.org/@typescript-eslint%2Futils
+#14 27.82 Downloading @electric-sql/pglite@0.4.3: 0.00 B/8.29 MB
+#14 27.94 [WARN] Request took 19487ms: https://registry.npmjs.org/@typescript-eslint%2Fparser
+#14 28.79 [WARN] Request took 20071ms: https://registry.npmjs.org/@typescript-eslint%2Ftypescript-estree
+#14 29.91 Downloading next@16.3.8: 1.31 MB/42.04 MB
+#14 30.18 [WARN] Tarball download average speed 38 KiB/s (size 335 KiB) is below 50 KiB/s: https://registry.npmjs.org/@typescript-eslint/eslint-plugin/-/eslint-plugin-8.70.0.tgz (GET)
+#14 31.23 Downloading prisma@7.10.0: 0.00 B/14.17 MB
+#14 32.23 Downloading @rolldown/binding-linux-x64-gnu@1.2.7: 3.07 MB/7.96 MB
+#14 33.40 [WARN] Request took 24740ms: https://registry.npmjs.org/@typescript-eslint%2Ftypes
+#14 34.48 Downloading @electric-sql/pglite@0.4.3: 491.52 kB/8.29 MB
+#14 35.33 [WARN] Request took 26234ms: https://registry.npmjs.org/@typescript-eslint%2Fvisitor-keys
+#14 36.35 Downloading @next/swc-linux-x64-gnu@16.3.8: 4.65 MB/33.79 MB
+#14 36.61 [WARN] Request took 28233ms: https://registry.npmjs.org/@typescript-eslint%2Fscope-manager
+#14 37.61 Downloading @next/swc-linux-x64-gnu@16.3.8: 4.75 MB/33.79 MB
+#14 38.66 Downloading @next/swc-linux-x64-gnu@16.3.8: 5.24 MB/33.79 MB
+#14 39.69 Downloading @next/swc-linux-x64-gnu@16.3.8: 5.47 MB/33.79 MB
+#14 40.84 Downloading @prisma/studio-core@0.33.0: 1.62 MB/10.12 MB
+#14 41.85 Downloading @prisma/client@7.10.0: 2.52 MB/26.82 MB
+#14 42.14 [WARN] Request took 15642ms: https://registry.npmjs.org/next
+#14 43.15 Downloading @prisma/dev@0.24.17: 1.15 MB/9.16 MB
+#14 43.30 [WARN] Request took 14208ms: https://registry.npmjs.org/prisma
+#14 44.56 Downloading @img/sharp-libvips-linux-x64@1.3.4: 7.08 MB/8.21 MB
+#14 45.53 [WARN] Tarball download average speed 34 KiB/s (size 1246 KiB) is below 50 KiB/s: https://registry.npmjs.org/react-dom/-/react-dom-19.2.8.tgz (GET)
+#14 46.69 Downloading prisma@7.10.0: 1.15 MB/14.17 MB
+#14 47.74 Downloading @electric-sql/pglite@0.4.3: 950.27 kB/8.29 MB
+#14 48.77 Downloading @prisma/studio-core@0.33.0: 1.95 MB/10.12 MB
+#14 49.89 Downloading prisma@7.10.0: 1.46 MB/14.17 MB
+#14 50.95 Downloading prisma@7.10.0: 1.52 MB/14.17 MB
+#14 51.75 [WARN] Request took 24164ms: https://registry.npmjs.org/playwright
+#14 52.80 Downloading next@16.3.8: 2.03 MB/42.04 MB
+#14 53.94 Downloading @next/swc-linux-x64-gnu@16.3.8: 7.74 MB/33.79 MB
+#14 54.99 Downloading @next/swc-linux-x64-gnu@16.3.8: 7.86 MB/33.79 MB
+#14 56.08 Downloading @electric-sql/pglite@0.4.3: 1.38 MB/8.29 MB
+#14 57.16 Downloading prisma@7.10.0: 1.99 MB/14.17 MB
+#14 58.16 Downloading @prisma/studio-core@0.33.0: 2.42 MB/10.12 MB
+#14 59.26 Downloading @prisma/dev@0.24.17: 1.99 MB/9.16 MB
+#14 60.41 Downloading @rolldown/binding-linux-x64-gnu@1.2.7: 5.04 MB/7.96 MB
+#14 60.82 [WARN] GET https://registry.npmjs.org/effect/-/effect-3.20.0.tgz error (Failed to fetch https://registry.npmjs.org/effect/-/effect-3.20.0.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 60.82 Will retry in 10s. 1 retries left.
+#14 60.91 [WARN] GET https://registry.npmjs.org/next/-/next-16.3.8.tgz error (Failed to fetch https://registry.npmjs.org/next/-/next-16.3.8.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 60.91 Will retry in 10s. 1 retries left.
+#14 61.91 [WARN] GET https://registry.npmjs.org/@prisma/client/-/client-7.10.0.tgz error (Failed to fetch https://registry.npmjs.org/@prisma/client/-/client-7.10.0.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 61.91 Will retry in 10s. 1 retries left.
+#14 62.96 Downloading @electric-sql/pglite@0.4.3: 1.77 MB/8.29 MB
+#14 64.05 Downloading @electric-sql/pglite@0.4.3: 1.83 MB/8.29 MB
+#14 64.50 [WARN] GET https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.2.7.tgz error (Failed to fetch https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.2.7.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 64.50 Will retry in 10s. 1 retries left.
+#14 64.90 [WARN] Request took 33961ms: https://registry.npmjs.org/tailwindcss
+#14 65.67 [WARN] GET https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.28.2.tgz error (Failed to fetch https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.28.2.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 65.67 Will retry in 10s. 1 retries left.
+#14 66.71 Downloading @electric-sql/pglite@0.4.3: 2.13 MB/8.29 MB
+#14 67.78 Downloading @prisma/dev@0.24.17: 2.83 MB/9.16 MB
+#14 69.01 Downloading @next/swc-linux-x64-gnu@16.3.8: 10.79 MB/33.79 MB
+#14 70.11 Downloading @electric-sql/pglite@0.4.3: 2.49 MB/8.29 MB
+#14 71.17 Downloading @next/swc-linux-x64-gnu@16.3.8: 11.32 MB/33.79 MB
+#14 71.52 [WARN] GET https://registry.npmjs.org/@prisma/studio-core/-/studio-core-0.33.0.tgz error (Failed to fetch https://registry.npmjs.org/@prisma/studio-core/-/studio-core-0.33.0.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 71.52 Will retry in 10s. 1 retries left.
+#14 72.63 Downloading prisma@7.10.0: 3.65 MB/14.17 MB
+#14 73.29 [WARN] Request took 28117ms: https://registry.npmjs.org/prisma
+#14 73.65 [WARN] GET https://registry.npmjs.org/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-16.3.8.tgz error (Failed to fetch https://registry.npmjs.org/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-16.3.8.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 73.65 Will retry in 10s. 1 retries left.
+#14 74.79 Downloading @electric-sql/pglite@0.4.3: 3.26 MB/8.29 MB
+#14 75.85 Downloading @rolldown/binding-linux-x64-gnu@1.2.7: 211.12 kB/7.96 MB
+#14 76.88 Downloading @prisma/dev@0.24.17: 4.07 MB/9.16 MB
+#14 77.93 Downloading @prisma/client@7.10.0: 1.93 MB/26.82 MB
+#14 79.04 Downloading @rolldown/binding-linux-x64-gnu@1.2.7: 2.35 MB/7.96 MB
+#14 79.52 [WARN] Request took 51976ms: https://registry.npmjs.org/playwright-core
+#14 80.63 Downloading @prisma/dev@0.24.17: 4.44 MB/9.16 MB
+#14 81.66 Downloading next@16.3.8: 3.09 MB/42.04 MB
+#14 82.70 Downloading @prisma/client@7.10.0: 2.57 MB/26.82 MB
+#14 83.69 [WARN] GET https://registry.npmjs.org/@prisma/dev/-/dev-0.24.17.tgz error (Failed to fetch https://registry.npmjs.org/@prisma/dev/-/dev-0.24.17.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 83.69 Will retry in 10s. 1 retries left.
+#14 84.27 [WARN] GET https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.32.0.tgz error (Failed to fetch https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.32.0.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 84.27 Will retry in 10s. 1 retries left.
+#14 85.30 Downloading @electric-sql/pglite@0.4.3: 4.22 MB/8.29 MB
+#14 86.39 Downloading @electric-sql/pglite@0.4.3: 4.32 MB/8.29 MB
+#14 86.61 [WARN] GET https://registry.npmjs.org/@electric-sql/pglite/-/pglite-0.4.3.tgz error (Failed to fetch https://registry.npmjs.org/@electric-sql/pglite/-/pglite-0.4.3.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 86.61 Will retry in 10s. 1 retries left.
+#14 87.70 Downloading @prisma/studio-core@0.33.0: 798.71 kB/10.12 MB
+#14 88.91 Downloading @next/swc-linux-x64-gnu@16.3.8: 499.13 kB/33.79 MB
+#14 89.27 [WARN] GET https://registry.npmjs.org/prisma/-/prisma-7.10.0.tgz error (Failed to fetch https://registry.npmjs.org/prisma/-/prisma-7.10.0.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 89.27 Will retry in 10s. 1 retries left.
+#14 89.29 [WARN] GET https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz error (Failed to fetch https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz: error decoding response body: request or response body error: operation timed out) — 1
+#14 89.29 Will retry in 10s. 1 retries left.
+#14 90.45 Downloading @prisma/client@7.10.0: 3.53 MB/26.82 MB
+#14 91.56 Downloading @prisma/client@7.10.0: 3.71 MB/26.82 MB
+#14 92.67 Downloading @prisma/client@7.10.0: 3.91 MB/26.82 MB
+#14 93.73 Downloading @prisma/client@7.10.0: 4.11 MB/26.82 MB
+#14 94.84 Downloading @prisma/client@7.10.0: 4.25 MB/26.82 MB
+#14 94.90 [WARN] Request took 21170ms: https://registry.npmjs.org/@prisma%2Fdebug
+#14 95.99 Downloading @prisma/dev@0.24.17: 548.30 kB/9.16 MB
+#14 97.05 Downloading @prisma/studio-core@0.33.0: 3.50 MB/10.12 MB
+#14 98.07 Downloading @prisma/studio-core@0.33.0: 3.94 MB/10.12 MB
+#14 98.87 [WARN] Request took 24866ms: https://registry.npmjs.org/@prisma%2Fget-platform
+#14 99.88 Downloading @prisma/client@7.10.0: 4.96 MB/26.82 MB
+#14 101.0 Downloading @next/swc-linux-x64-gnu@16.3.8: 2.64 MB/33.79 MB
+#14 102.0 Downloading @next/swc-linux-x64-gnu@16.3.8: 2.84 MB/33.79 MB
+#14 103.3 Downloading @prisma/studio-core@0.33.0: 5.35 MB/10.12 MB
+#14 104.3 Downloading @prisma/studio-core@0.33.0: 5.81 MB/10.12 MB
+#14 105.5 Downloading next@16.3.8: 6.97 MB/42.04 MB
+#14 106.1 [WARN] Request took 32638ms: https://registry.npmjs.org/@prisma%2Fclient
+#14 106.7 ✓ Lockfile passes supply-chain policies (527 entries in 1m 46.3s)
+#14 106.7 Lockfile is up to date, resolution step is skipped
+#14 108.0 Downloading @electric-sql/pglite@0.4.3: 4.66 MB/8.29 MB
+#14 109.1 Downloading @electric-sql/pglite@0.4.3: 5.07 MB/8.29 MB
+#14 110.1 Downloading @prisma/dev@0.24.17: 5.53 MB/9.16 MB
+#14 111.2 Downloading @electric-sql/pglite@0.4.3: 5.81 MB/8.29 MB
+#14 112.2 Downloading @electric-sql/pglite@0.4.3: 6.22 MB/8.29 MB
+#14 113.3 Downloading @electric-sql/pglite@0.4.3: 6.53 MB/8.29 MB
+#14 114.3 Downloading @electric-sql/pglite@0.4.3: 7.02 MB/8.29 MB
+#14 115.4 Downloading @prisma/client@7.10.0: 8.20 MB/26.82 MB
+#14 116.4 Downloading @electric-sql/pglite@0.4.3: 8.07 MB/8.29 MB
+#14 117.4 Downloading @prisma/client@7.10.0: 9.14 MB/26.82 MB
+#14 118.5 Downloading @prisma/client@7.10.0: 9.65 MB/26.82 MB
+#14 119.5 Downloading @prisma/client@7.10.0: 10.28 MB/26.82 MB
+#14 120.5 Downloading @prisma/client@7.10.0: 10.81 MB/26.82 MB
+#14 121.6 Downloading @prisma/client@7.10.0: 11.32 MB/26.82 MB
+#14 122.6 Downloading @prisma/client@7.10.0: 11.94 MB/26.82 MB
+#14 123.7 Downloading @prisma/client@7.10.0: 12.51 MB/26.82 MB
+#14 124.7 Downloading @prisma/client@7.10.0: 13.33 MB/26.82 MB
+#14 125.7 Downloading @prisma/client@7.10.0: 14.07 MB/26.82 MB
+#14 126.7 Downloading @prisma/client@7.10.0: 15.00 MB/26.82 MB
+#14 127.8 Downloading @prisma/client@7.10.0: 15.87 MB/26.82 MB
+#14 128.8 Downloading @next/swc-linux-x64-gnu@16.3.8: 13.47 MB/33.79 MB
+#14 129.8 Downloading next@16.3.8: 22.90 MB/42.04 MB
+#14 130.8 Downloading @next/swc-linux-x64-gnu@16.3.8: 15.12 MB/33.79 MB
+#14 130.9 [WARN] GET https://registry.npmjs.org/next/-/next-16.3.8.tgz error (Failed to fetch https://registry.npmjs.org/next/-/next-16.3.8.tgz: error decoding response body: request or response body error: operation timed out) — 2
+#14 130.9 Will retry in 1m. 0 retries left.
+#14 131.9 [WARN] GET https://registry.npmjs.org/@prisma/client/-/client-7.10.0.tgz error (Failed to fetch https://registry.npmjs.org/@prisma/client/-/client-7.10.0.tgz: error decoding response body: request or response body error: operation timed out) — 2
+#14 131.9 Will retry in 1m. 0 retries left.
+#14 132.9 Downloading @next/swc-linux-x64-gnu@16.3.8: 17.05 MB/33.79 MB
+#14 133.9 Downloading @next/swc-linux-x64-gnu@16.3.8: 18.84 MB/33.79 MB
+#14 135.0 Downloading @next/swc-linux-x64-gnu@16.3.8: 20.40 MB/33.79 MB
+#14 136.1 Downloading @next/swc-linux-x64-gnu@16.3.8: 22.35 MB/33.79 MB
+#14 137.4 Downloading @next/swc-linux-x64-gnu@16.3.8: 24.25 MB/33.79 MB
+#14 138.4 Downloading @next/swc-linux-x64-gnu@16.3.8: 27.02 MB/33.79 MB
+#14 139.4 Downloading @next/swc-linux-x64-gnu@16.3.8: 29.49 MB/33.79 MB
+#14 140.5 Downloading @next/swc-linux-x64-gnu@16.3.8: 32.52 MB/33.79 MB
+#14 191.1 Downloading next@16.3.8: 626.00 B/42.04 MB
+#14 192.2 Downloading @prisma/client@7.10.0: 619.00 B/26.82 MB
+#14 193.3 Downloading @prisma/client@7.10.0: 299.36 kB/26.82 MB
+#14 194.4 Downloading @prisma/client@7.10.0: 826.82 kB/26.82 MB
+#14 195.4 Downloading @prisma/client@7.10.0: 1.54 MB/26.82 MB
+#14 196.6 Downloading @prisma/client@7.10.0: 2.26 MB/26.82 MB
+#14 197.6 Downloading @prisma/client@7.10.0: 2.89 MB/26.82 MB
+#14 198.6 Downloading @prisma/client@7.10.0: 3.49 MB/26.82 MB
+#14 199.7 Downloading @prisma/client@7.10.0: 3.57 MB/26.82 MB
+#14 201.0 Downloading @prisma/client@7.10.0: 4.13 MB/26.82 MB
+#14 202.0 Downloading @prisma/client@7.10.0: 4.79 MB/26.82 MB
+#14 203.1 Downloading @prisma/client@7.10.0: 5.43 MB/26.82 MB
+#14 204.1 Downloading @prisma/client@7.10.0: 6.11 MB/26.82 MB
+#14 205.1 Downloading @prisma/client@7.10.0: 6.94 MB/26.82 MB
+#14 206.1 Downloading @prisma/client@7.10.0: 7.50 MB/26.82 MB
+#14 207.4 Downloading @prisma/client@7.10.0: 7.92 MB/26.82 MB
+#14 208.5 Downloading @prisma/client@7.10.0: 8.79 MB/26.82 MB
+#14 209.5 Downloading @prisma/client@7.10.0: 9.50 MB/26.82 MB
+#14 210.5 Downloading @prisma/client@7.10.0: 10.33 MB/26.82 MB
+#14 211.5 Downloading @prisma/client@7.10.0: 11.54 MB/26.82 MB
+#14 212.6 Downloading @prisma/client@7.10.0: 13.22 MB/26.82 MB
+#14 213.6 Downloading @prisma/client@7.10.0: 14.75 MB/26.82 MB
+#14 214.6 Downloading @prisma/client@7.10.0: 17.24 MB/26.82 MB
+#14 215.7 Downloading @prisma/client@7.10.0: 20.37 MB/26.82 MB
+#14 216.7 Downloading @prisma/client@7.10.0: 23.78 MB/26.82 MB
+#14 217.8 Downloading @prisma/client@7.10.0: 26.09 MB/26.82 MB
+#14 218.0 Packages: +424
+#14 218.0 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#14 218.1 Progress: resolved 424, reused 0, downloaded 424, added 424, done
+#14 218.1 .../argon2@0.44.0/node_modules/argon2 install$ cross-env ZERO_AR_DATE=1 node-gyp-build
+#14 218.1 .../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js
+#14 218.1 .../node_modules/@prisma/engines postinstall$ node scripts/postinstall.js
+#14 218.2 .../esbuild@0.28.2/node_modules/esbuild postinstall: Done
+#14 218.3 .../argon2@0.44.0/node_modules/argon2 install: Done
+#14 221.9 .../node_modules/@prisma/engines postinstall: Done
+#14 222.0 .../node_modules/prisma preinstall$ node scripts/preinstall-entry.js
+#14 222.1 .../node_modules/prisma preinstall: Done
+#14 222.5
+#14 222.5 devDependencies:
+#14 222.5 + @eslint/js 9.39.5
+#14 222.5 + @playwright/test 1.63.0
+#14 222.5 + @types/node 24.13.3
+#14 222.5 + @vitest/coverage-v8 4.1.11
+#14 222.5 + eslint 9.39.5
+#14 222.5 + globals 16.5.0
+#14 222.5 + prettier 3.9.6
+#14 222.5 + tsx 4.23.13
+#14 222.5 + typescript 5.9.3
+#14 222.5 + typescript-eslint 8.70.0
+#14 222.5 + vitest 4.1.11
+#14 222.5
+#14 222.5 Done in 3m 42.1s using pnpm v12.3.4
+#14 DONE 222.6s
+
+#15 [builder 6/6] RUN pnpm --filter @thesis/web build
+#15 0.477 $ node scripts/prepare-docs.mjs && next build
+#15 0.566 Prepared local Swagger UI and OpenAPI documentation.
+#15 0.864 ▲ Next.js 16.3.8 (Turbopack)
+#15 0.900 ✓ Running next.config.ts took 35ms
+#15 0.916
+#15 0.944   Creating an optimized production build ...
+#15 4.959 ✓ Compiled successfully in 3.8s
+#15 4.975   Running TypeScript ...
+#15 10.74   Finished TypeScript in 5.8s ...
+#15 10.75   Collecting page data using 9 workers ...
+#15 11.29   Generating static pages using 9 workers (0/7) ...
+#15 11.68   Generating static pages using 9 workers (1/7)
+#15 11.68   Generating static pages using 9 workers (3/7)
+#15 11.68   Generating static pages using 9 workers (5/7)
+#15 11.68 ✓ Generating static pages using 9 workers (7/7) in 393ms
+#15 11.69   Finalizing page optimization ...
+#15 11.84
+#15 11.85 Route (app)
+#15 11.85 ┌ ○ /
+#15 11.85 ├ ○ /_not-found
+#15 11.85 ├ ○ /api-docs
+#15 11.85 ├ ○ /guest
+#15 11.85 ├ ○ /login
+#15 11.85 ├ ○ /workspace
+#15 11.85 └ ƒ /workspace/[area]
+#15 11.85
+#15 11.85
+#15 11.85 ○  (Static)   prerendered as static content
+#15 11.85 ƒ  (Dynamic)  server-rendered on demand
+#15 11.85
+#15 DONE 11.9s
+
+#16 [runtime 4/6] COPY --from=builder /workspace/apps/web/.next/standalone/ ./
+#16 DONE 0.2s
+
+#17 [runtime 5/6] COPY --from=builder /workspace/apps/web/.next/static/ ./apps/web/.next/static/
+#17 DONE 0.1s
+
+#18 [runtime 6/6] COPY --from=builder /workspace/apps/web/public/ ./apps/web/public/
+#18 DONE 0.1s
+
+#19 exporting to image
+#19 exporting layers
+#19 exporting layers 1.0s done
+#19 exporting manifest sha256:7980be4dcc1fce00a35512fb1f4381c49e5fb3f4eff611c5b6d4bde5b7c411cb 0.0s done
+#19 exporting config sha256:898029ebad6819de68afeb58a49db593aefea0f4f8c60dfe581fe6ae267d31f0 0.0s done
+#19 exporting attestation manifest sha256:f034f8ad30e02f3a417eb9dc9d66324753259432b63ccd4839e6c5ee230575f5 0.0s done
+#19 exporting manifest list sha256:ece39efba01c929fde3b658bcec07f616d3a99bdc9441cff5d9e55770f301230 0.0s done
+#19 naming to docker.io/library/qtruongres-rehearsal-web:local done
+#19 unpacking to docker.io/library/qtruongres-rehearsal-web:local
+#19 unpacking to docker.io/library/qtruongres-rehearsal-web:local 0.4s done
+#19 DONE 1.5s
+
+#20 resolving provenance for metadata file
+#20 DONE 0.0s

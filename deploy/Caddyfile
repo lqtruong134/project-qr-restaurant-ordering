@@ -1,0 +1,55 @@
+{
+	admin off
+	auto_https off
+	persist_config off
+	servers {
+		trusted_proxies static {$QTRUONGRES_CLOUDFLARED_IP:172.30.81.10}
+		trusted_proxies_strict
+		client_ip_headers CF-Connecting-IP
+	}
+}
+
+:8080 {
+	# Cloudflare terminates public HTTPS; only the fixed tunnel peer supplies public traffic.
+	map {remote_host} {qtruongres_scheme} {
+		{$QTRUONGRES_CLOUDFLARED_IP:172.30.81.10} https
+		default http
+	}
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		X-Frame-Options SAMEORIGIN
+		Referrer-Policy same-origin
+	}
+
+	request_body {
+		# Fastify retains its stricter route-specific limits, including image JSON bodies.
+		max_size 4MB
+	}
+
+	handle /__qtruongres/health {
+		respond "ok" 200
+	}
+
+	handle_path /api/* {
+		reverse_proxy api:4000 {
+			# Collapse the explicitly trusted chain into one validated client address.
+			header_up X-Forwarded-For {client_ip}
+			header_up X-Forwarded-Proto {qtruongres_scheme}
+			header_up -Forwarded
+			header_up -X-Real-IP
+			header_up -CF-Connecting-IP
+		}
+	}
+
+	handle {
+		reverse_proxy web:3000 {
+			header_up X-Forwarded-For {client_ip}
+			header_up X-Forwarded-Proto {qtruongres_scheme}
+			header_up -Forwarded
+			header_up -X-Real-IP
+			header_up -CF-Connecting-IP
+		}
+	}
+}

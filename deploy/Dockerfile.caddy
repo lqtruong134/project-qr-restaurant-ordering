@@ -1,0 +1,8 @@
+# The upstream binary has cap_net_bind_service for ports 80/443.
+# qtruongres listens only on 8080, so remove that unnecessary file capability.
+ARG CADDY_BASE_IMAGE=caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+FROM ${CADDY_BASE_IMAGE} AS runtime
+USER 0:0
+RUN setcap -r /usr/bin/caddy
+USER 1000:1000
+EXPOSE 8080

@@ -4,6 +4,12 @@
 
 Bắt đầu học tại [docs/00-bat-dau.md](docs/00-bat-dau.md), hoặc mở [sổ tay HTML](docs/00-BAT-DAU.html). Bộ tài liệu có lộ trình 12 buổi và hướng dẫn nghiệp vụ/mã nguồn; ảnh chụp PostgreSQL ngày 15/10/2026 ghi nhận 67 bảng/786 cột. Kiến trúc AI v2 cập nhật ngày 16/10/2026; generator xác nhận 186 thao tác API. [Hồ sơ xác minh](docs/15-doi-chieu.md) nêu rõ những gì đã kiểm tra.
 
+## Triển khai qtruongres — 17/10/2026
+
+[Hướng dẫn triển khai trên laptop và chuyển sang VPS](docs/26-trien-khai-qtruongres.md) là quy trình chính cho stack Docker riêng gồm web, API, PostgreSQL, Caddy và Cloudflare Named Tunnel tùy chọn. Cấu hình production dùng tệp riêng từ `deploy/.env.example`; giữ `.env` và database phát triển riêng. Không tự seed dữ liệu khi khởi động hoặc nâng cấp.
+
+Hiện mới chuẩn bị và diễn tập cục bộ, **chưa đưa website lên Internet**. Domain, tài khoản Cloudflare, token tunnel và giao dịch payOS thật còn do người vận hành thiết lập/nghiệm thu; AI vẫn OFF. Xem kết quả và giới hạn cụ thể ở [hồ sơ xác minh](docs/15-doi-chieu.md). Các lệnh cài đặt bên dưới dành cho môi trường phát triển; chuyển dữ liệu đang dùng phải theo quy trình sao lưu/khôi phục ở bài 26.
+
 ## Cài từ bản clone mới
 
 Yêu cầu Node.js 24, pnpm 12.3.4 và Docker đang chạy; trên Windows dùng WSL cho các lệnh phát triển/kiểm thử. Trong gốc repository chạy lần lượt:

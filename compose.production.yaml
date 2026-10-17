@@ -1,0 +1,248 @@
+name: qtruongres
+
+x-logging: &bounded-logs
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '3'
+
+x-api-environment: &api-environment
+  NODE_ENV: production
+  DATABASE_URL: ${DATABASE_URL:?Configure the private production DATABASE_URL with host postgres}
+  AUTH_SECRET: ${AUTH_SECRET:?Configure the private production AUTH_SECRET}
+  RESTAURANT_ID: ${RESTAURANT_ID:?Set the restaurant ID matching the restored database}
+  APP_ORIGINS: ${APP_ORIGINS:-${PUBLIC_APP_URL:?Set PUBLIC_APP_URL to the public HTTPS origin}}
+  API_HOST: 0.0.0.0
+  API_PORT: '4000'
+  API_TRUSTED_PROXIES: ${QTRUONGRES_CADDY_IP:-172.30.80.10}
+  MENU_UPLOAD_DIR: /data/menu-images
+  PAYMENT_PROOF_DIR: /data/payment-proofs
+  LOGIN_LIMIT: ${LOGIN_LIMIT:-5}
+  LOGIN_WINDOW_SECONDS: ${LOGIN_WINDOW_SECONDS:-60}
+  PAYOS_ENABLED: ${PAYOS_ENABLED:-false}
+  PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-}
+  PAYOS_API_KEY: ${PAYOS_API_KEY:-}
+  PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-}
+  PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-}
+  PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-}
+  PAYOS_WEBHOOK_URL: ${PAYOS_WEBHOOK_URL:-}
+  MENU_ASSISTANT_MODE: OFF
+
+services:
+  postgres:
+    image: postgres:18.6@sha256:4ef4dbc939d61acea57712655ddb4b4ab27419c913f94cca0cd57cb3ea3c2280
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Configure the private production database user}
+      POSTGRES_DB: ${POSTGRES_DB:?Configure the production database name}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configure the private production database password}
+      TZ: UTC
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    networks: [database]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+    stop_grace_period: 60s
+    shm_size: 256mb
+    mem_limit: 1g
+    cpus: 1.0
+    logging: *bounded-logs
+
+  api:
+    image: ${QTRUONGRES_API_IMAGE:-qtruongres-api:local}
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.api
+      target: runtime
+    environment: *api-environment
+    volumes: [runtime_data:/data]
+    networks: [application, database]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/health/ready',{signal:AbortSignal.timeout(3000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+    cpus: 1.5
+    logging: *bounded-logs
+
+  web:
+    image: ${QTRUONGRES_WEB_IMAGE:-qtruongres-web:local}
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.web
+      target: runtime
+      args:
+        API_BASE_URL: http://api:4000
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: '3000'
+      API_BASE_URL: http://api:4000
+      NEXT_TELEMETRY_DISABLED: '1'
+    networks: [application]
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/',{signal:AbortSignal.timeout(3000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m,mode=1777
+      - /app/apps/web/.next/cache:rw,nosuid,size=128m,uid=10001,gid=10001,mode=0750
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 1g
+    cpus: 1.5
+    logging: *bounded-logs
+
+  caddy:
+    image: ${QTRUONGRES_CADDY_IMAGE:-qtruongres-caddy:local}
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.caddy
+      target: runtime
+      args:
+        CADDY_BASE_IMAGE: ${QTRUONGRES_CADDY_BASE_IMAGE:-caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f}
+    user: '1000:1000'
+    environment:
+      QTRUONGRES_CLOUDFLARED_IP: ${QTRUONGRES_CLOUDFLARED_IP:-172.30.81.10}
+    ports:
+      # The only host listener; no LAN/public binding is added.
+      - '127.0.0.1:${QTRUONGRES_CADDY_PORT:-8088}:8080'
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+    networks:
+      application:
+        ipv4_address: ${QTRUONGRES_CADDY_IP:-172.30.80.10}
+      tunnel:
+    depends_on:
+      web:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8080/__qtruongres/health']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,uid=1000,gid=1000,mode=0750
+      - /data:rw,noexec,nosuid,size=16m,uid=1000,gid=1000,mode=0750
+      - /config:rw,noexec,nosuid,size=16m,uid=1000,gid=1000,mode=0750
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    cpus: 0.5
+    logging: *bounded-logs
+
+  migrate:
+    image: ${QTRUONGRES_MAINTENANCE_IMAGE:-qtruongres-maintenance:local}
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.api
+      target: maintenance
+    profiles: [maintenance]
+    environment: *api-environment
+    command: [node, packages/database/node_modules/prisma/build/index.js, migrate, deploy, --config, packages/database/prisma.config.ts]
+    networks: [database]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 1g
+    cpus: 2.0
+    logging: *bounded-logs
+
+  cloudflared:
+    image: ${QTRUONGRES_CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2026.10.0}
+    profiles: [tunnel]
+    # Match ownership of the private token file; defaults to Ubuntu deployment UID/GID.
+    user: '${QTRUONGRES_TUNNEL_UID:-1000}:${QTRUONGRES_TUNNEL_GID:-1000}'
+    command:
+      - tunnel
+      - --config
+      - /etc/cloudflared/config.yml
+      - --no-autoupdate
+      - --metrics
+      - 0.0.0.0:2000
+      - --loglevel
+      - info
+      - run
+      - --token-file
+      - /run/secrets/cloudflared_token
+    volumes:
+      - ./deploy/cloudflared/config.example.yml:/etc/cloudflared/config.yml:ro
+    secrets: [cloudflared_token]
+    networks:
+      tunnel:
+        ipv4_address: ${QTRUONGRES_CLOUDFLARED_IP:-172.30.81.10}
+    depends_on:
+      caddy:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    cpus: 0.5
+    logging: *bounded-logs
+
+networks:
+  # API can make outbound payOS calls; this bridge publishes no service ports.
+  application:
+    ipam:
+      config:
+        - subnet: ${QTRUONGRES_APP_SUBNET:-172.30.80.0/24}
+  database:
+    internal: true
+  # Only cloudflared and Caddy share ingress and the private connector metrics endpoint.
+  tunnel:
+    ipam:
+      config:
+        - subnet: ${QTRUONGRES_TUNNEL_SUBNET:-172.30.81.0/24}
+
+volumes:
+  postgres_data:
+  runtime_data:
+
+secrets:
+  cloudflared_token:
+    file: ${CLOUDFLARED_TOKEN_FILE:-./var/deploy/cloudflared-token}

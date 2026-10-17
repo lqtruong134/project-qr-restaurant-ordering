@@ -1,0 +1,207 @@
+{
+  "reviewDate": "2026-10-17",
+  "sourceBaseCommit": "8ba8b3aba5dbc8e1fbfb26670f4bbc0ec640df6e",
+  "sourceState": "Deployment validation captured before Git publication; use the containing commit for the exact source revision. Publication does not activate a public website or external services.",
+  "architecture": "Cloudflare remotely managed Named Tunnel -> Caddy -> Next.js / Fastify -> private PostgreSQL",
+  "scope": "Deployment infrastructure only; AI OFF, payOS merchant disabled, no real domain/tunnel/account login.",
+  "checks": {
+    "pnpmCheck": {
+      "passed": true,
+      "unitTests": 213,
+      "unitFiles": 34
+    },
+    "deploymentNodeTests": {
+      "passed": true,
+      "tests": 18
+    },
+    "integration": {
+      "passed": true,
+      "tests": 373,
+      "files": 26
+    },
+    "productionNextBuild": {
+      "passed": true,
+      "routes": 7
+    },
+    "dockerBuilds": {
+      "api": "sha256:e3003e6b447fbf70f5916dd6e810737966710672cdf5ee66cf9388a7b91a3f29",
+      "maintenance": "sha256:cad47411bb62e6c2638701fb4a55bb9f3160e683d222ec2d40189a2854744e28",
+      "web": "sha256:ece39efba01c929fde3b658bcec07f616d3a99bdc9441cff5d9e55770f301230",
+      "caddy": "sha256:4a2258965227efa543c8097e60940ddc9906759fdfb53dc2f6992f7017e3f203"
+    },
+    "explicitMigrationsOnFreshIsolatedDatabase": 36,
+    "composeMaintenanceAndTunnelConfigValid": true,
+    "basicSecretCheckPassed": true
+  },
+  "runtime": {
+    "date": "2026-10-17T03:42:27.970Z",
+    "environment": "isolated Windows Docker Desktop rehearsal; no current database imported",
+    "checks": [
+      {
+        "name": "health through Caddy HTTP (web/API live/API ready + PostgreSQL)",
+        "result": true
+      },
+      {
+        "name": "container restrictions, health and host bindings",
+        "result": [
+          {
+            "service": "postgres",
+            "user": "",
+            "readOnly": false,
+            "ports": {
+              "5432/tcp": null
+            },
+            "health": "healthy",
+            "capDrop": null,
+            "mounts": [
+              {
+                "destination": "/var/lib/postgresql",
+                "type": "volume"
+              }
+            ]
+          },
+          {
+            "service": "api",
+            "user": "10001:10001",
+            "readOnly": true,
+            "ports": {
+              "4000/tcp": null
+            },
+            "health": "healthy",
+            "capDrop": [
+              "ALL"
+            ],
+            "mounts": [
+              {
+                "destination": "/data",
+                "type": "volume"
+              }
+            ]
+          },
+          {
+            "service": "web",
+            "user": "10001:10001",
+            "readOnly": true,
+            "ports": {
+              "3000/tcp": null
+            },
+            "health": "healthy",
+            "capDrop": [
+              "ALL"
+            ],
+            "mounts": []
+          },
+          {
+            "service": "caddy",
+            "user": "1000:1000",
+            "readOnly": true,
+            "ports": {
+              "8080/tcp": [
+                {
+                  "HostIp": "127.0.0.1",
+                  "HostPort": "18088"
+                }
+              ]
+            },
+            "health": "healthy",
+            "capDrop": [
+              "ALL"
+            ],
+            "mounts": [
+              {
+                "destination": "/etc/caddy/Caddyfile",
+                "type": "bind"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "nonroot runtime writes",
+        "result": {
+          "uid": 10001,
+          "gid": 10001
+        }
+      },
+      {
+        "name": "public menu image bytes served; private proof not anonymously exposed",
+        "result": true
+      },
+      {
+        "name": "DB and both upload stores survive container recreation",
+        "result": true
+      },
+      {
+        "name": "actual pg_dump + runtime files backup; previous writers restarted",
+        "result": true
+      },
+      {
+        "name": "restore refuses active app writers",
+        "result": true
+      },
+      {
+        "name": "restore into separate empty project; second restore refuses nonempty database",
+        "result": true
+      },
+      {
+        "name": "restored stack healthy and both file hashes match",
+        "result": true
+      },
+      {
+        "name": "explicit proxy trust rejects spoofed local headers and accepts only fixed tunnel peer",
+        "result": [
+          {
+            "url": "/health/live?probe=untrusted-peer",
+            "remoteAddress": "172.30.90.1"
+          },
+          {
+            "url": "/health/live?probe=trusted-tunnel-peer",
+            "remoteAddress": "198.51.100.7"
+          }
+        ]
+      },
+      {
+        "name": "database outage: API live 200, ready 503",
+        "result": true
+      },
+      {
+        "name": "database restart recovers readiness",
+        "result": true
+      },
+      {
+        "name": "both isolated rehearsal projects stopped; named volumes retained",
+        "result": true
+      }
+    ]
+  },
+  "preservation": {
+    "developmentEnvUnchanged": true,
+    "developmentComposeUnchanged": true,
+    "schemaMigrationsAndAiUnchanged": true,
+    "stagedFiles": []
+  },
+  "correctedRuntimeIssues": [
+    "pnpm deploy hardlinked generated Prisma files: copy generated files directly across Docker stages",
+    "maintenance pnpm under production attempted to modify installed dependencies: call Prisma CLI with Node directly",
+    "upstream Caddy file capability prevented execution with ALL capabilities dropped: remove unused capability in pinned custom image",
+    "Windows Docker Compose plugin discovery requires standard ProgramFiles environment roots",
+    "restore archive scratch must use private persistent data root instead of 64MiB tmpfs"
+  ],
+  "notVerified": [
+    "Ubuntu WSL Docker socket integration remains an operator prerequisite; actual rehearsal ran from a separate Windows checkout",
+    "No import/restore of current business database or private real payment proofs",
+    "No public DNS/TLS or real Cloudflare connector",
+    "No phone 4G/5G or HTTPS login journey",
+    "No real payOS credential/webhook registration or financial transaction",
+    "No automatic update git pull against a production branch or failover",
+    "No Ollama/model/GPU/AI UI"
+  ],
+  "limitations": [
+    "A backup excludes infrastructure .env/token/key files but still contains sensitive database records, password/token hashes and private proofs; keep confidential",
+    "Database and file restore do not share a transaction; partial failure requires inspection and fresh empty recovery volumes",
+    "Preserve original AUTH_SECRET separately to decrypt existing QR codes",
+    "Laptop sleep/offline or Docker down stops service",
+    "Health verifies database connectivity and routing, not business data/schema/bootstrap correctness",
+    "No cross-process maintenance lock: operator must serialize backup/restore/migrate/update/start/stop for one project"
+  ]
+}

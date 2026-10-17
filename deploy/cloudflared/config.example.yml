@@ -1,0 +1,13 @@
+# Connector-only configuration for a REMOTELY MANAGED Cloudflare Named Tunnel.
+# The optional Compose "tunnel" profile mounts this file; no UUID or token belongs here.
+# The private token is supplied using --token-file /run/secrets/cloudflared_token.
+# Configure the published application route in the Cloudflare dashboard:
+#   public hostname: qtruongres.<your-domain>
+#   service type: HTTP
+#   service URL: http://caddy:8080
+# Do not use localhost:8088 from inside this cloudflared container.
+# Keep unmatched hostnames rejected; do not publish other services.
+# Enable public HTTPS redirects before browser sign-in or payOS webhook registration.
+no-autoupdate: true
+loglevel: info
+metrics: 0.0.0.0:2000

@@ -1,0 +1,56 @@
+# syntax=docker/dockerfile:1
+ARG NODE_VERSION=24.21.0
+
+FROM node:${NODE_VERSION}-bookworm-slim AS toolchain
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y ca-certificates openssl \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install --global pnpm@12.3.4
+WORKDIR /workspace
+ENV NEXT_TELEMETRY_DISABLED=1
+
+FROM toolchain AS source
+COPY . .
+RUN pnpm install --frozen-lockfile
+# Prisma generate reads config but does not connect to this placeholder database.
+RUN DATABASE_URL=postgresql://localhost/build pnpm --filter @thesis/database exec prisma generate
+
+# Explicit administrative image. Compose supplies migrate deploy when requested;
+# normal application startup never migrates or seeds the database.
+FROM source AS maintenance
+RUN groupadd --gid 10001 app \
+    && useradd --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin app
+ENV NODE_ENV=production
+USER 10001:10001
+CMD ["node", "--version"]
+
+FROM source AS production-dependencies
+RUN pnpm --filter @thesis/api deploy --prod --legacy --frozen-lockfile /opt/api
+FROM node:${NODE_VERSION}-bookworm-slim AS runtime
+ENV NODE_ENV=production \
+    API_HOST=0.0.0.0 \
+    API_PORT=4000 \
+    MENU_UPLOAD_DIR=/data/menu-images \
+    PAYMENT_PROOF_DIR=/data/payment-proofs \
+    TSX_DISABLE_CACHE=1 \
+    TSX_TSCONFIG_PATH=/app/tsconfig.runtime.json
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y ca-certificates openssl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 app \
+    && useradd --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin app \
+    && mkdir -p /data/menu-images /data/payment-proofs \
+    && chown -R 10001:10001 /data
+WORKDIR /app
+COPY --from=production-dependencies /opt/api/ ./
+# Copy between stages: deploy may already hardlink these files when .git is absent.
+# Explicit copies also cover a Git checkout where generated files are excluded from packing.
+COPY --from=source /workspace/packages/database/generated/ ./node_modules/@thesis/database/generated/
+COPY --from=source /workspace/packages/database/resources/ ./node_modules/@thesis/database/resources/
+COPY --from=source /workspace/packages/config/tsconfig.base.json ./tsconfig.runtime.json
+COPY --from=source /workspace/deploy/runtime-files.mjs ./deploy/runtime-files.mjs
+USER 10001:10001
+EXPOSE 4000
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["node", "--input-type=module", "-e", "const r=await fetch('http://127.0.0.1:4000/health/ready',{signal:AbortSignal.timeout(4000)});if(!r.ok)process.exit(1)"]
+CMD ["node", "--import", "tsx", "src/server.ts"]

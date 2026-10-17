@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "start": "node --import tsx src/server.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -13,6 +14,7 @@
     "@thesis/contracts": "workspace:*",
     "@thesis/database": "workspace:*",
     "fastify": "5.12.5",
-    "jose": "^6.1.0"
+    "jose": "^6.1.0",
+    "tsx": "^4.20.0"
   }
 }
