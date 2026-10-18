@@ -382,3 +382,73 @@ test('Docker Desktop plugin discovery keeps standard Windows installation roots 
   assert.equal(child.COMPOSE_FILE, undefined);
   assert.equal(child.DATABASE_URL, env().DATABASE_URL);
 });
+
+test('production dependency steps share a persistent store and bounded network policy without weakening install security', async () => {
+  const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const expectedMount = 'type=cache,id=qtruongres-pnpm-v12,target=/pnpm/store,sharing=locked';
+  const mounts = [];
+  for (const [kind, expectedSteps] of [
+    ['api', 2],
+    ['web', 1],
+  ]) {
+    const source = await readFile(
+      new URL('../deploy/docker/Dockerfile.' + kind, import.meta.url),
+      'utf8',
+    );
+    const instructions = source.replace(/\\\r?\n\s*/g, ' ').split('\n');
+    const steps = instructions.filter(
+      (line) => /^RUN /.test(line) && /pnpm .*\b(install|deploy)\b/.test(line),
+    );
+    assert.equal(
+      steps.length,
+      expectedSteps,
+      kind + ' must include install and any deploy download',
+    );
+    assert.ok(
+      source.includes('pnpm@' + manifest.packageManager.split('@')[1]),
+      kind + ' keeps the project package manager pin',
+    );
+    assert.ok(
+      source.includes(' AS dependencies'),
+      kind + ' supports a dependency-only validation target',
+    );
+    for (const step of steps) {
+      assert.ok(
+        step.includes('--mount=' + expectedMount),
+        kind + ' shares the trusted builder cache',
+      );
+      assert.ok(
+        step.includes('--store-dir=/pnpm/store'),
+        kind + ' actually uses the mounted store',
+      );
+      assert.ok(step.includes('--frozen-lockfile'), kind + ' never rewrites the lockfile');
+      assert.ok(
+        step.includes('pnpm_config_package_import_method=copy'),
+        kind + ' materializes dependencies outside the cache',
+      );
+      const setting = (name) =>
+        Number(step.match(new RegExp('pnpm_config_' + name + '=(\\d+)'))?.[1]);
+      assert.ok(setting('network_concurrency') >= 1 && setting('network_concurrency') <= 4);
+      assert.ok(setting('fetch_timeout') >= 180000 && setting('fetch_timeout') <= 300000);
+      assert.ok(setting('fetch_retries') >= 2 && setting('fetch_retries') <= 4);
+      assert.ok(setting('fetch_retry_factor') >= 1 && setting('fetch_retry_factor') <= 2);
+      assert.ok(setting('fetch_retry_mintimeout') >= 1000);
+      assert.ok(setting('fetch_retry_maxtimeout') >= setting('fetch_retry_mintimeout'));
+      assert.ok(setting('fetch_retry_maxtimeout') <= 60000);
+      assert.doesNotMatch(
+        step,
+        /--(no-frozen-lockfile|ignore-scripts|ignore-manifest-check|offline)(?:\s|$)/,
+      );
+      assert.doesNotMatch(
+        step,
+        /(?:strict_ssl|verify_store_integrity|strict_store_pkg_content_check)=false/,
+      );
+      mounts.push(expectedMount);
+    }
+    assert.doesNotMatch(
+      source,
+      /NODE_TLS_REJECT_UNAUTHORIZED|dangerouslyAllowAllBuilds|strict-ssl=false/,
+    );
+  }
+  assert.equal(mounts.length, 3);
+});

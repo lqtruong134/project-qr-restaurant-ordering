@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 ARG NODE_VERSION=24.21.0
 
-FROM node:${NODE_VERSION}-bookworm-slim AS builder
+FROM node:${NODE_VERSION}-bookworm-slim AS dependencies
 RUN apt-get update \
     && apt-get install --no-install-recommends -y ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
@@ -11,7 +11,18 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     API_BASE_URL=http://api:4000 \
     NODE_OPTIONS=--max-old-space-size=3072
 COPY . .
-RUN pnpm install --frozen-lockfile
+# Keep completed downloads across failed/repeated builds. Copy packages out of the
+# mounted store so later stages never depend on the cache remaining mounted.
+RUN --mount=type=cache,id=qtruongres-pnpm-v12,target=/pnpm/store,sharing=locked \
+    pnpm_config_network_concurrency=4 \
+    pnpm_config_fetch_timeout=300000 \
+    pnpm_config_fetch_retries=3 \
+    pnpm_config_fetch_retry_factor=2 \
+    pnpm_config_fetch_retry_mintimeout=10000 \
+    pnpm_config_fetch_retry_maxtimeout=60000 \
+    pnpm_config_package_import_method=copy \
+    pnpm install --store-dir=/pnpm/store --frozen-lockfile
+FROM dependencies AS builder
 # Includes prepare-docs: Swagger assets are built from tracked documentation.
 RUN pnpm --filter @thesis/web build
 

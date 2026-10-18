@@ -9,9 +9,20 @@ RUN apt-get update \
 WORKDIR /workspace
 ENV NEXT_TELEMETRY_DISABLED=1
 
-FROM toolchain AS source
+FROM toolchain AS dependencies
 COPY . .
-RUN pnpm install --frozen-lockfile
+# Keep completed downloads across failed/repeated builds. Copy packages out of the
+# mounted store so later stages never depend on the cache remaining mounted.
+RUN --mount=type=cache,id=qtruongres-pnpm-v12,target=/pnpm/store,sharing=locked \
+    pnpm_config_network_concurrency=4 \
+    pnpm_config_fetch_timeout=300000 \
+    pnpm_config_fetch_retries=3 \
+    pnpm_config_fetch_retry_factor=2 \
+    pnpm_config_fetch_retry_mintimeout=10000 \
+    pnpm_config_fetch_retry_maxtimeout=60000 \
+    pnpm_config_package_import_method=copy \
+    pnpm install --store-dir=/pnpm/store --frozen-lockfile
+FROM dependencies AS source
 # Prisma generate reads config but does not connect to this placeholder database.
 RUN DATABASE_URL=postgresql://localhost/build pnpm --filter @thesis/database exec prisma generate
 
@@ -25,7 +36,16 @@ USER 10001:10001
 CMD ["node", "--version"]
 
 FROM source AS production-dependencies
-RUN pnpm --filter @thesis/api deploy --prod --legacy --frozen-lockfile /opt/api
+# deploy can fetch on a cache miss too; use the same store and bounded network policy.
+RUN --mount=type=cache,id=qtruongres-pnpm-v12,target=/pnpm/store,sharing=locked \
+    pnpm_config_network_concurrency=4 \
+    pnpm_config_fetch_timeout=300000 \
+    pnpm_config_fetch_retries=3 \
+    pnpm_config_fetch_retry_factor=2 \
+    pnpm_config_fetch_retry_mintimeout=10000 \
+    pnpm_config_fetch_retry_maxtimeout=60000 \
+    pnpm_config_package_import_method=copy \
+    pnpm --filter @thesis/api deploy --store-dir=/pnpm/store --prod --legacy --frozen-lockfile /opt/api
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
 ENV NODE_ENV=production \
     API_HOST=0.0.0.0 \
