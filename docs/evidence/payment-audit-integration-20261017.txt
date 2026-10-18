@@ -1,0 +1,106 @@
+$ node scripts/run.mjs integration
+
+ RUN  v4.1.11 /home/quyettruong05/projects/qr-ordering-thesis
+
+(node:424743) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ ✓ tests/payment-collection.integration.test.ts (33 tests) 17545ms
+   ✓ guest calls staff once with preferred method and reserves no money, including concurrent retries  448ms
+   ✓ own-dish collection allocates only to that guest, even when another guest ordered first  453ms
+   ✓ participant from another table and over-collection cannot reserve or pay  308ms
+   ✓ bank payment accepts a private screenshot in place of typed reference; image alone is not payment  316ms
+   ✓ full payment completes all typed cash calls; partial payment leaves other guests waiting  336ms
+   ✓ handoff transfers payment confirmation, proof upload and cancellation rights only after acceptance  390ms
+   ✓ settling the table ends other payment calls, keeps unrelated support open and records money once  325ms
+   ✓ a legacy bill call without a preferred method follows the same acceptance and collection ownership rules  341ms
+   ✓ paid before kitchen acceptance shows exact blockers and closing creates shared cleaning work for both employees  517ms
+   ✓ admin approves the refund document before staff execute it; guest sees safe partial/full history and alerts clear only after return  605ms
+   ✓ requires explicit admin approval for old refund documents and deduplicates concurrent approvals  346ms
+   ✓ rechecks the whole session balance before approving an old document, including a second guest order  659ms
+   ✓ requires actual change handover, safely deduplicates concurrent confirmations, and invalidates a receipt after new items  592ms
+   ✓ 'fully prepaid': a pre-preparation stop preserves history and refunds only the actual overpayment  551ms
+   ✓ 'partly prepaid': a pre-preparation stop preserves history and refunds only the actual overpayment  569ms
+   ✓ 'still owes for the remaining dish': a pre-preparation stop preserves history and refunds only the actual overpayment  452ms
+   ✓ multi-item documents keep shared actual refund totals without inventing per-item money allocations  354ms
+   ✓ keeps two cash tenders, actual change, invoice credits and refunds distinct across guest, admin and frozen receipts  459ms
+   ✓ closed sessions reject cancellation and waiver without changing the final receipt or ledger  312ms
+   ✓ refund documents use the remaining invoice payment, not cash tender, and can split across two original payments  569ms
+ ✓ tests/restaurant-workforce-history.integration.test.ts (6 tests) 19768ms
+   ✓ bootstrap retains personal hierarchy and policy premiums instead of a flat night-shift rate  410ms
+   ✓ previews using database guards, rolls back everything, and truncates operational work at the supplied clock  329ms
+   ✓ calculates historical attendance with holiday and night premiums, retains exceptions, and agrees with staff actions  7772ms
+ ✓ tests/restaurant-history.integration.test.ts (10 tests) 15159ms
+   ✓ plans the complete operating period with several thousand sessions and diverse menu items  3362ms
+   ✓ imports settled sessions with frozen combo contents, approved refunds, cash change and balanced inventory  7849ms
+ ✓ tests/core45.integration.test.ts (22 tests) 13177ms
+   ✓ generates unique internal receipt codes concurrently across restaurants and posts each receipt once  328ms
+   ✓ searches old history before pagination, validates periods and enforces role and personal scope  1287ms
+   ✓ executes a reviewed guest order, stock consumption, split payment, snapshot and close without duplicates  737ms
+   ✓ cancels a paid unprepared order and refunds once with a reconciled zero balance  320ms
+   ✓ can reserve one serving of every canonical dish in valid batches and release exactly once  2545ms
+   ✓ UAT v2: item ownership, partial cancellation, individual acceptance and atomic same-session serving  541ms
+   ✓ UAT v2: unmanaged menu, late cancellation retains stock and money, explicit waiver and partial refund  473ms
+ ✓ tests/payos.integration.test.ts (35 tests) 11150ms
+   ✓ duplicate/retry/concurrent valid webhooks record each bank reference once  350ms
+   ✓ closed receipt stays frozen and extra late money is quarantined outside the settled ledger  310ms
+   ✓ waiving an unpaid dish cannot close the zero bill while the bank QR cancellation is unknown  616ms
+   ✓ guest online snapshots are table/participant scoped, private, and follow partial then paid ledger state  760ms
+   ✓ a paid linked scope resolves only its support request and preserves collector recovery ownership  825ms
+   ✓ a fully paid table resolves the linked online request and cancels other obsolete payment requests  519ms
+ ✓ tests/combo.integration.test.ts (19 tests) 11082ms
+   ✓ adds poster dishes across categories and units with audited opening stock only for new ingredients, preserving legacy records  888ms
+   ✓ upgrades only the exact earlier set template, preserves already ordered four-part snapshots and money, and reruns without changes  617ms
+   ✓ skips a customized earlier set when its name, description, price, photo, selling state or component portions differ  1515ms
+   ✓ seeds real fixed contents, lower bundle prices and aggregated recipes; reruns preserve custom prices and stock  851ms
+   ✓ adds only missing dishes and combos while preserving current users, prices, recipes, stock and movements  359ms
+   ✓ keeps the configured selling state separate from stock availability when admin changes images  369ms
+   ✓ rejects an order during a concurrent component disable without creating charges or reservations  311ms
+   ✓ publishes a new aggregated recipe after a component change while ordered contents and ingredient snapshots stay unchanged  367ms
+   ✓ shows fixed contents in a guest cart and rejects sending a silently changed combo at the same price  513ms
+   ✓ refunds the whole prepaid combo only after admin approval and lets staff complete the approved payment  530ms
+ ✓ tests/support.integration.test.ts (29 tests) 9992ms
+ ✓ tests/policy.integration.test.ts (17 tests) 10590ms
+   ✓ stores server acceptance time and immutable version without demanding acceptance on active state/profile access  316ms
+   ✓ keeps leave behavior: deletes only unsent own cart, retains orders, acceptance and debt, clears cookie  451ms
+   ✓ guest cancels only own submitted items, and staff cancels accepted items with release, reversal and audit  464ms
+   ✓ kitchen out-of-stock is allowed before preparation only and does not consume stock or charge twice  304ms
+   ✓ restaurant fault at IN_PREPARATION retains stock/COGS, needs admin and reverses paid money once in one decision  576ms
+   ✓ restaurant fault at READY retains stock/COGS, needs admin and reverses paid money once in one decision  571ms
+   ✓ admin creates and approves refund documents while only staff executes the actual return  303ms
+ ✓ tests/sprint1.integration.test.ts (17 tests) 6502ms
+   ✓ migrates the complete business schema and seed twice preserves counts and passwords  750ms
+   ✓ repeated seed preserves changed stock, table state, prices and disabled employees  744ms
+ ✓ tests/promotion-vat.integration.test.ts (22 tests) 7061ms
+   ✓ extracts VAT after reduction; cash received, change and net payable remain distinct  334ms
+   ✓ distributes the bill discount into participant dues and rejects another participant overpayment  539ms
+ ✓ tests/table-transfer.integration.test.ts (10 tests) 6274ms
+   ✓ preserves session, participants, unsent cart, orders, account, payments and support; freezes the final destination on receipt  630ms
+ ✓ tests/review.integration.test.ts (14 tests) 6967ms
+   ✓ keeps edited master data when bootstrap seed is repeated  635ms
+(node:426294) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ ✓ tests/admin-overview.integration.test.ts (10 tests) 5409ms
+ ✓ tests/workforce-pay.integration.test.ts (18 tests) 4747ms
+ ✓ tests/payos-protocol.integration.test.ts (34 tests) 5478ms
+     ✓ partial transfers reserve only their remainder, deduplicate replay and refund each real source after a discount  440ms
+ ✓ tests/table-access.integration.test.ts (10 tests) 5491ms
+ ✓ tests/order-history.integration.test.ts (2 tests) 5107ms
+   ✓ cancelled lookup retains the session, decision actor and actual partial/full refunds after closing  383ms
+ ✓ tests/workforce.integration.test.ts (21 tests) 5107ms
+   ✓ reverses an unavailable paid dish and freezes a printable final receipt after refund and close  445ms
+ ✓ tests/catalog-refresh.integration.test.ts (5 tests) 4411ms
+   ✓ legacy category IDs retain positions 0–6 and a second seed preserves IDs, assignments and operational data  512ms
+   ✓ preview is read-only; applying presentation refresh preserves custom prices, uploads, renamed dishes and all operational data  368ms
+ ✓ tests/pricing-finance-regression.integration.test.ts (4 tests) 4301ms
+   ✓ reconciles two 100k cash tenders, discounted payments, kitchen cancellation and staff refunds through actual APIs  727ms
+ ✓ tests/workforce-demo.integration.test.ts (4 tests) 3835ms
+ ✓ tests/menu-promotions.integration.test.ts (4 tests) 3705ms
+ ✓ tests/assistant-read-surface.integration.test.ts (12 tests) 2934ms
+ ✓ tests/menu-assistant.integration.test.ts (29 tests) 2944ms
+ ✓ tests/restaurant-data-refresh.integration.test.ts (2 tests) 4ms
+ ✓ tests/database.integration.test.ts (1 test) 99ms
+
+ Test Files  26 passed (26)
+      Tests  390 passed (390)
+   Start at  22:34:34
+   Duration  98.65s (transform 1.32s, setup 0ms, import 5.88s, tests 188.84s, environment 2ms)

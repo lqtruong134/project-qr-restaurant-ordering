@@ -1,4 +1,6 @@
 import type { Database } from '@thesis/database';
+import type { FastifyBaseLogger } from 'fastify';
+import { payosErrorCategory, recipientMatches, sameRecipient } from './payos-normalization.js';
 import type { OnlinePaymentView } from '@thesis/contracts';
 import type {
   CreatePaymentLinkRequest,
@@ -145,6 +147,20 @@ export class PayosService {
   readonly config;
   readonly capabilities;
   readonly provider: PayosProvider | undefined;
+  private logger?: Pick<FastifyBaseLogger, 'info' | 'warn'>;
+  setLogger(logger: Pick<FastifyBaseLogger, 'info' | 'warn'>) {
+    this.logger = logger;
+  }
+  private observe(
+    stage: string,
+    fields: Record<string, string | number | boolean | null | undefined> = {},
+    warning = false,
+  ) {
+    this.logger?.[warning ? 'warn' : 'info'](
+      { provider: 'PAYOS', stage, ...fields },
+      'Online payment processing',
+    );
+  }
   constructor(
     readonly db: Database,
     readonly restaurant: string,
@@ -220,13 +236,29 @@ export class PayosService {
     this.requireProvider();
     await transaction(this.db, async (c) => {
       const ref = await one(c, 'SELECT session_id FROM payment_intent WHERE id=$1', [id]);
-      await session(c, ref.session_id, this.restaurant);
+      await session(c, ref.session_id, this.restaurant, false);
       const pi = await one(c, "SELECT * FROM payment_intent WHERE id=$1 AND provider='PAYOS'", [
         id,
       ]);
-      await requireCollectionOwner(c, pi.session_id, pi.support_request_id, actor);
+      if (pi.support_request_id) {
+        const request = await one(
+          c,
+          "SELECT status,acknowledged_by FROM support_request WHERE id=$1 AND session_id=$2 AND request_type='BILL' FOR UPDATE",
+          [pi.support_request_id, pi.session_id],
+        );
+        if (!['NEW', 'ACKNOWLEDGED'].includes(request.status)) {
+          // Automatic payment completion must not invalidate its collector's read-only recovery.
+          if (request.acknowledged_by !== actor)
+            reject('Yêu cầu thu tiền thuộc nhân viên khác.', 403);
+        } else await requireCollectionOwner(c, pi.session_id, pi.support_request_id, actor);
+      } else await requireCollectionOwner(c, pi.session_id, null, actor);
     });
-    await this.process(id, true);
+    const result = await this.process(id, true, false);
+    if (result === 'BUSY')
+      reject('payOS đang được đối chiếu. Dữ liệu sẽ tự cập nhật; vui lòng thử lại sau ít giây.');
+    if (result === 'FAILED') reject(safeError, 503);
+    if (result === 'WAITING')
+      reject('payOS đang cập nhật giao dịch. Hệ thống sẽ tự kiểm tra lại.', 503);
     return this.view(id);
   }
   async cancel(id: string, actor: string) {
@@ -273,17 +305,23 @@ export class PayosService {
       );
       if (q.lease_until && new Date(q.lease_until).getTime() > Date.now()) return null;
       if (!force && new Date(q.next_poll_at).getTime() > Date.now()) return null;
-      await c.query(
-        "UPDATE payos_payment_request SET lease_until=now()+interval '60 seconds',next_poll_at=now()+interval '30 seconds' WHERE id=$1",
+      const lease = await one(
+        c,
+        "UPDATE payos_payment_request SET lease_until=now()+interval '60 seconds',next_poll_at=now()+interval '30 seconds' WHERE id=$1 RETURNING lease_until::text AS lease_token",
         [q.id],
       );
-      return q;
+      return { ...q, lease_token: lease.lease_token };
     });
   }
-  async process(id: string, force: boolean) {
+  async process(id: string, force: boolean, allowCreate = true) {
+    const started = Date.now();
     const provider = this.requireProvider(),
       q = await this.claim(id, force);
-    if (!q) return;
+    if (!q) {
+      this.observe(force ? 'REFRESH_BUSY' : 'POLL_SKIPPED', { paymentIntentId: id });
+      return force ? 'BUSY' : 'SKIPPED';
+    }
+    this.observe('PROVIDER_CHECK', { paymentIntentId: id, orderCode: String(q.order_code) });
     try {
       let link: PaymentLink | undefined, created: CreatePaymentLinkResponse | undefined;
       if (!q.payment_link_id) {
@@ -293,6 +331,7 @@ export class PayosService {
           if (!provider.isNotFound(error)) throw error;
         }
         if (
+          allowCreate &&
           !link &&
           !q.cancel_requested &&
           ['CREATED', 'PENDING'].includes(q.intent_status) &&
@@ -336,17 +375,43 @@ export class PayosService {
           });
           link = await provider.get(Number(q.order_code));
         }
+        if (
+          !link &&
+          !allowCreate &&
+          !q.cancel_requested &&
+          new Date(q.expires_at).getTime() > Date.now()
+        )
+          throw Error('PAYOS_LINK_NOT_READY');
         if (!link) {
           // A confirmed missing provider order is safe to release; an unknown network outcome is not.
           await transaction(this.db, async (c) => {
             await session(c, q.session_id, this.restaurant, false);
+            const latest = await one(
+              c,
+              `SELECT q.*,q.lease_until::text AS lease_token,p.status AS intent_status
+               FROM payos_payment_request q JOIN payment_intent p ON p.id=q.payment_intent_id
+               WHERE q.id=$1 FOR UPDATE OF q`,
+              [q.id],
+            );
+            // The GET can have raced a verified webhook. An old not-found answer
+            // must never release money or overwrite a newly attached/paid link.
+            if (
+              latest.lease_token !== q.lease_token ||
+              latest.payment_link_id ||
+              BigInt(latest.paid_amount) > 0n ||
+              latest.intent_status === 'SUCCEEDED' ||
+              terminal.includes(latest.provider_status) ||
+              latest.reconciliation_status === 'OPEN'
+            )
+              return;
+            const status = latest.cancel_requested ? 'CANCELLED' : 'EXPIRED';
             await c.query(
-              'UPDATE payos_payment_request SET status=$2,provider_status=$2,lease_until=NULL,last_error=NULL WHERE id=$1',
-              [q.id, q.cancel_requested ? 'CANCELLED' : 'EXPIRED'],
+              'UPDATE payos_payment_request SET status=$2,provider_status=$2,last_error=NULL WHERE id=$1',
+              [q.id, status],
             );
             await c.query(
               "UPDATE payment_intent SET status=$2,version=version+1 WHERE id=$1 AND status<>'SUCCEEDED'",
-              [id, q.cancel_requested ? 'CANCELLED' : 'EXPIRED'],
+              [id, status],
             );
             await c.query(
               "UPDATE session_promotion SET expires_at=now() WHERE session_id=$1 AND status='RESERVED'",
@@ -354,7 +419,7 @@ export class PayosService {
             );
             await recalculate(c, q.session_id);
           });
-          return;
+          return 'UPDATED';
         }
       } else link = await provider.get(Number(q.order_code));
       const current = (
@@ -372,16 +437,41 @@ export class PayosService {
           Number(q.order_code),
           'Khoản thu đã hủy hoặc hết hạn tại nhà hàng',
         );
-      await this.applyLink(id, link);
-    } catch {
+      const applied = await this.applyLink(id, link);
+      this.observe('PROVIDER_CHECKED', {
+        paymentIntentId: id,
+        orderCode: String(q.order_code),
+        result: applied.status,
+        latencyMs: Date.now() - started,
+      });
+      return applied.status === 'AWAITING_PROVIDER' ? 'WAITING' : 'UPDATED';
+    } catch (error) {
+      this.observe(
+        'PROVIDER_ERROR',
+        {
+          paymentIntentId: id,
+          orderCode: String(q.order_code),
+          category: payosErrorCategory(error),
+          latencyMs: Date.now() - started,
+        },
+        true,
+      );
       await transaction(this.db, async (c) => {
         await session(c, q.session_id, this.restaurant, false);
         await c.query(
-          `UPDATE payos_payment_request SET status=CASE WHEN reconciliation_status='OPEN' THEN 'REQUIRES_RECONCILIATION' WHEN provider_status IN ('PAID','CANCELLED','EXPIRED','FAILED') THEN status WHEN cancel_requested THEN 'CANCEL_PENDING' ELSE 'ERROR' END,last_error=CASE WHEN provider_status IN ('PAID','CANCELLED','EXPIRED','FAILED') THEN last_error ELSE $2 END,lease_until=NULL,next_poll_at=now()+interval '30 seconds' WHERE id=$1`,
-          [q.id, safeError],
+          `UPDATE payos_payment_request SET status=CASE WHEN reconciliation_status='OPEN' THEN 'REQUIRES_RECONCILIATION' WHEN provider_status IN ('PAID','CANCELLED','EXPIRED','FAILED') THEN status WHEN cancel_requested THEN 'CANCEL_PENDING' ELSE 'ERROR' END,last_error=CASE WHEN provider_status IN ('PAID','CANCELLED','EXPIRED','FAILED') THEN last_error ELSE $2 END,next_poll_at=now()+interval '30 seconds' WHERE id=$1 AND lease_until=$3::timestamptz`,
+          [q.id, safeError, q.lease_token],
         );
         await recalculate(c, q.session_id);
       });
+      return 'FAILED';
+    } finally {
+      // A webhook never releases a worker's lease. Only the exact claim that
+      // obtained it can release it, including stale/mismatched snapshot paths.
+      await this.db.pool.query(
+        'UPDATE payos_payment_request SET lease_until=NULL WHERE id=$1 AND lease_until=$2::timestamptz',
+        [q.id, q.lease_token],
+      );
     }
   }
   async applyLink(id: string, link: PaymentLink, webhook?: WebhookData, webhookEventId?: string) {
@@ -412,7 +502,8 @@ export class PayosService {
         (BigInt(link.amount) > actual ? BigInt(link.amount) - actual : 0n)
     )
       reject('Số tiền payOS chưa đối chiếu được.', 400);
-    return transaction(this.db, async (c) => {
+    let recordedCount = 0;
+    const result = await transaction(this.db, async (c) => {
       const ref = await one(c, 'SELECT session_id FROM payment_intent WHERE id=$1', [id]);
       const s = await session(c, ref.session_id, this.restaurant, false);
       const pi = await one(c, 'SELECT * FROM payment_intent WHERE id=$1 FOR UPDATE', [id]);
@@ -421,6 +512,46 @@ export class PayosService {
         'SELECT * FROM payos_payment_request WHERE payment_intent_id=$1 FOR UPDATE',
         [id],
       );
+      if (
+        Number(q.order_code) !== link.orderCode ||
+        BigInt(pi.amount) !== BigInt(link.amount) ||
+        (q.payment_link_id && q.payment_link_id !== link.id)
+      ) {
+        await reconciliation(
+          c,
+          this.restaurant,
+          pi,
+          q,
+          'Thông tin link payOS không khớp khoản thu.',
+        );
+        return { status: 'REQUIRES_RECONCILIATION' };
+      }
+      const webhookBank = webhook
+        ? link.transactions.find((bank) => bank.reference === webhook.reference)
+        : undefined;
+      if (
+        webhook &&
+        (webhook.paymentLinkId !== link.id ||
+          webhook.orderCode !== link.orderCode ||
+          webhook.currency !== 'VND' ||
+          (webhookBank &&
+            (webhookBank.amount !== webhook.amount || !sameRecipient(webhookBank, webhook))))
+      ) {
+        await reconciliation(
+          c,
+          this.restaurant,
+          pi,
+          q,
+          'Thông báo payOS chưa khớp giao dịch ngân hàng.',
+        );
+        return { status: 'REQUIRES_RECONCILIATION' };
+      }
+      if (webhook && !webhookBank) {
+        // A verified webhook can precede the provider's GET snapshot. Keep it
+        // retryable and schedule a read, rather than poisoning the intent forever.
+        await c.query('UPDATE payos_payment_request SET next_poll_at=now() WHERE id=$1', [q.id]);
+        return { status: 'AWAITING_PROVIDER' };
+      }
       if (BigInt(q.paid_amount) > actual) return { status: 'STALE_IGNORED' };
       const prior = (
         await c.query(
@@ -450,52 +581,14 @@ export class PayosService {
         return { status: 'REQUIRES_RECONCILIATION' };
       }
       if (
-        terminal.includes(q.provider_status) &&
-        !terminal.includes(link.status) &&
+        ((terminal.includes(q.provider_status) && !terminal.includes(link.status)) ||
+          (q.provider_status === 'PAID' && pi.status === 'SUCCEEDED' && link.status !== 'PAID')) &&
         BigInt(q.paid_amount) === actual
       )
         return { status: 'STALE_IGNORED' };
       if (
-        Number(q.order_code) !== link.orderCode ||
-        BigInt(pi.amount) !== BigInt(link.amount) ||
-        (q.payment_link_id && q.payment_link_id !== link.id)
-      ) {
-        await reconciliation(
-          c,
-          this.restaurant,
-          pi,
-          q,
-          'Thông tin link payOS không khớp khoản thu.',
-        );
-        return { status: 'REQUIRES_RECONCILIATION' };
-      }
-      if (
-        webhook &&
-        (webhook.paymentLinkId !== link.id ||
-          webhook.orderCode !== link.orderCode ||
-          webhook.currency !== 'VND' ||
-          !link.transactions.some(
-            (t) =>
-              t.reference === webhook.reference &&
-              t.amount === webhook.amount &&
-              t.accountNumber === webhook.accountNumber,
-          ))
-      ) {
-        await reconciliation(
-          c,
-          this.restaurant,
-          pi,
-          q,
-          'Thông báo payOS chưa khớp giao dịch ngân hàng.',
-        );
-        return { status: 'REQUIRES_RECONCILIATION' };
-      }
-      if (
         q.account_number &&
-        link.transactions.some(
-          (t) =>
-            t.accountNumber !== q.account_number && t.virtualAccountNumber !== q.account_number,
-        )
+        link.transactions.some((bank) => !recipientMatches(q.account_number, bank))
       ) {
         await reconciliation(
           c,
@@ -506,19 +599,42 @@ export class PayosService {
         );
         return { status: 'REQUIRES_RECONCILIATION' };
       }
+      if (link.status === 'PAID' && actual === 0n) {
+        // A status label alone cannot settle a bill. Wait for signed bank facts
+        // without releasing the reservation or claiming that money was received.
+        await c.query(
+          `UPDATE payos_payment_request SET status=CASE WHEN reconciliation_status='OPEN'
+            THEN 'REQUIRES_RECONCILIATION' ELSE 'PROCESSING' END,
+            next_poll_at=now()+interval '5 seconds' WHERE id=$1`,
+          [q.id],
+        );
+        return { status: 'AWAITING_PROVIDER' };
+      }
       const late =
         !['CREATED', 'PENDING', 'SUCCEEDED'].includes(pi.status) ||
         new Date(pi.expires_at).getTime() <= Date.now() ||
         q.cancel_requested;
       await c.query(
-        `UPDATE payos_payment_request SET payment_link_id=$2,checkout_url=COALESCE(checkout_url,$3),provider_status=$4,paid_amount=$5,lease_until=NULL,last_error=NULL,next_poll_at=now()+interval '30 seconds' WHERE id=$1`,
+        `UPDATE payos_payment_request SET payment_link_id=$2,checkout_url=COALESCE(checkout_url,$3),provider_status=$4,paid_amount=$5,last_error=NULL,next_poll_at=now()+interval '30 seconds' WHERE id=$1`,
         [q.id, link.id, checkout(link.id), link.status, actual.toString()],
       );
+      const hasNewMoney = link.transactions.some(
+        (bank) =>
+          ![...prior, ...oldQuarantine].some(
+            (previous: Record<string, unknown>) => previous.reference === bank.reference,
+          ),
+      );
       let anomaly =
-        q.reconciliation_status === 'OPEN' || (late && actual > 0n) || actual > BigInt(pi.amount);
+        q.reconciliation_status === 'OPEN' ||
+        (late && hasNewMoney && actual > 0n) ||
+        actual > BigInt(pi.amount);
       const quarantine = Array.isArray(q.quarantined_transactions)
         ? q.quarantined_transactions
         : [];
+      for (const reference of [...seen].sort())
+        await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+          'PAYOS:' + reference,
+        ]);
       for (const bank of link.transactions) {
         const existing = (
           await c.query(
@@ -540,6 +656,7 @@ export class PayosService {
             );
             return { status: 'REQUIRES_RECONCILIATION' };
           }
+          await this.completeBankEvent(c, String(q.order_code), link.id, bank, existing.id);
           continue;
         }
         if (quarantine.some((x: Record<string, unknown>) => x.reference === bank.reference))
@@ -580,6 +697,8 @@ export class PayosService {
             }),
           ],
         );
+        recordedCount++;
+        await this.completeBankEvent(c, String(q.order_code), link.id, bank, payment.id);
         let left = BigInt(bank.amount);
         const safeLimit = left < remaining ? left : remaining;
         left =
@@ -663,7 +782,8 @@ export class PayosService {
           q.id,
           fulfilled
             ? 'PAID'
-            : link.status === 'PROCESSING'
+            : link.status === 'PROCESSING' ||
+                (actual === BigInt(pi.amount) && !terminal.includes(link.status))
               ? 'PROCESSING'
               : actual > 0n && !terminal.includes(link.status)
                 ? 'UNDERPAID'
@@ -680,6 +800,7 @@ export class PayosService {
               BigInt(settled.outstanding_amount) === 0n,
             );
           if (terminal.includes(link.status) && actual > 0n && !fulfilled) {
+            anomaly = true;
             await reconciliation(
               c,
               this.restaurant,
@@ -698,8 +819,8 @@ export class PayosService {
       if (webhookEventId && webhook) {
         const payment = (
           await c.query(
-            "SELECT id FROM payment_transaction WHERE provider='PAYOS' AND provider_transaction_id=$1",
-            [webhook.reference],
+            "SELECT id FROM payment_transaction WHERE provider='PAYOS' AND provider_transaction_id=$1 AND payment_intent_id=$2 AND amount=$3",
+            [webhook.reference, id, String(webhook.amount)],
           )
         ).rows[0];
         await c.query(
@@ -713,13 +834,41 @@ export class PayosService {
       }
       return { status: anomaly ? 'REQUIRES_RECONCILIATION' : 'PROCESSED' };
     });
+    const outcome = {
+      paymentIntentId: id,
+      orderCode: String(link.orderCode),
+      result: result.status,
+      paidAmount: actual.toString(),
+      providerStatus: link.status,
+      recordedCount,
+    };
+    if (recordedCount > 0) this.observe('RECORDED', outcome);
+    this.observe(recordedCount > 0 ? 'ACCOUNT_UPDATED' : 'SNAPSHOT_APPLIED', outcome);
+    return result;
+  }
+  private async completeBankEvent(
+    c: Connection,
+    orderCode: string,
+    linkId: string,
+    bank: PaymentLink['transactions'][number],
+    paymentId: string,
+  ) {
+    await c.query(
+      `UPDATE payment_webhook_event SET processing_status='PROCESSED',processed_at=now(),payment_transaction_id=$1
+       WHERE provider='PAYOS' AND provider_event_id=$2 AND processing_status IN ('RECEIVED','UNMATCHED')
+       AND payload_snapshot->>'orderCode'=$3 AND payload_snapshot->>'paymentLinkId'=$4 AND payload_snapshot->>'amount'=$5`,
+      [paymentId, bank.reference, orderCode, linkId, String(bank.amount)],
+    );
   }
   async webhook(body: unknown) {
     const provider = this.requireProvider();
+    const started = Date.now();
+    this.observe('RECEIVED');
     let data: WebhookData;
     try {
       data = await provider.verify(body);
     } catch {
+      this.observe('REJECTED', { category: 'INVALID_SIGNATURE' }, true);
       reject('Chữ ký payOS không hợp lệ.', 400);
     }
     if (!Number.isSafeInteger(data.orderCode) || data.orderCode < 0)
@@ -727,6 +876,7 @@ export class PayosService {
     num(data.amount);
     text(data.reference, 160);
     text(data.paymentLinkId, 160);
+    this.observe('VERIFIED', { orderCode: String(data.orderCode) });
     const minimal = {
       orderCode: data.orderCode,
       amount: data.amount,
@@ -756,7 +906,10 @@ export class PayosService {
         [data.reference, hash, JSON.stringify({ ...minimal, restaurantId: this.restaurant })],
       );
     });
-    if (event.processing_status === 'PROCESSED') return { status: 'PROCESSED' };
+    if (event.processing_status === 'PROCESSED') {
+      this.observe('DUPLICATE', { orderCode: String(data.orderCode) });
+      return { status: 'PROCESSED' };
+    }
     const ref = (
       await this.db.pool.query(
         `SELECT p.id,q.payment_link_id FROM payos_payment_request q JOIN payment_intent p ON p.id=q.payment_intent_id JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE q.order_code=$1 AND t.restaurant_id=$2`,
@@ -768,8 +921,14 @@ export class PayosService {
         "UPDATE payment_webhook_event SET processing_status='UNMATCHED',processed_at=now() WHERE id=$1",
         [event.id],
       );
+      this.observe('UNMATCHED', { orderCode: String(data.orderCode) }, true);
       return { status: 'UNMATCHED' };
     }
+    this.observe('MATCHED', {
+      paymentIntentId: ref.id,
+      orderCode: String(data.orderCode),
+      amount: String(data.amount),
+    });
     if (
       data.currency !== 'VND' ||
       data.code !== '00' ||
@@ -779,20 +938,46 @@ export class PayosService {
         "UPDATE payment_webhook_event SET processing_status='REJECTED',processed_at=now() WHERE id=$1",
         [event.id],
       );
+      this.observe(
+        'REJECTED',
+        {
+          paymentIntentId: ref.id,
+          orderCode: String(data.orderCode),
+          category: 'METADATA_MISMATCH',
+        },
+        true,
+      );
       return { status: 'REJECTED' };
     }
     let link: PaymentLink;
     try {
       link = await provider.get(Number(data.orderCode));
-    } catch {
+    } catch (error) {
+      this.observe(
+        'RETRY_REQUIRED',
+        {
+          paymentIntentId: ref.id,
+          orderCode: String(data.orderCode),
+          category: payosErrorCategory(error),
+        },
+        true,
+      );
       reject('Chưa đối chiếu được payOS; webhook cần gửi lại.', 503);
     }
     const result = await this.applyLink(ref.id, link, data, event.id);
+    if (result.status === 'AWAITING_PROVIDER') {
+      this.observe(
+        'RETRY_REQUIRED',
+        { paymentIntentId: ref.id, orderCode: String(data.orderCode), category: 'SNAPSHOT_LAG' },
+        true,
+      );
+      reject('payOS đang cập nhật giao dịch; webhook cần gửi lại.', 503);
+    }
     await transaction(this.db, async (c) => {
       const payment = (
         await c.query(
-          "SELECT id FROM payment_transaction WHERE provider='PAYOS' AND provider_transaction_id=$1",
-          [data.reference],
+          "SELECT id FROM payment_transaction WHERE provider='PAYOS' AND provider_transaction_id=$1 AND payment_intent_id=$2 AND amount=$3",
+          [data.reference, ref.id, String(data.amount)],
         )
       ).rows[0];
       await c.query(
@@ -807,6 +992,12 @@ export class PayosService {
           payment?.id ?? null,
         ],
       );
+    });
+    this.observe('WEBHOOK_COMPLETED', {
+      paymentIntentId: ref.id,
+      orderCode: String(data.orderCode),
+      result: result.status,
+      latencyMs: Date.now() - started,
     });
     return result;
   }
@@ -847,6 +1038,15 @@ export class PayosService {
         (sum: bigint, x: { amount: string }) => sum + BigInt(x.amount),
         0n,
       );
+      const captured = BigInt(
+        (
+          await one(
+            c,
+            "SELECT COALESCE(sum(amount),0)::text AS amount FROM payment_transaction WHERE payment_intent_id=$1 AND provider='PAYOS' AND status='SUCCEEDED'",
+            [id],
+          )
+        ).amount,
+      );
       let reference: string | null = null;
       if (s.session_status !== 'ACTIVE' || quarantine > 0n) {
         if (b.resolution !== 'RETURNED_EXTERNALLY' || quarantine <= 0n)
@@ -855,24 +1055,39 @@ export class PayosService {
       } else {
         if (b.resolution !== 'RECONCILED')
           reject('Chọn xác nhận đã đối soát khoản tại phiên đang mở.', 400);
+        if (
+          captured !== BigInt(q.paid_amount) ||
+          (q.provider_status === 'PAID' && captured < BigInt(pi.amount))
+        )
+          reject(
+            'Tiền payOS chưa khớp sổ thu. Kiểm tra trạng thái và giao dịch trước khi đóng đối soát.',
+          );
         const account = await recalculate(c, pi.session_id);
         if (BigInt(account.refund_due_amount) > 0n)
           reject('Hoàn tất phiếu hoàn tiền cho khách trước khi đóng đối soát.');
       }
+      // Externally returned, quarantined funds never become a successful bill payment.
+      const onlineStatus =
+        reference && captured < BigInt(pi.amount) ? 'CANCELLED' : q.provider_status;
+      const intentStatus = onlineStatus === 'PAID' ? 'SUCCEEDED' : onlineStatus;
       await c.query(
-        `UPDATE payos_payment_request SET reconciliation_status='RESOLVED',resolved_by=$2,resolved_at=now(),reconciliation_reason=$3,last_error=NULL WHERE id=$1`,
-        [q.id, actor, reason],
+        `UPDATE payos_payment_request SET reconciliation_status='RESOLVED',resolved_by=$2,resolved_at=now(),reconciliation_reason=$3,last_error=NULL,status=$4 WHERE id=$1`,
+        [q.id, actor, reason, onlineStatus],
       );
       await c.query(`UPDATE payment_intent SET status=$2,version=version+1 WHERE id=$1`, [
         id,
-        q.provider_status === 'PAID'
-          ? 'SUCCEEDED'
-          : q.provider_status === 'CANCELLED'
-            ? 'CANCELLED'
-            : q.provider_status === 'EXPIRED'
-              ? 'EXPIRED'
-              : 'FAILED',
+        intentStatus,
       ]);
+      if (!reference && captured >= BigInt(pi.amount)) {
+        const settled = await recalculate(c, pi.session_id);
+        await finishPaymentRequests(
+          c,
+          pi.session_id,
+          pi.support_request_id,
+          null,
+          BigInt(settled.outstanding_amount) === 0n,
+        );
+      }
       if (q.alert_id)
         await c.query(
           "UPDATE operational_alert SET status='RESOLVED',resolved_by=$2,resolved_at=now(),resolution_note=$3 WHERE id=$1",

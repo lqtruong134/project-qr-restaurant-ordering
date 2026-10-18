@@ -1,39 +1,100 @@
 # 06. Hiểu tiền, hóa đơn và điều kiện đóng bàn
 
-## Thanh toán online qua payOS — 14/10/2026
+## Thanh toán online qua payOS — cập nhật 17/10/2026
 
-Bản tích hợp dùng **payOS cho thanh toán chuyển khoản online**, bên cạnh tiền mặt và chuyển khoản do nhân viên đối chiếu. Chọn online chưa có nghĩa bàn đã trả tiền. Hệ thống chỉ ghi khoản ngân hàng thực nhận sau khi xác minh dữ liệu payOS và đối chiếu với đúng khoản thu của phiên.
+Nhà hàng thu bằng tiền mặt, chuyển khoản do nhân viên đối chiếu hoặc **Online (payOS)** do server xác minh. Khách chuyển tiền xong thì màn hình nhân viên và khách tự đọc lại dữ liệu; nút **Kiểm tra trạng thái** chỉ là cách phục hồi khi cần.
 
-| Vai trò | Trách nhiệm                                                                                                                |
-| ------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Khách   | Gọi nhân viên thu tiền, trao đổi cách trả, quét QR/link do phục vụ lập và chuyển đúng số tiền còn cần chuyển               |
-| Phục vụ | Nhận việc, trao đổi phạm vi trả tiền, lập khoản thu online và kiểm tra trạng thái; không tự xác nhận online thành công     |
-| Bếp     | Tiếp tục xử lý món theo trạng thái; không lập QR, không ghi nhận tiền hoặc hoàn tiền                                       |
-| Admin   | Xử lý khoản cần đối soát, duyệt hồ sơ hoàn và kiểm tra chứng cứ; không sửa khoản thu thành công bằng cách nhập lại số tiền |
+| Vai trò | Trách nhiệm                                                                                                                                                                                  |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Khách   | Chọn **Tiền mặt** hoặc **Chuyển khoản**, báo nhân viên và thống nhất phần tiền sẽ trả. Khi nhân viên chọn payOS, quét QR/link được nhân viên cung cấp; theo dõi kết quả trên màn hình khách. |
+| Phục vụ | Nhận việc, chọn cả bàn/món của một khách/số tiền khác và lập khoản thu. Không tự xác nhận online đã nhận tiền.                                                                               |
+| Bếp     | Xử lý món; không tạo QR, ghi nhận thu hoặc hoàn tiền.                                                                                                                                        |
+| Admin   | Đối soát bất thường, duyệt hồ sơ hoàn và kiểm tra căn cứ; không nhập một khoản thu giả để đổi trạng thái.                                                                                    |
 
-### QR, trang thanh toán và khoản ngân hàng đã nhận
+Giao diện khách hiện chỉ có hai lựa chọn **Tiền mặt / Chuyển khoản** để gọi phục vụ; không có nút tự lập khoản payOS. Nhân viên chọn **Online (payOS)** trong **Chi tiết bàn → Thu tiền & phiếu** sau khi trao đổi với khách. API hỗ trợ lưu hình thức ONLINE cho lời gọi nhưng không đồng nghĩa giao diện khách có lựa chọn này.
 
-Phục vụ vào **Chi tiết bàn → Thu tiền & phiếu**, chọn cả bàn, món của một khách hoặc số tiền khác, rồi chọn **Online (payOS)**. Server kiểm tra dư nợ sau giảm giá, phần đang giữ chỗ, quyền phụ trách và phiên còn mở trước khi tạo link. Khách thấy QR hoặc nút **Mở trang thanh toán**. Nếu lần tạo link bị mất phản hồi, hệ thống khôi phục đúng mã thanh toán cũ; có thể chỉ mở được trang payOS mà chưa có ảnh QR ở thẻ, không tự tạo QR từ số tài khoản đoán.
+### Luồng xác nhận tiền và tự cập nhật
 
-`returnUrl`/`cancelUrl` đưa người thao tác về giao diện đã cấu hình, trong luồng phục vụ quản lý là `/workspace/staff`. Khách tiếp tục xem trạng thái ở phần Thanh toán của bàn. Chữ `PAID` trên URL, ảnh chụp chuyển khoản hoặc việc đã mở trang thanh toán **không tự ghi tiền vào hóa đơn**. Backend dùng webhook có chữ ký và truy vấn xác thực payOS; kiểm tra mã thanh toán, link, từng tham chiếu ngân hàng và số tiền. Chữ ký ở `data` là căn cứ, không dùng riêng cờ thành công bên ngoài. [Luồng payOS](https://payos.vn/docs/), [Return URL](https://payos.vn/docs/du-lieu-tra-ve/return-url/), [Webhook và chữ ký](https://payos.vn/docs/tich-hop-webhook/kiem-tra-du-lieu-voi-signature/).
+```text
+Nhân viên lập khoản thu → server tạo link/QR payOS
+→ khách chuyển khoản → webhook đến backend
+→ SDK xác minh chữ ký → đối chiếu link, khoản thu và giao dịch ngân hàng
+→ transaction + allocation + tài khoản tiền + lời gọi liên quan cùng được cập nhật
+→ STAFF/GUEST đọc dữ liệu mới → thẻ online, tổng tiền và checklist thay đổi.
+```
 
-Mỗi tham chiếu ngân hàng hợp lệ được ghi một lần. Webhook gửi lại không thu thêm tiền; thông tin cũ đến muộn không làm giảm tổng đã nhận hoặc đổi khoản đã trả đủ thành đang chờ. Khi có nhiều lần chuyển, từng lần là một `payment_transaction`; tổng của link không được ghi lại thành một giao dịch mới.
+Webhook dùng SDK payOS chính thức; dữ liệu GET/cancel cũng được kiểm tra chữ ký. Backend đối chiếu nhà hàng/phiên, `orderCode`, `paymentLinkId`, VND, số tiền và tham chiếu từng giao dịch. Trường tài khoản chính và tài khoản ảo được so khớp chính xác sau khi xác minh; không ép số làm mất số 0 đầu hoặc chấp nhận tài khoản bất kỳ. payOS có thể cấp tài khoản ảo riêng cho đơn khi dùng VietQR Pro. [payOS API](https://payos.vn/docs/api/), [payOS: tài khoản ảo](https://payos.vn/docs/cau-hoi-thuong-gap/).
 
-### Chuyển thiếu, chuyển dư và khoản chưa rõ kết quả
+`returnUrl` và `cancelUrl` chỉ điều hướng trình duyệt. Query `status=PAID`, ảnh chuyển khoản hoặc việc đã mở trang thanh toán không ghi tiền vào hóa đơn. Dự án áp dụng mẫu server xác nhận và xử lý lặp an toàn; không tích hợp Stripe hoặc thêm dịch vụ realtime khác. [payOS Return URL](https://payos.vn/docs/du-lieu-tra-ve/return-url/), [Stripe: webhook và xử lý lặp/đồng thời](https://docs.stripe.com/checkout/fulfillment.md?payment-ui=stripe-hosted).
 
-Ví dụ món 49.000đ giảm 10% còn **44.100đ đã gồm VAT**. Khách chuyển 20.000đ rồi 24.100đ: lần đầu ghi đã nhận 20.000đ, còn phải trả 24.100đ và giữ chỗ phần còn lại của khoản online; lần sau tổng thu là 44.100đ. VAT vẫn là phần nằm trong 44.100đ, không cộng thêm thuế khi tạo QR. Nếu phải hủy món và hoàn toàn bộ, admin lập hồ sơ theo hai nguồn thu 20.000đ và 24.100đ, phục vụ thực trả rồi xác nhận. Không lập một hồ sơ vượt giá trị của giao dịch gốc đã chọn.
+Mỗi tham chiếu ngân hàng chỉ được ghi một lần, kể cả webhook trùng hoặc chạy đồng thời với kiểm tra nền/refresh. Khóa phiên, khóa tham chiếu ngân hàng và ràng buộc duy nhất bảo vệ việc ghi/phân bổ. Một GET cũ không làm giảm tiền đã nhận hoặc đổi PAID thành chờ/hủy. Lease có dấu nhận diện riêng; webhook không giải phóng lease của worker khác, worker phải trả lease cả khi bỏ qua snapshot cũ.
 
-Khi payOS chưa trả lời hoặc việc hủy chưa được ngân hàng xác nhận, hệ thống giữ khoản đang xử lý và chặn thu bằng cách khác để tránh khách trả hai lần. Phục vụ bấm **Kiểm tra trạng thái**; server cũng kiểm tra lại theo tác vụ nền. Đếm ngược QR hết giờ không phải bằng chứng không có tiền đến. Tiền đến sau khi hủy/hết hạn, tiền chuyển dư hoặc dữ liệu không khớp được đưa sang đối soát, không âm thầm bỏ qua.
+Log vận hành có các chặng `RECEIVED → VERIFIED → MATCHED → RECORDED → ACCOUNT_UPDATED`; hai chặng ghi tiền chỉ được phát sau khi transaction commit. Thông báo trùng/chờ dữ liệu/lỗi có chặng riêng nên không phải webhook nào cũng đi hết chuỗi. Log chỉ chứa mã khoản/mã thanh toán, số tiền, kết quả, thời gian và nhóm lỗi an toàn; không chứa khóa, cookie hoặc toàn payload. Tên provider PAYOS dành riêng cho adapter chính thức, không dùng connector HMAC chung để xác nhận khoản này.
 
-Tiền mặt vẫn tách **tiền dùng trả món / tiền khách đưa / tiền thối**. Online không có mệnh giá khách đưa hoặc tiền thối như tiền mặt; tiền chuyển dư nếu đã thực nhận là khoản phải đối soát/hoàn, không phải doanh số mới của món.
+Webhook đã xác minh có thể đến trước khi GET của payOS thấy giao dịch. Trường hợp thiếu đúng tham chiếu mới là **chờ dữ liệu và retry**, không lập hồ sơ đối soát vĩnh viễn ngay. Nếu đã có tham chiếu nhưng sai số tiền/tài khoản hoặc sai link thì phải kiểm tra như bất thường. Chỉ nhãn PAID mà chưa có giao dịch ngân hàng cũng chưa đủ để ghi đã trả tiền. [Định dạng webhook payOS](https://payos.vn/docs/du-lieu-tra-ve/webhook/).
 
-### Hoàn tiền và phiếu đã đóng
+### Các trạng thái không thay thế sổ tiền
 
-Trong phiên còn mở, khoản online thực nhận được giữ trong sổ tiền. Nếu phải hoàn, quy trình vẫn là **admin lập/duyệt hồ sơ → phục vụ trả tiền mặt hoặc chuyển khoản → phục vụ xác nhận đã hoàn**. Nút xác nhận chỉ lưu việc trả tiền đã thực hiện; bản này chưa gọi payOS chi hộ để tự chuyển tiền hoàn.
+| Nguồn                                        | Ý nghĩa                                                                                               |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `payos_payment_request.provider_status`      | Trạng thái link do provider trả; không tự chứng minh đã phân bổ tiền vào hóa đơn.                     |
+| `payos_payment_request.status`               | Kết quả xử lý tại nhà hàng: chờ, đang xử lý, nhận một phần, đã đủ, lỗi/hủy/hết hạn hoặc cần đối soát. |
+| `payment_intent.status`                      | Vòng đời khoản thu có số tiền/phạm vi xác định; không phải tổng tiền khách đã trả của cả bàn.         |
+| `payment_transaction` + `payment_allocation` | Tiền đã ghi nhận và đã dùng trả khoản phải thu nào; là căn cứ tổng hợp tài khoản tiền.                |
+| `session_financial_account`                  | Tổng phải trả, đã thu, đã hoàn và số còn thiếu/cần hoàn của phiên.                                    |
 
-Nếu tiền ngân hàng đến sau khi phiên đã đóng, khoản mới được giữ riêng trong dữ liệu đối soát. **Không sửa `receipt_snapshot`, không cộng tiền vào phiếu cũ đã chốt.** Admin kiểm tra sao kê/payOS, thực hiện trả lại bên ngoài nếu có khoản cần trả, rồi lưu kết quả, tham chiếu giao dịch trả và căn cứ. Ghi kết quả đối soát không tự thực hiện chuyển tiền.
+Màn hình khách tách **Đã ghi nhận thanh toán** từ sổ thu và **Ngân hàng đã xác nhận** từ payOS. Tiền còn cách ly/chờ đối soát không bị tính thành đã trả hóa đơn. Khách chỉ nhận bản tóm tắt của bàn hoặc phần thuộc mình; không nhận raw payload, tài khoản ngân hàng, mã provider/tham chiếu giao dịch hay ID nhân viên. QR/link được cung cấp từ phía nhân viên.
 
-Tắt hoặc chưa cấu hình payOS thì tiền mặt/chuyển khoản thủ công vẫn dùng được; online hiện trạng thái chưa sẵn sàng. Cấu hình và đăng ký webhook xem [bài 12](12-van-hanh.md), thao tác tại bàn xem [bài 25](25-thu-tien-tai-ban.md). Tích hợp này chưa có thẻ quốc tế, payout tự động hoặc phát hành hóa đơn điện tử thuế; phiếu của dự án vẫn là phiếu thanh toán nội bộ. [payOS phân biệt payment request và lệnh chi](https://payos.vn/docs/api/).
+### Cập nhật màn hình: polling có điều kiện
+
+Dự án dùng webhook ghi DB và một bộ smart refresh dùng chung, chưa có SSE/WebSocket cho màn hình thanh toán. Outbox vẫn ghi sự kiện nghiệp vụ nhưng không được trình bày như đã có kênh push tới trình duyệt.
+
+- Khi có online đang chờ, nhận thiếu, đang xử lý, đang hủy hoặc lỗi còn cần phục hồi: bill nhân viên và màn hình khách đọc lại khoảng **3 giây/lần**.
+- Hết khoản cần theo dõi nhanh: khách trở lại nhịp đọc trạng thái bàn **5 giây**, bill phiên đang mở **10 giây**; bill đã đóng dừng lịch đọc. Đây là nhịp cho màn hình đang mở, không polling mọi trang.
+- Tab ẩn hoặc offline dừng lịch tự đọc; quay lại foreground/kết nối thì đọc mới. Mỗi scheduler chỉ có một request đang chạy, có timeout 10 giây, backoff lỗi tối đa 30 giây và dọn timer/request khi unmount. Các màn hình khác nhau vẫn là các client độc lập.
+- Tác vụ backend quét công việc khoảng 5 giây, có hạn mức lô và lịch đối chiếu riêng của từng khoản, thông thường khoảng 30 giây. Poll UI đọc DB, không gọi payOS mỗi 3 giây. Thời gian ngân hàng/webhook/mạng có thể làm kết quả xuất hiện muộn hơn một nhịp màn hình.
+
+Sau ghi nhận, QR được ẩn khi đã đủ/kết thúc/cần đối soát, bill và điều kiện kết thúc bàn đổi theo dữ liệu mới. Khoản thực nhận mới có thông báo cho nhân viên/khách. Hệ thống không tự đóng bàn, xác nhận tiền mặt, hoàn tiền hoặc quyết định xử lý bất thường.
+
+### Kiểm tra trạng thái chỉ dùng khi cần phục hồi
+
+`POST /core/payments/:id/refresh` yêu cầu STAFF đúng nhà hàng và người phụ trách lời gọi liên quan; người đã phụ trách vẫn được kiểm tra lại khoản cũ sau khi lời gọi tự hoàn tất. Backend truy vấn đúng mã payOS và đối chiếu qua cùng đường ghi tiền; **không tạo link mới trong thao tác này**. UI đọc lại bill cả khi kiểm tra trả lỗi.
+
+| Kết quả                                              | Cách hiểu                                                                                                                           |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `200` + khoản thu mới nhất                           | Đã thực hiện đối chiếu; trạng thái có thể vẫn chờ hoặc cần admin kiểm tra. Không đồng nghĩa đã thanh toán.                          |
+| `409` đang đối chiếu                                 | Worker khác đang giữ lease; không trả thành công giả và không chiếm lease đó. Chờ dữ liệu tự cập nhật rồi thử lại nếu cần.          |
+| `503 PAYMENT_PROVIDER_UNAVAILABLE`, `Retry-After: 3` | Provider tạm lỗi hoặc đang cập nhật dữ liệu. Lỗi an toàn không chứa raw exception; chưa được thu lại cùng phần tiền bằng cách khác. |
+
+`force` bỏ qua lịch `next_poll_at`, không vượt qua lease đang hoạt động. Khi tạo link ban đầu mất phản hồi, nền có thể khôi phục bằng mã cũ; thẻ có thể có link nhưng chưa có QR. Không tự sinh QR từ số tài khoản đoán hoặc lập khoản mới để che việc chưa rõ kết quả.
+
+### Chuyển thiếu, chuyển dư và yêu cầu thu tiền
+
+Ví dụ món 49.000đ giảm 10% còn **44.100đ đã gồm VAT**. Hai lần chuyển 20.000đ và 24.100đ tạo hai giao dịch ngân hàng, tổng thu 44.100đ. Phần còn thiếu được giữ chỗ cho khoản đang xử lý; không ghi tổng 44.100đ thêm một lần nữa. VAT nằm trong tổng, không cộng thêm khi tạo QR.
+
+**QR cũ có thể vẫn điền số tiền ban đầu.** Sau lần chuyển một phần, phải kiểm tra số còn cần chuyển trên thẻ và số tiền trong ứng dụng ngân hàng. Không quét rồi chuyển lại nguyên khoản; nếu ngân hàng không cho đổi số tiền thì nhờ nhân viên hỗ trợ. Với một số kênh VietQR Pro, chuyển sai số tiền có thể bị từ chối/hoàn bởi ngân hàng; phần mềm chỉ căn cứ giao dịch được xác minh, không tự coi đó là hoàn tiền đã thực hiện. [payOS: chuyển sai số tiền](https://payos.vn/docs/cau-hoi-thuong-gap/).
+
+Khi khoản đã trả đủ **số tiền được lập cho phạm vi đó**, lời gọi BILL gắn chính xác qua `support_request_id` tự RESOLVED bởi SYSTEM. Ví dụ bàn còn 94.000đ nhưng lập khoản trả trước 49.000đ: đủ 49.000đ thì lời gọi gắn khoản này kết thúc, bàn vẫn còn 45.000đ. Khi cả bàn cân đối đủ, các lời gọi BILL còn mở khác được CANCELLED với lý do đã đủ tiền; không giả người khác là người nhận. Hỗ trợ/cảnh báo khác không tự kết thúc.
+
+Khuyến mãi/phạm vi thu vẫn được server khóa và kiểm tra. Bất định từ provider hoặc hủy chưa xác nhận giữ phần đang xử lý để tránh thu hai lần. Tiền chuyển dư là tiền thực nhận cần đối soát/hoàn, không phải doanh số món mới. Tiền thối của thu tiền mặt là khoản riêng.
+
+### Hoàn tiền, đối soát và phiếu đã đóng
+
+Tiền online thực nhận trong phiên đang mở được giữ trong sổ tiền. Quy trình hoàn vẫn là **admin lập/duyệt hồ sơ theo giao dịch gốc → phục vụ thực trả → phục vụ xác nhận đã hoàn**; chưa gọi payOS chi hộ để tự chuyển tiền.
+
+Hồ sơ đối soát OPEN không tự chuyển RESOLVED khi sửa code hoặc đọc lại màn hình. Với một khoản đã bị chặn bởi kiểm tra tài khoản nhận, người vận hành cần:
+
+1. Giữ khoản cũ; không reset/seed, nhập khoản thu giả, thu lại hoặc đánh dấu PAID bằng tay.
+2. Sau khi cập nhật mã và migration theo [runbook triển khai](26-trien-khai-qtruongres.md), nhân viên phụ trách dùng **Kiểm tra trạng thái** cho đúng khoản, rồi xem dữ liệu mới cùng dashboard/sao kê. Nếu còn không khớp, giữ OPEN để kiểm tra kênh/provider; không bỏ qua guard.
+3. Admin chỉ đóng đối soát khi trạng thái provider đã kết thúc, tiền xác nhận khớp tiền đã ghi sổ và các khoản phải hoàn đã xử lý. Nút đối soát không tạo khoản thu thiếu trong sổ và không thực hiện chuyển tiền.
+
+Tiền **mới** đến sau khi phiên đã đóng được cách ly trong hồ sơ, không sửa `receipt_snapshot` hoặc cộng vào phiếu cũ. Khi đã thực trả bên ngoài, admin lưu kết quả **RETURNED_EXTERNALLY**, tham chiếu trả và căn cứ. Tiền cách ly chưa từng trả hóa đơn không biến thành SUCCEEDED; tiền đã thực thu hợp lệ trước đóng phiên vẫn được giữ nguyên. Khoản đã ghi nhận đúng từ trước cũng không bị coi là tiền đến muộn chỉ vì hôm sau đọc lại sau hạn QR.
+
+### Migration cho tự hoàn tất lời gọi
+
+Bản nâng cấp có migration tiến [202610170001_payment_system_resolution](../packages/database/prisma/migrations/202610170001_payment_system_resolution/migration.sql). CHECK cũ yêu cầu `resolved_by` luôn có người dùng đã mâu thuẫn với kết quả SYSTEM, làm toàn bộ transaction ghi tiền/lời gọi rollback. Migration xác nhận đúng CHECK cũ rồi thay bằng CHECK phân biệt rõ SYSTEM phải có `resolved_by` NULL và USER phải có người dùng, kèm thời gian hoàn tất. Điều kiện dùng so sánh không nhận nhầm NULL; giữ nguyên CHECK ownership để USER vẫn phải đúng người đã nhận việc. Không thêm bảng/cột, không reset hoặc seed dữ liệu. Cần áp dụng migration cùng bản mã trước khi vận hành; ghi tệp migration không có nghĩa schema production đã đổi.
+
+Tắt/chưa cấu hình payOS thì tiền mặt và chuyển khoản thủ công vẫn hoạt động. Thiết lập và triển khai xem [bài 12](12-van-hanh.md), [bài 26](26-trien-khai-qtruongres.md); thao tác xem [bài 25](25-thu-tien-tai-ban.md), kết quả kiểm thử xem [bài 15](15-doi-chieu.md). Phiếu vẫn là phiếu thanh toán nội bộ, chưa tích hợp hóa đơn điện tử thuế hoặc hoàn tự động.
 
 ## Khuyến mãi và VAT — bản 13/10/2026
 
@@ -116,7 +177,7 @@ Cần hoàn = max(paid_total - refunded_total - charge_total, 0)
 
 ## Khách gọi và nhân viên chọn khoản thu
 
-Giao diện khách không nhập số tiền: chọn Tiền mặt/Chuyển khoản hoặc Online (payOS) khi sẵn sàng rồi báo nhân viên, chờ người đến bàn. Lời gọi dùng support_request, không tạo intent và không giữ tiền. Nhân viên chọn Cả bàn, Món của một khách hoặc Số tiền khác, nhận tiền rồi ghi nhận. [Bài 25 có ví dụ từng bước](25-thu-tien-tai-ban.md).
+Giao diện khách không nhập số tiền: chọn **Tiền mặt / Chuyển khoản** rồi báo nhân viên, chờ người đến bàn. Nhân viên có thể thống nhất dùng payOS và là người lập khoản online. Lời gọi dùng support_request, không tạo intent và không giữ tiền. Nhân viên chọn Cả bàn, Món của một khách hoặc Số tiền khác, nhận tiền rồi ghi nhận. [Bài 25 có ví dụ từng bước](25-thu-tien-tai-ban.md).
 
 ## Tiền mặt
 
@@ -150,7 +211,7 @@ Luồng đóng ngoại lệ có lý do và quyết định quản trị riêng. 
 
 ## Mở mã nguồn
 
-`apps/api/src/modules/finance/ledger.service.ts` chứa công thức. `payments/payments.routes.ts` đăng ký intent/confirm/refund; `payments/collection.service.ts` xử lý khoản thu và phân bổ; `payment-requests.routes.ts` xử lý lời gọi, `payment-proof.routes.ts` lưu/đọc ảnh riêng. `payments/payos.service.ts` và `payos-adapter.ts` xử lý provider online; `payments/receipt.service.ts` tạo snapshot. `dining/dining.routes.ts` chứa close, clean và xử lý thiếu tiền. Frontend nằm ở `features/workspace/bill-panel.tsx` và `receipt.tsx`.
+`apps/api/src/modules/finance/ledger.service.ts` chứa công thức. `payments/payments.routes.ts` đăng ký intent/confirm/refund; `payments/collection.service.ts` xử lý khoản thu và phân bổ; `payment-requests.routes.ts` xử lý lời gọi, `payment-proof.routes.ts` lưu/đọc ảnh riêng. `payments/payos.service.ts` và `payos-adapter.ts` xử lý provider online; `payments/receipt.service.ts` tạo snapshot. `dining/dining.routes.ts` chứa close, clean và xử lý thiếu tiền. Frontend nằm ở `features/workspace/bill-panel.tsx`, `online-payment-card.tsx`, `receipt.tsx` và `features/guest/online-payments.tsx`; cơ chế đọc lại dùng chung ở `features/shared/smart-refresh.ts` và `use-smart-refresh.ts`. Chuẩn hóa dữ liệu đã xác minh nằm ở `payments/payos-normalization.ts`, bản tóm tắt khách ở `sessions/guest-payment-view.ts`.
 
 ## Tự kiểm tra
 

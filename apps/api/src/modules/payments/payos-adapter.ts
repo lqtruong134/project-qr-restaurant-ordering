@@ -8,6 +8,7 @@ import {
   type WebhookData,
 } from '@payos/node';
 import { timingSafeEqual } from 'node:crypto';
+import { normalizePayosLink } from './payos-normalization.js';
 import type { PaymentCapabilities } from '@thesis/contracts';
 
 export type PayosConfig = {
@@ -118,8 +119,8 @@ export function officialPayosProvider(
   });
   return {
     create: (body) => client.paymentRequests.create(body),
-    get: (code) => client.paymentRequests.get(code),
-    cancel: (code, reason) => client.paymentRequests.cancel(code, reason),
+    get: (code) => client.paymentRequests.get(code).then(normalizePayosLink),
+    cancel: (code, reason) => client.paymentRequests.cancel(code, reason).then(normalizePayosLink),
     verify: (body) => client.webhooks.verify(body as Webhook),
     isNotFound: (error) => error instanceof APIError && error.code === '101',
   };

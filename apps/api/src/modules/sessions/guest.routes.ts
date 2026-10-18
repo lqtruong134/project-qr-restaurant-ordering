@@ -1,3 +1,4 @@
+import { readGuestOnlinePayments } from './guest-payment-view.js';
 import { readPromotionView } from '../finance/pricing.service.js';
 import { recalculate } from '../finance/ledger.service.js';
 import { listMenuPromotions, productPromotionField } from '@thesis/database/menu-promotions';
@@ -225,6 +226,7 @@ export function registerGuest(
             [p.session_id, p.id],
           )
         ).rows,
+        onlinePayments: await readGuestOnlinePayments(c, p.session_id, p.id, restaurant),
         payments: (
           await c.query(
             `SELECT p.id,p.method,p.amount::text,p.status,

@@ -11,7 +11,9 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Action, api, EntryForm, options, vnd, type Product, type Row } from '../shared/components';
 import { CollectionForm, PaymentCapture, LastPayment } from './payment-collection';
 import { OnlinePaymentCard } from './online-payment-card';
-import { paymentMethodLabel } from '../shared/online-payment';
+import { hasPendingOnlinePayment, paymentMethodLabel } from '../shared/online-payment';
+import { paymentRevision, onlineReceivedIncrease } from '../shared/payment-refresh';
+import { useSmartRefresh } from '../shared/use-smart-refresh';
 import { confirmDiscard } from '../shared/primitives';
 import { SupportActions } from './support-panel';
 import Receipt, { type Bill } from './receipt';
@@ -54,29 +56,58 @@ export default function BillPanel({
     [collectionNotice, setCollectionNotice] = useState(''),
     [collectionError, setCollectionError] = useState(false),
     [refundKey, setRefundKey] = useState(() => requestId());
-  const refresh = useCallback(async () => {
-    try {
-      const next = await api<Bill>('/core/sessions/' + id + '/bill');
-      const revision = next.refunds
-        .map((refund) => refund.id)
-        .sort()
-        .join(',');
-      if (refundRevision.current !== undefined && refundRevision.current !== revision)
-        setRefundKey(requestId());
-      refundRevision.current = revision;
-      setBill(next);
-      setError('');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Không tải được hóa đơn.');
-    }
-  }, [id]);
-  useEffect(() => {
-    void refresh();
-    const t = setInterval(() => {
-      if (!document.hidden) void refresh();
-    }, 3000);
-    return () => clearInterval(t);
-  }, [refresh]);
+  const doneRef = useRef(done);
+  doneRef.current = done;
+  const previousBill = useRef<Bill | undefined>(undefined);
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      try {
+        const next = await api<Bill>(
+          '/core/sessions/' + id + '/bill',
+          undefined,
+          'GET',
+          false,
+          signal,
+        );
+        if (signal.aborted) return;
+        const previous =
+          previousBill.current?.session.id === next.session.id ? previousBill.current : undefined;
+        previousBill.current = next;
+        const revision = next.refunds
+          .map((refund) => refund.id)
+          .sort()
+          .join(',');
+        if (refundRevision.current !== undefined && refundRevision.current !== revision)
+          setRefundKey(requestId());
+        refundRevision.current = revision;
+        setBill(next);
+        setError('');
+        if (previous) {
+          const increase = onlineReceivedIncrease(previous.payments, next.payments);
+          if (increase > 0n) {
+            setCollectionError(false);
+            setCollectionNotice(
+              'Đã nhận ' + vnd(increase) + ' qua payOS. Hóa đơn và số tiền còn lại đã cập nhật.',
+            );
+          }
+          if (paymentRevision(previous) !== paymentRevision(next)) await doneRef.current();
+        }
+      } catch (e) {
+        if (signal.aborted) return;
+        setError(e instanceof Error ? e.message : 'Không tải được hóa đơn.');
+        throw e;
+      }
+    },
+    [id],
+  );
+  const refresh = useSmartRefresh(load, {
+    intervalMs:
+      !bill || hasPendingOnlinePayment(bill.intents)
+        ? 3000
+        : bill.session.session_status === 'ACTIVE'
+          ? 10000
+          : false,
+  });
   async function act(path: string, body: unknown = {}) {
     try {
       await api(path, body);
@@ -109,6 +140,7 @@ export default function BillPanel({
     });
     return () => cancelAnimationFrame(frame);
   }, [focusRefund, hasBill]);
+  const currentRequests = bill?.paymentRequests ?? requests;
   const totals = paymentSummary(bill?.account);
   const openRefunds =
     bill?.refunds.filter((r) => ['OPEN', 'IN_PROGRESS'].includes(String(r.status))) ?? [];
@@ -324,7 +356,7 @@ export default function BillPanel({
             <>
               {!financialOnly && (
                 <>
-                  {requests.length > 0 && userId && (
+                  {currentRequests.length > 0 && userId && (
                     <section
                       className="payment-request-ownership"
                       aria-label="Lời gọi thu tiền tại bàn"
@@ -332,7 +364,7 @@ export default function BillPanel({
                       <h3>Lời gọi thu tiền - Người phụ trách</h3>
                       <SupportActions
                         flat
-                        rows={requests}
+                        rows={currentRequests}
                         userId={userId}
                         act={async (path, body) => {
                           try {
@@ -374,7 +406,7 @@ export default function BillPanel({
                     .map((p) => {
                       const canManage =
                         !p.support_request_id ||
-                        requests.some(
+                        currentRequests.some(
                           (r) => r.id === p.support_request_id && r.acknowledged_by === userId,
                         );
                       const cancellable =

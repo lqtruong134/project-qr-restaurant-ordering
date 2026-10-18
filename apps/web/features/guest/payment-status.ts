@@ -1,3 +1,4 @@
+import type { GuestOnlinePayment } from '@thesis/contracts';
 import { type Row, vnd } from '../shared/components';
 
 export type PaymentStatus = { kind: string; title: string; detail: string };
@@ -83,4 +84,84 @@ export function guestPaymentStatus(
         detail:
           'Các món hiện có chưa phát sinh số tiền cần trả. Bạn có thể xem chi tiết món hoặc nhờ nhân viên hỗ trợ.',
       };
+}
+
+/** Guest wording uses only server-projected statuses, never redirect parameters or screenshots. */
+export function guestOnlinePaymentStatus(payment: GuestOnlinePayment): PaymentStatus {
+  switch (payment.status) {
+    case 'PAID':
+      return {
+        kind: 'paid',
+        title: 'Thanh toán thành công',
+        detail:
+          'Nhà hàng đã xác nhận tiền qua ngân hàng. Xem số dư của cả bàn bên trên; khoản này không cần chuyển thêm.',
+      };
+    case 'UNDERPAID':
+      return {
+        kind: 'pending',
+        title: 'Đã nhận một phần thanh toán',
+        detail:
+          'Đã nhận ' +
+          vnd(payment.paidAmount) +
+          '. Còn ' +
+          vnd(payment.remainingAmount) +
+          ' cho khoản này. Nhân viên hỗ trợ phần còn lại; trạng thái tự cập nhật.',
+      };
+    case 'REQUIRES_RECONCILIATION':
+      return {
+        kind: 'review',
+        title: 'Nhà hàng đang kiểm tra khoản chuyển tiền',
+        detail:
+          'Chưa cần chuyển thêm cho cùng khoản này. Hãy trao đổi với nhân viên để đối chiếu; số dư của bàn chỉ thay đổi khi được hệ thống xác nhận.',
+      };
+    case 'CANCELLED':
+      return {
+        kind: 'cancelled',
+        title: 'Khoản thanh toán online đã hủy',
+        detail:
+          'Không sử dụng QR cũ. Nếu bạn đã chuyển tiền, báo nhân viên kiểm tra trước khi chuyển lại; tiền đã xác nhận vẫn được giữ trong tổng thanh toán.',
+      };
+    case 'EXPIRED':
+      return {
+        kind: 'expired',
+        title: 'QR thanh toán đã hết hạn',
+        detail:
+          'Không sử dụng QR cũ. Nếu đã chuyển tiền, chờ nhân viên đối chiếu trước khi thanh toán lại.',
+      };
+    case 'FAILED':
+      return {
+        kind: 'error',
+        title: 'Khoản thanh toán chưa hoàn tất',
+        detail:
+          'Không dùng lại QR này. Nếu đã chuyển tiền, nhờ nhân viên kiểm tra trước khi thử lại.',
+      };
+    case 'CANCEL_PENDING':
+      return {
+        kind: 'pending',
+        title: 'Đang kiểm tra để hủy khoản thanh toán',
+        detail: 'Vui lòng chờ xác nhận và không chuyển thêm cho cùng khoản này.',
+      };
+    case 'PROCESSING':
+      return {
+        kind: 'pending',
+        title: 'Đang chờ ngân hàng xác nhận',
+        detail:
+          'Nếu đã chuyển tiền, bạn không cần thao tác thêm. Màn hình tự cập nhật khi nhà hàng xác minh được tiền nhận.',
+      };
+    case 'CREATE_PENDING':
+    case 'ERROR':
+      return {
+        kind: 'pending',
+        title: 'Nhân viên đang chuẩn bị thanh toán online',
+        detail:
+          'Chưa có xác nhận nhận tiền. Nhân viên sẽ hỗ trợ QR; bạn không cần gửi lại cùng yêu cầu.',
+      };
+    default:
+      return {
+        kind: 'pending',
+        title: 'Đang chờ thanh toán online',
+        detail:
+          'Quét QR do nhân viên cung cấp. Nếu đã chuyển, chờ ngân hàng xác nhận; màn hình tự cập nhật, không cần chuyển lại.',
+      };
+  }
 }

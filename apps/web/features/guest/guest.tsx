@@ -24,6 +24,8 @@ import { PaymentForm, type GuestState } from './guest-panels';
 import { Cart, CartSummary, cartTotal } from './cart';
 import { DishPicker } from './dish-picker';
 import { guestPaymentStatus } from './payment-status';
+import { isOnlinePaymentPending } from '../shared/online-payment';
+import { useSmartRefresh } from '../shared/use-smart-refresh';
 import { SessionCode } from './session-code';
 import { GuestBillLines } from './bill-lines';
 import { GuestScope } from './scope';
@@ -59,12 +61,15 @@ export default function Guest() {
   const liveDishFeed = useRef<DishNoticeFeed | undefined>(undefined);
   const [dishFeed, setDishFeed] = useState<DishNoticeFeed>();
   const lastCartVersion = useRef(0);
+  const lastOnlineReceived = useRef<
+    { sessionId: string; amounts: Map<string, bigint> } | undefined
+  >(undefined);
   const lastTable = useRef<{ sessionId: string; tableId: string; version: number } | null>(null);
-  const refresh = useCallback(async () => {
+  const load = useCallback(async (signal: AbortSignal) => {
     const generation = qrGeneration.current;
     try {
-      const next = await api<GuestState>('/guest/state', undefined, 'GET', true);
-      if (generation !== qrGeneration.current) return;
+      const next = await api<GuestState>('/guest/state', undefined, 'GET', true, signal);
+      if (signal.aborted || generation !== qrGeneration.current) return;
       const previous = lastTable.current;
       if (
         previous?.sessionId === next.session.id &&
@@ -84,6 +89,22 @@ export default function Guest() {
         version: Number(next.session.version),
       };
       lastCartVersion.current = next.cart.cart_version;
+      const received = new Map(
+        (next.onlinePayments ?? []).map((payment) => [payment.id, BigInt(payment.paidAmount)]),
+      );
+      if (lastOnlineReceived.current?.sessionId === next.session.id) {
+        const previous = lastOnlineReceived.current.amounts;
+        const increase = [...received].reduce(
+          (sum, [id, amount]) =>
+            sum + (amount > (previous.get(id) ?? 0n) ? amount - (previous.get(id) ?? 0n) : 0n),
+          0n,
+        );
+        if (increase > 0n)
+          notifySuccess(
+            'Đã nhận ' + vnd(increase) + ' thanh toán online. Số dư của bàn đã tự cập nhật.',
+          );
+      }
+      lastOnlineReceived.current = { sessionId: next.session.id, amounts: received };
       liveDishFeed.current = advanceDishNotices(liveDishFeed.current, {
         sessionId: next.session.id,
         tableId: String(next.session.table_id),
@@ -94,7 +115,7 @@ export default function Guest() {
       setState(next);
       setError('');
     } catch (e) {
-      if (generation !== qrGeneration.current) return;
+      if (signal.aborted || generation !== qrGeneration.current) return;
       if (e instanceof ApiError && [401, 403, 404, 409].includes(e.status)) {
         setState(undefined);
         liveDishFeed.current = undefined;
@@ -102,13 +123,25 @@ export default function Guest() {
       }
       if (e instanceof ApiError && e.status === 401) setJoining(true);
       setError(e instanceof Error ? e.message : 'Chưa kết nối được nhà hàng.');
+      throw e;
     }
   }, []);
+  const refresh = useSmartRefresh(load, {
+    enabled: !joining,
+    intervalMs:
+      state?.session.session_status === 'CLOSED'
+        ? false
+        : state?.onlinePayments?.some((payment) => isOnlinePaymentPending(payment.status))
+          ? 3000
+          : 5000,
+    initial: false,
+  });
   useEffect(() => {
     const readQr = () => {
       const generation = ++qrGeneration.current;
       lastTable.current = null;
       lastCartVersion.current = 0;
+      lastOnlineReceived.current = undefined;
       liveDishFeed.current = undefined;
       setDishFeed(undefined);
       setCartSelection({});
@@ -121,9 +154,11 @@ export default function Guest() {
       // and responses for an earlier QR must never restore the previous table.
       setJoining(Boolean(qr));
       if (!qr)
-        void refresh().finally(() => {
-          if (generation === qrGeneration.current) setLoading(false);
-        });
+        void refresh()
+          .catch(() => undefined)
+          .finally(() => {
+            if (generation === qrGeneration.current) setLoading(false);
+          });
       else {
         setState(undefined);
         setProfile(false);
@@ -158,24 +193,6 @@ export default function Guest() {
       window.removeEventListener('hashchange', readQr);
     };
   }, [refresh]);
-  useEffect(() => {
-    if (joining) return;
-    const timer = setInterval(() => {
-      if (!document.hidden) void refresh();
-    }, 3000);
-    const resume = () => {
-      if (!document.hidden) void refresh();
-    };
-    document.addEventListener('visibilitychange', resume);
-    window.addEventListener('online', resume);
-    window.addEventListener('focus', resume);
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', resume);
-      window.removeEventListener('online', resume);
-      window.removeEventListener('focus', resume);
-    };
-  }, [joining, refresh]);
   async function mutate(path: string, body: unknown, method = 'POST') {
     const result = await api<{ skipped?: unknown[]; cancelled?: unknown[] }>(
       path,
@@ -670,6 +687,7 @@ export default function Guest() {
                   billing={state.billing}
                   payments={state.payments}
                   requests={state.support}
+                  onlinePayments={state.onlinePayments}
                 />
                 {state.session.session_status === 'ACTIVE' && (
                   <PromotionSelection
@@ -731,6 +749,7 @@ export default function Guest() {
                     done={refresh}
                     available={String(state.account?.outstanding_amount ?? '0')}
                     requests={state.support}
+                    onlinePayments={state.onlinePayments}
                     paymentStatus={guestPaymentStatus(
                       state.account,
                       state.orders,

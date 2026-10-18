@@ -108,7 +108,7 @@ export function onlinePaymentState(intent: PaymentIntent, now = Date.now()) {
       kind: 'pending',
       title: 'Đã nhận một phần tiền online',
       detail:
-        'Khách chuyển phần còn thiếu theo QR này. Hệ thống tự cập nhật khi xác minh tiền nhận.',
+        'Chỉ chuyển phần còn thiếu. Khi quét QR, kiểm tra và chỉnh số tiền trước khi xác nhận; không chuyển lại toàn bộ khoản thu. Hệ thống tự cập nhật tiền nhận.',
       showQr: Boolean(online.qrCode),
     };
   if (status === 'PENDING')
@@ -125,4 +125,26 @@ export function onlinePaymentState(intent: PaymentIntent, now = Date.now()) {
     detail: 'Chưa thể sử dụng QR này. Kiểm tra trạng thái hoặc báo quản trị trước khi thu lại.',
     showQr: false,
   };
+}
+
+/** Poll read models while the server still has provider work; local expiry never confirms money. */
+export function isOnlinePaymentPending(status: unknown) {
+  return [
+    'CREATE_PENDING',
+    'PENDING',
+    'UNDERPAID',
+    'PROCESSING',
+    'CANCEL_PENDING',
+    'ERROR',
+  ].includes(String(status));
+}
+export function hasPendingOnlinePayment(intents: PaymentIntent[]) {
+  return intents.some(
+    (intent) =>
+      intent.method === 'ONLINE' &&
+      isOnlinePaymentPending(
+        intent.online?.status ??
+          (['CREATED', 'PENDING'].includes(intent.status) ? 'CREATE_PENDING' : ''),
+      ),
+  );
 }

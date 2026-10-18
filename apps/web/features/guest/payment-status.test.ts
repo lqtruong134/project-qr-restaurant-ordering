@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { guestPaymentStatus } from './payment-status';
+import { guestPaymentStatus, guestOnlinePaymentStatus } from './payment-status';
+import type { GuestOnlinePayment } from '@thesis/contracts';
 import type { Row } from '../shared/components';
 const zero: Row = {
   id: 'account',
@@ -93,4 +94,55 @@ it('still requests new charges after a prior refund and explains an adjusted pai
       [item],
     ).kind,
   ).toBe('due');
+});
+
+describe('guest online confirmation uses safe server states', () => {
+  const online: GuestOnlinePayment = {
+    id: 'opaque-ui-key',
+    scope: 'TABLE',
+    amount: '100000',
+    paidAmount: '0',
+    bankConfirmedAmount: '0',
+    remainingAmount: '100000',
+    status: 'PENDING',
+    createdAt: '2026-10-17T00:00:00Z',
+    expiresAt: '2026-10-17T01:00:00Z',
+  };
+  it('describes waiting without claiming receipt, even if a return URL says paid', () => {
+    expect(guestOnlinePaymentStatus(online)).toMatchObject({
+      kind: 'pending',
+      title: 'Đang chờ thanh toán online',
+    });
+    expect(guestOnlinePaymentStatus({ ...online, status: 'PROCESSING' }).title).toContain(
+      'ngân hàng xác nhận',
+    );
+  });
+  it('keeps partial receipt distinct from a settled payment', () => {
+    const state = guestOnlinePaymentStatus({
+      ...online,
+      status: 'UNDERPAID',
+      paidAmount: '30000',
+      remainingAmount: '70000',
+    });
+    expect(state.kind).toBe('pending');
+    expect(state.title).toContain('một phần');
+    expect(state.detail).toContain('30.000');
+    expect(state.detail).toContain('70.000');
+    expect(
+      guestOnlinePaymentStatus({
+        ...online,
+        status: 'PAID',
+        paidAmount: '100000',
+        remainingAmount: '0',
+      }).title,
+    ).toBe('Thanh toán thành công');
+  });
+  it.each(['EXPIRED', 'CANCELLED', 'FAILED', 'REQUIRES_RECONCILIATION'] as const)(
+    '%s never asks the guest to pay again without staff checking',
+    (status) => {
+      const state = guestOnlinePaymentStatus({ ...online, status });
+      expect(state.kind).not.toBe('paid');
+      expect(state.detail).toMatch(/trước khi|Chưa cần chuyển thêm/);
+    },
+  );
 });

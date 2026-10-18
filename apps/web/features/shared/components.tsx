@@ -124,10 +124,13 @@ export async function api<T>(
   body?: unknown,
   method = body === undefined ? 'GET' : 'POST',
   guest = false,
+  signal?: AbortSignal,
 ): Promise<T> {
   void guest; // All methods and both guest/internal screens share the same error boundary.
   const response = await requestApi(path, {
     method,
+    signal,
+    ...(method === 'GET' ? { cache: 'no-store' as const } : {}),
     headers: {
       'X-CSRF-Protection': '1',
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),

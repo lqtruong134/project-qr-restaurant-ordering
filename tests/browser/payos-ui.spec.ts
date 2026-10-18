@@ -3,6 +3,7 @@ import { selectAdmin } from './admin-navigation';
 import type {
   PaymentCapabilities,
   OnlinePaymentView,
+  GuestOnlinePayment,
 } from '../../packages/contracts/src/payments-online';
 type PaymentIntent = {
   id: string;
@@ -43,6 +44,7 @@ function fixture() {
     verification_status: 'VERIFIED',
     charge_total: '450000',
     outstanding_amount: '450000',
+    pending_payments: 0,
   };
   const bill = {
     session: { id: sid, session_status: 'ACTIVE', table_code: 'A10', opened_at: at },
@@ -98,7 +100,16 @@ function fixture() {
     generatedAt: at,
     closedBy: null,
     paymentCapabilities: { online: true } as PaymentCapabilities,
-    closure: { canClose: false, blockers: [] },
+    closure: {
+      canClose: false,
+      blockers: [] as {
+        code: string;
+        title: string;
+        detail: string;
+        tab: 'payments' | 'tasks' | 'orders';
+        count: number;
+      }[],
+    },
   };
   return { bill, table };
 }
@@ -107,6 +118,8 @@ async function mock(page: Page) {
   const data = fixture();
   const writes: { path: string; body: Record<string, unknown> }[] = [];
   const errors: string[] = [];
+  const reads: string[] = [];
+  let rejectRefresh = false;
   let reject = false;
   const cases: PaymentReconciliationCase[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -145,16 +158,31 @@ async function mock(page: Page) {
     const path = new URL(route.request().url()).pathname;
     const method = route.request().method();
     if (method === 'GET') {
+      reads.push(path);
       if (path === '/api/core/admin/overview')
         return route.fulfill({
           status: 503,
           json: { userMessage: 'Tổng quan không được dùng trong fixture đối soát.' },
         });
-      if (path === '/api/core/sessions/' + sid + '/bill') return route.fulfill({ json: data.bill });
+      if (path === '/api/core/sessions/' + sid + '/bill')
+        return route.fulfill({
+          json: {
+            ...data.bill,
+            paymentRequests: data.bill.paymentRequests.filter((request) =>
+              ['NEW', 'ACKNOWLEDGED'].includes(String(request.status)),
+            ),
+          },
+        });
       if (path.endsWith('/promotion'))
         return route.fulfill({ json: { billing: data.bill.billing, programs: [], locked: true } });
       if (path === '/api/core/tables' || path === '/api/core/admin/tables')
         return route.fulfill({ json: [data.table] });
+      if (path === '/api/core/support')
+        return route.fulfill({
+          json: data.bill.paymentRequests.filter((request) =>
+            ['NEW', 'ACKNOWLEDGED'].includes(String(request.status)),
+          ),
+        });
       if (path === '/api/core/catalog')
         return route.fulfill({ json: { products: [], categories: [] } });
       if (path === '/api/core/admin/payment-reconciliation') return route.fulfill({ json: cases });
@@ -194,7 +222,16 @@ async function mock(page: Page) {
       data.bill.account.reserved_payment_amount = intent.amount;
       return route.fulfill({ json: intent });
     }
-    if (path.endsWith('/refresh')) return route.fulfill({ json: data.bill.intents[0] });
+    if (path.endsWith('/refresh'))
+      return rejectRefresh
+        ? route.fulfill({
+            status: 503,
+            json: {
+              errorCode: 'PAYOS_UNAVAILABLE',
+              userMessage: 'Chưa kiểm tra được ngân hàng. Hệ thống sẽ tiếp tục tự cập nhật.',
+            },
+          })
+        : route.fulfill({ json: data.bill.intents[0] });
     if (path.endsWith('/cancel')) {
       data.bill.intents[0]!.status = 'CANCELLED';
       data.bill.intents[0]!.online!.status = 'CANCELLED';
@@ -210,6 +247,7 @@ async function mock(page: Page) {
   });
   await page.route('**/api/guest/**', (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (route.request().method() === 'GET') reads.push(path);
     if (path.endsWith('/state'))
       return route.fulfill({
         json: {
@@ -242,7 +280,26 @@ async function mock(page: Page) {
             },
           ],
           account: data.bill.account,
-          support: [],
+          support: data.bill.paymentRequests,
+          onlinePayments: data.bill.intents
+            .filter((intent) => intent.method === 'ONLINE' && intent.online)
+            .map((intent): GuestOnlinePayment => ({
+              id: 'opaque-' + intent.id,
+              scope: 'TABLE',
+              amount: intent.amount,
+              status: intent.online!.status,
+              paidAmount:
+                intent.online!.status === 'REQUIRES_RECONCILIATION'
+                  ? '0'
+                  : intent.online!.paidAmount,
+              bankConfirmedAmount: intent.online!.paidAmount,
+              remainingAmount:
+                intent.online!.status === 'REQUIRES_RECONCILIATION'
+                  ? intent.amount
+                  : intent.online!.remainingAmount,
+              expiresAt: intent.online!.expiresAt,
+              createdAt: at,
+            })),
           payments: data.bill.payments,
           refundTransactions: [],
         },
@@ -253,7 +310,22 @@ async function mock(page: Page) {
       const body = route.request().postDataJSON();
       writes.push({ path, body });
       expect(['CASH', 'BANK_TRANSFER']).toContain(body.method);
-      return route.fulfill({ json: { id: 'request', status: 'NEW', payment_method: body.method } });
+      const request = {
+        id: 'request',
+        status: 'NEW',
+        request_type: 'BILL',
+        payment_method: body.method,
+        participant_id: 'guest',
+        display_name: 'Lan',
+        session_id: sid,
+        table_id: 'table',
+        table_code: 'A10',
+        area_name: 'Trong nhà',
+        created_at: at,
+        acknowledged_by: null,
+      };
+      data.bill.paymentRequests.push(request);
+      return route.fulfill({ json: request });
     }
     if (route.request().method() !== 'GET') throw Error('Guest cannot create online payments');
     return route.fulfill({ json: null });
@@ -261,7 +333,11 @@ async function mock(page: Page) {
   return {
     ...data,
     writes,
+    reads,
     errors,
+    rejectRefresh: () => {
+      rejectRefresh = true;
+    },
     cases,
     makeIntent,
     reject: () => {
@@ -320,6 +396,10 @@ async function staffPayment(page: Page, navigate = true) {
   await dialog.getByRole('button', { name: 'Thu tiền & phiếu', exact: true }).click();
   return dialog;
 }
+async function pauseClock(page: Page) {
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+  await page.waitForLoadState('networkidle');
+}
 async function fits(page: Page, scope: Locator) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
     true,
@@ -377,8 +457,7 @@ test('staff creates a partial online QR after cash, refresh preserves QR, provid
     await fits(page, dialog);
   }
   await card.screenshot({ path: info.outputPath('payos-qr-320.png'), animations: 'disabled' });
-  await page.clock.pauseAt(new Date());
-  await page.waitForLoadState('networkidle');
+  await pauseClock(page);
   await page.reload();
   await page.clock.resume();
   dialog = await staffPayment(page, false);
@@ -460,8 +539,7 @@ test('missing configuration disables Online with explanation; failed creation do
   await expect(dialog).toContainText('Thanh toán online chưa được cấu hình.');
   f.bill.paymentCapabilities = { online: true };
   f.reject();
-  await page.clock.pauseAt(new Date());
-  await page.waitForLoadState('networkidle');
+  await pauseClock(page);
   await page.reload();
   await page.clock.resume();
   dialog = await staffPayment(page, false);
@@ -611,5 +689,268 @@ test('transient provider error keeps the pending amount reserved and allows stat
   expect(f.bill.account.reserved_payment_amount).toBe('150000');
   expect(f.bill.account.paid_total).toBe('0');
   expect(f.writes.map((write) => write.path)).toEqual(['/api/core/payments/online-intent/refresh']);
+  expect(f.errors).toEqual([]);
+});
+
+test('pending staff payment automatically becomes partial then paid and reloads account, tasks and checklist', async ({
+  page,
+}) => {
+  const f = await mock(page);
+  f.online('PENDING', '450000');
+  f.bill.account.reserved_payment_amount = '450000';
+  f.table.pending_payments = 1;
+  f.bill.paymentRequests = [
+    {
+      id: 'payment-call',
+      request_type: 'BILL',
+      payment_method: 'BANK_TRANSFER',
+      status: 'ACKNOWLEDGED',
+      acknowledged_by: 'staff',
+      participant_id: 'guest',
+      display_name: 'Lan',
+      session_id: sid,
+      table_id: 'table',
+      created_at: at,
+    },
+  ];
+  f.bill.closure.blockers = [
+    {
+      code: 'PAYMENT',
+      title: 'Còn khoản thu chưa xác nhận',
+      detail: 'Chờ ngân hàng xác nhận.',
+      tab: 'payments',
+      count: 1,
+    },
+  ];
+  const dialog = await staffPayment(page);
+  const card = dialog.getByRole('region', { name: 'Khoản thu online' });
+  await expect(card).toContainText('Đang chờ khách thanh toán');
+  await expect(card.getByRole('img')).toBeVisible();
+  await pauseClock(page);
+  const before = f.reads.filter((path) => path.endsWith('/bill')).length;
+  f.online('UNDERPAID', '450000', '100000');
+  f.bill.account.paid_total = '100000';
+  f.bill.account.outstanding_amount = '350000';
+  f.bill.account.reserved_payment_amount = '350000';
+  f.bill.payments.push({
+    id: 'part-one',
+    method: 'ONLINE',
+    status: 'SUCCEEDED',
+    amount: '100000',
+    confirmed_at: at,
+  });
+  f.table.outstanding_amount = '350000';
+  await page.clock.runFor(3500);
+  await expect(card).toContainText('Đã nhận một phần tiền online');
+  await expect(card.locator('.online-payment-facts')).toContainText('350.000 đ');
+  await expect(card).toContainText('Chỉ chuyển thêm 350.000 đ');
+  await expect(
+    dialog.locator('.bill-balance-grid').getByText('350.000 đ', { exact: true }),
+  ).toBeVisible();
+  expect(f.reads.filter((path) => path.endsWith('/bill')).length).toBeGreaterThan(before);
+  f.online('PAID', '450000', '450000');
+  f.bill.account.paid_total = '450000';
+  f.bill.account.outstanding_amount = '0';
+  f.bill.account.reserved_payment_amount = '0';
+  f.bill.payments.unshift({
+    id: 'part-two',
+    method: 'ONLINE',
+    status: 'SUCCEEDED',
+    amount: '350000',
+    confirmed_at: at,
+  });
+  f.bill.paymentRequests[0]!.status = 'RESOLVED';
+  f.table.outstanding_amount = '0';
+  f.table.pending_payments = 0;
+  f.bill.closure.blockers = [
+    {
+      code: 'RECEIPT',
+      title: 'Chưa giao phiếu cho khách',
+      detail: 'Nhân viên cần xác nhận giao phiếu.',
+      tab: 'payments',
+      count: 1,
+    },
+  ];
+  await page.clock.runFor(3500);
+  await expect(card).toContainText('Đã nhận thanh toán online');
+  await expect(card.getByRole('img')).toHaveCount(0);
+  await expect(
+    dialog.locator('.bill-balance-grid').getByText('0 đ', { exact: true }),
+  ).toBeVisible();
+  await expect(dialog.locator('[data-support-id="payment-call"]')).toHaveCount(0);
+  await expect(dialog.getByRole('status', { name: 'Điều kiện kết thúc bàn' })).toContainText(
+    'Chưa giao phiếu cho khách',
+  );
+  await expect(dialog.getByRole('status', { name: 'Điều kiện kết thúc bàn' })).not.toContainText(
+    'Còn khoản thu chưa xác nhận',
+  );
+  await expect(
+    dialog.getByRole('button', { name: 'Đóng phiên sau khi hoàn tất', exact: true }),
+  ).toBeDisabled();
+  await expect(page.locator('.table-tile')).toContainText('Còn phải trả 0 đ');
+  const settledReads = f.reads.filter((path) => path.endsWith('/bill')).length;
+  await page.clock.runFor(9000);
+  expect(f.reads.filter((path) => path.endsWith('/bill'))).toHaveLength(settledReads);
+  expect(f.writes).toEqual([]);
+  expect(f.errors).toEqual([]);
+});
+
+test('guest automatically shows partial and successful online receipts and clears settled assistance wording', async ({
+  page,
+}) => {
+  const f = await mock(page);
+  f.online('PENDING', '450000');
+  f.bill.paymentRequests = [
+    {
+      id: 'payment-call',
+      request_type: 'BILL',
+      payment_method: 'BANK_TRANSFER',
+      status: 'ACKNOWLEDGED',
+      acknowledged_by: 'staff',
+      participant_id: 'guest',
+      created_at: at,
+    },
+  ];
+  await page.goto('/guest');
+  await page
+    .getByRole('navigation', { name: 'Điều hướng khách' })
+    .getByRole('button', { name: 'Thanh toán', exact: true })
+    .click();
+  const online = page.getByRole('region', { name: 'Trạng thái thanh toán online' });
+  await expect(online).toContainText('Đang chờ thanh toán online');
+  await expect(page.getByRole('button', { name: 'Tạo QR thanh toán' })).toHaveCount(0);
+  await pauseClock(page);
+  f.online('UNDERPAID', '450000', '100000');
+  f.bill.account.paid_total = '100000';
+  f.bill.account.outstanding_amount = '350000';
+  await page.clock.runFor(3500);
+  await expect(online).toContainText('Đã nhận một phần thanh toán');
+  await expect(online).toContainText('100.000 đ');
+  await expect(online).toContainText('350.000 đ');
+  await expect(online).not.toContainText('Thanh toán thành công');
+  f.online('PAID', '450000', '450000');
+  f.bill.account.paid_total = '450000';
+  f.bill.account.outstanding_amount = '0';
+  f.bill.paymentRequests[0]!.status = 'RESOLVED';
+  await page.clock.runFor(3500);
+  await expect(online.getByRole('status')).toHaveText('Thanh toán thành công');
+  await expect(
+    page.getByRole('heading', { name: 'Bàn đã thanh toán đủ', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator('.core-stats p').filter({ hasText: 'Đã thanh toán (sau hoàn)' }).locator('strong'),
+  ).toHaveText('450.000 đ');
+  await expect(
+    page.locator('.core-stats p').filter({ hasText: 'Còn phải thanh toán' }).locator('strong'),
+  ).toHaveText('0 đ');
+  await expect(page.locator('.guest-payment-sent')).toHaveCount(0);
+  await expect(page.getByText('Nhân viên đang xử lý', { exact: true })).toHaveCount(0);
+  await expect(online).not.toContainText('202610140001');
+  expect(f.writes).toEqual([]);
+  expect(f.errors).toEqual([]);
+});
+
+test('manual provider failure is truthful and still reloads the newly recorded bill without creating another link', async ({
+  page,
+}) => {
+  const f = await mock(page);
+  f.online('PENDING', '450000');
+  const dialog = await staffPayment(page);
+  const card = dialog.getByRole('region', { name: 'Khoản thu online' });
+  await expect(card.getByRole('img')).toBeVisible();
+  await pauseClock(page);
+  const reads = f.reads.filter((path) => path.endsWith('/bill')).length;
+  f.online('UNDERPAID', '450000', '100000');
+  f.bill.account.paid_total = '100000';
+  f.bill.account.outstanding_amount = '350000';
+  f.bill.payments.push({
+    id: 'concurrent-webhook',
+    method: 'ONLINE',
+    status: 'SUCCEEDED',
+    amount: '100000',
+    confirmed_at: at,
+  });
+  f.rejectRefresh();
+  await card.getByRole('button', { name: 'Kiểm tra trạng thái', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('Chưa kiểm tra được ngân hàng');
+  await expect(card).toContainText('Đã nhận một phần tiền online');
+  await expect(dialog.locator('.bill-balance-grid')).toContainText('350.000 đ');
+  expect(f.reads.filter((path) => path.endsWith('/bill')).length).toBeGreaterThan(reads);
+  expect(f.writes.map((write) => write.path)).toEqual(['/api/core/payments/online-intent/refresh']);
+  expect(
+    f.writes.some((write) => write.path.endsWith('/payments') || write.path.endsWith('/confirm')),
+  ).toBe(false);
+  expect(f.errors).toEqual([]);
+});
+
+test('hidden payment panel pauses reads, foreground events coalesce, and closing the panel cleans up its timer', async ({
+  page,
+}) => {
+  const f = await mock(page);
+  f.online('PENDING');
+  const dialog = await staffPayment(page);
+  await expect(
+    dialog.getByRole('region', { name: 'Khoản thu online' }).getByRole('img'),
+  ).toBeVisible();
+  await pauseClock(page);
+  const before = f.reads.filter((path) => path.endsWith('/bill')).length;
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.clock.runFor(15000);
+  expect(f.reads.filter((path) => path.endsWith('/bill'))).toHaveLength(before);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    document.dispatchEvent(new Event('visibilitychange'));
+    window.dispatchEvent(new Event('focus'));
+    window.dispatchEvent(new Event('online'));
+  });
+  await expect.poll(() => f.reads.filter((path) => path.endsWith('/bill')).length).toBe(before + 1);
+  await page.clock.runFor(500);
+  expect(f.reads.filter((path) => path.endsWith('/bill'))).toHaveLength(before + 1);
+  await page.waitForLoadState('networkidle');
+  await dialog.getByRole('button', { name: 'Đóng', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  const afterClose = f.reads.filter((path) => path.endsWith('/bill')).length;
+  await page.clock.runFor(15000);
+  expect(f.reads.filter((path) => path.endsWith('/bill'))).toHaveLength(afterClose);
+  expect(f.errors).toEqual([]);
+});
+
+test('guest expiry, cancellation and reconciliation never claim money was posted or invite using an old QR', async ({
+  page,
+}) => {
+  const f = await mock(page);
+  f.online('EXPIRED', '150000');
+  await page.goto('/guest');
+  await page
+    .getByRole('navigation', { name: 'Điều hướng khách' })
+    .getByRole('button', { name: 'Thanh toán', exact: true })
+    .click();
+  const online = page.getByRole('region', { name: 'Trạng thái thanh toán online' });
+  await expect(online).toContainText('QR thanh toán đã hết hạn');
+  await expect(online).toContainText('Không sử dụng QR cũ');
+  await pauseClock(page);
+  f.online('CANCELLED', '150000');
+  await page.clock.runFor(5500);
+  await expect(online).toContainText('Khoản thanh toán online đã hủy');
+  await expect(online).toContainText('kiểm tra trước khi chuyển lại');
+  f.online('REQUIRES_RECONCILIATION', '150000', '150000');
+  await page.clock.runFor(5500);
+  await expect(online).toContainText('Nhà hàng đang kiểm tra khoản chuyển tiền');
+  await expect(online).toContainText('Ngân hàng đã xác nhận 150.000 đ');
+  await expect(online).toContainText('chưa ghi nhận vào thanh toán');
+  await expect(online).toContainText('bạn chưa cần chuyển lại');
+  await expect(online).not.toContainText('Thanh toán thành công');
+  await expect(online.getByRole('img')).toHaveCount(0);
+  await expect(online.getByRole('link')).toHaveCount(0);
+  await expect(
+    page.locator('.core-stats p').filter({ hasText: 'Đã thanh toán (sau hoàn)' }).locator('strong'),
+  ).toHaveText('0 đ');
+  await expect(
+    page.locator('.core-stats p').filter({ hasText: 'Còn phải thanh toán' }).locator('strong'),
+  ).toHaveText('450.000 đ');
+  expect(f.writes).toEqual([]);
   expect(f.errors).toEqual([]);
 });

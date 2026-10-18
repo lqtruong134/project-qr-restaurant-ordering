@@ -45,3 +45,19 @@ export type UnmatchedPaymentWebhook = {
   reference: string;
   receivedAt: string;
 };
+
+/** A scoped display projection, never a provider payload or a payment mutation credential. */
+export type GuestOnlinePayment = {
+  id: string;
+  scope: 'TABLE' | 'PARTICIPANT';
+  amount: string;
+  status: PayosStatus;
+  /** Successful bank collections already recorded in the restaurant ledger. */
+  paidAmount: string;
+  /** Provider-confirmed funds can include quarantined amounts requiring staff reconciliation. */
+  bankConfirmedAmount: string;
+  remainingAmount: string;
+  expiresAt: string;
+  createdAt: string;
+  supportRequestId?: string;
+};

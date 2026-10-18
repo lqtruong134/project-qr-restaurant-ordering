@@ -10,7 +10,7 @@ const titles=Object.fromEntries(pages.map(f=>[f,fs.readFileSync(path.join(out,f)
 const tableCount=Number(fs.readFileSync(path.join(out,'database/data-dictionary.md'),'utf8').match(/^# Từ điển dữ liệu vật lý — (\d+) bảng/m)?.[1]);
 if(!tableCount)throw new Error('Run pnpm docs:database before HTML export');
 const currentReviewLabel='15/10/2026 · Schema hiện hành '+tableCount+' bảng';
-const deploymentReviewPages=new Set(['00-bat-dau.md','12-van-hanh.md','15-doi-chieu.md','26-trien-khai-qtruongres.md']);
+const deploymentReviewPages=new Set(['00-bat-dau.md','12-van-hanh.md','15-doi-chieu.md','26-trien-khai-qtruongres.md','06-thanh-toan.md','25-thu-tien-tai-ban.md','17-api.md','16-tu-dien-du-lieu.md']);
 const aiReviewPages=new Set(['00-bat-dau.md','12-van-hanh.md','14-mo-rong.md','15-doi-chieu.md','17-api.md']);
 const comboReviewPages=new Set(['00-bat-dau.md','04-goi-mon.md','06-thanh-toan.md','09-nhan-su.md','12-van-hanh.md','14-mo-rong.md','15-doi-chieu.md','16-tu-dien-du-lieu.md','20-anh-va-giao-dien.md','17-api.md','25-thu-tien-tai-ban.md']);
 const sourceRoot=(process.env.DOC_SOURCE_ROOT||'https://github.com/lqtruong134/project-qr-restaurant-ordering/blob/main/').replace(/\/?$/,'/');

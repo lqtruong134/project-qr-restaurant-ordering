@@ -4,7 +4,7 @@
 
 Quy trình production nằm tại [bài 26 — Triển khai qtruongres](26-trien-khai-qtruongres.md): cấu hình riêng từ `deploy/.env.example`, build lần lượt, chuyển dữ liệu vào đích rỗng, migration chủ động, khởi động/dừng và sao lưu/khôi phục. Dùng `node scripts/deploy.mjs <lệnh> --env-file <tệp-riêng>` theo bài đó; không dùng các lệnh khởi động hoặc seed phát triển bên dưới để nâng cấp production. Giữ `AUTH_SECRET` và `RESTAURANT_ID` phù hợp khi chuyển dữ liệu hiện có; lưu bí mật riêng với mã nguồn và tài liệu.
 
-Hiện đã chuẩn bị và diễn tập cục bộ, **chưa công bố trên Internet**. Domain/Cloudflare, tunnel và payOS thật cần cấu hình/nghiệm thu riêng; AI vẫn OFF. [Bài 15](15-doi-chieu.md) là nơi đối chiếu kiểm tra đã đạt và phần chưa kiểm tra. Backup chứa dữ liệu riêng của nhà hàng dù không đóng gói tệp môi trường; không đưa backup lên Git hoặc thư mục web.
+Ở đợt chuẩn bị deployment trước đây chỉ nghiệm thu local. Người vận hành hiện đã cấu hình HTTPS/Named Tunnel và merchant production; bản sửa thanh toán 17/10 chưa được áp dụng lên dịch vụ live. Xem checklist migration, rebuild API/web và test thật ở đầu [bài 26](26-trien-khai-qtruongres.md). AI vẫn OFF. [Bài 15](15-doi-chieu.md) là nơi đối chiếu kiểm tra đã đạt và phần chưa kiểm tra. Backup chứa dữ liệu riêng của nhà hàng dù không đóng gói tệp môi trường; không đưa backup lên Git hoặc thư mục web.
 
 Các mục còn lại của bài này mô tả môi trường phát triển và nghiệp vụ vận hành chung. Chi tiết production chỉ duy trì tại bài 26 để tránh hai quy trình khác nhau.
 

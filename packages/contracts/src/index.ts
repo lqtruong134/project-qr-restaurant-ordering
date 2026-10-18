@@ -37,6 +37,7 @@ export type {
   PayosStatus,
   PaymentCapabilities,
   OnlinePaymentView,
+  GuestOnlinePayment,
   PaymentReconciliationCase,
   UnmatchedPaymentWebhook,
 } from './payments-online';

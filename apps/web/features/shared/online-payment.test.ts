@@ -43,6 +43,7 @@ describe('online payment presentation safeguards', () => {
     payment.online!.remainingAmount = '50000';
     expect(onlinePaymentState(payment, now)).toMatchObject({ kind: 'pending', showQr: true });
     expect(payment.online!.remainingAmount).toBe('50000');
+    expect(onlinePaymentState(payment, now).detail).toContain('không chuyển lại toàn bộ');
   });
   it.each(['CANCELLED', 'EXPIRED', 'CANCEL_PENDING', 'ERROR', 'CREATE_PENDING'])(
     '%s never exposes a payable QR',

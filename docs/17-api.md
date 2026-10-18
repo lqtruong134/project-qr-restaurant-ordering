@@ -1,5 +1,11 @@
 # 17. Danh mục API hiện hành
 
+## Read model thanh toán tự cập nhật — 17/10/2026
+
+Không thêm endpoint công khai mới. GET `/guest/state` có `onlinePayments` allowlist, chỉ TABLE của phiên hiện tại hoặc PARTICIPANT đúng người; khóa hiển thị opaque không dùng cho thao tác ghi. Có status, amount, paidAmount từ ledger, bankConfirmedAmount từ provider, remainingAmount, scope và timestamps; không lộ QR/checkout/orderCode/raw payload/bank reference hoặc staffID. `supportRequestId` chỉ có khi chính khách sở hữu yêu cầu. Account và progress được đọc trong transaction khóa phiên hiện có.
+
+POST `/core/payments/:id/refresh` chỉ STAFF có quyền đúng phạm vi/người thu, dùng GETprovider qua đối soát, không tạo link mới. Thành công trả PaymentIntent hiện hành; busy409; provider tạm lỗi/chưa đủ dữ liệu503 với `PAYMENT_PROVIDER_UNAVAILABLE` và Retry-After: 3. Webhook503 có thể retry; duplicate đã xử lý không ghi thêm transaction/allocation. Frontend tự GETreadmodel, không coi HTTP200 hoặc return URL là đã paid. [Chi tiết](06-thanh-toan.md).
+
 ## API trợ lý thực đơn v2 — 16/10/2026
 
 GET `/guest/menu-assistant/capabilities` và POST `/guest/menu-assistant/recommendations` đều yêu cầu cookie `guest` hợp lệ trong nhà hàng/phiên đang mở; POST cần Origin được phép và `X-CSRF-Protection: 1`. Trên web thêm tiền tố `/api`. Generator đăng ký mã nguồn hiện hành đếm **177 thao tác nghiệp vụ / 186 route tổng**, gồm 7 auth/workspace và 2 health, không tính HEAD tự sinh. Schema request và decision trong Swagger lấy trực tiếp từ contract dùng chung.

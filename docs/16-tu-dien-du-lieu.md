@@ -1,5 +1,9 @@
 # 16. Từ điển dữ liệu hiện hành
 
+## Ràng buộc hoàn tất yêu cầu thu tiền — 17/10/2026
+
+Source bổ sung migration `202610170001_payment_system_resolution` (thứ 37), chưa áp lên production trong task audit. Migration thay CHECK legacy `support_request_check` bằng `support_request_resolution_actor` kiểm tra USER/SYSTEM rõ ràng, đồng thời giữ `support_request_owner_state`: USER phải có đúng người xử lý, SYSTEM phải không giả một USER, actor NULL không hợp lệ. Không thêm bảng/cột, không sửa Prisma model hoặc dữ liệu lịch sử. Dictionary/snapshot vật lý cũ bên dưới là hồ sơ trước migration này; không coi nó là bằng chứng production đã nâng cấp. [Biên bản](15-doi-chieu.md), [quy trình áp dụng an toàn](26-trien-khai-qtruongres.md).
+
 ## Bản hiện hành — 14/10/2026
 
 Metadata PostgreSQL của bản đã xác minh có **67 bảng nghiệp vụ, 786 cột và 163 khóa ngoại**; không tính `_prisma_migrations`. Phần này đọc cấu trúc bảng, kiểu, khóa, ràng buộc, chỉ mục và trigger, không đọc hoặc xuất bản ghi khách, nhân viên, chứng từ hay thông tin đăng nhập.

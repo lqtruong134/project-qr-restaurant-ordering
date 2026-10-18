@@ -4,7 +4,7 @@
 
 Đọc [bài 26 — Triển khai trên laptop và chuyển sang VPS](26-trien-khai-qtruongres.md) khi cần chạy stack Docker riêng, chuyển dữ liệu hiện có hoặc sao lưu/khôi phục. Bài hướng dẫn tách cấu hình production khỏi `.env` phát triển, giữ PostgreSQL và ảnh tải lên trong volume riêng, chạy migration có kiểm soát và không tự seed khi khởi động.
 
-Trạng thái hiện tại là chuẩn bị và diễn tập cục bộ; **chưa công bố website trên Internet**. Domain/Cloudflare và nghiệm thu payOS thật cần người vận hành hoàn tất; AI tiếp tục OFF. [Bài 15](15-doi-chieu.md) ghi chính xác phạm vi đã kiểm tra. Lộ trình học bên dưới vẫn dùng môi trường phát triển ở [bài 12](12-van-hanh.md).
+Deployment đã được người vận hành đưa lên HTTPS và cấu hình merchant sau đợt chuẩn bị. Bản sửa thanh toán 17/10 còn chờ deploy có kiểm soát: xác minh primary/virtual account, tự cập nhật STAFF/GUEST và sửa CHECK hoàn tất yêu cầu bằng SYSTEM. Xem [nghiệp vụ thanh toán](06-thanh-toan.md) và checklist ở đầu [bài 26](26-trien-khai-qtruongres.md). AI tiếp tục OFF. [Bài 15](15-doi-chieu.md) ghi chính xác phạm vi đã kiểm tra. Lộ trình học bên dưới vẫn dùng môi trường phát triển ở [bài 12](12-van-hanh.md).
 
 ## Nền tảng AI Menu Assistant v2 — 16/10/2026
 

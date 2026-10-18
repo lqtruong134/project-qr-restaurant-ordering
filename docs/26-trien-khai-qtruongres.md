@@ -1,5 +1,72 @@
 # 26. Triển khai qtruongres trên laptop và chuyển sang VPS
 
+## Nâng cấp thanh toán production — 17/10/2026
+
+Người vận hành đã cấu hình domain HTTPS, Named Tunnel và merchant production. Đợt audit này chỉ đọc log HTTP/tổng hợp trạng thái trong transaction READ ONLY, sửa mã và kiểm thử bằng provider giả. **Bản sửa chưa được deploy**, chưa áp migration lên database đang vận hành, chưa tự chuyển tiền hoặc gọi API payOS thật. Các kết quả dựng stack ở cuối bài là hồ sơ đợt chuẩn bị trước, không phải bằng chứng bản sửa mới đang chạy trên domain.
+
+### Phạm vi cần cập nhật
+
+Rebuild **API, web và maintenance image** để nhận mã mới và migration `202610170001_payment_system_resolution`. Caddy/Cloudflare/config merchant không cần đổi cho bản sửa này. CLI build chung vẫn build bốn image tuần tự, phần Caddy không đổi có thể dùng cache. Không thay AUTH_SECRET, RESTAURANT_ID, khóa payOS, callback đã đăng ký hoặc token tunnel. Không đăng ký webhook lại chỉ vì thay code.
+
+Migration thứ **37 trong source** thay CHECK cũ yêu cầu mọi người hoàn tất là USER bằng kiểm tra USER/SYSTEM tường minh, giữ owner-state và chặn SQL NULL bỏ qua quyền người xử lý. Không thêm bảng/cột, không reset/seed hoặc sửa lịch sử. Script dừng nếu định nghĩa CHECK nguồn không đúng phiên bản đã biết; khi đó cần đọc lỗi riêng và rà lịch sử migration, không tự drop constraint để vượt lỗi. Chỉ chạy migration đúng một lần bằng Prisma deploy sau backup.
+
+### Checklist deploy an toàn do operator thực hiện
+
+1. Chọn thời gian ít giao dịch. Ghi lại image/phiên bản cũ, các khoản đang chờ, đối soát mở và kế hoạch bảo trì. Không lập thêm khoản thu trong lúc nâng cấp. Thông báo trước khoảng gián đoạn; Tunnel/webhook có thể tạm không truy cập được.
+2. Hoàn tất review và công bố phiên bản mã nguồn theo quy trình Git trước. Task audit không tự commit/push hoặc nâng cấp dịch vụ đang live. Checkout đúng phiên bản đã nghiệm thu; không chạy `update` trên working tree chưa sạch.
+3. Kiểm tra tệp production riêng vẫn đúng merchant/nhà hàng và không in nội dung. Giữ bản bí mật/AUTH_SECRET ở nơi riêng. Không nạp `.env` dev hoặc dùng lệnh seed để cập nhật production.
+4. Dừng stack rồi tạo backup DB+tệp bằng CLI bên dưới. Kiểm tra manifest và giữ gói ở nơi riêng, ngoài Git/web. CLI backup không chứa env/token hạ tầng nhưng dump/chứng từ vẫn nhạy cảm.
+5. Build image mới; áp migration có kiểm soát; nếu lỗi thì giữ app writers dừng và điều tra. Không reset, seed, sửa tay `_prisma_migrations` hoặc restore đè database.
+6. Start rồi health; bật lại đúng connector đang dùng nếu lệnh stop đã dừng nó. Kiểm tra trang HTTPS, đăng nhập STAFF/GUEST và số dư trước khi tạo khoản thử.
+7. Rà log đã khử bí mật: `RECEIVED → VERIFIED → MATCHED → RECORDED → ACCOUNT_UPDATED`, hoặc nhóm lỗi/busy/retry. Không công bố raw webhook, cookie hoặc thông tin ngân hàng.
+8. Nghiệm thu khoản 5.000đ theo checklist dưới, gồm không bấm refresh ở luồng bình thường và không tăng tiền khi kiểm tra lại.
+9. Rà riêng các khoản OPEN cũ. Không dùng kết quả unit/browser để đánh dấu một giao dịch thật đã thu hoặc đã hoàn.
+10. Nếu cần quay phiên bản, giữ mã/DB tương thích và dùng kế hoạch phục hồi riêng. Không tự chạy image cũ lên schema vừa thay; không xóa volume hoặc restore đè để cứu nhanh.
+
+Từ gốc checkout đã rà soát; tệp môi trường riêng được chỉ định rõ:
+
+```bash
+node scripts/deploy.mjs validate --env-file deploy/.env.production
+node scripts/deploy.mjs stop --env-file deploy/.env.production
+node scripts/deploy.mjs backup --env-file deploy/.env.production
+node scripts/deploy.mjs build --env-file deploy/.env.production
+node scripts/deploy.mjs migrate --env-file deploy/.env.production
+node scripts/deploy.mjs start --env-file deploy/.env.production
+node scripts/deploy.mjs health --env-file deploy/.env.production
+docker compose --project-name qtruongres --env-file deploy/.env.production \
+  -f compose.production.yaml --profile tunnel up -d cloudflared
+```
+
+Thay project/env path nếu triển khai thực tế dùng tên khác. Chỉ chạy tuần tự, không mở thêm terminal bảo trì cùng project. Lệnh cuối dùng token đã có, không tạo tunnel mới hoặc thay cấu hình Cloudflare. Không có lệnh nào ở block này đã được tự thực thi lên production trong đợt audit.
+
+### Xử lý khoản đang đối soát từ phiên bản cũ
+
+Audit chỉ đọc đã xác nhận một nhánh chặn tiền vì tài khoản nhận không khớp. Bản sửa đối chiếu chính xác cả primary và virtual account sau xác minh chữ ký, theo [FAQ payOS](https://payos.vn/docs/cau-hoi-thuong-gap/); **không bỏ kiểm tra tài khoản**, không suy ra mọi sai lệch đều là virtual account. Không gọi provider thật trong audit để đoán dữ liệu giao dịch hiện hành.
+
+Sau deploy, mở **khoản cũ** và dùng Kiểm tra trạng thái làm phục hồi có chủ đích. HTTP409 nghĩa đang có worker giữ lease; HTTP503 kèm Retry-After: 3 nghĩa chưa đối chiếu được hoặc snapshot provider chưa đủ. Chờ rồi kiểm tra lại, không tạo link mới hay thu thêm bằng tiền mặt khi chưa rõ. Background có thể ghi đúng tiền sau khi xác minh, nhưng hồ sơ đối soát OPEN không tự đóng.
+
+Admin đối chiếu dashboard/sao kê với số đã ghi sổ. Chỉ lưu RECONCILED khi provider đã kết thúc, ledger khớp số ngân hàng và khoản cần hoàn đã xử lý. Tiền đến sau phiên đóng phải đi luồng giữ riêng/hoàn bên ngoài; phiếu cũ không đổi. Không UPDATE status hoặc INSERT payment_transaction thủ công. Lưu hồ sơ không tự chuyển tiền hoàn.
+
+### Checklist thử thật 5.000đ sau deploy
+
+1. Chủ dự án chủ động chuẩn bị phiên riêng, số dư còn phải trả ít nhất 5.000đ và hai thiết bị STAFF/GUEST; có thể dùng 4G/5G cho khách. Nếu hóa đơn lớn hơn 5.000đ thì đây là thanh toán một phần, không kỳ vọng bàn đã trả đủ.
+2. Khách báo nhân viên thu tiền; STAFF nhận đúng yêu cầu, tạo khoản ONLINE 5.000đ. Kiểm tra bàn/mã phiên, thời hạn và số tiền trên QR/link. Không bấm nút xác nhận tiền mặt cho khoản online.
+3. Người thử tự chuyển đúng 5.000đ trên ứng dụng ngân hàng. Không bấm Kiểm tra trạng thái hoặc reload trong luồng bình thường. Khi backend xác minh được, chờ khoảng một nhịp đọc 3 giây ở tab đang mở; mạng/provider có thể làm lâu hơn.
+4. STAFF/GUEST phải hiển thị đã nhận đúng 5.000đ, QR không còn để trả tiếp, tổng và số còn thiếu đúng. Yêu cầu gắn khoản thu tự hoàn tất; việc đóng bàn vẫn phụ thuộc checklist khác. Không đòi cả bàn hết nợ nếu chỉ trả một phần.
+5. Chuyển tab đi rồi quay lại: tự tải số liệu mới. Thử nút Kiểm tra trạng thái sau thành công và tải lại trang: vẫn cùng khoản/mã, không thêm giao dịch 5.000đ lần nữa.
+6. Đối chiếu sao kê/payOS với đúng một giao dịch ghi sổ và allocation. Không mô phỏng webhook thật bằng secret, không tự sửa số liệu hoặc dùng tiền thật cho test tự động.
+7. Nếu chậm/lỗi/đối soát: dừng chuyển thêm, giữ khoản cũ và để operator kiểm tra. Nếu muốn hoàn khoản thử, làm đúng admin duyệt → nhân viên thực trả → xác nhận; đây là tiền thật, không chỉ bấm nút để coi là đã hoàn.
+8. Giữ bằng chứng nghiệm thu riêng, che cookie/keys/PII/số tài khoản. Test tự động đã đạt không thay cho checklist kênh thật này.
+
+### Trạng thái và các thao tác vẫn cần con người
+
+Webhook chính thức + GET có chữ ký đi cùng một đường ghi sổ idempotent. `payment_intent` biểu diễn khoản thu/phạm vi/giữ chỗ; `payos_payment_request` là lifecycle provider; transaction/allocation và financial account mới là tiền đã ghi nhận. Tiền ngân hàng mới thấy nhưng chưa ghi sổ được tách rõ để không báo paid giả. Không tin return URL, ảnh chụp hoặc frontend gửi PAID.
+
+Không có SSE/WebSocket subscriber cho trình duyệt hiện tại; outbox `pg_notify` chưa phải kết nối push tới khách. Bản sửa tái dùng snapshot polling: một scheduler chung, online chưa kết thúc 3 giây, GET có timeout 10 giây, backoff tối đa 30 giây, pause tab ẩn/offline, focus đọc lại và cleanup khi unmount. Khi online terminal, nhịp nhanh dừng; Guest vẫn đọc đơn/hỗ trợ 5 giây và bill đang mở 10 giây theo nghiệp vụ chung, phiên đóng dừng timer. UI không gọi provider hoặc tự POSTrefresh liên tục.
+
+Hoàn tiền, tiền mặt/chuyển khoản thủ công, chuyển dư, tiền đến muộn, sai tham chiếu, hồ sơ đối soát và đóng bàn còn blocker đều cần người có quyền. **Chưa deploy bản sửa, chưa thử tiền thật**, không có cam kết realtime tức thời hoặc khả năng bỏ qua gián đoạn ngân hàng/mạng. [Kết quả kiểm thử](15-doi-chieu.md), [nghiệp vụ](06-thanh-toan.md), [thao tác tại bàn](25-thu-tien-tai-ban.md).
+
+
 Bản hướng dẫn ngày **17/10/2026**. Đây là stack triển khai riêng; không thay `compose.yaml` hoặc `.env` phát triển. `qtruongres.example` chỉ là tên minh họa, chưa phải domain đã mua. Đọc [vận hành](12-van-hanh.md), [thanh toán](06-thanh-toan.md) và [biên bản kiểm tra](15-doi-chieu.md) trước khi dùng dữ liệu đang vận hành.
 
 ## Kiến trúc và giới hạn

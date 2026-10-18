@@ -1,9 +1,15 @@
 'use client';
-import type { BillingSummary, DiscountOffer, MenuPromotion } from '@thesis/contracts';
+import type {
+  BillingSummary,
+  DiscountOffer,
+  GuestOnlinePayment,
+  MenuPromotion,
+} from '@thesis/contracts';
 import { SupportRetry } from './support-retry';
 import { useState } from 'react';
 import { api, type Product, type Row } from '../shared/components';
 import { Empty } from '../shared/primitives';
+import { isOnlinePaymentPending } from '../shared/online-payment';
 import type { PaymentStatus } from './payment-status';
 export type GuestParticipant = { id: string; display_name: string | null; joined_at?: string };
 export type GuestState = {
@@ -26,29 +32,44 @@ export type GuestState = {
   support?: Row[];
   refundTransactions?: Row[];
   payments?: Row[];
+  onlinePayments?: GuestOnlinePayment[];
 };
 export function PaymentForm({
   done,
   available,
   paymentStatus,
   requests = [],
+  onlinePayments = [],
 }: {
   done: () => Promise<void>;
   available: string;
   paymentStatus: PaymentStatus;
   requests?: Row[];
+  onlinePayments?: GuestOnlinePayment[];
 }) {
   const [method, setMethod] = useState('CASH'),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState(''),
-    [sent, setSent] = useState<Row>();
-  const pending =
-    requests.find(
-      (r) =>
-        r.request_type === 'BILL' &&
-        r.payment_method &&
-        ['NEW', 'ACKNOWLEDGED'].includes(String(r.status)),
-    ) ?? (requests.some((r) => r.id === sent?.id) ? undefined : sent);
+    [error, setError] = useState('');
+  const pending = requests.find(
+    (r) =>
+      r.request_type === 'BILL' &&
+      r.payment_method &&
+      ['NEW', 'ACKNOWLEDGED'].includes(String(r.status)),
+  );
+  // A server-settled balance takes precedence over an old support request.
+  if (BigInt(available) <= 0n)
+    return (
+      <Empty title={paymentStatus.title} icon="receipt">
+        {paymentStatus.detail}
+      </Empty>
+    );
+  if (onlinePayments.some((payment) => isOnlinePaymentPending(payment.status)))
+    return (
+      <p className="small-note" role="status">
+        Khoản online đang được theo dõi tự động ở phía trên. Bạn không cần gửi lại yêu cầu hoặc
+        chuyển lại khi chưa rõ kết quả.
+      </p>
+    );
   if (pending)
     return (
       <div className="guest-payment-sent">
@@ -65,12 +86,6 @@ export function PaymentForm({
         <SupportRetry request={pending} done={done} />
       </div>
     );
-  if (BigInt(available) <= 0n)
-    return (
-      <Empty title={paymentStatus.title} icon="receipt">
-        {paymentStatus.detail}
-      </Empty>
-    );
   return (
     <form
       className="guest-payment-request"
@@ -82,8 +97,7 @@ export function PaymentForm({
         setBusy(true);
         setError('');
         try {
-          const r = await api<Row>('/guest/payment-requests', { method }, 'POST', true);
-          setSent(r);
+          await api<Row>('/guest/payment-requests', { method }, 'POST', true);
           await done();
         } catch (e) {
           setError((e as Error).message);

@@ -3,7 +3,12 @@ import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { api, vnd } from '../shared/components';
 import { restaurantDateTime } from '../shared/restaurant-time';
-import { onlinePaymentState, safeCheckoutUrl, type PaymentIntent } from '../shared/online-payment';
+import {
+  isOnlinePaymentPending,
+  onlinePaymentState,
+  safeCheckoutUrl,
+  type PaymentIntent,
+} from '../shared/online-payment';
 
 export function OnlinePaymentCard({
   intent,
@@ -26,9 +31,12 @@ export function OnlinePaymentCard({
     state.kind === 'pending' && ['PENDING', 'UNDERPAID'].includes(String(online?.status));
   const checkout = canPay ? safeCheckoutUrl(online?.checkoutUrl) : undefined;
   useEffect(() => {
-    const clock = setInterval(() => setNow(Date.now()), 1000);
+    if (!isOnlinePaymentPending(online?.status)) return;
+    const clock = setInterval(() => {
+      if (!document.hidden) setNow(Date.now());
+    }, 1000);
     return () => clearInterval(clock);
-  }, []);
+  }, [online?.status]);
   useEffect(() => {
     let live = true;
     setQr('');
@@ -103,6 +111,12 @@ export function OnlinePaymentCard({
               <span>Khách còn cần chuyển</span>
               <strong>{vnd(remaining)}</strong>
             </p>
+            {online?.status === 'UNDERPAID' && (
+              <p role="status">
+                <strong>Chỉ chuyển thêm {vnd(remaining)}.</strong> QR có thể còn điền số tiền ban
+                đầu; kiểm tra số tiền trong ứng dụng ngân hàng trước khi xác nhận.
+              </p>
+            )}
             {online?.expiresAt && (
               <p>
                 <span>QR có hiệu lực đến</span>
@@ -145,8 +159,9 @@ export function OnlinePaymentCard({
               try {
                 await api('/core/payments/' + intent.id + '/refresh', {});
                 await done();
-                report('Đã kiểm tra trạng thái thanh toán online.');
+                report('Đã kiểm tra với ngân hàng và tải lại trạng thái thanh toán.');
               } catch (error) {
+                await done().catch(() => undefined);
                 report((error as Error).message, true);
               } finally {
                 setBusy(false);
@@ -156,7 +171,8 @@ export function OnlinePaymentCard({
             {busy ? 'Đang kiểm tra…' : 'Kiểm tra trạng thái'}
           </button>
           <p className="small-note">
-            Trạng thái do hệ thống xác minh; không dựa vào việc mở hoặc quay lại trang thanh toán.
+            Hệ thống tự cập nhật khi ngân hàng xác nhận. Chỉ kiểm tra thủ công khi chờ lâu hoặc kết
+            nối vừa phục hồi.
           </p>
         </div>
       )}

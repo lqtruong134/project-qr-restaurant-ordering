@@ -6,7 +6,7 @@ import { createIntent, confirmPayment } from './collection.service.js';
 import { requireCollectionOwner } from './payment-requests.routes.js';
 import { registerPaymentRequests } from './payment-requests.routes.js';
 import { registerPaymentProofs } from './payment-proof.routes.js';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '@thesis/database';
 import {
   guest,
@@ -22,12 +22,39 @@ import {
 } from '../shared/core-persistence.js';
 import { readBill } from './receipt.service.js';
 import { recalculate } from '../finance/ledger.service.js';
+// Domain retries must remain 503 (the generic handler intentionally hides 5xx).
+// Only fixed public domain messages are exposed; provider exceptions never reach clients.
+async function providerAction(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  action: () => Promise<unknown>,
+) {
+  try {
+    return await action();
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'statusCode' in error &&
+      error.statusCode === 503 &&
+      'publicMessage' in error &&
+      typeof error.publicMessage === 'string'
+    )
+      return reply.header('Retry-After', '3').code(503).send({
+        errorCode: 'PAYMENT_PROVIDER_UNAVAILABLE',
+        userMessage: error.publicMessage,
+        correlationId: request.id,
+      });
+    throw error;
+  }
+}
 export function registerFinance(
   app: FastifyInstance,
   db: Database,
   restaurant: string,
   payos: PayosService = new PayosService(db, restaurant),
 ) {
+  payos.setLogger(app.log);
   registerPaymentRequests(app, db, restaurant, payos.capabilities.online);
   registerPaymentProofs(app, db, restaurant);
   const staff = { permission: 'staff.workspace' };
@@ -62,21 +89,21 @@ export function registerFinance(
       );
     }),
   );
-  app.post('/core/sessions/:id/payments', { config: staff }, async (r) => {
+  app.post('/core/sessions/:id/payments', { config: staff }, async (r, reply) => {
     const body = object(r.body);
     return body.method === 'ONLINE'
-      ? payos.create(idParam(r), r.identity!.id, body)
+      ? providerAction(r, reply, () => payos.create(idParam(r), r.identity!.id, body))
       : transaction(db, (c) =>
           createIntent(c, idParam(r), restaurant, { type: 'USER', id: r.identity!.id }, body),
         );
   });
-  app.post('/core/payments/:id/refresh', { config: staff }, (r) =>
-    payos.refresh(idParam(r), r.identity!.id),
+  app.post('/core/payments/:id/refresh', { config: staff }, (r, reply) =>
+    providerAction(r, reply, () => payos.refresh(idParam(r), r.identity!.id)),
   );
   app.post(
     '/payments/webhooks/payos',
     { config: { public: true, externalWebhook: true }, bodyLimit: 64 * 1024 },
-    (r) => payos.webhook(r.body),
+    (r, reply) => providerAction(r, reply, () => payos.webhook(r.body)),
   );
   app.get('/core/admin/payment-reconciliation', { config: { permission: 'admin.workspace' } }, () =>
     payos.cases(),
@@ -159,11 +186,12 @@ export function registerFinance(
       return { status: 'ok' };
     }),
   );
-  app.post('/core/payments/:id/cancel', { config: staff }, async (r) => {
+  app.post('/core/payments/:id/cancel', { config: staff }, async (r, reply) => {
     const target = await db.pool.query('SELECT provider FROM payment_intent WHERE id=$1', [
       idParam(r),
     ]);
-    if (target.rows[0]?.provider === 'PAYOS') return payos.cancel(idParam(r), r.identity!.id);
+    if (target.rows[0]?.provider === 'PAYOS')
+      return providerAction(r, reply, () => payos.cancel(idParam(r), r.identity!.id));
     return transaction(db, async (c) => {
       const id = idParam(r),
         pi = await one(c, 'SELECT session_id FROM payment_intent WHERE id=$1', [id]);

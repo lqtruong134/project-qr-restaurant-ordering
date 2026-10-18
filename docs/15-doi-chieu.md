@@ -1,6 +1,38 @@
 # 15. Hồ sơ đối chiếu và giới hạn xác minh
 
-## Deployment qtruongres — 17/10/2026
+## Chuẩn bị nhánh review payment — 18/10/2026
+
+Nhánh `fix/payos-payment-flow` chỉ phục vụ review mã nguồn và tài liệu của bản sửa đã kiểm thử ngày 17/10. Bước công bố Git không merge vào main, không deploy/restart, không áp migration production, không gọi provider hoặc thực hiện giao dịch thật. Các kết quả và câu “chưa commit/push” ở biên bản bên dưới là trạng thái tại thời điểm kiểm thử, trước bước công bố nhánh.
+
+Điểm cần review thêm, chưa sửa trong bước chỉ công bố mã: một khoản thu riêng 10.000đ trên hóa đơn 20.000đ nhận 12.000đ có thể ghi sổ 12.000đ nhưng chỉ phân bổ tối đa 10.000đ theo khoản thu. Cần rà cân đối allocation và dư nợ từng món/người trước khi duyệt đối soát hoặc deploy. Đây là nhận xét từ đọc mã, chưa có regression riêng cho tình huống này trong bộ kết quả 17/10; không coi test đã đạt là bảo đảm mọi nhánh chuyển dư đã hoàn chỉnh.
+
+## Audit và sửa thanh toán payOS production — 17/10/2026
+
+Đối chiếu working tree trên commit nền `666ea4b`. Domain/merchant hiện do chủ dự án vận hành; đợt này chỉ chẩn đoán production bằng log tổng hợp và SQL READ ONLY, không gọi provider thật, không áp migration/restart, không chuyển/hoàn tiền, không thay khóa/tenant. **Bản sửa chưa deploy, chưa commit/push.** Không đưa log payload/bản ghi riêng từ production vào repository.
+
+Root cause xác nhận: webhook đã vào API nhưng luồng đối chiếu tài khoản nhận chặn ghi sổ. Mã cũ so khớp primary cứng; bản mới chấp nhận exact primary/virtual identity hợp lệ sau chữ ký, không bỏ recipient guard. Chưa GETprovider thật để kết luận trường virtual cụ thể của giao dịch hiện hành. Các lỗi tái hiện thêm: lease làm refresh bỏ qua âm thầm, lỗi provider bị nuốt/503 biến500, snapshot GET đi sau webhook bị đánh dấu đối soát vĩnh viễn, dữ liệu phiếu không cập nhật parent/checklist, Guest thiếu read model/props, và legacy CHECK chặn SYSTEM hoàn tất lời gọi.
+
+| Kiểm tra | Kết quả |
+| --- | --- |
+| Quality gate | Format/lint/TypeScript và **256 unit test / 38 tệp** đạt |
+| Tích hợp toàn dự án | **390/390 ca / 26 tệp**, gồm **35 ca domain payOS**; CASH/manual bank/split/refund/VAT/khuyến mãi/đóng phiên/AI vẫn đạt |
+| Protocol và unit mới | SDK chữ ký/integrity, virtual recipient, unpaid transactions object, namespace, scheduler timeout/singleflight/StrictMode, guest read privacy; protocol 34 ca trong integration |
+| Browser | **54/54** trên desktop/Android/WebKit iPhone; luồng fakeprovider thực qua API+DB, partial/multiple-transfer/duplicate, STAFF/GUEST auto update, manual503, hidden/focus/unmount |
+| Build | Next production compile/typecheck/static 7 route đạt, cache riêng, merchant tắt/AI OFF khi kiểm tra |
+| Migration | Source có 37 migration; mới chỉ áp vào DB thử: legacy CHECK được thay, giữ ownership và chặn USER thiếu người xử lý / actor NULL / SYSTEM có người xử lý / sai chủ sở hữu; USER/SYSTEM hợp lệ đều hợp lệ |
+| Bảo toàn | .env dev và compose khớp baseline; productionenv không đổi trong validation; migration cũ/schema/auth/deployconfig không sửa; secrets/buildartifacts không đưa vào Git |
+
+Luồng mới: webhook SDK verify → normalize/đối chiếu identity/reference/amount/currency → khóa phiên và tham chiếu ngân hàng → transaction/allocation → recalculate account → auto-complete đúng request → đọc model STAFF/GUEST. UI polling chung 3 giây khi online đang chờ, nhẹ hơn cho đơn/hỗ trợ bình thường, có pause/backoff/focus/cleanup; không phải SSE/push tức thời. Nút refresh chỉ là phục hồi, không tạo link, không tăng tiền lặp. Lỗi 409/503 có thông báo rõ và UI vẫn tải lại snapshot.
+
+Đã kiểm race: 10 webhook trùng, webhook+refresh đồng thời, GET chậm/cũ/404 khi webhook đã thu, lease chỉ giải phóng đúng chủ, PAID không bị downgrade, PAID thiếu giao dịch ngân hàng không báo nhận tiền, tiền đã ghi trước hết hạn không bị gắn late giả. Nhiều lần chuyển ghi mỗi reference đúng một lần; xung đột tham chiếu ngân hàng toàn hệ thống không tạo SUCCEEDED bằng cách đóng đối soát. Phiếu đóng không đổi; tiền mới đến muộn giữ riêng và chỉ operator trả ngoài. Giải quyết hồ sơ cập nhật đồng bộ domain/provider view, không giữ warning vĩnh viễn hoặc biến tiền quarantine thành đã trả bill.
+
+Browser lượt đầu phát hiện thiếu dây prop onlinePayments thực tế, cùng fixture/selector/association chưa khớp API; đã sửa và chạy sạch lại toàn bộ 54 ca. Sau review SQL NULL của CHECK, bổ sung guard rõ và chạy lại 35 ca domain cùng toàn bộ 390 integration test, không nới assertion để bỏ lỗi. Không coi số lượng test là benchmark provider thật hoặc chứng nhận sẵn sàng vận hành.
+
+[Biên bản và danh sách tệp](reference/payment-audit-20261017.json) · [Check](evidence/payment-audit-check-20261017.txt) · [Integration](evidence/payment-audit-integration-20261017.txt) · [54 browser test](evidence/payment-audit-browser-20261017.txt) · [Build](evidence/payment-audit-build-20261017.txt) · [Checklist deploy và thử 5.000đ](26-trien-khai-qtruongres.md).
+
+Khoản đối soát thật hiện có cần operator mở lại đúng khoản, đọc trạng thái provider sau deploy rồi xử lý hồ sơ; không tự chốt đã thu/hoàn dựa trên test. [Nghiệp vụ và giới hạn](06-thanh-toan.md), [luồng tại bàn](25-thu-tien-tai-ban.md).
+
+## Deployment qtruongres — hồ sơ chuẩn bị trước khi mở public, 17/10/2026
 
 Đã thêm stack production riêng **Cloudflare Named Tunnel → Caddy → Next.js/Fastify → PostgreSQL**, Docker images, persistent volume và CLI vận hành/backup/restore. Giữ nguyên `.env`, compose dev, schema/migration, AI v2 và các assertion nghiệp vụ. Đây là chuẩn bị và diễn tập local, **chưa công bố Internet, chưa chuyển database đang vận hành**. Biên bản kiểm thử được ghi trước bước công bố mã nguồn. Bước chốt Git chỉ commit/push deployment và tài liệu lên `main`; thao tác này không công bố website hoặc bật các dịch vụ bên ngoài. Dùng commit chứa tài liệu này để đối chiếu phiên bản.
 

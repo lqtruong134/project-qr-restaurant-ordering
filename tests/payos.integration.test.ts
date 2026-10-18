@@ -1,3 +1,9 @@
+import {
+  ingestConnector,
+  connectorSignature,
+} from '../apps/api/src/modules/payments/webhooks.routes.js';
+import { restaurantPolicy, type GuestOnlinePayment } from '../packages/contracts/src/index.js';
+import { readGuestOnlinePayments } from '../apps/api/src/modules/sessions/guest-payment-view.js';
 import { beforeAll, afterAll, expect, it } from 'vitest';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync, readdirSync, mkdtempSync, rmSync } from 'node:fs';
@@ -45,6 +51,10 @@ async function ok(
 }
 beforeAll(async () => {
   const url = new URL(process.env.DATABASE_URL!);
+  if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname))
+    throw Error(
+      'payOS integration fixtures require the isolated local development PostgreSQL host.',
+    );
   host = createDatabase(url.toString());
   await host.pool.query('CREATE DATABASE ' + name);
   url.pathname = '/' + name;
@@ -286,7 +296,7 @@ it('duplicate/retry/concurrent valid webhooks record each bank reference once', 
   const p = await party('10000'),
     i = await create(p.sid, '10000'),
     payload = await webhook(i, 10000);
-  const replies = await Promise.all(Array.from({ length: 4 }, () => deliver(payload)));
+  const replies = await Promise.all(Array.from({ length: 10 }, () => deliver(payload)));
   expect(replies.every((r) => r.statusCode === 200)).toBe(true);
   const b = await bill(p.sid);
   expect(b.payments).toHaveLength(1);
@@ -434,7 +444,10 @@ it('late active payment is recorded once, flagged for admin and blocks closing u
     { resolution: 'RECONCILED', reason: 'Đã đối chiếu tiền thực nhận' },
     'quyettruong05',
   );
-  expect((await bill(p.sid)).intents[0].status).toBe('SUCCEEDED');
+  expect((await bill(p.sid)).intents[0]).toMatchObject({
+    status: 'SUCCEEDED',
+    online: { status: 'PAID' },
+  });
 });
 it('overpayment is actual received money, allocations capped and refund follows admin-to-staff approval', async () => {
   const p = await party('10000'),
@@ -555,6 +568,12 @@ it('closed receipt stays frozen and extra late money is quarantined outside the 
     },
     'quyettruong05',
   );
+  expect(await storedOnline(i.id)).toMatchObject({
+    status: 'PAID',
+    provider_status: 'PAID',
+    reconciliation_status: 'RESOLVED',
+  });
+  expect(await bankLedger(i.id)).toEqual({ count: 1, amount: '10000' });
   expect(
     (await db.pool.query('SELECT receipt_snapshot FROM table_session WHERE id=$1', [p.sid])).rows[0]
       .receipt_snapshot,
@@ -632,7 +651,10 @@ it('waiving an unpaid dish cannot close the zero bill while the bank QR cancella
       true,
     );
     expect((await request('/core/sessions/' + p.sid + '/close', {})).statusCode).toBe(409);
-    await ok('/core/payments/' + i.id + '/refresh', {});
+    const unavailable = await request('/core/payments/' + i.id + '/refresh', {});
+    expect(unavailable.statusCode, unavailable.body).toBe(503);
+    expect(unavailable.headers['retry-after']).toBe('3');
+    expect(unavailable.json().errorCode).toBe('PAYMENT_PROVIDER_UNAVAILABLE');
     expect((await bill(p.sid)).closure.canClose).toBe(false);
   } finally {
     provider.failCancel = false;
@@ -643,4 +665,642 @@ it('waiving an unpaid dish cannot close the zero bill while the bank QR cancella
   expect(settled.account.reserved_payment_amount).toBe('0');
   expect(settled.closure.canClose).toBe(true);
   await ok('/core/sessions/' + p.sid + '/close', {});
+});
+
+async function joinGuest(tableId: string, displayName: string) {
+  const qr = await ok('/core/tables/' + tableId + '/qr', {}, 'quyettruong05');
+  const access = await ok('/core/tables/' + tableId + '/access-code', {});
+  const response = await request(
+    '/guest/join',
+    {
+      token: qr.joinPath.split('#')[1],
+      name: displayName,
+      acceptedPolicyVersion: restaurantPolicy.version,
+      accessCode: access.accessCode,
+    },
+    '',
+  );
+  expect(response.statusCode, response.body).toBe(200);
+  return {
+    id: response.json().participantId as string,
+    cookie: response.cookies.map((entry) => entry.name + '=' + entry.value).join('; '),
+  };
+}
+async function guestOrder(cookie: string, productId: string) {
+  const state = await ok('/guest/state', undefined, cookie);
+  const cart = await ok(
+    '/guest/cart',
+    {
+      productId,
+      quantity: 1,
+      cartVersion: state.cart.cart_version,
+    },
+    cookie,
+  );
+  const updated = await ok('/guest/state', undefined, cookie);
+  return ok(
+    '/guest/orders',
+    {
+      requestId: randomUUID(),
+      cartVersion: updated.cart.cart_version,
+      itemIds: [cart.id],
+    },
+    cookie,
+  );
+}
+
+function deferred() {
+  let release!: () => void;
+  const promise = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return { promise, release };
+}
+async function storedOnline(id: string) {
+  return (
+    await db.pool.query(
+      'SELECT status,provider_status,lease_until,next_poll_at,reconciliation_status FROM payos_payment_request WHERE payment_intent_id=$1',
+      [id],
+    )
+  ).rows[0];
+}
+async function bankLedger(id: string) {
+  return (
+    await db.pool.query(
+      "SELECT count(*)::int AS count,COALESCE(sum(amount),0)::text AS amount FROM payment_transaction WHERE payment_intent_id=$1 AND provider='PAYOS' AND status='SUCCEEDED'",
+      [id],
+    )
+  ).rows[0];
+}
+
+it('manual recovery ignores next_poll_at, queries the existing order and never creates another link', async () => {
+  const p = await party('5000'),
+    intent = await create(p.sid, '5000');
+  const code = Number(intent.online.orderCode),
+    creates = provider.creates,
+    gets = provider.gets;
+  await db.pool.query(
+    "UPDATE payos_payment_request SET next_poll_at=now()+interval '2 hours' WHERE payment_intent_id=$1",
+    [intent.id],
+  );
+  provider.add(code, 5000);
+  const recovered = await ok('/core/payments/' + intent.id + '/refresh', {});
+  expect(provider.gets).toBeGreaterThan(gets);
+  expect(provider.creates).toBe(creates);
+  expect(recovered).toMatchObject({
+    id: intent.id,
+    status: 'SUCCEEDED',
+    online: { status: 'PAID', paidAmount: '5000' },
+  });
+  expect(await bankLedger(intent.id)).toEqual({ count: 1, amount: '5000' });
+  expect((await storedOnline(intent.id)).lease_until).toBeNull();
+  expect((await bill(p.sid)).account.outstanding_amount).toBe('0');
+});
+
+it('manual recovery does not create a missing provider link and exposes retryable safe503', async () => {
+  const p = await party('5000');
+  provider.failGet = true;
+  let intent;
+  try {
+    intent = await create(p.sid, '5000');
+  } finally {
+    provider.failGet = false;
+  }
+  const before = provider.creates;
+  const response = await request('/core/payments/' + intent.id + '/refresh', {});
+  expect(response.statusCode, response.body).toBe(503);
+  expect(response.headers['retry-after']).toBe('3');
+  expect(response.json().errorCode).toBe('PAYMENT_PROVIDER_UNAVAILABLE');
+  expect(response.body).not.toContain('FAKE_SECRET');
+  expect(provider.creates).toBe(before);
+  expect(provider.links.has(Number(intent.online.orderCode))).toBe(false);
+  expect(await bankLedger(intent.id)).toEqual({ count: 0, amount: '0' });
+  expect((await storedOnline(intent.id)).lease_until).toBeNull();
+  expect((await bill(p.sid)).account.reserved_payment_amount).toBe('5000');
+});
+
+it('provider outage on refresh keeps reservation and releases only its lease before recovery', async () => {
+  const p = await party('5000'),
+    intent = await create(p.sid, '5000');
+  provider.failGet = true;
+  try {
+    const response = await request('/core/payments/' + intent.id + '/refresh', {});
+    expect(response.statusCode, response.body).toBe(503);
+    expect(response.headers['retry-after']).toBe('3');
+    expect(response.body).not.toContain('FAKE_SECRET');
+    expect((await storedOnline(intent.id)).lease_until).toBeNull();
+    expect((await bill(p.sid)).account.reserved_payment_amount).toBe('5000');
+  } finally {
+    provider.failGet = false;
+  }
+  provider.add(Number(intent.online.orderCode), 5000);
+  const recovered = await ok('/core/payments/' + intent.id + '/refresh', {});
+  expect(recovered.online.status).toBe('PAID');
+  expect(await bankLedger(intent.id)).toEqual({ count: 1, amount: '5000' });
+});
+
+it('a webhook cannot release an active refresh lease and an older poll cannot downgrade its paid result', async () => {
+  const p = await party('5000'),
+    intent = await create(p.sid, '5000');
+  const code = Number(intent.online.orderCode),
+    originalGet = provider.get;
+  const reached = deferred(),
+    gate = deferred();
+  let blocked = false;
+  provider.get = async (target) => {
+    const snapshot = await originalGet.call(provider, target);
+    if (target === code && !blocked) {
+      blocked = true;
+      reached.release();
+      await gate.promise;
+    }
+    return snapshot;
+  };
+  const polling = request('/core/payments/' + intent.id + '/refresh', {});
+  try {
+    await reached.promise;
+    const claimed = await storedOnline(intent.id);
+    expect(claimed.lease_until).not.toBeNull();
+    const busy = await request('/core/payments/' + intent.id + '/refresh', {});
+    expect(busy.statusCode, busy.body).toBe(409);
+    const payload = await webhook(intent, 5000);
+    expect((await deliver(payload)).statusCode).toBe(200);
+    expect((await storedOnline(intent.id)).lease_until).toEqual(claimed.lease_until);
+    gate.release();
+    const response = await polling;
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().online.status).toBe('PAID');
+    expect((await storedOnline(intent.id)).lease_until).toBeNull();
+    expect(await bankLedger(intent.id)).toEqual({ count: 1, amount: '5000' });
+  } finally {
+    gate.release();
+    provider.get = originalGet;
+    await polling;
+  }
+});
+
+it('a verified webhook ahead of GET is retryable and manual recovery completes its durable event once', async () => {
+  const p = await party('5000'),
+    intent = await create(p.sid, '5000');
+  const code = Number(intent.online.orderCode),
+    originalGet = provider.get;
+  const stale = await originalGet.call(provider, code),
+    payload = await webhook(intent, 5000);
+  let lagging = true;
+  provider.get = async (target) => {
+    if (target === code && lagging) {
+      lagging = false;
+      return structuredClone(stale);
+    }
+    return originalGet.call(provider, target);
+  };
+  try {
+    const first = await deliver(payload);
+    expect(first.statusCode, first.body).toBe(503);
+    expect(first.headers['retry-after']).toBe('3');
+    expect((await bankLedger(intent.id)).amount).toBe('0');
+    expect((await storedOnline(intent.id)).status).toBe('PENDING');
+    expect((await storedOnline(intent.id)).reconciliation_status).toBeNull();
+    expect(
+      (
+        await db.pool.query(
+          "SELECT processing_status FROM payment_webhook_event WHERE provider='PAYOS' AND provider_event_id=$1",
+          [payload.data.reference],
+        )
+      ).rows[0].processing_status,
+    ).toBe('RECEIVED');
+    await ok('/core/payments/' + intent.id + '/refresh', {});
+    expect((await deliver(payload)).statusCode).toBe(200);
+    expect(await bankLedger(intent.id)).toEqual({ count: 1, amount: '5000' });
+    const saved = (
+      await db.pool.query(
+        "SELECT e.processing_status,t.payment_intent_id FROM payment_webhook_event e JOIN payment_transaction t ON t.id=e.payment_transaction_id WHERE e.provider='PAYOS' AND e.provider_event_id=$1",
+        [payload.data.reference],
+      )
+    ).rows[0];
+    expect(saved).toEqual({ processing_status: 'PROCESSED', payment_intent_id: intent.id });
+    expect((await storedOnline(intent.id)).reconciliation_status).toBeNull();
+  } finally {
+    provider.get = originalGet;
+  }
+});
+
+it.each(['amount', 'orderCode', 'currency'] as const)(
+  'a signed mismatched %s never credits an unrelated or unverified collection',
+  async (field) => {
+    const p = await party('5000'),
+      intent = await create(p.sid, '5000');
+    const payload = await webhook(intent, 5000);
+    const mutated = {
+      ...payload.data,
+      ...(field === 'amount'
+        ? { amount: 4999 }
+        : field === 'orderCode'
+          ? { orderCode: Number.MAX_SAFE_INTEGER - 1 }
+          : { currency: 'USD' }),
+    };
+    const response = await deliver({ ...payload, data: mutated, signature: signature(mutated) });
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().status).toBe(
+      field === 'amount'
+        ? 'REQUIRES_RECONCILIATION'
+        : field === 'orderCode'
+          ? 'UNMATCHED'
+          : 'REJECTED',
+    );
+    expect(await bankLedger(intent.id)).toEqual({ count: 0, amount: '0' });
+    expect((await bill(p.sid)).account.paid_total).toBe('0');
+  },
+);
+
+it('re-reading paid funds after expiry or an equal-money cancelled snapshot cannot create a false anomaly', async () => {
+  const p = await party('5000'),
+    intent = await create(p.sid, '5000');
+  await deliver(await webhook(intent, 5000));
+  await db.pool.query(
+    "UPDATE payment_intent SET created_at=now()-interval '2 hours',expires_at=now()-interval '1 hour' WHERE id=$1",
+    [intent.id],
+  );
+  expect((await ok('/core/payments/' + intent.id + '/refresh', {})).online.status).toBe('PAID');
+  const cancelled = await provider.get(Number(intent.online.orderCode));
+  cancelled.status = 'CANCELLED';
+  expect(await service.applyLink(intent.id, cancelled)).toMatchObject({ status: 'STALE_IGNORED' });
+  const saved = await storedOnline(intent.id);
+  expect(saved.status).toBe('PAID');
+  expect(saved.reconciliation_status).toBeNull();
+  expect(await bankLedger(intent.id)).toEqual({ count: 1, amount: '5000' });
+  expect((await bill(p.sid)).account).toMatchObject({
+    paid_total: '5000',
+    outstanding_amount: '0',
+  });
+});
+
+it('recipient identity matches the signed virtual account without accepting another bank reference twice', async () => {
+  const p = await party('5000'),
+    intent = await create(p.sid, '5000');
+  const code = Number(intent.online.orderCode),
+    payload = await webhook(intent, 5000);
+  const bank = provider.links.get(code)!.transactions[0]!;
+  bank.accountNumber = 'different-primary-representation';
+  bank.virtualAccountNumber = '12345678';
+  expect((await deliver(payload)).statusCode).toBe(200);
+  expect(await bankLedger(intent.id)).toEqual({ count: 1, amount: '5000' });
+  const other = await party('5000'),
+    second = await create(other.sid, '5000');
+  provider.add(
+    Number(second.online.orderCode),
+    5000,
+    payload.data.reference as ReturnType<typeof randomUUID>,
+  );
+  expect(
+    await service.applyLink(second.id, await provider.get(Number(second.online.orderCode))),
+  ).toMatchObject({ status: 'REQUIRES_RECONCILIATION' });
+  expect(await bankLedger(second.id)).toEqual({ count: 0, amount: '0' });
+  const unrecorded = await request(
+    '/core/admin/payment-reconciliation/' + second.id + '/resolve',
+    {
+      resolution: 'RECONCILED',
+      reason: 'Không được xác nhận khoản tham chiếu thuộc phiên khác.',
+    },
+    'quyettruong05',
+  );
+  expect(unrecorded.statusCode, unrecorded.body).toBe(409);
+  expect((await storedOnline(second.id)).reconciliation_status).toBe('OPEN');
+  expect(await bankLedger(second.id)).toEqual({ count: 0, amount: '0' });
+  expect(await bankLedger(intent.id)).toEqual({ count: 1, amount: '5000' });
+});
+
+it('guest online snapshots are table/participant scoped, private, and follow partial then paid ledger state', async () => {
+  const p = await party('5000');
+  const alice = await joinGuest(p.table.id, 'Khách An');
+  const bob = await joinGuest(p.table.id, 'Khách Bình');
+  await guestOrder(alice.cookie, p.product.id);
+
+  const tableRequest = await ok('/guest/payment-requests', { method: 'ONLINE' }, alice.cookie);
+  await ok('/core/support/' + tableRequest.id + '/claim', {});
+  const tableIntent = await create(p.sid, '3000', { supportRequestId: tableRequest.id });
+  expect((await deliver(await webhook(tableIntent, 3000))).statusCode).toBe(200);
+  const ownIntent = await create(p.sid, '5000', {
+    collectionScope: 'PARTICIPANT',
+    participantId: alice.id,
+  });
+  const other = await party('5000'),
+    foreignIntent = await create(other.sid, '5000');
+  const stateA = await ok('/guest/state', undefined, alice.cookie);
+  const stateB = await ok('/guest/state', undefined, bob.cookie);
+  const own = stateA.onlinePayments.find(
+    (payment: GuestOnlinePayment) => payment.scope === 'PARTICIPANT',
+  );
+  expect(stateA.onlinePayments).toHaveLength(2);
+  expect(stateB.onlinePayments).toHaveLength(1);
+  expect(stateB.onlinePayments[0].scope).toBe('TABLE');
+  expect(stateB.onlinePayments[0]).not.toHaveProperty('supportRequestId');
+  expect(
+    stateA.onlinePayments.find((payment: GuestOnlinePayment) => payment.scope === 'TABLE')
+      .supportRequestId,
+  ).toBe(tableRequest.id);
+  expect(
+    stateA.onlinePayments.every(
+      (payment: GuestOnlinePayment) =>
+        ![tableIntent.id, ownIntent.id, foreignIntent.id].includes(payment.id),
+    ),
+  ).toBe(true);
+  expect(Object.keys(own).sort()).toEqual(
+    [
+      'id',
+      'scope',
+      'amount',
+      'status',
+      'paidAmount',
+      'bankConfirmedAmount',
+      'remainingAmount',
+      'expiresAt',
+      'createdAt',
+    ].sort(),
+  );
+  expect(own).toMatchObject({ paidAmount: '0', bankConfirmedAmount: '0', remainingAmount: '5000' });
+  const safe = JSON.stringify(stateA.onlinePayments);
+  for (const secret of [
+    'orderCode',
+    'checkoutUrl',
+    'qrCode',
+    'accountNumber',
+    'created_by',
+    'lastError',
+    config.apiKey!,
+  ])
+    expect(safe).not.toContain(secret);
+  const connection = await db.pool.connect();
+  try {
+    expect(await readGuestOnlinePayments(connection, p.sid, alice.id, randomUUID())).toEqual([]);
+  } finally {
+    connection.release();
+  }
+  await deliver(await webhook(ownIntent, 2000));
+  let live = await ok('/guest/state', undefined, alice.cookie);
+  expect(
+    live.onlinePayments.find((payment: GuestOnlinePayment) => payment.id === own.id),
+  ).toMatchObject({
+    status: 'UNDERPAID',
+    paidAmount: '2000',
+    bankConfirmedAmount: '2000',
+    remainingAmount: '3000',
+  });
+  expect(live.account).toMatchObject({ paid_total: '5000', outstanding_amount: '5000' });
+  await deliver(await webhook(ownIntent, 3000));
+  live = await ok('/guest/state', undefined, alice.cookie);
+  expect(
+    live.onlinePayments.find((payment: GuestOnlinePayment) => payment.id === own.id),
+  ).toMatchObject({ status: 'PAID', paidAmount: '5000', remainingAmount: '0' });
+  expect(live.account.outstanding_amount).toBe('2000');
+  expect((await ok('/guest/state', undefined, bob.cookie)).onlinePayments).toHaveLength(1);
+});
+
+it('a paid linked scope resolves only its support request and preserves collector recovery ownership', async () => {
+  const p = await party('5000');
+  const alice = await joinGuest(p.table.id, 'Khách Chi');
+  const bob = await joinGuest(p.table.id, 'Khách Dũng');
+  await guestOrder(alice.cookie, p.product.id);
+
+  const ownRequest = await ok('/guest/payment-requests', { method: 'ONLINE' }, alice.cookie);
+  const unrelated = await ok('/guest/payment-requests', { method: 'CASH' }, bob.cookie);
+  await ok('/core/support/' + ownRequest.id + '/claim', {});
+  const intent = await create(p.sid, '5000', {
+    collectionScope: 'PARTICIPANT',
+    participantId: alice.id,
+    supportRequestId: ownRequest.id,
+  });
+  const a = await ok('/guest/state', undefined, alice.cookie);
+  expect(a.onlinePayments[0].supportRequestId).toBe(ownRequest.id);
+  expect((await ok('/guest/state', undefined, bob.cookie)).onlinePayments).toEqual([]);
+  const delivered = await deliver(await webhook(intent, 5000));
+  expect(delivered.statusCode, delivered.body).toBe(200);
+  const diagnostic = (
+    await db.pool.query(
+      'SELECT status,reconciliation_reason FROM payos_payment_request WHERE payment_intent_id=$1',
+      [intent.id],
+    )
+  ).rows[0];
+  expect(delivered.json().status, JSON.stringify(diagnostic)).toBe('PROCESSED');
+  const currentA = await ok('/guest/state', undefined, alice.cookie);
+  const requestState = currentA.support.find((entry: { id: string }) => entry.id === ownRequest.id);
+  expect(requestState.status).toBe('RESOLVED');
+  expect(
+    (
+      await db.pool.query(
+        'SELECT resolution_actor_type,resolved_by FROM support_request WHERE id=$1',
+        [ownRequest.id],
+      )
+    ).rows[0],
+  ).toEqual({ resolution_actor_type: 'SYSTEM', resolved_by: null });
+  expect(
+    (await db.pool.query('SELECT status FROM support_request WHERE id=$1', [unrelated.id])).rows[0]
+      .status,
+  ).toBe('NEW');
+  const response = await ok('/core/payments/' + intent.id + '/refresh', {});
+  expect(response.online.status).toBe('PAID');
+  expect((await request('/core/payments/' + intent.id + '/refresh', {}, 'pv002')).statusCode).toBe(
+    403,
+  );
+  expect((await bill(p.sid)).account.outstanding_amount).toBe('5000');
+});
+
+it('an old missing-order response cannot erase funds received while cancellation recovery is in flight', async () => {
+  const p = await party('5000');
+  provider.loseCreateResponse = true;
+  const intent = await create(p.sid, '5000');
+  const code = Number(intent.online.orderCode);
+  provider.failGet = true;
+  try {
+    await ok('/core/payments/' + intent.id + '/cancel', {});
+  } finally {
+    provider.failGet = false;
+  }
+  expect((await storedOnline(intent.id)).status).toBe('CANCEL_PENDING');
+  const originalGet = provider.get,
+    gate = deferred(),
+    reached = deferred();
+  let blocked = false;
+  provider.get = async (target) => {
+    if (target === code && !blocked) {
+      blocked = true;
+      const current = provider.links.get(code)!;
+      provider.links.delete(code);
+      let missing: unknown;
+      try {
+        await originalGet.call(provider, target);
+      } catch (error) {
+        missing = error;
+      } finally {
+        provider.links.set(code, current);
+      }
+      reached.release();
+      await gate.promise;
+      throw missing;
+    }
+    return originalGet.call(provider, target);
+  };
+  const recovery = request('/core/payments/' + intent.id + '/refresh', {});
+  try {
+    await reached.promise;
+    const payload = await webhook(intent, 5000);
+    expect((await deliver(payload)).statusCode).toBe(200);
+    expect((await storedOnline(intent.id)).status).toBe('REQUIRES_RECONCILIATION');
+    gate.release();
+    const response = await recovery;
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().online.status).toBe('REQUIRES_RECONCILIATION');
+    expect((await storedOnline(intent.id)).provider_status).toBe('PAID');
+    expect((await storedOnline(intent.id)).lease_until).toBeNull();
+    expect(await bankLedger(intent.id)).toEqual({ count: 1, amount: '5000' });
+  } finally {
+    gate.release();
+    provider.get = originalGet;
+    await recovery;
+  }
+});
+
+it('a fully paid table resolves the linked online request and cancels other obsolete payment requests', async () => {
+  const p = await party('5000');
+  const alice = await joinGuest(p.table.id, 'Khách Hà');
+  const bob = await joinGuest(p.table.id, 'Khách Giang');
+  const ownRequest = await ok('/guest/payment-requests', { method: 'ONLINE' }, alice.cookie);
+  const obsolete = await ok('/guest/payment-requests', { method: 'CASH' }, bob.cookie);
+  await ok('/core/support/' + ownRequest.id + '/claim', {});
+  const intent = await create(p.sid, '5000', { supportRequestId: ownRequest.id });
+  const delivered = await deliver(await webhook(intent, 5000));
+  expect(delivered.statusCode, delivered.body).toBe(200);
+  const a = await ok('/guest/state', undefined, alice.cookie);
+  const b = await ok('/guest/state', undefined, bob.cookie);
+  expect(a.account).toMatchObject({ paid_total: '5000', outstanding_amount: '0' });
+  expect(a.support.find((entry: { id: string }) => entry.id === ownRequest.id).status).toBe(
+    'RESOLVED',
+  );
+  expect(b.support.find((entry: { id: string }) => entry.id === obsolete.id).status).toBe(
+    'CANCELLED',
+  );
+  expect(b.onlinePayments[0]).toMatchObject({
+    scope: 'TABLE',
+    status: 'PAID',
+    paidAmount: '5000',
+    remainingAmount: '0',
+  });
+  expect(b.onlinePayments[0]).not.toHaveProperty('supportRequestId');
+});
+
+it('the legacy HMAC connector cannot impersonate the reserved payOS provider namespace', async () => {
+  const p = await party('5000'),
+    intent = await create(p.sid, '5000');
+  const connectorSecret = 'isolated-connector-secret-with-no-provider-access';
+  const event = {
+    eventId: randomUUID(),
+    transactionId: randomUUID(),
+    intentId: intent.id,
+    amount: '5000',
+    currency: 'VND' as const,
+    timestamp: Date.now(),
+  };
+  for (const name of ['PAYOS', ' payos ', 'PayOS']) {
+    await expect(
+      ingestConnector(
+        db,
+        restaurantId,
+        name,
+        connectorSecret,
+        event,
+        connectorSignature(event, connectorSecret),
+      ),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  }
+  expect(await bankLedger(intent.id)).toEqual({ count: 0, amount: '0' });
+  expect(
+    (
+      await db.pool.query(
+        'SELECT count(*)::int AS n FROM payment_webhook_event WHERE provider_event_id=$1',
+        [event.eventId],
+      )
+    ).rows[0].n,
+  ).toBe(0);
+  expect((await bill(p.sid)).account.outstanding_amount).toBe('5000');
+});
+
+it('a PAID label without confirmed bank funds remains processing and reserved until bank facts arrive', async () => {
+  const p = await party('5000'),
+    intent = await create(p.sid, '5000');
+  const code = Number(intent.online.orderCode),
+    creates = provider.creates;
+  const bank = provider.links.get(code)!;
+  bank.status = 'PAID';
+  expect(bank.amountPaid).toBe(0);
+  expect(bank.transactions).toEqual([]);
+  const response = await request('/core/payments/' + intent.id + '/refresh', {});
+  expect(response.statusCode, response.body).toBe(503);
+  expect(response.headers['retry-after']).toBe('3');
+  const waiting = await bill(p.sid);
+  expect(waiting.intents[0]).toMatchObject({
+    status: 'PENDING',
+    online: { status: 'PROCESSING', paidAmount: '0', remainingAmount: '5000' },
+  });
+  expect(waiting.account).toMatchObject({
+    paid_total: '0',
+    reserved_payment_amount: '5000',
+    outstanding_amount: '5000',
+  });
+  expect(await bankLedger(intent.id)).toEqual({ count: 0, amount: '0' });
+  expect((await storedOnline(intent.id)).lease_until).toBeNull();
+  expect((await storedOnline(intent.id)).reconciliation_status).toBeNull();
+  provider.add(code, 5000);
+  const confirmed = await ok('/core/payments/' + intent.id + '/refresh', {});
+  expect(confirmed.online.status).toBe('PAID');
+  expect(provider.creates).toBe(creates);
+  expect(await bankLedger(intent.id)).toEqual({ count: 1, amount: '5000' });
+  expect((await bill(p.sid)).account.outstanding_amount).toBe('0');
+});
+
+it('resolution guards reject missing or wrong human actors while allowing explicit USER and SYSTEM completion', async () => {
+  const p = await party('5000');
+  const alice = await joinGuest(p.table.id, 'Khách kiểm tra chủ thể');
+  const assistance = await ok('/guest/payment-requests', { method: 'ONLINE' }, alice.cookie);
+  const claimed = await ok('/core/support/' + assistance.id + '/claim', {});
+  const otherOwner = await db.prisma.app_user.findUniqueOrThrow({
+    where: { restaurant_id_username: { restaurant_id: restaurantId, username: 'pv002' } },
+  });
+  const resolveAs = (actor: string | null, resolvedBy: string | null) =>
+    db.pool.query(
+      "UPDATE support_request SET status='RESOLVED',resolved_at=clock_timestamp(),resolution_actor_type=$2,resolved_by=$3 WHERE id=$1 RETURNING status,resolution_actor_type,resolved_by",
+      [assistance.id, actor, resolvedBy],
+    );
+  await expect(resolveAs('USER', null)).rejects.toMatchObject({
+    code: '23514',
+    constraint: 'support_request_resolution_actor',
+  });
+  // A NULL actor is rejected even before CHECK evaluation by the existing NOT NULL column.
+  await expect(resolveAs(null, null)).rejects.toMatchObject({
+    code: '23502',
+    column: 'resolution_actor_type',
+  });
+  await expect(resolveAs('USER', otherOwner.id)).rejects.toMatchObject({ code: '23514' });
+  await expect(resolveAs('SYSTEM', claimed.acknowledged_by)).rejects.toMatchObject({
+    code: '23514',
+  });
+  expect(
+    (await db.pool.query('SELECT status FROM support_request WHERE id=$1', [assistance.id])).rows[0]
+      .status,
+  ).toBe('ACKNOWLEDGED');
+  expect((await resolveAs('USER', claimed.acknowledged_by)).rows[0]).toEqual({
+    status: 'RESOLVED',
+    resolution_actor_type: 'USER',
+    resolved_by: claimed.acknowledged_by,
+  });
+  const next = await ok('/guest/payment-requests', { method: 'ONLINE' }, alice.cookie);
+  await ok('/core/support/' + next.id + '/claim', {});
+  const system = await db.pool.query(
+    "UPDATE support_request SET status='RESOLVED',resolved_at=clock_timestamp(),resolution_actor_type='SYSTEM',resolved_by=NULL WHERE id=$1 RETURNING status,resolution_actor_type,resolved_by",
+    [next.id],
+  );
+  expect(system.rows[0]).toEqual({
+    status: 'RESOLVED',
+    resolution_actor_type: 'SYSTEM',
+    resolved_by: null,
+  });
 });

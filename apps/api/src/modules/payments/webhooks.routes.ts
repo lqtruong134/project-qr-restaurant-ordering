@@ -46,6 +46,9 @@ export async function ingestConnector(
   body: unknown,
   signature: unknown,
 ) {
+  // Provider-specific intents must never be confirmed through the generic HMAC contract.
+  if (provider.trim().toUpperCase() === 'PAYOS')
+    reject('Khoản payOS chỉ được xác nhận qua webhook chính thức của payOS.', 400);
   const b = object(body);
   const e: ConnectorEvent = {
     eventId: text(b.eventId, 160),
@@ -201,7 +204,7 @@ export function registerWebhooks(app: FastifyInstance, db: Database, restaurant:
     async (r, reply) => {
       const secret = process.env.PAYMENT_WEBHOOK_SECRET ?? '',
         provider = process.env.PAYMENT_CONNECTOR_NAME ?? '';
-      if (secret.length < 32 || !provider)
+      if (secret.length < 32 || !provider || provider.trim().toUpperCase() === 'PAYOS')
         return reply.code(503).send({
           errorCode: 'PAYMENT_CONNECTOR_UNAVAILABLE',
           userMessage: 'Chưa cấu hình bộ kết nối thanh toán.',

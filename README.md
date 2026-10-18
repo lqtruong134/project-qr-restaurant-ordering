@@ -54,9 +54,9 @@ Xem [cách thay ảnh thật và bố cục từng vai trò](docs/20-anh-va-giao
 
 ## Thu tiền tại bàn
 
-PayOS được cấu hình riêng phía backend; không sao chép khóa vào Git. Xem [biến môi trường, webhook HTTPS và test thật 5.000đ](docs/12-van-hanh.md), cùng [nghiệm thu](docs/15-doi-chieu.md). Hiện code hoàn tất nhưng merchant thật chưa được bật.
+PayOS được cấu hình riêng phía backend; không sao chép khóa vào Git. Xem [biến môi trường, webhook HTTPS và test thật 5.000đ](docs/12-van-hanh.md), cùng [nghiệm thu](docs/15-doi-chieu.md). Merchant production do người vận hành cấu hình; bản sửa thanh toán 17/10 chưa deploy. Xem checklist cập nhật và đối soát ở đầu [runbook](docs/26-trien-khai-qtruongres.md).
 
-[Khách gọi nhân viên, khoản thu, tiền thối và ảnh chuyển khoản](docs/25-thu-tien-tai-ban.md). Luồng thu tiền hiện hành đã bao gồm khuyến mãi, VAT và payOS; schema hiện có 67 bảng và 36 migration. Các phiếu chốt giữ ảnh chụp số liệu tại thời điểm thanh toán.
+[Khách gọi nhân viên, khoản thu, tiền thối và ảnh chuyển khoản](docs/25-thu-tien-tai-ban.md). Luồng thu tiền hiện hành đã bao gồm khuyến mãi, VAT và payOS; schema hiện có 67 bảng và 37 migration trong source (migration mới cần áp dụng có kiểm soát). Các phiếu chốt giữ ảnh chụp số liệu tại thời điểm thanh toán.
 
 ## Duy trì tài liệu
 

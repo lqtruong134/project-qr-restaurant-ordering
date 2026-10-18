@@ -32,7 +32,7 @@ type Bill = {
   completion: { receiptKey: string };
   closure: { canClose: boolean; blockers: { title: string }[] };
 };
-test('guest calls staff, claimed cash and two payOS receipts settle and freeze the actual bill automatically', async ({
+test('guest calls staff, cash and multiple bank receipts auto-update both roles and freeze the actual bill', async ({
   browser,
   baseURL,
 }, info) => {
@@ -52,6 +52,7 @@ test('guest calls staff, claimed cash and two payOS receipts settle and freeze t
   const origin = new URL(baseURL!).origin;
   const errors: string[] = [];
   const browserMutations: string[] = [];
+  const browserReads: { role: string; path: string }[] = [];
   const cookie = (role: string) =>
     [...(cookieJars[role] ?? new Map()).entries()]
       .map(([key, value]) => key + '=' + value)
@@ -82,6 +83,7 @@ test('guest calls staff, claimed cash and two payOS receipts settle and freeze t
         throw Error('Unexpected browser API method');
       const path = url.pathname.slice(4) + url.search;
       if (r.method() !== 'GET') browserMutations.push(path);
+      else browserReads.push({ role, path });
       const response = await app!.inject({
         url: path,
         method: r.method() as 'GET' | 'POST' | 'PATCH' | 'DELETE',
@@ -193,6 +195,7 @@ test('guest calls staff, claimed cash and two payOS receipts settle and freeze t
     guest.setDefaultTimeout(15000);
     staff.setDefaultTimeout(15000);
     await staff.clock.install();
+    await guest.clock.install();
     await bridge(guest, 'guest');
     await bridge(staff, 'staff');
     await guest.goto('/guest');
@@ -204,6 +207,11 @@ test('guest calls staff, claimed cash and two payOS receipts settle and freeze t
     await expect(assistance.getByRole('button', { name: 'Online (payOS)' })).toHaveCount(0);
     await assistance.getByRole('button', { name: 'Tiền mặt', exact: true }).click();
     await assistance.getByRole('button', { name: 'Báo nhân viên thu tiền', exact: true }).click();
+    await expect(guest.locator('.guest-payment-sent')).toContainText(
+      'Bạn đã báo nhân viên hỗ trợ thanh toán',
+    );
+    await guest.clock.pauseAt(await guest.evaluate(() => Date.now() + 1000));
+    await guest.waitForLoadState('networkidle');
     await staff.goto('/workspace/staff');
     await staff.getByRole('textbox', { name: 'Tìm tên hoặc mã bàn…' }).fill(code);
     await staff
@@ -224,6 +232,9 @@ test('guest calls staff, claimed cash and two payOS receipts settle and freeze t
     expect(claimResponse.status()).toBe(200);
     let bill = await request<Bill>('staff', '/core/sessions/' + sid + '/bill');
     expect(bill.paymentRequests.some((r) => r.status === 'ACKNOWLEDGED')).toBe(true);
+    const cashCollectionRequestId = bill.paymentRequests.find(
+      (request) => request.status === 'ACKNOWLEDGED',
+    )!.id;
     let form = dialog.getByRole('form', { name: 'Thu tiền tại bàn', exact: true });
     await form.getByRole('button', { name: 'Tiền mặt', exact: true }).click();
     await form.getByRole('button', { name: /Số tiền khác/ }).click();
@@ -231,6 +242,39 @@ test('guest calls staff, claimed cash and two payOS receipts settle and freeze t
     await form.getByLabel('Tiền mặt khách đưa (đồng)', { exact: true }).fill('200000');
     await form.getByRole('button', { name: 'Ghi nhận đã nhận tiền', exact: true }).click();
     await expect(dialog.locator('.last-payment')).toContainText('200.000 đ');
+    expect(
+      (
+        await db.prisma.support_request.findUniqueOrThrow({
+          where: { id: cashCollectionRequestId },
+        })
+      ).status,
+    ).toBe('RESOLVED');
+    // Cash completes its assigned collection. The guest explicitly requests online assistance next.
+    await guest.clock.runFor(5500);
+    const bankAssistance = guest.getByRole('form', { name: 'Yêu cầu thanh toán' });
+    await bankAssistance.getByRole('button', { name: 'Chuyển khoản', exact: true }).click();
+    await bankAssistance
+      .getByRole('button', { name: 'Báo nhân viên thu tiền', exact: true })
+      .click();
+    await expect(guest.locator('.guest-payment-sent')).toContainText(
+      'Bạn đã báo nhân viên hỗ trợ thanh toán',
+    );
+    await staff.clock.runFor(11000);
+    const [bankClaim] = await Promise.all([
+      staff.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname.endsWith('/claim') &&
+          response.request().method() === 'POST',
+      ),
+      dialog.getByRole('button', { name: 'Nhận việc & đến bàn', exact: true }).click(),
+    ]);
+    expect(bankClaim.status()).toBe(200);
+    bill = await request<Bill>('staff', '/core/sessions/' + sid + '/bill');
+    const collectionRequestId = bill.paymentRequests.find(
+      (request) => request.status === 'ACKNOWLEDGED',
+    )!.id;
+    expect(collectionRequestId).not.toBe(cashCollectionRequestId);
+
     async function createOnline(amount: string) {
       form = dialog.getByRole('form', { name: 'Thu tiền tại bàn', exact: true });
       await form.getByRole('button', { name: 'Online (payOS)', exact: true }).click();
@@ -292,14 +336,56 @@ test('guest calls staff, claimed cash and two payOS receipts settle and freeze t
       dialog.getByRole('region', { name: 'Khoản thu online' }).getByRole('img'),
     ).toBeVisible();
     expect(provider.creates).toBe(1);
-    await bankPaid(first, 150000);
-    await expect(dialog.getByRole('region', { name: 'Khoản thu online' }).first()).toContainText(
-      'Đã nhận thanh toán online',
-    );
-    await expect(dialog.locator('.last-payment')).toContainText('150.000 đ');
+    const firstCard = dialog.locator('[data-payment-intent-id="' + first.id + '"]');
+    await guest.clock.runFor(5500);
+    const guestOnline = guest.getByRole('region', { name: 'Trạng thái thanh toán online' });
+    await expect(guestOnline).toContainText('Đang chờ thanh toán online');
+    const staffReadsBeforeBank = browserReads.filter(
+      (read) => read.role === 'staff' && read.path.endsWith('/bill'),
+    ).length;
+    await bankPaid(first, 50000);
+    await staff.clock.runFor(3500);
+    await guest.clock.runFor(3500);
+    await expect(firstCard).toContainText('Đã nhận một phần tiền online');
+    await expect(firstCard.locator('.online-payment-facts')).toContainText('50.000 đ');
+    await expect(firstCard).toContainText('Chỉ chuyển thêm 100.000 đ');
+    await expect(firstCard.getByRole('img')).toBeVisible();
+    await expect(guestOnline).toContainText('Đã nhận một phần thanh toán');
+    await expect(guestOnline).toContainText('50.000 đ');
+    await expect(guestOnline).toContainText('100.000 đ');
+    await expect(guestOnline).not.toContainText('Thanh toán thành công');
+    bill = await request<Bill>('staff', '/core/sessions/' + sid + '/bill');
+    expect(bill.account).toMatchObject({
+      paid_total: '250000',
+      outstanding_amount: '200000',
+      reserved_payment_amount: '100000',
+    });
+    expect(bill.paymentRequests.some((request) => request.status === 'ACKNOWLEDGED')).toBe(true);
+    expect(
+      browserReads.filter((read) => read.role === 'staff' && read.path.endsWith('/bill')).length,
+    ).toBeGreaterThan(staffReadsBeforeBank);
+    await bankPaid(first, 100000);
+    await staff.clock.runFor(3500);
+    await guest.clock.runFor(3500);
+    await expect(firstCard).toContainText('Đã nhận thanh toán online');
+    await expect(firstCard.getByRole('img')).toHaveCount(0);
+    await expect(dialog.locator('.last-payment')).toContainText('100.000 đ');
+    await expect(guestOnline).toContainText('Thanh toán thành công');
+    expect(
+      (await db.prisma.support_request.findUniqueOrThrow({ where: { id: collectionRequestId } }))
+        .status,
+    ).toBe('RESOLVED');
+    await expect(
+      guest.getByRole('heading', { name: 'Bàn đã thanh toán đủ', exact: true }),
+    ).toHaveCount(0);
     const second = await createOnline('100000');
     await bankPaid(second, 100000);
+    await staff.clock.runFor(3500);
+    await guest.clock.runFor(5500);
     await expect(dialog.locator('.last-payment')).toContainText('100.000 đ');
+    await expect(
+      dialog.getByRole('region', { name: 'Khoản thu online' }).getByRole('img'),
+    ).toHaveCount(0);
     bill = await request<Bill>('staff', '/core/sessions/' + sid + '/bill');
     expect(bill.account).toMatchObject({
       charge_total: '450000',
@@ -310,7 +396,8 @@ test('guest calls staff, claimed cash and two payOS receipts settle and freeze t
     expect(bill.payments.map((p) => [p.method, p.amount]).sort()).toEqual([
       ['CASH', '200000'],
       ['ONLINE', '100000'],
-      ['ONLINE', '150000'],
+      ['ONLINE', '100000'],
+      ['ONLINE', '50000'],
     ]);
     expect(
       bill.payments.filter((p) => p.method === 'ONLINE').every((p) => p.confirmed_by === null),
@@ -324,6 +411,19 @@ test('guest calls staff, claimed cash and two payOS receipts settle and freeze t
     await expect(
       guest.locator('.core-stats p').filter({ hasText: 'Còn phải thanh toán' }).locator('strong'),
     ).toHaveText('0 đ');
+    await expect(
+      guest.getByRole('heading', { name: 'Bàn đã thanh toán đủ', exact: true }),
+    ).toBeVisible();
+    await expect(guest.locator('.guest-payment-sent')).toHaveCount(0);
+    await expect(guest.getByText('Nhân viên đang xử lý', { exact: true })).toHaveCount(0);
+    await expect(dialog.locator('.support-task')).toHaveCount(0);
+    await expect(staff.locator('.table-tile').filter({ hasText: code })).toContainText(
+      'Còn phải trả 0 đ',
+    );
+    expect(
+      bill.paymentRequests.some((request) => ['NEW', 'ACKNOWLEDGED'].includes(request.status)),
+    ).toBe(false);
+    expect(browserMutations.filter((path) => path.endsWith('/refresh'))).toHaveLength(0);
     await dialog.getByRole('button', { name: 'Phiếu thường', exact: true }).click();
     const receipt = dialog.getByRole('region', { name: 'Phiếu thanh toán', exact: true });
     await expect(receipt).toContainText('Online (payOS)');
@@ -356,6 +456,10 @@ test('guest calls staff, claimed cash and two payOS receipts settle and freeze t
     expect(closed.account.paid_total).toBe('450000');
     expect(provider.creates).toBe(2);
     expect(browserMutations.filter((p) => p.endsWith('/confirm'))).toHaveLength(1);
+    expect(browserMutations.filter((p) => p.endsWith('/refresh'))).toHaveLength(0);
+    expect(
+      await db.prisma.payment_transaction.count({ where: { session_id: sid, provider: 'PAYOS' } }),
+    ).toBe(3);
     expect(errors).toEqual([]);
   } finally {
     await Promise.allSettled(contexts.map((context) => context.close()));
