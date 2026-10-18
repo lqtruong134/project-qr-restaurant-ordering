@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { Readable } from 'node:stream';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -492,3 +493,127 @@ test('maintenance migrations gain read/traverse access in the build stage withou
     ?.split('FROM source AS production-dependencies')[0];
   assert.match(maintenance, /USER 10001:10001/);
 });
+
+test('API runtime code is group-readable and root-owned after every artifact copy', async () => {
+  const source = await readFile(
+    new URL('../deploy/docker/Dockerfile.api', import.meta.url),
+    'utf8',
+  );
+  const runtime = source.replace(/\r\n/g, '\n').split(' AS runtime\n')[1];
+  const instructions = runtime.replace(/\\\r?\n\s*/g, ' ').split('\n');
+  const copies = instructions.filter((line) => line.startsWith('COPY '));
+  assert.equal(
+    copies.length,
+    5,
+    'cover deploy output plus generated client/resources/config/runtime helper',
+  );
+  for (const copy of copies) assert.match(copy, /^COPY --chown=0:10001 --from=/);
+  const permissions = instructions.find((line) => /^RUN chown 0:10001 \/app /.test(line));
+  assert.match(permissions, /chmod -R u=rwX,g=rX,o= \/app$/);
+  assert.ok(instructions.lastIndexOf(copies.at(-1)) < instructions.indexOf(permissions));
+  assert.deepEqual(
+    instructions.filter((line) => line.startsWith('USER ')),
+    ['USER 10001:10001'],
+  );
+  assert.ok(instructions.indexOf(permissions) < instructions.indexOf('USER 10001:10001'));
+  assert.doesNotMatch(runtime, /chmod\s+(?:-R\s+)?0?777\b/);
+  const compose = await readFile(new URL('../compose.production.yaml', import.meta.url), 'utf8');
+  const api = compose.replace(/\r\n/g, '\n').split('\n  api:\n')[1]?.split('\n  web:\n')[0];
+  assert.match(api, /read_only: true/);
+  assert.match(api, /cap_drop: \[ALL\]/);
+  assert.match(api, /no-new-privileges:true/);
+});
+
+// Run against a locally built candidate: QTRUONGRES_API_TEST_IMAGE=<image> pnpm test:deploy
+test(
+  'API runtime image reads its full dependency tree and imports boot modules as UID 10001',
+  {
+    skip: !process.env.QTRUONGRES_API_TEST_IMAGE,
+    timeout: 90000,
+  },
+  () => {
+    const image = process.env.QTRUONGRES_API_TEST_IMAGE;
+    assert.match(image, /^[a-zA-Z0-9][a-zA-Z0-9._/:@-]+$/);
+    const result = spawnSync(
+      'docker',
+      [
+        'run',
+        '--pull=never',
+        '--rm',
+        '-i',
+        '--network',
+        'none',
+        '--read-only',
+        '--tmpfs',
+        '/tmp:rw,noexec,nosuid,size=64m,mode=1777',
+        '--cap-drop',
+        'ALL',
+        '--security-opt',
+        'no-new-privileges:true',
+        '--entrypoint',
+        'node',
+        image,
+        '--import',
+        'tsx',
+        '--input-type=module',
+      ],
+      {
+        encoding: 'utf8',
+        timeout: 80000,
+        input: `
+      import fs from 'node:fs';
+      import assert from 'node:assert/strict';
+      import path from 'node:path';
+      assert.equal(process.getuid(), 10001);
+      assert.equal(process.getgid(), 10001);
+      let files = 0;
+      let directories = 0;
+      function walk(dir) {
+        const stat = fs.statSync(dir);
+        assert.equal(stat.uid, 0, dir + ' remains root-owned');
+        assert.equal(stat.gid, 10001, dir + ' is accessible to the app group');
+        assert.equal(stat.mode & 0o027, 0, dir + ' grants no group write or other access');
+        fs.accessSync(dir, fs.constants.R_OK | fs.constants.X_OK);
+        directories++;
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const file = path.join(dir, entry.name);
+          if (entry.isSymbolicLink()) {
+            const target = fs.realpathSync(file);
+            assert.ok(target.startsWith('/app/'), file + ' resolves inside the packaged app');
+            fs.accessSync(target, fs.constants.R_OK);
+          } else if (entry.isDirectory()) walk(file);
+          else {
+            assert.ok(entry.isFile(), file);
+            const info = fs.statSync(file);
+            assert.equal(info.uid, 0, file);
+            assert.equal(info.gid, 10001, file);
+            assert.equal(info.mode & 0o027, 0, file + ' is not writable by the app');
+            fs.readFileSync(file);
+            files++;
+          }
+        }
+      }
+      walk('/app');
+      for (const name of ['@thesis/contracts', '@thesis/database', 'fastify', '@fastify/cookie', '@payos/node', 'jose', './src/auth.ts', './src/config.ts', './src/modules/index.ts', './deploy/runtime-files.mjs']) await import(name);
+      const { hash, verify } = await import('@thesis/database');
+      const encoded = await hash('runtime permission smoke');
+      assert.ok(await verify(encoded, 'runtime permission smoke'));
+      const { buildApp } = await import('./src/app.ts');
+      const app = buildApp({ ping: async () => {} });
+      try {
+        assert.equal((await app.inject({ url: '/health/live' })).statusCode, 200);
+        assert.equal((await app.inject({ url: '/health/ready' })).statusCode, 200);
+      } finally { await app.close(); }
+      console.log(JSON.stringify({ uid: process.getuid(), gid: process.getgid(), files, directories, imports: 'passed', nativeAddon: 'passed', fastifyHealth: 'passed' }));
+    `,
+      },
+    );
+    assert.ifError(result.error);
+    assert.equal(result.status, 0, result.stderr + result.stdout);
+    const summary = JSON.parse(result.stdout.trim());
+    assert.equal(summary.uid, 10001);
+    assert.equal(summary.gid, 10001);
+    assert.ok(summary.files > 0);
+    console.log('API runtime permissions smoke: ' + JSON.stringify(summary));
+  },
+);

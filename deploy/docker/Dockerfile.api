@@ -67,13 +67,17 @@ RUN apt-get update \
     && mkdir -p /data/menu-images /data/payment-proofs \
     && chown -R 10001:10001 /data
 WORKDIR /app
-COPY --from=production-dependencies /opt/api/ ./
+COPY --chown=0:10001 --from=production-dependencies /opt/api/ ./
 # Copy between stages: deploy may already hardlink these files when .git is absent.
 # Explicit copies also cover a Git checkout where generated files are excluded from packing.
-COPY --from=source /workspace/packages/database/generated/ ./node_modules/@thesis/database/generated/
-COPY --from=source /workspace/packages/database/resources/ ./node_modules/@thesis/database/resources/
-COPY --from=source /workspace/packages/config/tsconfig.base.json ./tsconfig.runtime.json
-COPY --from=source /workspace/deploy/runtime-files.mjs ./deploy/runtime-files.mjs
+COPY --chown=0:10001 --from=source /workspace/packages/database/generated/ ./node_modules/@thesis/database/generated/
+COPY --chown=0:10001 --from=source /workspace/packages/database/resources/ ./node_modules/@thesis/database/resources/
+COPY --chown=0:10001 --from=source /workspace/packages/config/tsconfig.base.json ./tsconfig.runtime.json
+COPY --chown=0:10001 --from=source /workspace/deploy/runtime-files.mjs ./deploy/runtime-files.mjs
+# pnpm deploy and COPY preserve host modes (including 600/700). Keep code
+# root-owned and group-readable; preserve executable bits for native tools.
+RUN chown 0:10001 /app \
+    && chmod -R u=rwX,g=rX,o= /app
 USER 10001:10001
 EXPOSE 4000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
