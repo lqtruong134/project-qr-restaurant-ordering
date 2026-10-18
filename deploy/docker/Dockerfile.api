@@ -23,6 +23,11 @@ RUN --mount=type=cache,id=qtruongres-pnpm-v12,target=/pnpm/store,sharing=locked 
     pnpm_config_package_import_method=copy \
     pnpm install --store-dir=/pnpm/store --frozen-lockfile
 FROM dependencies AS source
+# COPY preserves restrictive host modes. Normalize build artifacts before the
+# non-root maintenance stage: directories need traversal, files only need reading.
+RUN chmod 0755 /workspace /workspace/packages /workspace/packages/database /workspace/packages/database/prisma \
+    && find packages/database/prisma/migrations -type d -exec chmod 0755 {} + \
+    && find packages/database/prisma/migrations -type f -exec chmod 0644 {} +
 # Prisma generate reads config but does not connect to this placeholder database.
 RUN DATABASE_URL=postgresql://localhost/build pnpm --filter @thesis/database exec prisma generate
 

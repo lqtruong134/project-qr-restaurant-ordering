@@ -452,3 +452,43 @@ test('production dependency steps share a persistent store and bounded network p
   }
   assert.equal(mounts.length, 3);
 });
+
+test('maintenance migrations gain read/traverse access in the build stage without application write access', async () => {
+  const source = await readFile(
+    new URL('../deploy/docker/Dockerfile.api', import.meta.url),
+    'utf8',
+  );
+  const dockerfile = source.replace(/\r\n/g, '\n');
+  const build = dockerfile
+    .split('FROM dependencies AS source\n')[1]
+    ?.split('FROM source AS maintenance')[0];
+  assert.ok(build, 'permissions are established before the maintenance image');
+  const instructions = build.replace(/\\\r?\n\s*/g, ' ').split('\n');
+  const permissions = instructions.find((line) => /^RUN chmod /.test(line));
+  assert.ok(permissions, 'normalize copied permissions during the build');
+  for (const parent of [
+    '/workspace',
+    '/workspace/packages',
+    '/workspace/packages/database',
+    '/workspace/packages/database/prisma',
+  ]) {
+    assert.ok(
+      permissions.split(' && ')[0].split(/\s+/).includes(parent),
+      parent + ' is traversable',
+    );
+  }
+  assert.match(permissions, /chmod 0755 /);
+  assert.match(
+    permissions,
+    /find packages\/database\/prisma\/migrations -type d -exec chmod 0755 \{\} \+/,
+  );
+  assert.match(
+    permissions,
+    /find packages\/database\/prisma\/migrations -type f -exec chmod 0644 \{\} \+/,
+  );
+  assert.doesNotMatch(permissions, /(?:0777|chmod.*(?:a\+w|o\+w)|chown)/);
+  const maintenance = dockerfile
+    .split('FROM source AS maintenance\n')[1]
+    ?.split('FROM source AS production-dependencies')[0];
+  assert.match(maintenance, /USER 10001:10001/);
+});
