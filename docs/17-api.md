@@ -1,5 +1,16 @@
 # 17. Danh mục API hiện hành
 
+## Số dư theo phân bổ và nguồn hoàn — 18/10/2026
+
+Không thêm endpoint. GET /core/sessions/:id/bill bổ sung cho từng payment thành công: allocated_amount (phân bổ còn hiệu lực), refunded_amount (hoàn thành công), refundable_amount (tiền chưa phân bổ còn phải trả lại), pending_refund_amount, available_refund_amount và refund_context_kind. Giao diện chỉ cho chọn nguồn có ngân sách khả dụng do server tính; backend vẫn kiểm tra lại khi tạo, duyệt và thực hiện hoàn.
+
+GET /guest/state → onlinePayments thêm appliedAmount, refundedAmount, refundableAmount dạng chuỗi tiền nguyên VND; paidAmount tiếp tục là số thực nhận, không phải số đã trả cho món. remainingAmount dựa phần quote chưa từng được phân bổ đủ; sau hủy món không yêu cầu khách chuyển lại khoản từng thanh toán. Giữ phạm vi TABLE/PARTICIPANT và allowlist, không thêm tham chiếu ngân hàng hoặc ID nhân viên.
+
+GET /core/admin/payment-reconciliation thêm recorded_amount, allocated_amount, refunded_amount, unapplied_amount để admin phân biệt tiền ngân hàng và tiền áp vào món. POST resolve từ chối khi nguồn còn tiền chưa phân bổ chưa hoàn thành công; ghi chú hoặc phiếu được duyệt không vượt qua guard.
+
+GET /core/admin/reports?view=reconciliation có outstanding, refundDue, appliedAmount và financialBalance riêng. Bộ lọc due/refund có thể cùng chứa một phiên; balanced yêu cầu cả hai nghĩa vụ bằng 0. financialBalance/balance giữ chênh lệch dòng tiền để đối chiếu, không dùng thay cho hai số này. Xóa nợ chỉ giảm khoản cần thu; appliedAmount không coi đó là thanh toán. Phiếu đóng ưu tiên snapshot. [Nghiệp vụ](06-thanh-toan.md) · [kiểm thử](15-doi-chieu.md).
+
+
 ## Read model thanh toán tự cập nhật — 17/10/2026
 
 Không thêm endpoint công khai mới. GET `/guest/state` có `onlinePayments` allowlist, chỉ TABLE của phiên hiện tại hoặc PARTICIPANT đúng người; khóa hiển thị opaque không dùng cho thao tác ghi. Có status, amount, paidAmount từ ledger, bankConfirmedAmount từ provider, remainingAmount, scope và timestamps; không lộ QR/checkout/orderCode/raw payload/bank reference hoặc staffID. `supportRequestId` chỉ có khi chính khách sở hữu yêu cầu. Account và progress được đọc trong transaction khóa phiên hiện có.

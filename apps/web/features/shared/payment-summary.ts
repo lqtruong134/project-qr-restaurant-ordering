@@ -7,18 +7,22 @@ export type PaymentAccount = {
   refund_due_amount?: unknown;
 };
 
-/** Successful invoice collections exclude cash tender and change; only actual refunds reduce them. */
+/** Gross receipts exclude cash tender/change; invoice coverage comes only from the server allocation balance. */
 export function paymentSummary(account: PaymentAccount | null | undefined) {
   const billTotal = BigInt(String(account?.charge_total ?? 0));
   const collectedTotal = BigInt(String(account?.paid_total ?? 0));
   const refundedTotal = BigInt(String(account?.refunded_total ?? 0));
+  const outstanding = BigInt(String(account?.outstanding_amount ?? 0));
+  const refundDue = BigInt(String(account?.refund_due_amount ?? 0));
   return {
     billTotal,
     collectedTotal,
     refundedTotal,
     netPaid: collectedTotal - refundedTotal,
-    outstanding: BigInt(String(account?.outstanding_amount ?? 0)),
-    refundDue: BigInt(String(account?.refund_due_amount ?? 0)),
+    appliedTotal: account?.outstanding_amount === undefined ? 0n : billTotal - outstanding,
+    unappliedHeld: refundDue,
+    outstanding,
+    refundDue,
   };
 }
 

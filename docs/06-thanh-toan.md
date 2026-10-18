@@ -1,5 +1,27 @@
 # 06. Hiểu tiền, hóa đơn và điều kiện đóng bàn
 
+## Chuyển dư khoản thanh toán một phần — 18/10/2026
+
+Tiền ngân hàng thực nhận và tiền đã trả cho món là hai số khác nhau. Mỗi khoản thu có phạm vi/số tiền được nhân viên lập; tiền vượt giới hạn đó **không tự trả sang món hoặc người khác**, kể cả cả bàn vẫn còn thiếu. Dư nợ tính từ charge còn hiệu lực trừ phân bổ thực tế; tiền cần hoàn tính riêng tại từng giao dịch gốc, sau khi trừ phân bổ còn hiệu lực và các lần hoàn thành công. Vì vậy một bàn có thể **vừa còn phải thu, vừa cần hoàn**.
+
+| Trạng thái hóa đơn 20.000đ, khoản thu được lập 10.000đ | Đã nhận | Đã tính vào món | Đã hoàn thật | Còn phải thu | Cần hoàn |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Ngân hàng xác nhận 12.000đ | 12.000 | 10.000 | 0 | 10.000 | 2.000 |
+| Admin mới duyệt phiếu hoàn 2.000đ | 12.000 | 10.000 | 0 | 10.000 | 2.000 |
+| Nhân viên đã trả và xác nhận 1.000đ | 12.000 | 10.000 | 1.000 | 10.000 | 1.000 |
+| Trả và xác nhận thêm 1.000đ | 12.000 | 10.000 | 2.000 | 10.000 | 0 |
+| Lập khoản mới đúng phạm vi và thu tiếp 10.000đ | 22.000 | 20.000 | 2.000 | 0 | 0 |
+
+Admin không thể đóng **RECONCILED** khi 2.000đ chưa hoàn thực tế; ghi lý do hay duyệt hồ sơ chưa đủ. Backend kiểm tra lại cả khi gọi API trực tiếp: từng nguồn payOS phải có **tiền nhận − tiền đã hoàn thành công = phân bổ còn hiệu lực**, tổng provider phải khớp sổ thu, trạng thái provider phải kết thúc và các khoản cần hoàn trong phiên đã xử lý. Có thể đóng đối soát khoản 10.000đ sau hoàn dư dù bàn vẫn còn phải thu 10.000đ; **đóng đối soát không phải đóng bàn**. Bàn còn nợ tiếp tục bị chặn kết thúc bình thường.
+
+Chuyển 22.000đ cho toàn hóa đơn 20.000đ chỉ phân bổ 20.000đ, cần hoàn 2.000đ. Hủy/miễn món đã được trả tiền giải phóng đúng phần phân bổ của nguồn cũ; một món gọi thêm không tự hấp thụ số cần hoàn ấy. Hồ sơ hoàn chỉ được lập/duyệt/thực hiện trong số dư chưa phân bổ của **đúng nguồn**, trừ phần đã hoàn và phần đang dành cho phiếu khác. Hoàn thất bại, phiếu được duyệt hoặc lời ghi chú không làm giảm số cần hoàn.
+
+Khoản chưa từng phân bổ không tự gán vào lịch sử hoàn món bị hủy. Lý do hủy món chỉ được dùng khi nguồn ấy đã thực trả cho món bị đảo; nguồn gồm cả dư chuyển và tiền món bị đảo được ghi là khoản chung, không lặp toàn bộ số hoàn cho từng món. Nhân viên vẫn phải thực trả rồi xác nhận; chưa có chi hộ/hoàn tự động qua payOS.
+
+Nếu quote đã bị hủy/hết hạn trước khi tiền được ghi nhận và không còn đủ charge để phân bổ, hệ thống ghi tiền thật, giữ phần cần hoàn và yêu cầu đối soát. Sau hoàn thực tế có thể đóng khoản ở **CANCELLED**, không giả **PAID** hoặc tự hoàn tất lời gọi chưa được đáp ứng. Một webhook/refresh lặp với cùng lịch sử ngân hàng sau đối soát không ghi thêm tiền, không phân bổ thêm và không mở lại hồ sơ đã giải quyết; tham chiếu tiền mới vẫn phải được xử lý.
+
+Đợt này chỉ sửa phép tổng hợp, kiểm tra nguồn hoàn và read model; **không thêm migration**. Migration `202610170001_payment_system_resolution` của đợt trước vẫn là phần nâng cấp cần được operator kiểm soát khi triển khai. Chưa truy cập database production, gọi payOS thật, đổi secret, merge main hoặc deploy trong đợt review 18/10. Phiếu đã đóng giữ nguyên snapshot.
+
 ## Thanh toán online qua payOS — cập nhật 17/10/2026
 
 Nhà hàng thu bằng tiền mặt, chuyển khoản do nhân viên đối chiếu hoặc **Online (payOS)** do server xác minh. Khách chuyển tiền xong thì màn hình nhân viên và khách tự đọc lại dữ liệu; nút **Kiểm tra trạng thái** chỉ là cách phục hồi khi cần.
@@ -43,7 +65,7 @@ Webhook đã xác minh có thể đến trước khi GET của payOS thấy giao
 | `payment_transaction` + `payment_allocation` | Tiền đã ghi nhận và đã dùng trả khoản phải thu nào; là căn cứ tổng hợp tài khoản tiền.                |
 | `session_financial_account`                  | Tổng phải trả, đã thu, đã hoàn và số còn thiếu/cần hoàn của phiên.                                    |
 
-Màn hình khách tách **Đã ghi nhận thanh toán** từ sổ thu và **Ngân hàng đã xác nhận** từ payOS. Tiền còn cách ly/chờ đối soát không bị tính thành đã trả hóa đơn. Khách chỉ nhận bản tóm tắt của bàn hoặc phần thuộc mình; không nhận raw payload, tài khoản ngân hàng, mã provider/tham chiếu giao dịch hay ID nhân viên. QR/link được cung cấp từ phía nhân viên.
+Màn hình khách tách **Đã nhận tiền**, **Đã tính vào tiền món**, **Đã hoàn** và **Cần hoàn**, cùng số **Ngân hàng đã xác nhận** từ payOS. Tiền còn cách ly/chờ đối soát không bị tính thành đã trả hóa đơn. Khách chỉ nhận bản tóm tắt của bàn hoặc phần thuộc mình; không nhận raw payload, tài khoản ngân hàng, mã provider/tham chiếu giao dịch hay ID nhân viên. QR/link được cung cấp từ phía nhân viên.
 
 ### Cập nhật màn hình: polling có điều kiện
 
@@ -154,13 +176,16 @@ Báo cáo giữ **Doanh số sau giảm, gồm VAT**, bổ sung số giảm, VAT
 
 Tạo intent không có nghĩa đã nhận tiền. Xác nhận “đã nhận” là bước chịu trách nhiệm của nhân viên đối với tiền mặt và chuyển khoản thủ công.
 
-## Ba công thức cần thuộc
+## Phân biệt tiền thực giữ và tiền đã trả cho món
 
 ```text
 Thực giữ của khách = paid_total - refunded_total
-Còn thiếu = max(charge_total - paid_total + refunded_total, 0)
-Cần hoàn = max(paid_total - refunded_total - charge_total, 0)
+Còn thiếu = tổng max(tiền charge còn hiệu lực sau giảm - phân bổ ròng vào charge, 0)
+Cần hoàn = tổng max(tiền mỗi nguồn thu - hoàn thành công của nguồn - phân bổ còn hiệu lực của nguồn, 0)
+Đã tính vào tiền món = charge_total - outstanding_amount
 ```
+
+Phân bổ ròng là allocated_amount − reversed_amount của giao dịch thành công. Chỉ cộng/trừ tổng tiền của cả bàn sẽ bù nhầm khoản dư vào phạm vi chưa được yêu cầu thanh toán; không dùng công thức ấy cho khoản thu riêng. Tổng đã nhận và tổng đã hoàn vẫn giữ lịch sử thực tế, không sửa số ngân hàng để làm cân phiếu.
 
 `reserved_payment_amount` là phần tiền đang xử lý chưa được nhận, đã trừ các giao dịch thành công của từng intent. Khoản thủ công giữ chỗ đến khi hết hạn; khoản PAYOS chưa rõ kết quả vẫn giữ phần còn lại kể cả hết giờ tại giao diện, cho đến khi provider được đối chiếu. Khi tạo intent mới, số được đặt thêm không vượt `outstanding_amount - reserved_payment_amount`. Đây là giữ phần tiền đang chờ xử lý, không phải tiền đã thu.
 

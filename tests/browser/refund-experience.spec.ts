@@ -117,7 +117,7 @@ test('admin approves refund before staff can execute; guest sees pending, partia
     const summary = guest.getByRole('region', { name: 'Thông tin hoàn tiền' });
     await expect(summary).toContainText('Cả bàn còn tiền chờ hoàn');
     await expect(
-      summary.locator('.refund-summary-grid > div').filter({ hasText: 'Còn chờ hoàn tiền món' }),
+      summary.locator('.refund-summary-grid > div').filter({ hasText: 'Còn chờ hoàn lại khách' }),
     ).toContainText('90.000');
     await guest.screenshot({
       path: info.outputPath('guest-refund-pending.png'),
@@ -216,12 +216,13 @@ test('admin approves refund before staff can execute; guest sees pending, partia
       .getByRole('dialog', { name: 'Kiểm tra trước khi xác nhận' })
       .getByRole('button', { name: 'Xác nhận', exact: true })
       .click();
-    await expect(summary).toContainText('Đã hoàn một phần');
+    await guest.bringToFront();
+    await expect(summary).toContainText('Đã hoàn một phần', { timeout: 15000 });
     await expect(
-      summary.locator('.refund-summary-grid > div').filter({ hasText: 'Đã hoàn tiền món' }),
+      summary.locator('.refund-summary-grid > div').filter({ hasText: 'Đã hoàn lại khách' }),
     ).toContainText('20.000');
     await expect(
-      summary.locator('.refund-summary-grid > div').filter({ hasText: 'Còn chờ hoàn tiền món' }),
+      summary.locator('.refund-summary-grid > div').filter({ hasText: 'Còn chờ hoàn lại khách' }),
     ).toContainText('70.000');
     await expect(summary.locator('.guest-refund-history li')).toHaveCount(1);
     await guest.screenshot({
@@ -229,6 +230,7 @@ test('admin approves refund before staff can execute; guest sees pending, partia
       scale: 'css',
       fullPage: true,
     });
+    await staff.bringToFront();
     complete = refundPanel
       .locator('form')
       .filter({ has: staff.getByRole('heading', { name: 'Còn phải hoàn 70.000 đ', exact: true }) });
@@ -237,12 +239,13 @@ test('admin approves refund before staff can execute; guest sees pending, partia
       .getByRole('dialog', { name: 'Kiểm tra trước khi xác nhận' })
       .getByRole('button', { name: 'Xác nhận', exact: true })
       .click();
-    await expect(summary).toContainText('Đã hoàn tất các khoản cần hoàn');
+    await guest.bringToFront();
+    await expect(summary).toContainText('Đã hoàn tất các khoản cần hoàn', { timeout: 15000 });
     await expect(
-      summary.locator('.refund-summary-grid > div').filter({ hasText: 'Đã hoàn tiền món' }),
+      summary.locator('.refund-summary-grid > div').filter({ hasText: 'Đã hoàn lại khách' }),
     ).toContainText('90.000');
     await expect(
-      summary.locator('.refund-summary-grid > div').filter({ hasText: 'Còn chờ hoàn tiền món' }),
+      summary.locator('.refund-summary-grid > div').filter({ hasText: 'Còn chờ hoàn lại khách' }),
     ).toContainText('0 đ');
     await expect(summary.locator('.guest-refund-history li')).toHaveCount(2);
     await expect(

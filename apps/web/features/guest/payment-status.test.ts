@@ -47,6 +47,23 @@ describe('guest payment status reflects orders and recorded money', () => {
     ).toBe('paid');
     expect(guestPaymentStatus(zero, [item]).kind).toBe('zero');
   });
+  it('explains both a remaining item balance and unallocated money that needs a separate refund', () => {
+    const state = guestPaymentStatus(
+      {
+        ...zero,
+        charge_total: '20000',
+        paid_total: '12000',
+        outstanding_amount: '10000',
+        refund_due_amount: '2000',
+      },
+      [item],
+    );
+    expect(state.kind).toBe('due');
+    expect(state.detail).toContain('10.000');
+    expect(state.detail).toContain('2.000');
+    expect(state.detail).toContain('chưa được tự bù');
+    expect(state.title).not.toContain('thanh toán đủ');
+  });
   it('shows refund due ahead of an otherwise settled or zero balance', () => {
     const status = guestPaymentStatus(
       { ...zero, paid_total: '90000', refund_due_amount: '90000' },
@@ -136,6 +153,25 @@ describe('guest online confirmation uses safe server states', () => {
         remainingAmount: '0',
       }).title,
     ).toBe('Thanh toán thành công');
+  });
+  it('does not call gross booked funds invoice payment when some money is unallocated', () => {
+    const state = guestOnlinePaymentStatus({
+      ...online,
+      amount: '10000',
+      paidAmount: '12000',
+      bankConfirmedAmount: '12000',
+      appliedAmount: '10000',
+      refundableAmount: '2000',
+      refundedAmount: '0',
+      remainingAmount: '0',
+      status: 'REQUIRES_RECONCILIATION',
+    });
+    expect(state.kind).toBe('review');
+    expect(state.detail).toContain('12.000');
+    expect(state.detail).toContain('10.000');
+    expect(state.detail).toContain('2.000');
+    expect(state.title).not.toContain('thành công');
+    expect(state.detail).toContain('chưa tự bù');
   });
   it.each(['EXPIRED', 'CANCELLED', 'FAILED', 'REQUIRES_RECONCILIATION'] as const)(
     '%s never asks the guest to pay again without staff checking',

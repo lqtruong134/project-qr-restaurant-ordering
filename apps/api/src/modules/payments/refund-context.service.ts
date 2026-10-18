@@ -2,7 +2,7 @@ import { reasonLabel } from '@thesis/contracts';
 import type { Connection } from '../shared/core-persistence.js';
 
 // Saved charge reversals are the source of the reason; staff do not rewrite them.
-export async function readRefundContext(c: Connection, sessionId: string) {
+export async function readRefundContext(c: Connection, sessionId: string, paymentId?: string) {
   const decisions = (
     await c.query(
       `SELECT i.id AS item_id,i.product_name_snapshot,i.quantity,e.reason,
@@ -14,8 +14,10 @@ export async function readRefundContext(c: Connection, sessionId: string) {
          ORDER BY e.created_at DESC,e.id DESC LIMIT 1
        ) e ON true
        WHERE f.session_id=$1 AND f.charge_type='ITEM' AND f.status='REVERSED' AND f.amount>0
+         AND ($2::uuid IS NULL OR EXISTS(SELECT 1 FROM payment_allocation a
+           WHERE a.financial_charge_id=f.id AND a.payment_transaction_id=$2 AND a.reversed_amount>0))
        ORDER BY e.created_at,i.id`,
-      [sessionId],
+      [sessionId, paymentId ?? null],
     )
   ).rows;
   if (!decisions.length) return null;

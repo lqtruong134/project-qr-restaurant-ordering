@@ -1,4 +1,5 @@
 import type { GuestOnlinePayment } from '@thesis/contracts';
+import { isOnlinePaymentPending } from '../shared/online-payment';
 import { vnd } from '../shared/components';
 import { guestOnlinePaymentStatus } from './payment-status';
 
@@ -26,11 +27,28 @@ export function GuestOnlinePayments({ payments }: { payments: GuestOnlinePayment
                 Số tiền khoản thu<strong>{vnd(payment.amount)}</strong>
               </p>
               <p>
-                Đã ghi nhận thanh toán<strong>{vnd(payment.paidAmount)}</strong>
+                Đã nhận (ghi nhận giao dịch)<strong>{vnd(payment.paidAmount)}</strong>
               </p>
-              <p>
-                Còn thiếu cho khoản này<strong>{vnd(payment.remainingAmount)}</strong>
-              </p>
+              {payment.appliedAmount !== undefined && (
+                <p>
+                  Đã tính vào tiền món<strong>{vnd(payment.appliedAmount)}</strong>
+                </p>
+              )}
+              {BigInt(payment.refundedAmount ?? '0') > 0n && (
+                <p>
+                  Đã hoàn lại khách<strong>{vnd(payment.refundedAmount)}</strong>
+                </p>
+              )}
+              {BigInt(payment.refundableAmount ?? '0') > 0n && (
+                <p>
+                  Cần hoàn lại khách<strong>{vnd(payment.refundableAmount)}</strong>
+                </p>
+              )}
+              {isOnlinePaymentPending(payment.status) && (
+                <p>
+                  Còn thiếu cho khoản thu này<strong>{vnd(payment.remainingAmount)}</strong>
+                </p>
+              )}
             </div>
             {BigInt(payment.bankConfirmedAmount) > BigInt(payment.paidAmount) && (
               <p role="status">

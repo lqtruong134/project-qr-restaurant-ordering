@@ -1,5 +1,9 @@
 # Học và làm chủ hệ thống gọi món QR
 
+## Review tiền chuyển dư theo từng khoản thu — 18/10/2026
+
+Hóa đơn 20.000đ, nhân viên lập khoản 10.000đ, ngân hàng nhận 12.000đ: **còn thu 10.000đ và cần hoàn 2.000đ**, không lấy khoản dư tự trả sang phần chưa được nhân viên lập. Sổ tiền, nguồn hoàn, đối soát và hiển thị STAFF/GUEST cùng dùng phân bổ thực tế. Admin chỉ đóng đối soát sau khi tiền dư đã hoàn thành công; phiếu được duyệt chưa phải bằng chứng đã trả. Bản bổ sung nằm trên nhánh review `fix/payos-payment-flow`, chưa merge/deploy và không có migration mới. Đọc [bài 06](06-thanh-toan.md), [bài 25](25-thu-tien-tai-ban.md) và [kết quả kiểm tra](15-doi-chieu.md).
+
 ## Triển khai qtruongres — 17/10/2026
 
 Đọc [bài 26 — Triển khai trên laptop và chuyển sang VPS](26-trien-khai-qtruongres.md) khi cần chạy stack Docker riêng, chuyển dữ liệu hiện có hoặc sao lưu/khôi phục. Bài hướng dẫn tách cấu hình production khỏi `.env` phát triển, giữ PostgreSQL và ảnh tải lên trong volume riêng, chạy migration có kiểm soát và không tự seed khi khởi động.

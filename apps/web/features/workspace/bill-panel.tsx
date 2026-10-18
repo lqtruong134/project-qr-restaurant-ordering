@@ -12,7 +12,11 @@ import { Action, api, EntryForm, options, vnd, type Product, type Row } from '..
 import { CollectionForm, PaymentCapture, LastPayment } from './payment-collection';
 import { OnlinePaymentCard } from './online-payment-card';
 import { hasPendingOnlinePayment, paymentMethodLabel } from '../shared/online-payment';
-import { paymentRevision, onlineReceivedIncrease } from '../shared/payment-refresh';
+import {
+  paymentRevision,
+  onlineReceivedIncrease,
+  onlineIntentFunds,
+} from '../shared/payment-refresh';
 import { useSmartRefresh } from '../shared/use-smart-refresh';
 import { confirmDiscard } from '../shared/primitives';
 import { SupportActions } from './support-panel';
@@ -130,15 +134,45 @@ export default function BillPanel({
   const hasBill = Boolean(bill);
   useEffect(() => {
     if (!focusRefund || !hasBill) return;
-    const frame = requestAnimationFrame(() => {
-      const section = refundSection.current;
-      const heading = section?.closest('dialog')?.querySelector('.dialog-heading');
-      if (section && heading)
-        section.style.scrollMarginTop = `${heading.getBoundingClientRect().height + 16}px`;
-      section?.scrollIntoView({ block: 'start' });
-      section?.focus({ preventScroll: true });
-    });
-    return () => cancelAnimationFrame(frame);
+    const section = refundSection.current;
+    const dialog = section?.closest('dialog');
+    const heading = dialog?.querySelector('.dialog-heading');
+    if (!section || !dialog || !heading) return;
+    let frame: number | undefined;
+    let following = true;
+    const align = () => {
+      frame = undefined;
+      if (!following || document.activeElement !== section) return;
+      section.style.scrollMarginTop = `${heading.getBoundingClientRect().height + 16}px`;
+      dialog.scrollTop +=
+        section.getBoundingClientRect().top - heading.getBoundingClientRect().bottom - 16;
+    };
+    const schedule = () => {
+      if (following && frame === undefined) frame = requestAnimationFrame(align);
+    };
+    const release = () => {
+      following = false;
+    };
+    section.focus({ preventScroll: true });
+    schedule();
+    // Receipt/history content can settle after focus. Keep the reason below the sticky
+    // header while layout settles, then yield immediately when the operator interacts.
+    const observer = new ResizeObserver(schedule);
+    observer.observe(heading);
+    observer.observe(section.closest('.core-bill') ?? section);
+    dialog.addEventListener('wheel', release, { passive: true });
+    dialog.addEventListener('touchstart', release, { passive: true });
+    dialog.addEventListener('pointerdown', release);
+    dialog.addEventListener('keydown', release);
+    return () => {
+      following = false;
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      observer.disconnect();
+      dialog.removeEventListener('wheel', release);
+      dialog.removeEventListener('touchstart', release);
+      dialog.removeEventListener('pointerdown', release);
+      dialog.removeEventListener('keydown', release);
+    };
   }, [focusRefund, hasBill]);
   const currentRequests = bill?.paymentRequests ?? requests;
   const totals = paymentSummary(bill?.account);
@@ -184,9 +218,15 @@ export default function BillPanel({
           </p>
           <BillingTotals billing={bill.billing} account={bill.account} />
           <div className="bill-balance-grid">
+            {(totals.unappliedHeld > 0n || totals.refundedTotal > 0n) && (
+              <div>
+                <span>Đã nhận (trước hoàn)</span>
+                <strong>{vnd(totals.collectedTotal)}</strong>
+              </div>
+            )}
             <div>
-              <span>Đã thanh toán (sau hoàn)</span>
-              <strong>{vnd(totals.netPaid)}</strong>
+              <span>Đã tính vào tiền món</span>
+              <strong>{vnd(totals.appliedTotal)}</strong>
             </div>
             <div>
               <span>Còn phải thanh toán</span>
@@ -194,12 +234,14 @@ export default function BillPanel({
             </div>
             {totals.refundDue > 0n && (
               <div>
-                <span>Còn chờ hoàn tiền món</span>
+                <span>Cần hoàn lại khách</span>
                 <strong>{vnd(totals.refundDue)}</strong>
               </div>
             )}
           </div>
-          {totals.refundedTotal > 0n && <p className="small-note">Đã trừ tiền hoàn món.</p>}
+          {totals.refundedTotal > 0n && (
+            <p className="small-note">Đã trừ các khoản thực tế hoàn lại khách.</p>
+          )}
           {collectionNotice && (collectionError || !onNotice) && (
             <p
               className={'collection-feedback' + (collectionError ? ' is-error' : '')}
@@ -241,7 +283,7 @@ export default function BillPanel({
                 [
                   p.amount,
                   paymentMethodLabel(p.method),
-                  p.historyType === 'PAYMENT' ? 'Thanh toán tiền món' : 'Hoàn tiền món',
+                  p.historyType === 'PAYMENT' ? 'Nhận tiền' : 'Hoàn lại khách',
                 ].join(' ')
               }
               state={(p) => String(p.historyType)}
@@ -256,7 +298,7 @@ export default function BillPanel({
                   {rows.map((p) => (
                     <li key={p.historyType + ':' + p.id}>
                       <strong>
-                        {p.historyType === 'PAYMENT' ? 'Thanh toán tiền món' : 'Hoàn tiền món'} -{' '}
+                        {p.historyType === 'PAYMENT' ? 'Nhận tiền' : 'Hoàn lại khách'} -{' '}
                         {vnd(p.amount)}
                       </strong>
                       <small>
@@ -419,6 +461,7 @@ export default function BillPanel({
                         <div className="online-payment-wrap" key={p.id}>
                           <OnlinePaymentCard
                             intent={p}
+                            funds={onlineIntentFunds(p.id, bill.payments)}
                             canManage={canManage}
                             done={async () => {
                               await refresh();
@@ -526,7 +569,12 @@ export default function BillPanel({
                   </p>
                 )}
                 {((financialOnly && unassignedRefund > 0n) || approvedRefunds.length > 0) &&
-                  bill.refundContext && (
+                  bill.refundContext &&
+                  !bill.payments.some(
+                    (payment) =>
+                      BigInt(String(payment.refundable_amount ?? 0)) > 0n &&
+                      payment.refund_context_kind !== 'BILL_ADJUSTMENT',
+                  ) && (
                     <div className="refund-decision-reason">
                       <strong>Lý do hoàn tiền</strong>
                       <p>{bill.refundContext.reason}</p>
@@ -560,13 +608,11 @@ export default function BillPanel({
                 {financialOnly && unassignedRefund > 0n && (
                   <RefundCreation
                     payments={bill.payments}
-                    refunds={bill.refunds}
                     unassigned={unassignedRefund}
                     decisionReason={bill.refundContext?.reason}
                     submit={async (values) => {
                       await act('/core/sessions/' + id + '/refunds', {
                         ...values,
-                        ...(bill.refundContext ? { useDecisionReason: true } : {}),
                         requestId: refundKey,
                       });
                     }}

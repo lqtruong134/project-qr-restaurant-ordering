@@ -1,5 +1,11 @@
 # 26. Triển khai qtruongres trên laptop và chuyển sang VPS
 
+## Review chuyển dư có giới hạn phạm vi — 18/10/2026
+
+Nhánh `fix/payos-payment-flow` bổ sung sửa số dư theo allocation và ngân sách hoàn từng giao dịch. Trước triển khai phải review trường hợp hóa đơn 20.000đ, quote 10.000đ, thực nhận 12.000đ: còn thu 10.000đ, cần hoàn 2.000đ; admin chưa được đóng đối soát khi chưa có hoàn thật. Không tự chuyển 2.000đ vào món còn thiếu. Tiền đã nhận trước đây vẫn đọc từ sổ giao dịch; số dư phiên đang mở được tổng hợp lại, phiếu đã đóng giữ snapshot. Đợt bổ sung **không thêm migration** ngoài `202610170001_payment_system_resolution` đã có trên nhánh. [Nghiệp vụ](06-thanh-toan.md), [kiểm thử và giới hạn](15-doi-chieu.md).
+
+Bước review này không truy cập production DB, không chạy giao dịch/provider thật, không sửa secret, không merge main hoặc deploy. Checklist operator bên dưới là hướng dẫn cho một đợt triển khai riêng, không phải lệnh đã thực hiện trong task này.
+
 ## Nâng cấp thanh toán production — 17/10/2026
 
 Người vận hành đã cấu hình domain HTTPS, Named Tunnel và merchant production. Đợt audit này chỉ đọc log HTTP/tổng hợp trạng thái trong transaction READ ONLY, sửa mã và kiểm thử bằng provider giả. **Bản sửa chưa được deploy**, chưa áp migration lên database đang vận hành, chưa tự chuyển tiền hoặc gọi API payOS thật. Các kết quả dựng stack ở cuối bài là hồ sơ đợt chuẩn bị trước, không phải bằng chứng bản sửa mới đang chạy trên domain.

@@ -480,7 +480,7 @@ test('first payment locks promotion and cash change remains separate from refund
   await expect(receipt.locator('.receipt-owner-total').first()).toContainText('143.100 đ');
   await expect(receipt.locator('.receipt-money-breakdown')).toContainText('Tiền thối đã trả');
   await expect(receipt.locator('.receipt-money-breakdown')).toContainText('55.900 đ');
-  await expect(receipt.locator('.receipt-money-breakdown')).not.toContainText('Đã hoàn tiền món');
+  await expect(receipt.locator('.receipt-money-breakdown')).not.toContainText('Đã hoàn lại khách');
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });
     await fits(page, dialog);
@@ -555,7 +555,7 @@ test('a canceled discounted dish is zero and the already-returned amount is show
   await expect(canceled.locator(':scope > strong')).toHaveText('0 đ');
   await expect(canceled).not.toContainText('Khuyến mãi');
   await expect(receipt.locator('.receipt-totals')).toContainText('196.200 đ');
-  await expect(receipt.locator('.receipt-money-breakdown')).toContainText('Đã hoàn tiền món');
+  await expect(receipt.locator('.receipt-money-breakdown')).toContainText('Đã hoàn lại khách');
   await expect(receipt).toContainText('44.100 đ');
   await fits(page, dialog);
   expect(f.errors).toEqual([]);

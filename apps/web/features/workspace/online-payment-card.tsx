@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { api, vnd } from '../shared/components';
 import { restaurantDateTime } from '../shared/restaurant-time';
+import type { OnlineIntentFunds } from '../shared/payment-refresh';
 import {
   isOnlinePaymentPending,
   onlinePaymentState,
@@ -13,11 +14,13 @@ import {
 export function OnlinePaymentCard({
   intent,
   canManage = false,
+  funds,
   done,
   report,
 }: {
   intent: PaymentIntent;
   canManage?: boolean;
+  funds?: OnlineIntentFunds;
   done: () => Promise<void>;
   report: (message: string, error?: boolean) => void;
 }) {
@@ -73,7 +76,7 @@ export function OnlinePaymentCard({
         <div>
           <span className="online-payment-provider">Online · payOS</span>
           <h3 role="status" aria-live="polite">
-            {state.title}
+            {funds && funds.refundable > 0n ? 'Đã nhận tiền; còn khoản cần hoàn' : state.title}
           </h3>
         </div>
         <strong className="online-payment-amount">{vnd(intent.amount)}</strong>
@@ -117,6 +120,26 @@ export function OnlinePaymentCard({
                 đầu; kiểm tra số tiền trong ứng dụng ngân hàng trước khi xác nhận.
               </p>
             )}
+            {funds && (
+              <>
+                <p>
+                  <span>Đã tính vào tiền món</span>
+                  <strong>{vnd(funds.applied)}</strong>
+                </p>
+                {funds.refunded > 0n && (
+                  <p>
+                    <span>Đã hoàn lại khách</span>
+                    <strong>{vnd(funds.refunded)}</strong>
+                  </p>
+                )}
+                {funds.refundable > 0n && (
+                  <p>
+                    <span>Cần hoàn lại khách</span>
+                    <strong>{vnd(funds.refundable)}</strong>
+                  </p>
+                )}
+              </>
+            )}
             {online?.expiresAt && (
               <p>
                 <span>QR có hiệu lực đến</span>
@@ -141,6 +164,23 @@ export function OnlinePaymentCard({
             )}
           </div>
         </div>
+      )}
+      {funds && !state.showQr && (
+        <p>
+          Đã tính vào tiền món <strong>{vnd(funds.applied)}</strong>
+          {funds.refunded > 0n && (
+            <>
+              ; đã hoàn lại khách <strong>{vnd(funds.refunded)}</strong>
+            </>
+          )}
+          {funds.refundable > 0n && (
+            <>
+              ; còn cần hoàn lại khách <strong>{vnd(funds.refundable)}</strong>. Khoản này chưa tự
+              bù vào các món còn nợ
+            </>
+          )}
+          .
+        </p>
       )}
       {!state.showQr && BigInt(received) > 0n && (
         <p className="online-payment-received">

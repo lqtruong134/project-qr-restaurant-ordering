@@ -30,8 +30,18 @@ export function GuestPaymentSummary({
     <>
       <BillingTotals billing={billing} account={account} />
       <div className="core-stats">
+        {(totals.unappliedHeld > 0n || totals.refundedTotal > 0n) && (
+          <p>
+            Đã nhận (trước hoàn)<strong>{vnd(totals.collectedTotal)}</strong>
+          </p>
+        )}
+        {totals.refundDue > 0n && (
+          <p>
+            Cần hoàn lại khách<strong>{vnd(totals.refundDue)}</strong>
+          </p>
+        )}
         <p>
-          Đã thanh toán (sau hoàn)<strong>{vnd(totals.netPaid)}</strong>
+          Đã tính vào tiền món<strong>{vnd(totals.appliedTotal)}</strong>
         </p>
         <p>
           Còn phải thanh toán<strong>{vnd(totals.outstanding)}</strong>
@@ -49,8 +59,17 @@ export function GuestPaymentSummary({
           </strong>
         </p>
       </div>
+      {totals.outstanding > 0n && totals.refundDue > 0n && (
+        <p role="status" className="small-note">
+          Bàn còn {vnd(totals.outstanding)} tiền món và nhà hàng cần hoàn lại{' '}
+          {vnd(totals.refundDue)}. Tiền cần hoàn chưa tự bù vào tiền món còn thiếu; vui lòng trao
+          đổi với nhân viên để xử lý riêng hai khoản.
+        </p>
+      )}
       <GuestOnlinePayments payments={onlinePayments} />
-      {totals.refundedTotal > 0n && <p className="small-note">Đã trừ tiền hoàn món.</p>}
+      {totals.refundedTotal > 0n && (
+        <p className="small-note">Đã trừ các khoản thực tế hoàn lại khách.</p>
+      )}
       {totals.changePending > 0n && (
         <p className="small-note">
           Còn chờ nhận tiền thối: <strong>{vnd(totals.changePending)}</strong>.

@@ -1,0 +1,70 @@
+Payment scoped-overpayment follow-up, 2026-10-18. Isolated test services/fake payOS only; no production access.
+Final successful check run.
+
+$ pnpm format:check && pnpm lint && pnpm typecheck && pnpm test
+$ prettier --check "apps/**/*.{ts,tsx,mjs,js,css}" "packages/**/src/**/*.{ts,tsx}" "scripts/*.{ts,mjs}" "deploy/**/*.mjs" "tests/**/*.{ts,tsx}" "*.{ts,mjs,json}"
+Checking formatting...
+All matched files use Prettier code style!
+$ eslint . --max-warnings 0
+$ pnpm -r --if-present typecheck && tsc --noEmit -p tsconfig.tools.json
+packages/contracts typecheck$ tsc --noEmit
+packages/ui typecheck$ tsc --noEmit
+packages/ui typecheck: Done
+packages/contracts typecheck: Done
+apps/web typecheck$ next typegen && tsc --noEmit
+packages/database typecheck$ tsc --noEmit
+apps/web typecheck: Generating route types...
+apps/web typecheck: ✓ Types generated successfully
+packages/database typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/web typecheck: Done
+apps/api typecheck: Done
+$ vitest run
+
+ RUN  v4.1.11 /home/quyettruong05/projects/qr-ordering-thesis
+
+ ✓ apps/web/lib/api-client.test.ts (8 tests) 83ms
+ ✓ apps/web/lib/auth-renewal.test.ts (8 tests) 159ms
+ ✓ apps/web/features/shared/smart-refresh.test.ts (10 tests) 29ms
+ ✓ apps/web/features/workforce/format.test.ts (6 tests) 46ms
+ ✓ apps/web/features/workforce/schedule-data.test.ts (3 tests) 42ms
+ ✓ apps/web/features/shared/money-format.test.ts (2 tests) 43ms
+ ✓ apps/web/features/shared/billing-summary.test.ts (4 tests) 40ms
+ ✓ apps/web/features/shared/restaurant-time.test.ts (2 tests) 68ms
+ ✓ apps/web/features/shared/history-range.test.ts (2 tests) 55ms
+ ✓ apps/web/features/admin/pricing-admin-model.test.ts (15 tests) 70ms
+ ✓ apps/api/src/modules/workforce/pay-calculation.test.ts (11 tests) 165ms
+ ✓ apps/web/features/workforce/timesheet-data.test.ts (4 tests) 66ms
+ ✓ packages/contracts/src/menu-assistant-evaluation.test.ts (14 tests) 243ms
+ ✓ packages/contracts/src/menu-assistant.test.ts (7 tests) 43ms
+ ✓ apps/web/features/guest/dish-notices.test.ts (8 tests) 27ms
+ ✓ apps/api/src/deployment-proxy.test.ts (3 tests) 232ms
+ ✓ apps/web/features/guest/payment-status.test.ts (17 tests) 62ms
+ ✓ apps/api/src/app.test.ts (4 tests) 263ms
+ ✓ apps/web/features/shared/online-payment.test.ts (12 tests) 18ms
+ ✓ apps/web/features/shared/refund-source.test.ts (9 tests) 18ms
+ ✓ apps/web/features/workspace/receipt-lines.test.ts (7 tests) 26ms
+ ✓ apps/api/src/modules/workforce/attendance.test.ts (10 tests) 16ms
+ ✓ apps/api/src/modules/workforce/workforce.service.test.ts (13 tests) 25ms
+ ✓ apps/web/features/shared/payment-summary.test.ts (14 tests) 19ms
+ ✓ apps/api/src/modules/sessions/guest-payment-view.test.ts (6 tests) 17ms
+ ✓ apps/api/src/modules/assistant/assistant-provider.test.ts (13 tests) 30ms
+ ✓ apps/api/src/modules/orders/reasons.test.ts (2 tests) 11ms
+ ✓ apps/api/src/modules/payments/payos-normalization.test.ts (20 tests) 74ms
+ ✓ apps/web/features/shared/payment-refresh.test.ts (6 tests) 12ms
+ ✓ apps/api/src/modules/admin/report-range.test.ts (3 tests) 12ms
+ ✓ apps/web/features/guest/menu-promotions.test.ts (7 tests) 43ms
+ ✓ apps/web/lib/media.test.ts (3 tests) 8ms
+ ✓ apps/api/src/modules/finance/billing-math.test.ts (4 tests) 13ms
+ ✓ apps/web/features/shared/money-suggestions.test.ts (2 tests) 6ms
+ ✓ apps/api/src/modules/finance/tax-classification.test.ts (2 tests) 5ms
+ ✓ packages/database/src/database-doc-inventory.test.ts (2 tests) 8ms
+ ✓ apps/api/src/modules/inventory/receipt-number.test.ts (1 test) 6ms
+ ✓ packages/database/src/menu-images.test.ts (8 tests) 970ms
+     ✓ keeps the storage root stable when an API, seed or script has a different cwd  301ms
+     ✓ reproduces initial dish and promotion images in the same store on a fresh install  577ms
+
+ Test Files  38 passed (38)
+      Tests  272 passed (272)
+   Start at  18:49:32
+   Duration  1.93s (transform 8.97s, setup 0ms, import 12.84s, tests 3.07s, environment 8ms)

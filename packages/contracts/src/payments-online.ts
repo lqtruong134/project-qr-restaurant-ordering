@@ -30,6 +30,10 @@ export type PaymentReconciliationCase = {
   amount: string;
   paid_amount: string;
   quarantined_amount: string;
+  recorded_amount?: string;
+  allocated_amount?: string;
+  refunded_amount?: string;
+  unapplied_amount?: string;
   provider_status: string;
   last_error: string | null;
   updated_at: string;
@@ -56,6 +60,12 @@ export type GuestOnlinePayment = {
   paidAmount: string;
   /** Provider-confirmed funds can include quarantined amounts requiring staff reconciliation. */
   bankConfirmedAmount: string;
+  /** Active bill allocations. Gross received money can also contain a refundable balance. */
+  appliedAmount?: string;
+  /** Successful actual returns, never just an approved refund document. */
+  refundedAmount?: string;
+  /** Ledger money not assigned to active charges and still owed back to the guest. */
+  refundableAmount?: string;
   remainingAmount: string;
   expiresAt: string;
   createdAt: string;

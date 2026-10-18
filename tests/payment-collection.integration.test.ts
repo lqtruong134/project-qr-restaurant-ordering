@@ -820,7 +820,7 @@ it('staff work reflects only approved amounts while guest communication and furt
     ),
   ).toBe(true);
 });
-it('rechecks the whole session balance before approving an old document, including a second guest order', async () => {
+it('keeps a reversed source refundable while new guest orders remain independently unpaid', async () => {
   const p = await party();
   const item = await dish(p.guests[0]!.cookie);
   const paymentIntent = await intent(p.sid, item.line_total.toString());
@@ -836,18 +836,24 @@ it('rechecks the whole session balance before approving an old document, includi
       session_id: p.sid,
       source_payment_transaction_id: payment.id,
       amount: item.line_total,
-      reason: 'Cần kiểm tra dư phiên',
+      reason: 'Hoàn đúng nguồn của món đã miễn',
     },
   });
   const newItem = await dish(p.guests[1]!.cookie);
-  expect(
-    (await req('/core/refunds/' + legacy.id + '/approve', 'quyettruong05', {})).statusCode,
-  ).toBe(409);
+  const approved = await ok('/core/refunds/' + legacy.id + '/approve', 'quyettruong05', {});
+  expect(approved.approval_required).toBe(false);
   expect(
     await db.prisma.business_audit_event.count({
       where: { resource_id: legacy.id, action: 'REFUND_APPROVED' },
     }),
-  ).toBe(0);
+  ).toBe(1);
+  let bill = await ok('/core/sessions/' + p.sid + '/bill', 'pv001');
+  expect(bill.account).toMatchObject({
+    outstanding_amount: newItem.line_total.toString(),
+    refund_due_amount: item.line_total.toString(),
+    refunded_total: '0',
+  });
+  expect(bill.refundWorkflow.approvedAmount).toBe(item.line_total.toString());
   await ok('/core/items/' + newItem.id + '/waive', 'quyettruong05', {
     reasonCode: 'QUALITY_ISSUE',
     note: 'Món không đạt chất lượng kiểm tra',
@@ -860,53 +866,85 @@ it('rechecks the whole session balance before approving an old document, includi
   const extraItem = await db.prisma.order_item.findFirstOrThrow({
     where: { order_batch_id: extraBatch.id },
   });
-  const changed = await ok('/core/sessions/' + p.sid + '/bill', 'pv001');
-  expect(changed.account.refund_due_amount).toBe('0');
-  expect(changed.refundWorkflow.approvedAmount).toBe('0');
-  expect(changed.closure.blockers.map((b: { code: string }) => b.code)).not.toEqual(
-    expect.arrayContaining(['REFUND_OPEN', 'ALERT_REFUND_REQUIRED']),
+  bill = await ok('/core/sessions/' + p.sid + '/bill', 'pv001');
+  expect(bill.account).toMatchObject({
+    refund_due_amount: item.line_total.toString(),
+    outstanding_amount: extraItem.line_total.toString(),
+  });
+  expect(bill.refundWorkflow.approvedAmount).toBe(item.line_total.toString());
+  expect(bill.closure.blockers.map((b: { code: string }) => b.code)).toEqual(
+    expect.arrayContaining(['REFUND_OPEN', 'ALERT_REFUND_REQUIRED', 'KITCHEN_WAIT']),
   );
-  expect(changed.closure.blockers.map((b: { code: string }) => b.code)).toContain('KITCHEN_WAIT');
   expect(
     (await ok('/core/alerts', 'pv001')).some(
       (a: { session_id: string; alert_type: string }) =>
         a.session_id === p.sid && a.alert_type === 'REFUND_REQUIRED',
     ),
-  ).toBe(false);
+  ).toBe(true);
+  const completion = { method: 'CASH', requestId: randomUUID() };
+  await ok('/core/refunds/' + legacy.id + '/complete', 'pv001', completion);
+  await ok('/core/refunds/' + legacy.id + '/complete', 'pv001', completion);
+  bill = await ok('/core/sessions/' + p.sid + '/bill', 'pv001');
+  expect(bill.account).toMatchObject({
+    paid_total: item.line_total.toString(),
+    refunded_total: item.line_total.toString(),
+    refund_due_amount: '0',
+    outstanding_amount: extraItem.line_total.toString(),
+  });
   expect(
-    (await req('/core/refunds/' + legacy.id + '/complete', 'pv001', { method: 'CASH' })).statusCode,
-  ).toBe(409);
+    (
+      await db.pool.query(
+        'SELECT COALESCE(sum(a.allocated_amount-a.reversed_amount),0)::text AS amount FROM payment_allocation a JOIN financial_charge f ON f.id=a.financial_charge_id WHERE f.order_item_id=$1',
+        [extraItem.id],
+      )
+    ).rows[0].amount,
+  ).toBe('0');
   for (const action of ['accept', 'prepare', 'ready'])
     await ok('/core/items/' + extraItem.id + '/' + action, 'bep001', {});
   await ok('/core/items/' + extraItem.id + '/serve', 'pv001', {});
   const delivered = await ok('/core/sessions/' + p.sid + '/bill', 'pv001');
-  await ok('/core/sessions/' + p.sid + '/receipt-provided', 'pv001', {
-    delivery: 'DECLINED',
-    layout: 'standard',
-    billKey: delivered.completion.receiptKey,
-  });
-  expect((await ok('/core/sessions/' + p.sid + '/bill', 'pv001')).closure.canClose).toBe(true);
+  expect(
+    (
+      await req('/core/sessions/' + p.sid + '/receipt-provided', 'pv001', {
+        delivery: 'DECLINED',
+        layout: 'standard',
+        billKey: delivered.completion.receiptKey,
+      })
+    ).statusCode,
+  ).toBe(409);
+  expect((await ok('/core/sessions/' + p.sid + '/bill', 'pv001')).closure.canClose).toBe(false);
+  expect((await req('/core/sessions/' + p.sid + '/close', 'pv001', {})).statusCode).toBe(409);
   await ok('/core/items/' + extraItem.id + '/waive', 'quyettruong05', {
     reasonCode: 'QUALITY_ISSUE',
     note: 'Món không đạt chất lượng kiểm tra',
   });
   expect(await db.prisma.refund_transaction.count({ where: { refund_case_id: legacy.id } })).toBe(
-    0,
+    1,
   );
-  await ok('/core/refunds/' + legacy.id + '/complete', 'pv001', {
-    method: 'CASH',
-    requestId: randomUUID(),
+  await ok('/core/refunds/' + legacy.id + '/complete', 'pv001', completion);
+  bill = await ok('/core/sessions/' + p.sid + '/bill', 'pv001');
+  expect(bill.account).toMatchObject({
+    refunded_total: item.line_total.toString(),
+    refund_due_amount: '0',
+    outstanding_amount: '0',
   });
-  expect((await ok('/core/sessions/' + p.sid + '/bill', 'pv001')).account.refund_due_amount).toBe(
-    '0',
+  expect(await db.prisma.refund_transaction.count({ where: { refund_case_id: legacy.id } })).toBe(
+    1,
   );
+  await ok('/core/sessions/' + p.sid + '/receipt-provided', 'pv001', {
+    delivery: 'DECLINED',
+    layout: 'standard',
+    billKey: bill.completion.receiptKey,
+  });
+  expect((await ok('/core/sessions/' + p.sid + '/bill', 'pv001')).closure.canClose).toBe(true);
+  await ok('/core/sessions/' + p.sid + '/close', 'pv001', {});
 });
 
-it('does not invent an admin refund decision when none exists', async () => {
+it('does not invent an admin refund decision or accept an intent as a receipt source', async () => {
   const p = await party();
   const item = await dish(p.guests[0]!.cookie);
   const payment = await intent(p.sid, item.line_total.toString());
-  await ok('/core/payments/' + payment.id + '/confirm', 'pv001', {
+  const receipt = await ok('/core/payments/' + payment.id + '/confirm', 'pv001', {
     amount: item.line_total.toString(),
   });
   const result = await req('/core/sessions/' + p.sid + '/refunds', 'quyettruong05', {
@@ -914,8 +952,16 @@ it('does not invent an admin refund decision when none exists', async () => {
     amount: '1000',
     useDecisionReason: true,
   });
-  expect(result.statusCode).toBe(409);
-  expect(result.body).toContain('Chưa có quyết định quản trị');
+  expect(result.statusCode).toBe(404);
+  expect(result.body).toContain('Không tìm thấy giao dịch thu thành công');
+  const noDecision = await req('/core/sessions/' + p.sid + '/refunds', 'quyettruong05', {
+    paymentId: receipt.id,
+    amount: '1000',
+    useDecisionReason: true,
+  });
+  expect(noDecision.statusCode).toBe(409);
+  expect(noDecision.body).toContain('không tự dùng lý do hủy món');
+  expect(await db.prisma.refund_case.count({ where: { session_id: p.sid } })).toBe(0);
 });
 
 it('requires actual change handover, safely deduplicates concurrent confirmations, and invalidates a receipt after new items', async () => {
@@ -1034,12 +1080,17 @@ it('preparation has not started: unavailable releases reserves once, not physica
 });
 
 it.each([
-  { label: 'fully prepaid', paid: '50000', refundDue: '30000' },
-  { label: 'partly prepaid', paid: '30000', refundDue: '10000' },
-  { label: 'still owes for the remaining dish', paid: '10000', refundDue: '0' },
+  { label: 'fully prepaid', paid: '50000', refundDue: '30000', remainingDue: '0' },
+  { label: 'partly prepaid', paid: '30000', refundDue: '30000', remainingDue: '20000' },
+  {
+    label: 'still owes for the remaining dish',
+    paid: '10000',
+    refundDue: '10000',
+    remainingDue: '20000',
+  },
 ])(
-  '$label: a pre-preparation stop preserves history and refunds only the actual overpayment',
-  async ({ paid, refundDue }) => {
+  '$label: a pre-preparation stop returns its own funded charge and leaves other charges unpaid',
+  async ({ paid, refundDue, remainingDue }) => {
     const p = await party();
     const tag = 'PREP-' + randomUUID().slice(0, 8);
     const category = await db.prisma.menu_category.findFirstOrThrow({ where: { is_active: true } });
@@ -1069,6 +1120,11 @@ it.each([
     const items = await db.prisma.order_item.findMany({ where: { order_batch_id: batch.id } });
     const stopped = items.find((i) => i.product_id === stoppedProduct.id)!;
     const kept = items.find((i) => i.product_id === servedProduct.id)!;
+    // Both lines share the batch timestamp; make the intended FIFO funding explicit.
+    await db.pool.query(
+      "UPDATE financial_charge SET created_at=created_at-interval '1 second' WHERE order_item_id=$1",
+      [stopped.id],
+    );
     await ok('/core/items/' + stopped.id + '/accept', 'bep001', {});
     for (const action of ['accept', 'prepare', 'ready'])
       await ok('/core/items/' + kept.id + '/' + action, 'bep001', {});
@@ -1078,6 +1134,19 @@ it.each([
       amount: paid,
       receivedAmount: paid,
     });
+    const allocations = (
+      await db.pool.query(
+        'SELECT f.order_item_id,a.allocated_amount::text FROM payment_allocation a JOIN financial_charge f ON f.id=a.financial_charge_id WHERE a.payment_transaction_id=$1',
+        [payment.id],
+      )
+    ).rows;
+    const stoppedFunding = BigInt(paid) < 30000n ? paid : '30000';
+    expect(allocations.find((a) => a.order_item_id === stopped.id)?.allocated_amount).toBe(
+      stoppedFunding,
+    );
+    expect(allocations.find((a) => a.order_item_id === kept.id)?.allocated_amount ?? '0').toBe(
+      (BigInt(paid) - BigInt(stoppedFunding)).toString(),
+    );
     await ok('/core/items/' + stopped.id + '/unavailable', 'bep001', {
       reasonCode: 'EQUIPMENT_FAILURE',
     });
@@ -1087,6 +1156,7 @@ it.each([
       paid_total: paid,
       refunded_total: '0',
       refund_due_amount: refundDue,
+      outstanding_amount: remainingDue,
     });
     expect(bill.refundContext.reason).toContain('Hoàn tiền do món dừng trước chế biến');
     expect(bill.refundContext.reason).toContain(stoppedProduct.name);
@@ -1205,7 +1275,11 @@ it.each([
         await db.prisma.refund_transaction.count({ where: { refund_case_id: refund.id } }),
       ).toBe(2);
       bill = await ok('/core/sessions/' + p.sid + '/bill', 'pv001');
-      expect(bill.account).toMatchObject({ refunded_total: refundDue, refund_due_amount: '0' });
+      expect(bill.account).toMatchObject({
+        refunded_total: refundDue,
+        refund_due_amount: '0',
+        outstanding_amount: remainingDue,
+      });
       const stillPending = (await ok('/core/alerts', 'quyettruong05')).filter(
         (a: { session_id: string }) => a.session_id === p.sid,
       );

@@ -8,6 +8,10 @@ const row = {
   status: 'PENDING' as const,
   recorded_amount: '0',
   bank_confirmed_amount: '0',
+  allocated_amount: '0',
+  original_allocated_amount: '0',
+  refunded_amount: '0',
+  unapplied_amount: '0',
   created_at: new Date('2026-10-17T01:00:00Z'),
   expires_at: '2026-10-17T01:15:00Z',
   support_request_id: null,
@@ -36,6 +40,9 @@ describe('guest online payment projection', () => {
         'status',
         'paidAmount',
         'bankConfirmedAmount',
+        'appliedAmount',
+        'refundedAmount',
+        'refundableAmount',
         'remainingAmount',
         'expiresAt',
         'createdAt',
@@ -75,6 +82,8 @@ describe('guest online payment projection', () => {
           ...row,
           amount: '9007199254740993',
           recorded_amount: recorded,
+          allocated_amount: recorded,
+          original_allocated_amount: recorded,
           bank_confirmed_amount: recorded,
           support_request_id: 'visible-own-request',
         },
@@ -85,4 +94,65 @@ describe('guest online payment projection', () => {
       expect(result.supportRequestId).toBe('visible-own-request');
     },
   );
+  it('separates a partial quote overpayment from bill allocations and actual returns', () => {
+    const before = guestOnlinePaymentView(
+      {
+        ...row,
+        amount: '10000',
+        status: 'REQUIRES_RECONCILIATION',
+        recorded_amount: '12000',
+        bank_confirmed_amount: '12000',
+        allocated_amount: '10000',
+        original_allocated_amount: '10000',
+        unapplied_amount: '2000',
+      },
+      participant,
+    );
+    expect(before).toMatchObject({
+      paidAmount: '12000',
+      bankConfirmedAmount: '12000',
+      appliedAmount: '10000',
+      refundedAmount: '0',
+      refundableAmount: '2000',
+      remainingAmount: '0',
+    });
+    const after = guestOnlinePaymentView(
+      {
+        ...row,
+        amount: '10000',
+        status: 'PAID',
+        recorded_amount: '12000',
+        bank_confirmed_amount: '12000',
+        allocated_amount: '10000',
+        original_allocated_amount: '10000',
+        refunded_amount: '2000',
+        unapplied_amount: '0',
+      },
+      participant,
+    );
+    expect(after).toMatchObject({
+      paidAmount: '12000',
+      bankConfirmedAmount: '12000',
+      appliedAmount: '10000',
+      refundedAmount: '2000',
+      refundableAmount: '0',
+      remainingAmount: '0',
+    });
+  });
+
+  it('does not reopen a previously fulfilled quote when its items are later refunded', () => {
+    const result = guestOnlinePaymentView(
+      {
+        ...row,
+        recorded_amount: '5000',
+        bank_confirmed_amount: '5000',
+        original_allocated_amount: '5000',
+        refunded_amount: '5000',
+      },
+      participant,
+    );
+    expect(result.appliedAmount).toBe('0');
+    expect(result.refundedAmount).toBe('5000');
+    expect(result.remainingAmount).toBe('0');
+  });
 });

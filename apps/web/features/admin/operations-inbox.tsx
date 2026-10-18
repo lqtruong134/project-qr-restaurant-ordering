@@ -123,9 +123,12 @@ export function SessionFacts({
 }) {
   const totals = paymentSummary(detail.bill.account);
   const facts = [
-    ['Đã thanh toán (sau hoàn)', totals.netPaid],
+    ['Đã tính vào tiền món', totals.appliedTotal],
+    ...(totals.unappliedHeld > 0n || totals.refundedTotal > 0n
+      ? [['Đã nhận (trước hoàn)', totals.collectedTotal]]
+      : []),
     ['Còn phải thanh toán', totals.outstanding],
-    ...(totals.refundDue > 0n ? [['Còn chờ hoàn tiền món', totals.refundDue]] : []),
+    ...(totals.refundDue > 0n ? [['Cần hoàn lại khách', totals.refundDue]] : []),
   ];
   return (
     <>
@@ -141,7 +144,9 @@ export function SessionFacts({
             </div>
           ))}
         </dl>
-        {totals.refundedTotal > 0n && <p className="small-note">Đã trừ tiền hoàn món.</p>}
+        {totals.refundedTotal > 0n && (
+          <p className="small-note">Đã ghi nhận các khoản thực tế hoàn lại khách.</p>
+        )}
         <details className="inbox-history">
           <summary>Chi tiết thu và hoàn tiền</summary>
           <PaymentBreakdown account={detail.bill.account} payments={detail.bill.payments} />
@@ -199,12 +204,10 @@ function WorkDetail({
       active = false;
     };
   }, [sid]);
-  const { billTotal: money, netPaid: paid } = paymentSummary(detail?.bill.account);
   const itemAmount =
     row.has_charge === true
       ? payableItemAmount({ ...row, order_item_id: row.item_id ?? row.id }, detail?.bill.billing)
       : 0n;
-  const projected = paid - money + itemAmount;
   return (
     <Modal title={`${kinds[kind]} - Bàn ${String(row.table_code)}`} wide close={close}>
       <div className="inbox-detail">
@@ -258,10 +261,9 @@ function WorkDetail({
             {kind === 'incident' ? (
               <>
                 <p className="context-notice">
-                  Nếu xác nhận lỗi nhà hàng: bỏ tính tiền {vnd(itemAmount)}.{' '}
-                  {projected > 0n
-                    ? `Số cần hoàn của cả bàn sau quyết định là ${vnd(projected)}; khách chưa nhận tiền cho đến khi hoàn thực tế.`
-                    : 'Không phát sinh khoản cần hoàn với số tiền hiện tại.'}
+                  Nếu xác nhận lỗi nhà hàng: bỏ tính tiền {vnd(itemAmount)}. Hệ thống sẽ đối chiếu
+                  tiền đã phân bổ theo từng giao dịch sau quyết định. Khoản cần hoàn và tiền món còn
+                  thiếu được xử lý riêng; khách chỉ nhận lại tiền khi có xác nhận hoàn thực tế.
                 </p>
                 <ItemDecisions
                   item={row}

@@ -28,12 +28,12 @@ async function verifyBreakdown(region: Locator, compact = false) {
   for (const [label, value] of [
     ['Tiền mặt khách đưa', '200.000 đ'],
     ['Tiền thối đã trả', '106.000 đ'],
-    ['Đã thu cho hóa đơn (trước hoàn)', '94.000 đ'],
-    ['Đã hoàn tiền món', '94.000 đ'],
-    ['Đã thanh toán (sau hoàn)', '0 đ'],
+    ['Tiền đã nhận (trước hoàn)', '94.000 đ'],
+    ['Đã hoàn lại khách', '94.000 đ'],
+    ['Tiền còn giữ (sau hoàn)', '0 đ'],
     ['Nhà hàng còn giữ', '0 đ'],
   ]) {
-    if (compact && ['Đã thu cho hóa đơn (trước hoàn)', 'Đã thanh toán (sau hoàn)'].includes(label!))
+    if (compact && ['Tiền đã nhận (trước hoàn)', 'Tiền còn giữ (sau hoàn)'].includes(label!))
       continue;
     const fact = region.getByText(label!, { exact: true }).locator('..');
     await expect(fact.locator('dd')).toHaveText(value!);
@@ -45,7 +45,7 @@ async function verifyBreakdown(region: Locator, compact = false) {
     return;
   }
   await expect(region.locator('.payment-flow-equation')).toContainText(
-    '200.000 đ khách đưa − 106.000 đ đã thối − 94.000 đ hoàn tiền món = 0 đ còn giữ.',
+    '200.000 đ khách đưa − 106.000 đ đã thối − 94.000 đ hoàn lại khách = 0 đ còn giữ.',
   );
 }
 
@@ -170,7 +170,7 @@ test('two cash tenders and full cancellation refunds reconcile for guest, staff,
     expect(flowBox!.y + flowBox!.height).toBeLessThanOrEqual(navBox!.y + 1);
     await guestFlow.screenshot({ path: info.outputPath('cash-breakdown-guest.png'), scale: 'css' });
 
-    await staff.getByRole('button', { name: 'Tải lại', exact: true }).click();
+    await staff.getByRole('button', { name: 'Làm mới', exact: true }).click();
     await staff.getByRole('textbox', { name: 'Tìm tên hoặc mã bàn…' }).fill(code);
     await staff
       .locator('.table-tile')
@@ -189,7 +189,7 @@ test('two cash tenders and full cancellation refunds reconcile for guest, staff,
     await expect(
       receipt
         .locator('.receipt-totals > div')
-        .filter({ hasText: 'Đã thanh toán (sau hoàn)' })
+        .filter({ hasText: 'Đã tính vào tiền món' })
         .locator('strong'),
     ).toHaveText('0 đ');
     await expect(receipt.locator('.receipt-payment-entry .cash-history')).toHaveCount(2);
@@ -214,7 +214,10 @@ test('two cash tenders and full cancellation refunds reconcile for guest, staff,
       exact: true,
     });
     const facts = inspection.getByRole('region', { name: 'Thanh toán cả bàn', exact: true });
-    await facts.locator('details > summary').click();
+    await facts
+      .locator('summary')
+      .filter({ hasText: /^Chi tiết thu và hoàn tiền$/ })
+      .click();
     const adminFlow = facts.locator('.payment-flow-breakdown');
     await verifyBreakdown(adminFlow);
     await adminFlow.screenshot({ path: info.outputPath('cash-breakdown-admin.png'), scale: 'css' });

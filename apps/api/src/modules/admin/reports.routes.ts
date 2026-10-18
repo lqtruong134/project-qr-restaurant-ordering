@@ -86,33 +86,59 @@ SELECT json_build_object('rows',${jsonRows},'total',(SELECT count(*) FROM filter
     (SELECT method AS name,sum(amount)::text AS value FROM filtered WHERE kind='PAYMENT' GROUP BY method) x)) AS report`;
 
 const reconciliationSql = `WITH ${args}, sessions AS (
-  SELECT s.id,s.receipt_number,t.code AS table_code,s.opened_at AS at,s.closed_at,s.session_status
+  SELECT s.id,s.receipt_number,t.code AS table_code,s.opened_at AS at,s.closed_at,s.session_status,
+    CASE WHEN s.session_status<>'ACTIVE' THEN s.receipt_snapshot END AS receipt_snapshot
   FROM table_session s JOIN dining_table t ON t.id=s.table_id CROSS JOIN args a
   WHERE t.restaurant_id=a.restaurant AND ${dates('s.opened_at')}
     AND ${search("concat_ws(' ',t.code,s.receipt_number,s.id::text)")}
 ), balances AS (
   SELECT s.*,
-    COALESCE((SELECT sum(amount-discount_amount) FROM financial_charge WHERE session_id=s.id AND status='ACTIVE'),0)::text AS payable,
+    COALESCE((s.receipt_snapshot#>>'{account,charge_total}')::numeric,
+      (SELECT sum(amount-discount_amount) FROM financial_charge WHERE session_id=s.id AND status='ACTIVE'),0)::text AS payable,
     COALESCE((SELECT sum(amount) FROM financial_charge WHERE session_id=s.id AND status='ACTIVE'),0)::text AS subtotal,
     COALESCE((SELECT sum(discount_amount) FROM financial_charge WHERE session_id=s.id AND status='ACTIVE'),0)::text AS "discountAmount",
     COALESCE((SELECT sum(tax_amount) FROM financial_charge WHERE session_id=s.id AND status='ACTIVE'),0)::text AS vat,
     EXISTS(SELECT 1 FROM financial_charge WHERE session_id=s.id AND status='ACTIVE' AND amount>0 AND tax_snapshot IS NULL) AS "legacyTaxUnavailable",
-    COALESCE((SELECT sum(amount) FROM payment_transaction WHERE session_id=s.id AND status='SUCCEEDED'),0)::text AS collected,
-    COALESCE((SELECT sum(rt.amount) FROM refund_transaction rt JOIN refund_case f ON f.id=rt.refund_case_id WHERE f.session_id=s.id AND rt.status='SUCCEEDED'),0)::text AS refunded,
+    COALESCE((s.receipt_snapshot#>>'{account,paid_total}')::numeric,
+      (SELECT sum(amount) FROM payment_transaction WHERE session_id=s.id AND status='SUCCEEDED'),0)::text AS collected,
+    COALESCE((s.receipt_snapshot#>>'{account,refunded_total}')::numeric,
+      (SELECT sum(rt.amount) FROM refund_transaction rt JOIN refund_case f ON f.id=rt.refund_case_id WHERE f.session_id=s.id AND rt.status='SUCCEEDED'),0)::text AS refunded,
+    COALESCE((s.receipt_snapshot#>>'{account,outstanding_amount}')::numeric,
+      (SELECT sum(greatest(f.amount-f.discount_amount-COALESCE((SELECT sum(x.allocated_amount-x.reversed_amount)
+        FROM payment_allocation x JOIN payment_transaction p ON p.id=x.payment_transaction_id
+        WHERE x.financial_charge_id=f.id AND p.status='SUCCEEDED'),0),0))
+       FROM financial_charge f WHERE f.session_id=s.id AND f.status='ACTIVE'),0) AS raw_outstanding,
+    COALESCE((s.receipt_snapshot#>>'{account,refund_due_amount}')::numeric,
+      (SELECT sum(greatest(p.amount-COALESCE((SELECT sum(rt.amount) FROM refund_transaction rt
+        JOIN refund_case f ON f.id=rt.refund_case_id WHERE f.source_payment_transaction_id=p.id AND rt.status='SUCCEEDED'),0)
+        -COALESCE((SELECT sum(x.allocated_amount-x.reversed_amount) FROM payment_allocation x
+          JOIN financial_charge f ON f.id=x.financial_charge_id WHERE x.payment_transaction_id=p.id AND f.status='ACTIVE'),0),0))
+       FROM payment_transaction p WHERE p.session_id=s.id AND p.status='SUCCEEDED'),0) AS refund_due,
     COALESCE((SELECT sum(outstanding_amount) FROM outstanding_balance_case WHERE session_id=s.id AND status='WRITTEN_OFF'),0)::text AS written_off,
     COALESCE((SELECT sum(amount-discount_amount) FROM financial_charge WHERE session_id=s.id AND status='REVERSED'),0)::text AS reversed,
     COALESCE((SELECT sum((e.details->>'consumedCost')::bigint) FROM business_audit_event e JOIN order_item i ON i.id=e.resource_id JOIN order_batch b ON b.id=i.order_batch_id WHERE b.session_id=s.id AND e.action='LATE_CANCEL'),0)::text AS stock_loss
   FROM sessions s
-), amounts AS (SELECT *, (payable::numeric-collected::numeric+refunded::numeric-written_off::numeric) AS balance FROM balances),
-filtered AS (SELECT b.* FROM amounts b CROSS JOIN args a WHERE a.filter=''
-  OR (a.filter='due' AND b.balance>0) OR (a.filter='refund' AND b.balance<0) OR (a.filter='balanced' AND b.balance=0)),
+), amounts AS (
+  SELECT *,greatest(raw_outstanding-written_off::numeric,0) AS outstanding,
+    greatest(payable::numeric-raw_outstanding,0) AS applied,
+    (payable::numeric-collected::numeric+refunded::numeric-written_off::numeric) AS balance
+  FROM balances
+), filtered AS (SELECT b.* FROM amounts b CROSS JOIN args a WHERE a.filter=''
+  OR (a.filter='due' AND b.outstanding>0) OR (a.filter='refund' AND b.refund_due>0)
+  OR (a.filter='balanced' AND b.outstanding=0 AND b.refund_due=0)),
 page_rows AS (SELECT f.id,f.receipt_number,f.table_code,f.at,f.closed_at,f.session_status,f.payable,f.collected,f.refunded,
-  f.written_off,f.reversed,f.stock_loss,f.subtotal,f."discountAmount",f.vat,f."legacyTaxUnavailable",f.balance::text FROM filtered f CROSS JOIN args a
-  ORDER BY CASE WHEN a.sort='oldest' THEN f.at END ASC,CASE WHEN a.sort='balance' THEN abs(f.balance) END DESC,f.at DESC,f.id LIMIT $8 OFFSET $9)
+  f.written_off,f.reversed,f.stock_loss,f.subtotal,f."discountAmount",f.vat,f."legacyTaxUnavailable",
+  f.outstanding::text,f.refund_due::text AS "refundDue",f.applied::text AS "appliedAmount",
+  f.balance::text AS "financialBalance",f.balance::text FROM filtered f CROSS JOIN args a
+  ORDER BY CASE WHEN a.sort='oldest' THEN f.at END ASC,
+    CASE WHEN a.sort='balance' THEN greatest(f.outstanding,f.refund_due) END DESC,
+    f.at DESC,f.id LIMIT $8 OFFSET $9)
 SELECT json_build_object('rows',${jsonRows},'total',(SELECT count(*) FROM filtered),
-  'summary',(SELECT json_build_object('sessions',count(*),'balanced',count(*) FILTER(WHERE balance=0),
-    'outstanding',COALESCE(sum(balance) FILTER(WHERE balance>0),0)::text,
-    'refundDue',COALESCE(sum(-balance) FILTER(WHERE balance<0),0)::text) FROM filtered)) AS report`;
+  'summary',(SELECT json_build_object('sessions',count(*),
+    'balanced',count(*) FILTER(WHERE outstanding=0 AND refund_due=0),
+    'outstanding',COALESCE(sum(outstanding),0)::text,'refundDue',COALESCE(sum(refund_due),0)::text,
+    'appliedAmount',COALESCE(sum(applied),0)::text,
+    'financialBalance',COALESCE(sum(balance),0)::text) FROM filtered)) AS report`;
 
 const outstandingSql = `WITH ${args}, filtered AS (
   SELECT o.id,o.session_id,t.code AS table_code,o.created_at AS at,o.status,o.notes,o.invoice_total::text,

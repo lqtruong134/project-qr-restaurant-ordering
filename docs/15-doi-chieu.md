@@ -1,10 +1,30 @@
 # 15. Hồ sơ đối chiếu và giới hạn xác minh
 
+## Sửa chuyển dư khoản thu có giới hạn — 18/10/2026
+
+Follow-up trên nhánh **fix/payos-payment-flow**, nền **8bfb0f4**. Đã tái hiện lỗi trên DB kiểm thử cách ly: hóa đơn 20.000đ, STAFF lập 10.000đ, ngân hàng nhận 12.000đ; transaction giữ 12.000đ và allocation đúng giới hạn 10.000đ, nhưng công thức tổng cũ báo thiếu 8.000đ/cần hoàn 0đ. Vì resolve chỉ đối chiếu gross với provider và số cần hoàn tổng ấy, admin có thể đóng RECONCILED khi còn 2.000đ chưa được xử lý.
+
+Bản sửa tính dư nợ từ charge/allocation và tiền cần hoàn từ từng nguồn thu. Kết quả đúng: đã nhận 12.000đ, đã tính vào món 10.000đ, còn thu 10.000đ, cần hoàn 2.000đ. Không tự phân bổ khoản dư. Tạo/duyệt/thực hiện hoàn đều bị giới hạn bởi ngân sách đúng nguồn; phiếu được duyệt hoặc giao dịch hoàn FAILED không làm giảm nghĩa vụ. Sau hoàn thật 2.000đ mới đóng đối soát; bàn vẫn chưa thể đóng khi còn nợ 10.000đ. Thu khoản mới đúng phạm vi không tạo dư nợ giả sau hoàn.
+
+Đã sửa cả báo cáo Đối soát phiên: còn thu/cần hoàn, bộ lọc và tổng hợp dùng hai nghĩa vụ riêng, không bù tổng để giấu phiên có net bằng 0 nhưng vẫn còn phân bổ/hoàn chưa xử lý. Số chênh lệch dòng tiền chỉ để đối chiếu, không chứng minh đã cân đối. Sổ thu/hoàn và snapshot phiếu đã đóng giữ nguyên; không thêm migration.
+
+| Kiểm tra cuối | Kết quả |
+| --- | --- |
+| Quality gate | Format/lint/TypeScript và **272/272 unit / 38 tệp** đạt |
+| Integration | **400/400 / 26 tệp**, gồm **45 payOS**; nguồn hoàn, đối soát phiên, đóng bàn, CASH/manual/VAT/khuyến mãi đều đạt |
+| Browser | **102/102 / 9 suite liên quan** trên desktop/Android/WebKit iPhone: STAFF/GUEST hiển thị riêng tiền nhận/phân bổ/còn thu/cần hoàn; admin chưa có form đóng khi dư ghi sổ chưa hoàn; cash/refund/receipt/pricing còn tương thích |
+| Build | Next production compile/typecheck/static 7 route đạt; payOS tắt, AI OFF, cache kiểm tra riêng |
+
+Regression mới bao gồm TABLE/PARTICIPANT chuyển dư quote một phần, chuyển dư cả bill, hoàn từng phần/lặp/thất bại, sai nguồn tại cả ba bước, miễn món sau thu, quote hủy trước tiền đến, replay sau đối soát và báo cáo net-zero. Các test cũ từng mong tiền hoàn bị tự bù vào món mới được đổi sang xác nhận charge mới vẫn chưa trả và nguồn cũ vẫn phải hoàn; kiểm tra idempotency, tiền thật và chặn đóng vẫn giữ, không xóa test để làm xanh.
+
+Chỉ dùng provider giả và database kiểm thử riêng có dọn sau chạy. **Không truy cập production DB, không gọi provider thật/chuyển hoặc hoàn tiền thật, không đổi secrets, không merge main, không deploy.** Migration 202610170001_payment_system_resolution có sẵn trên nhánh trước follow-up không được chạy production. Log cuối: [quality](evidence/payment-overpay-check-20261018.txt), [integration](evidence/payment-overpay-integration-20261018.txt), [browser](evidence/payment-overpay-browser-20261018.txt), [build](evidence/payment-overpay-build-20261018.txt); [audit JSON](reference/payment-audit-20261017.json) giữ hồ sơ 17/10 và bổ sung follow-up riêng.
+
+
 ## Chuẩn bị nhánh review payment — 18/10/2026
 
 Nhánh `fix/payos-payment-flow` chỉ phục vụ review mã nguồn và tài liệu của bản sửa đã kiểm thử ngày 17/10. Bước công bố Git không merge vào main, không deploy/restart, không áp migration production, không gọi provider hoặc thực hiện giao dịch thật. Các kết quả và câu “chưa commit/push” ở biên bản bên dưới là trạng thái tại thời điểm kiểm thử, trước bước công bố nhánh.
 
-Điểm cần review thêm, chưa sửa trong bước chỉ công bố mã: một khoản thu riêng 10.000đ trên hóa đơn 20.000đ nhận 12.000đ có thể ghi sổ 12.000đ nhưng chỉ phân bổ tối đa 10.000đ theo khoản thu. Cần rà cân đối allocation và dư nợ từng món/người trước khi duyệt đối soát hoặc deploy. Đây là nhận xét từ đọc mã, chưa có regression riêng cho tình huống này trong bộ kết quả 17/10; không coi test đã đạt là bảo đảm mọi nhánh chuyển dư đã hoàn chỉnh.
+Điểm được ghi nhận tại bước chỉ công bố mã, **đã sửa trong follow-up 18/10 ở đầu bài**: một khoản thu riêng 10.000đ trên hóa đơn 20.000đ nhận 12.000đ có thể ghi sổ 12.000đ nhưng chỉ phân bổ tối đa 10.000đ theo khoản thu. Tại thời điểm 17/10 chưa có regression riêng cho tình huống này; bộ kiểm thử và hành vi mới ở đầu bài thay cho giới hạn ấy. Không diễn giải số liệu 17/10 như kết quả của bản bổ sung.
 
 ## Audit và sửa thanh toán payOS production — 17/10/2026
 

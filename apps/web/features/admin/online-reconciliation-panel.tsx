@@ -117,6 +117,30 @@ export default function OnlineReconciliationPanel() {
                   <span>Ngân hàng đã xác nhận</span>
                   <strong>{vnd(row.paid_amount)}</strong>
                 </div>
+                {row.recorded_amount !== undefined && (
+                  <div>
+                    <span>Đã nhận vào sổ giao dịch</span>
+                    <strong>{vnd(row.recorded_amount)}</strong>
+                  </div>
+                )}
+                {row.allocated_amount !== undefined && (
+                  <div>
+                    <span>Đã tính vào tiền món</span>
+                    <strong>{vnd(row.allocated_amount)}</strong>
+                  </div>
+                )}
+                {row.refunded_amount !== undefined && (
+                  <div>
+                    <span>Đã hoàn lại khách</span>
+                    <strong>{vnd(row.refunded_amount)}</strong>
+                  </div>
+                )}
+                {row.unapplied_amount !== undefined && (
+                  <div>
+                    <span>Chưa phân bổ, cần hoàn</span>
+                    <strong>{vnd(row.unapplied_amount)}</strong>
+                  </div>
+                )}
                 <div>
                   <span>Tiền cần kiểm tra riêng</span>
                   <strong>{vnd(row.quarantined_amount)}</strong>
@@ -124,7 +148,14 @@ export default function OnlineReconciliationPanel() {
               </div>
               {row.reason && <p>{row.reason}</p>}
               {row.last_error && <p className="small-note">{row.last_error}</p>}
-              {row.status === 'OPEN' && (
+              {row.status === 'OPEN' && BigInt(row.unapplied_amount ?? '0') > 0n && (
+                <p role="status" className="small-note">
+                  Còn {vnd(row.unapplied_amount)} đã nhận nhưng chưa tính vào tiền món. Lập phiếu
+                  hoàn từ đúng giao dịch gốc, chờ nhân viên trả tiền và xác nhận, rồi làm mới đối
+                  soát. Ghi chú trả ngoài ngân hàng không thay cho khoản hoàn này.
+                </p>
+              )}
+              {row.status === 'OPEN' && BigInt(row.unapplied_amount ?? '0') === 0n && (
                 <EntryForm
                   title="Ghi nhận kết quả đối soát"
                   fields={[
@@ -135,10 +166,14 @@ export default function OnlineReconciliationPanel() {
                         ...(row.session_status !== 'CLOSED'
                           ? [{ value: 'RECONCILED', label: 'Đã đối chiếu, kết thúc hồ sơ' }]
                           : []),
-                        {
-                          value: 'RETURNED_EXTERNALLY',
-                          label: 'Đã trả tiền qua ngân hàng',
-                        },
+                        ...(BigInt(row.quarantined_amount) > 0n
+                          ? [
+                              {
+                                value: 'RETURNED_EXTERNALLY',
+                                label: 'Đã trả tiền chưa ghi sổ qua ngân hàng',
+                              },
+                            ]
+                          : []),
                       ],
                     },
                     { key: 'reference', label: 'Mã giao dịch / tham chiếu sao kê', maxLength: 120 },

@@ -237,9 +237,10 @@ test('admin follows a paid dish inspection through editing, ingredient adjustmen
       tablePayment.getByRole('heading', { name: 'Thanh toán cả bàn', exact: true }),
     ).toBeVisible();
     for (const [label, amount] of [
-      ['Đã thanh toán (sau hoàn)', '25.000 đ'],
+      ['Đã tính vào tiền món', '0 đ'],
+      ['Đã nhận (trước hoàn)', '25.000 đ'],
       ['Còn phải thanh toán', '0 đ'],
-      ['Còn chờ hoàn tiền món', '25.000 đ'],
+      ['Cần hoàn lại khách', '25.000 đ'],
     ]) {
       await expect(
         tablePayment
@@ -249,7 +250,7 @@ test('admin follows a paid dish inspection through editing, ingredient adjustmen
       ).toHaveText(amount!);
     }
     await expect(tablePayment.locator('.billing-payable dd')).toHaveText('0 đ');
-    await expect(tablePayment.locator(':scope > .inbox-facts > div')).toHaveCount(3);
+    await expect(tablePayment.locator(':scope > .inbox-facts > div')).toHaveCount(4);
     await expect(tablePayment.getByText('Đã hoàn cho khách', { exact: true })).toHaveCount(0);
     const completionNote = 'Đã hoàn tất kiểm tra nguyên liệu / thiết bị.';
     await expect(inspection.getByLabel('Đã kiểm tra và xử lý gì?', { exact: true })).toHaveCount(0);
@@ -262,7 +263,7 @@ test('admin follows a paid dish inspection through editing, ingredient adjustmen
     const editor = admin.getByRole('dialog', { name: 'Chỉnh sửa món - ' + name, exact: true });
     await expect(editor.getByLabel('Tên món', { exact: true })).toHaveValue(name);
     await editor.getByLabel('Giá bán (đồng)', { exact: true }).fill('35000');
-    await editor.getByLabel('Tình trạng', { exact: true }).selectOption('AVAILABLE');
+    await editor.getByLabel('Nhận món', { exact: true }).selectOption('AVAILABLE');
     await editor.getByRole('button', { name: 'Lưu món', exact: true }).click();
     await expect(editor).toHaveCount(0);
     await expect(inspection).toBeVisible();
@@ -399,7 +400,9 @@ test('admin follows a paid dish inspection through editing, ingredient adjustmen
       .getByRole('button', { name: 'Xác nhận', exact: true })
       .click();
     await expect(completeRefund).toHaveCount(0);
-    await expect(refundPanel.locator('.admin-approved-refund')).toHaveCount(0);
+    await admin.bringToFront();
+    await expect(refundPanel.locator('.admin-approved-refund')).toHaveCount(0, { timeout: 15000 });
+    await staff.bringToFront();
     await staffDialog.getByRole('button', { name: 'Đóng', exact: true }).click();
     await expect(refundJob).toHaveCount(0);
     await expect
@@ -416,17 +419,20 @@ test('admin follows a paid dish inspection through editing, ingredient adjustmen
     await expect(
       tablePayment
         .locator(':scope > .inbox-facts > div')
-        .filter({ hasText: 'Đã thanh toán (sau hoàn)' })
+        .filter({ hasText: 'Đã tính vào tiền món' })
         .locator('dd'),
     ).toHaveText('0 đ');
-    await tablePayment.locator('details summary').click();
+    await tablePayment
+      .locator('summary')
+      .filter({ hasText: /^Chi tiết thu và hoàn tiền$/ })
+      .click();
     await expect(
       tablePayment
         .locator('details .payment-flow-facts > div')
-        .filter({ hasText: 'Đã hoàn tiền món' })
+        .filter({ hasText: 'Đã hoàn lại khách' })
         .locator('dd'),
     ).toHaveText('25.000 đ');
-    await expect(tablePayment.getByText('Còn chờ hoàn tiền món', { exact: true })).toHaveCount(0);
+    await expect(tablePayment.getByText('Cần hoàn lại khách', { exact: true })).toHaveCount(0);
     await expect(inspection).toContainText(
       'Các khoản cần hoàn đã được trả lại cho khách. Hiện cả bàn không còn tiền chờ hoàn.',
     );

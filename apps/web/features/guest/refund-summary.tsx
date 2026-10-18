@@ -11,7 +11,7 @@ export function GuestRefundSummary({
   account: Row;
   transactions?: Row[];
 }) {
-  const { refundedTotal: refunded, refundDue: due, netPaid } = paymentSummary(account);
+  const { refundedTotal: refunded, refundDue: due, appliedTotal } = paymentSummary(account);
   if (refunded === 0n && due === 0n) return null;
   return (
     <section
@@ -26,21 +26,21 @@ export function GuestRefundSummary({
           : 'Đã hoàn tất các khoản cần hoàn'}
       </h2>
       <p>
-        Đây là tiền hoàn do hủy hoặc điều chỉnh món. Tiền thối được ghi riêng trong chi tiết thanh
-        toán.
+        Khoản này có thể do chuyển dư hoặc do món được điều chỉnh. Tiền thối được ghi riêng trong
+        chi tiết thanh toán.
       </p>
       <div className="refund-summary-grid">
         <div>
-          <span>Đã hoàn tiền món</span>
+          <span>Đã hoàn lại khách</span>
           <strong>{vnd(refunded)}</strong>
         </div>
         <div>
-          <span>Còn chờ hoàn tiền món</span>
+          <span>Còn chờ hoàn lại khách</span>
           <strong>{vnd(due)}</strong>
         </div>
         <div>
-          <span>Đã thanh toán (sau hoàn)</span>
-          <strong>{vnd(netPaid)}</strong>
+          <span>Đã tính vào tiền món</span>
+          <strong>{vnd(appliedTotal)}</strong>
         </div>
       </div>
       {transactions.length > 0 && (

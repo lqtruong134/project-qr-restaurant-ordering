@@ -7,6 +7,7 @@ import { readRefundContext } from './refund-context.service.js';
 import { refundApprovalJoin, readRefundWorkflow } from './refund-approval.service.js';
 import { one, type Connection } from '../shared/core-persistence.js';
 import { recalculate } from '../finance/ledger.service.js';
+import { readRefundSourceBudgets } from './refund-budget.service.js';
 import { closeReadiness } from '../dining/close-readiness.js';
 export async function readBill(c: Connection, s: Record<string, unknown>, restaurant: string) {
   if (s.receipt_snapshot) {
@@ -19,6 +20,9 @@ export async function readBill(c: Connection, s: Record<string, unknown>, restau
     };
   }
   const account = await recalculate(c, String(s.id));
+  const refundSources = new Map(
+    (await readRefundSourceBudgets(c, String(s.id))).map((source) => [source.id, source]),
+  );
   return {
     session: s,
     account,
@@ -81,7 +85,22 @@ export async function readBill(c: Connection, s: Record<string, unknown>, restau
         `SELECT p.*,(SELECT e.created_at FROM business_audit_event e WHERE e.resource_id=p.id AND e.action='CASH_CHANGE_RETURNED' ORDER BY e.created_at LIMIT 1) AS change_returned_at,(SELECT u.display_name FROM business_audit_event e JOIN app_user u ON u.id=e.actor_id WHERE e.resource_id=p.id AND e.action='CASH_CHANGE_RETURNED' ORDER BY e.created_at LIMIT 1) AS change_returned_by_name,u.display_name AS confirmed_by_name,u.username AS confirmed_by_username FROM payment_transaction p LEFT JOIN app_user u ON u.id=p.confirmed_by WHERE p.session_id=$1 ORDER BY p.created_at DESC`,
         [s.id],
       )
-    ).rows.map((payment) => withCashPaymentFields(payment)),
+    ).rows.map((payment) => {
+      const source = refundSources.get(String(payment.id));
+      return withCashPaymentFields({
+        ...payment,
+        ...(source
+          ? {
+              allocated_amount: source.allocated_amount,
+              refunded_amount: source.refunded_amount,
+              refundable_amount: source.refundable_amount,
+              pending_refund_amount: source.pending_refund_amount,
+              available_refund_amount: source.available_refund_amount,
+              refund_context_kind: source.refund_context_kind,
+            }
+          : {}),
+      });
+    }),
     refunds: (
       await c.query(
         `SELECT f.*,f.amount-COALESCE((SELECT sum(t.amount) FROM refund_transaction t WHERE t.refund_case_id=f.id AND t.status='SUCCEEDED'),0) AS remaining_amount,

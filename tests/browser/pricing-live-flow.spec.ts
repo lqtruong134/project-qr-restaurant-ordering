@@ -250,9 +250,10 @@ test('real promotion, inclusive VAT, cash change and staff refund agree across a
       amount: '44100',
       useDecisionReason: true,
     });
+    await staff.bringToFront();
     await expect(
       dialog.getByRole('heading', { name: 'Còn phải hoàn 44.100 đ', exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15000 });
     const refund = dialog
       .getByRole('region', { name: 'Hoàn tiền cho khách', exact: true })
       .locator('form')
@@ -273,14 +274,16 @@ test('real promotion, inclusive VAT, cash change and staff refund agree across a
       refund_due_amount: '0',
       outstanding_amount: '0',
     });
+    await guest.bringToFront();
     await expect(
       guest.getByRole('region', { name: 'Thông tin hoàn tiền', exact: true }),
     ).toContainText('44.100 đ');
     await expect(guestPricing.locator('.billing-payable dd')).toHaveText('0 đ');
-    await expect(receipt.locator('.billing-payable dd')).toHaveText('0 đ');
+    await staff.bringToFront();
+    await expect(receipt.locator('.billing-payable dd')).toHaveText('0 đ', { timeout: 15000 });
     await expect(receipt.locator('.receipt-money-breakdown')).toContainText('Tiền thối đã trả');
     await expect(receipt.locator('.receipt-money-breakdown')).toContainText('55.900 đ');
-    await expect(receipt.locator('.receipt-money-breakdown')).toContainText('Đã hoàn tiền món');
+    await expect(receipt.locator('.receipt-money-breakdown')).toContainText('Đã hoàn lại khách');
     await expect(receipt.locator('.receipt-money-breakdown')).toContainText('44.100 đ');
     await expect(
       receipt

@@ -283,23 +283,42 @@ async function mock(page: Page) {
           support: data.bill.paymentRequests,
           onlinePayments: data.bill.intents
             .filter((intent) => intent.method === 'ONLINE' && intent.online)
-            .map((intent): GuestOnlinePayment => ({
-              id: 'opaque-' + intent.id,
-              scope: 'TABLE',
-              amount: intent.amount,
-              status: intent.online!.status,
-              paidAmount:
-                intent.online!.status === 'REQUIRES_RECONCILIATION'
-                  ? '0'
-                  : intent.online!.paidAmount,
-              bankConfirmedAmount: intent.online!.paidAmount,
-              remainingAmount:
-                intent.online!.status === 'REQUIRES_RECONCILIATION'
-                  ? intent.amount
-                  : intent.online!.remainingAmount,
-              expiresAt: intent.online!.expiresAt,
-              createdAt: at,
-            })),
+            .map((intent): GuestOnlinePayment => {
+              const sources = data.bill.payments.filter(
+                (payment) =>
+                  payment.status === 'SUCCEEDED' && payment.payment_intent_id === intent.id,
+              );
+              const sum = (field: string) =>
+                sources
+                  .reduce((total, payment) => total + BigInt(String(payment[field] ?? '0')), 0n)
+                  .toString();
+              return {
+                id: 'opaque-' + intent.id,
+                scope: 'TABLE',
+                amount: intent.amount,
+                status: intent.online!.status,
+                paidAmount: sources.length
+                  ? sum('amount')
+                  : intent.online!.status === 'REQUIRES_RECONCILIATION'
+                    ? '0'
+                    : intent.online!.paidAmount,
+                ...(sources.length
+                  ? {
+                      appliedAmount: sum('allocated_amount'),
+                      refundableAmount: sum('refundable_amount'),
+                      refundedAmount: sum('refunded_amount'),
+                    }
+                  : {}),
+                bankConfirmedAmount: intent.online!.paidAmount,
+                remainingAmount: sources.length
+                  ? intent.online!.remainingAmount
+                  : intent.online!.status === 'REQUIRES_RECONCILIATION'
+                    ? intent.amount
+                    : intent.online!.remainingAmount,
+                expiresAt: intent.online!.expiresAt,
+                createdAt: at,
+              };
+            }),
           payments: data.bill.payments,
           refundTransactions: [],
         },
@@ -838,7 +857,7 @@ test('guest automatically shows partial and successful online receipts and clear
     page.getByRole('heading', { name: 'Bàn đã thanh toán đủ', exact: true }),
   ).toBeVisible();
   await expect(
-    page.locator('.core-stats p').filter({ hasText: 'Đã thanh toán (sau hoàn)' }).locator('strong'),
+    page.locator('.core-stats p').filter({ hasText: 'Đã tính vào tiền món' }).locator('strong'),
   ).toHaveText('450.000 đ');
   await expect(
     page.locator('.core-stats p').filter({ hasText: 'Còn phải thanh toán' }).locator('strong'),
@@ -946,11 +965,235 @@ test('guest expiry, cancellation and reconciliation never claim money was posted
   await expect(online.getByRole('img')).toHaveCount(0);
   await expect(online.getByRole('link')).toHaveCount(0);
   await expect(
-    page.locator('.core-stats p').filter({ hasText: 'Đã thanh toán (sau hoàn)' }).locator('strong'),
+    page.locator('.core-stats p').filter({ hasText: 'Đã tính vào tiền món' }).locator('strong'),
   ).toHaveText('0 đ');
   await expect(
     page.locator('.core-stats p').filter({ hasText: 'Còn phải thanh toán' }).locator('strong'),
   ).toHaveText('450.000 đ');
+  expect(f.writes).toEqual([]);
+  expect(f.errors).toEqual([]);
+});
+
+test('a partial-quote overpayment shows received, applied, still owed and refund due separately for staff and guest', async ({
+  page,
+}) => {
+  const f = await mock(page);
+  Object.assign(f.bill.account, {
+    charge_total: '20000',
+    paid_total: '12000',
+    outstanding_amount: '10000',
+    refund_due_amount: '2000',
+  });
+  Object.assign(f.table, { charge_total: '20000', outstanding_amount: '10000' });
+  Object.assign(f.bill.billing, {
+    subtotalAmount: '20000',
+    payableAmount: '20000',
+    beforeVatAmount: '18518',
+    vatAmount: '1482',
+  });
+  f.bill.billing.vatGroups[0] = {
+    treatment: 'TAXABLE',
+    ratePercent: 8,
+    beforeVatAmount: '18518',
+    vatAmount: '1482',
+    totalAmount: '20000',
+  };
+  Object.assign(f.bill.charges[0]!, {
+    amount: '20000',
+    net_amount: '20000',
+    unit_price_snapshot: '20000',
+    unpaid_amount: '10000',
+  });
+  f.online('REQUIRES_RECONCILIATION', '10000', '12000');
+  f.bill.intents[0]!.online!.remainingAmount = '0';
+  f.bill.payments.push({
+    id: 'receipt12',
+    payment_intent_id: 'online-intent',
+    status: 'SUCCEEDED',
+    method: 'ONLINE',
+    amount: '12000',
+    allocated_amount: '10000',
+    refunded_amount: '0',
+    refundable_amount: '2000',
+    pending_refund_amount: '0',
+    available_refund_amount: '2000',
+    refund_context_kind: 'UNAPPLIED_PAYMENT',
+    confirmed_at: at,
+  });
+  f.bill.closure.blockers = [
+    {
+      code: 'OUTSTANDING',
+      title: 'Còn tiền món chưa thu',
+      detail: 'Còn 10.000 đ tiền món.',
+      tab: 'payments',
+      count: 1,
+    },
+    {
+      code: 'REFUND',
+      title: 'Còn tiền chưa hoàn khách',
+      detail: 'Cần thực tế hoàn lại 2.000 đ.',
+      tab: 'payments',
+      count: 1,
+    },
+  ];
+  const dialog = await staffPayment(page);
+  for (const [label, amount] of [
+    ['Đã nhận (trước hoàn)', '12.000 đ'],
+    ['Đã tính vào tiền món', '10.000 đ'],
+    ['Còn phải thanh toán', '10.000 đ'],
+    ['Cần hoàn lại khách', '2.000 đ'],
+  ]) {
+    await expect(
+      dialog
+        .locator('.bill-balance-grid > div')
+        .filter({ has: page.getByText(label!, { exact: true }) })
+        .locator('strong'),
+    ).toHaveText(amount!);
+  }
+  const card = dialog.getByRole('region', { name: 'Khoản thu online' });
+  await expect(card).toContainText('Đã nhận tiền; còn khoản cần hoàn');
+  await expect(card).toContainText('chưa tự bù');
+  await expect(card.getByRole('img')).toHaveCount(0);
+  await expect(card.getByRole('link')).toHaveCount(0);
+  await fits(page, dialog);
+  await page.goto('/guest');
+  await page
+    .getByRole('navigation', { name: 'Điều hướng khách' })
+    .getByRole('button', { name: 'Thanh toán', exact: true })
+    .click();
+  const summary = page.locator('.guest-content > .core-card > .core-stats');
+  for (const [label, amount] of [
+    ['Đã nhận (trước hoàn)', '12.000 đ'],
+    ['Đã tính vào tiền món', '10.000 đ'],
+    ['Còn phải thanh toán', '10.000 đ'],
+    ['Cần hoàn lại khách', '2.000 đ'],
+  ]) {
+    await expect(summary.locator('p').filter({ hasText: label! }).locator('strong')).toHaveText(
+      amount!,
+    );
+  }
+  const online = page.getByRole('region', { name: 'Trạng thái thanh toán online' });
+  await expect(online).toContainText('Khoản chuyển có phần cần hoàn lại');
+  await expect(online).not.toContainText('Thanh toán thành công');
+  await expect(online).not.toContainText('Còn thiếu cho khoản thu này');
+  await expect(
+    page.getByText('Tiền cần hoàn chưa tự bù vào tiền món còn thiếu', { exact: false }),
+  ).toBeVisible();
+  await fits(page, online);
+  // Returning the excess does not pay the other 10k of active items.
+  f.bill.account.refunded_total = '2000';
+  f.bill.account.refund_due_amount = '0';
+  Object.assign(f.bill.payments[0]!, {
+    refunded_amount: '2000',
+    refundable_amount: '0',
+    available_refund_amount: '0',
+  });
+  f.online('PAID', '10000', '12000');
+  f.bill.intents[0]!.online!.remainingAmount = '0';
+  const returned = await staffPayment(page);
+  const returnedCard = returned.getByRole('region', { name: 'Khoản thu online' });
+  await expect(returnedCard).toContainText('đã hoàn lại khách 2.000 đ');
+  await expect(returnedCard).toContainText('Đã tính vào tiền món 10.000 đ');
+  await expect(
+    returned
+      .locator('.bill-balance-grid > div')
+      .filter({ hasText: 'Còn phải thanh toán' })
+      .locator('strong'),
+  ).toHaveText('10.000 đ');
+  await expect(returnedCard.getByRole('img')).toHaveCount(0);
+  expect(f.writes).toEqual([]);
+  expect(f.errors).toEqual([]);
+});
+
+test('admin must finish a source refund before closing a booked-unapplied reconciliation case', async ({
+  page,
+}) => {
+  const f = await mock(page);
+  f.cases.push({
+    id: 'online-intent',
+    session_id: sid,
+    table_code: 'A10',
+    session_status: 'ACTIVE',
+    amount: '10000',
+    paid_amount: '12000',
+    recorded_amount: '12000',
+    allocated_amount: '10000',
+    refunded_amount: '0',
+    unapplied_amount: '2000',
+    quarantined_amount: '0',
+    provider_status: 'REQUIRES_RECONCILIATION',
+    last_error: null,
+    updated_at: at,
+    reason: 'Khách chuyển vượt khoản thu một phần.',
+    status: 'OPEN',
+  });
+  await page.goto('/workspace/admin');
+  await selectAdmin(page, 'Báo cáo', 'Đối soát online');
+  const panel = page.getByRole('region', { name: 'Đối soát thanh toán online' });
+  await expect(panel).toContainText('Còn 2.000 đ đã nhận nhưng chưa tính vào tiền món');
+  await expect(panel).toContainText('Lập phiếu hoàn từ đúng giao dịch gốc');
+  await expect(
+    panel.getByRole('button', { name: 'Lưu kết quả đối soát', exact: true }),
+  ).toHaveCount(0);
+  await expect(panel.getByRole('option', { name: /trả.*ngân hàng/ })).toHaveCount(0);
+  await fits(page, panel);
+  expect(f.writes).toEqual([]);
+  expect(f.errors).toEqual([]);
+});
+
+test('session reconciliation reports show both amounts due and refundable without netting or a false balanced badge', async ({
+  page,
+}) => {
+  const f = await mock(page);
+  await page.route('**/api/core/admin/reports?*', (route) =>
+    route.fulfill({
+      json: {
+        scope: {
+          period: 'month',
+          startDay: '2026-10-01',
+          endDay: '2026-10-18',
+          timezone: 'Asia/Ho_Chi_Minh',
+          updatedAt: at,
+          granularity: 'day',
+        },
+        summary: { sessions: 1, balanced: 0, outstanding: '10000', refundDue: '2000' },
+        rows: [
+          {
+            id: sid,
+            table_code: 'A10',
+            at,
+            payable: '20000',
+            collected: '12000',
+            refunded: '0',
+            written_off: '0',
+            appliedAmount: '10000',
+            outstanding: '10000',
+            refundDue: '2000',
+            balance: '8000',
+            financialBalance: '8000',
+            legacyTaxUnavailable: true,
+          },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 10,
+      },
+    }),
+  );
+  await page.goto('/workspace/admin');
+  await selectAdmin(page, 'Báo cáo', 'Đối soát phiên');
+  const table = page.getByRole('table', { name: 'Đối chiếu theo từng phiên bàn', exact: true });
+  const row = table.locator('tbody > tr');
+  await expect(row.locator('td[data-label="Đã tính vào món"]')).toContainText('10.000 đ');
+  await expect(row.locator('td[data-label="Còn phải thu"] strong')).toHaveText('10.000 đ');
+  await expect(row.locator('td[data-label="Cần hoàn khách"] strong')).toHaveText('2.000 đ');
+  await expect(row.locator('td[data-label="Tiền giữ sau hoàn"]')).toContainText('12.000 đ');
+  await expect(row).toContainText('Hoàn và thu riêng, chưa tự bù trừ');
+  await expect(row).not.toContainText('Cân bằng tiền');
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await fits(page, table);
+  }
   expect(f.writes).toEqual([]);
   expect(f.errors).toEqual([]);
 });

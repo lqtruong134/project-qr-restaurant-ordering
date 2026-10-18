@@ -2,23 +2,21 @@
 import { useState } from 'react';
 import { EntryForm, vnd, type Row } from '../shared/components';
 import { restaurantDateTime } from '../shared/restaurant-time';
-import { refundableSources } from '../shared/refund-source';
+import { refundableSources, refundReasonForSource } from '../shared/refund-source';
 
 export function RefundCreation({
   payments,
-  refunds,
   unassigned,
   decisionReason,
   submit,
 }: {
   payments: Row[];
-  refunds: Row[];
   unassigned: bigint;
   decisionReason?: string;
-  submit: (values: Record<string, string>) => Promise<void>;
+  submit: (values: Record<string, string | boolean>) => Promise<void>;
 }) {
   const [selected, setSelected] = useState('');
-  const sources = refundableSources(payments, refunds);
+  const sources = refundableSources(payments);
   const source = sources.find((entry) => entry.payment.id === selected) ?? sources[0];
   if (!source)
     return (
@@ -27,6 +25,10 @@ export function RefundCreation({
       </p>
     );
   const limit = source.available < unassigned ? source.available : unassigned;
+  const { useDecisionReason, reason: defaultReason } = refundReasonForSource(
+    source.payment,
+    decisionReason,
+  );
   return (
     <section className="refund-creation" aria-label="Lập hồ sơ hoàn tiền">
       <label className="refund-source-field">
@@ -59,8 +61,9 @@ export function RefundCreation({
           dịch còn lại.
         </p>
       )}
+      {useDecisionReason && <p className="small-note">Lý do hoàn tiền: {decisionReason}</p>}
       <EntryForm
-        key={source.payment.id + ':' + limit.toString()}
+        key={source.payment.id + ':' + limit.toString() + ':' + String(useDecisionReason)}
         title="Lập hồ sơ hoàn tiền"
         submit="Lập hồ sơ hoàn tiền"
         successMessage="Đã lập hồ sơ hoàn tiền. Nhân viên sẽ trả tiền cho khách."
@@ -81,17 +84,23 @@ export function RefundCreation({
             max: Number(limit),
             value: limit.toString(),
           },
-          ...(!decisionReason
+          ...(!useDecisionReason
             ? [
                 {
                   key: 'reason',
                   label: 'Lý do hoàn',
-                  value: 'Hoàn tiền món không tính tiền đã duyệt',
+                  value: defaultReason,
                 },
               ]
             : []),
         ]}
-        onSubmit={(values) => submit({ ...values, paymentId: source.payment.id })}
+        onSubmit={(values) =>
+          submit({
+            ...values,
+            paymentId: source.payment.id,
+            ...(useDecisionReason ? { useDecisionReason: true } : {}),
+          })
+        }
       />
     </section>
   );

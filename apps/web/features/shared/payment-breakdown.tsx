@@ -19,7 +19,7 @@ export function PaymentBreakdown({
       ? [['Đã nhận qua chuyển khoản', flow.bankReceived] as [string, bigint]]
       : []),
     ...(flow.onlineReceived > 0n
-      ? [['Đã thanh toán trực tuyến', flow.onlineReceived] as [string, bigint]]
+      ? [['Tiền nhận qua payOS', flow.onlineReceived] as [string, bigint]]
       : []),
     ...(flow.otherReceived > 0n
       ? [['Đã nhận qua phương thức khác', flow.otherReceived] as [string, bigint]]
@@ -33,13 +33,15 @@ export function PaymentBreakdown({
     ...(flow.changeUnconfirmed > 0n
       ? [['Tiền thối chưa có xác nhận', flow.changeUnconfirmed] as [string, bigint]]
       : []),
-    ...(!compact
-      ? [['Đã thu cho hóa đơn (trước hoàn)', flow.collectedTotal] as [string, bigint]]
-      : []),
+    ...(!compact ? [['Tiền đã nhận (trước hoàn)', flow.collectedTotal] as [string, bigint]] : []),
     ...(flow.refundedTotal > 0n
-      ? [['Đã hoàn tiền món', flow.refundedTotal] as [string, bigint]]
+      ? [['Đã hoàn lại khách', flow.refundedTotal] as [string, bigint]]
       : []),
-    ...(!compact ? [['Đã thanh toán (sau hoàn)', flow.netPaid] as [string, bigint]] : []),
+    ...(!compact ? [['Tiền còn giữ (sau hoàn)', flow.netPaid] as [string, bigint]] : []),
+    ...(!compact ? [['Đã tính vào tiền món', flow.appliedTotal] as [string, bigint]] : []),
+    ...(flow.unappliedHeld > 0n
+      ? [['Tiền chưa phân bổ, cần hoàn', flow.unappliedHeld] as [string, bigint]]
+      : []),
     ...(flow.customerRetained !== null
       ? [['Nhà hàng còn giữ', flow.customerRetained] as [string, bigint]]
       : []),
@@ -56,8 +58,8 @@ export function PaymentBreakdown({
       </dl>
       {!compact && (
         <p className="small-note">
-          Tiền thối là phần dư khi khách đưa tiền mặt. Tiền hoàn là khoản trả lại do hủy hoặc điều
-          chỉnh món.
+          Tiền thối là phần dư khi khách đưa tiền mặt. Tiền hoàn là khoản trả lại do chuyển dư hoặc
+          điều chỉnh món.
         </p>
       )}
       {!compact &&
@@ -66,7 +68,7 @@ export function PaymentBreakdown({
         flow.hasCash && (
           <p className="payment-flow-equation">
             {vnd(flow.customerGiven)} {flow.nonCashReceived > 0n ? 'khách đã trả' : 'khách đưa'} −{' '}
-            {vnd(flow.changeReturned)} đã thối − {vnd(flow.refundedTotal)} hoàn tiền món ={' '}
+            {vnd(flow.changeReturned)} đã thối − {vnd(flow.refundedTotal)} hoàn lại khách ={' '}
             <strong>{vnd(flow.customerRetained)} còn giữ.</strong>
           </p>
         )}

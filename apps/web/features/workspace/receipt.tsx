@@ -183,9 +183,15 @@ export default function Receipt({
       </div>
       <BillingTotals billing={bill.billing} account={bill.account} receipt />
       <div className="receipt-totals">
+        {(totals.unappliedHeld > 0n || totals.refundedTotal > 0n) && (
+          <div>
+            <span>Đã nhận (trước hoàn)</span>
+            <strong>{vnd(totals.collectedTotal)}</strong>
+          </div>
+        )}
         <div>
-          <span>Đã thanh toán (sau hoàn)</span>
-          <strong>{vnd(totals.netPaid)}</strong>
+          <span>Đã tính vào tiền món</span>
+          <strong>{vnd(totals.appliedTotal)}</strong>
         </div>
         <div>
           <span>Còn phải thanh toán</span>
@@ -193,24 +199,26 @@ export default function Receipt({
         </div>
         {BigInt(String(bill.account.refund_due_amount)) > 0n && (
           <div>
-            <span>Còn chờ hoàn tiền món</span>
+            <span>Cần hoàn lại khách</span>
             <strong>{vnd(bill.account.refund_due_amount)}</strong>
           </div>
         )}
       </div>
-      {totals.refundedTotal > 0n && <p className="receipt-short-note">Đã trừ tiền hoàn món.</p>}
+      {totals.refundedTotal > 0n && (
+        <p className="receipt-short-note">Đã trừ các khoản thực tế hoàn lại khách.</p>
+      )}
       <section className="receipt-money-breakdown" aria-label="Đối chiếu thanh toán">
         <h4>Đối chiếu tiền khách đã đưa</h4>
         <PaymentBreakdown account={bill.account} payments={bill.payments} compact />
       </section>
       <div className="receipt-payments">
-        <strong>Các lần thanh toán tiền món</strong>
+        <strong>Các lần nhận tiền</strong>
         {!receipts.length && <p>Chưa thu tiền</p>}
         {receipts.map((p) => {
           return (
             <div className="receipt-payment-entry" key={p.id}>
               <p>
-                {paymentMethodLabel(p.method)} - Thanh toán cho món {vnd(p.amount)}
+                {paymentMethodLabel(p.method)} - Đã nhận {vnd(p.amount)}
               </p>
               <small>
                 {billTime(p.confirmed_at ?? p.created_at, zone)} -{' '}
@@ -224,7 +232,7 @@ export default function Receipt({
       </div>
       {(bill.refundTransactions ?? []).length > 0 && (
         <div className="receipt-payments">
-          <strong>Các lần hoàn tiền món</strong>
+          <strong>Các lần hoàn lại khách</strong>
           {bill.refundTransactions!.map((t) => (
             <div className="receipt-payment-entry" key={t.id}>
               <p>

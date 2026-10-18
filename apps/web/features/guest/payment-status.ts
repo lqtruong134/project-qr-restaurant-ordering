@@ -13,7 +13,13 @@ export function guestPaymentStatus(
       kind: 'due',
       title: 'Bàn còn khoản cần thanh toán',
       detail:
-        'Bạn có thể trả cả bàn hoặc một phần. Nhân viên hỗ trợ thanh toán; hệ thống cập nhật khi tiền đã được xác nhận.',
+        money(account?.refund_due_amount) > 0n
+          ? 'Còn ' +
+            vnd(account?.outstanding_amount) +
+            ' tiền món; nhà hàng cần hoàn lại ' +
+            vnd(account?.refund_due_amount) +
+            '. Khoản cần hoàn chưa được tự bù vào tiền món còn thiếu. Vui lòng trao đổi với nhân viên để xử lý riêng hai khoản.'
+          : 'Bạn có thể trả cả bàn hoặc một phần. Nhân viên hỗ trợ thanh toán; hệ thống cập nhật khi tiền đã được xác nhận.',
     };
   if (money(account?.refund_due_amount) > 0n)
     return {
@@ -88,6 +94,19 @@ export function guestPaymentStatus(
 
 /** Guest wording uses only server-projected statuses, never redirect parameters or screenshots. */
 export function guestOnlinePaymentStatus(payment: GuestOnlinePayment): PaymentStatus {
+  if (money(payment.refundableAmount) > 0n)
+    return {
+      kind: 'review',
+      title: 'Khoản chuyển có phần cần hoàn lại',
+      detail:
+        'Nhà hàng đã nhận ' +
+        vnd(payment.paidAmount) +
+        ', đã tính ' +
+        vnd(payment.appliedAmount) +
+        ' vào tiền món và cần hoàn lại ' +
+        vnd(payment.refundableAmount) +
+        '. Phần cần hoàn chưa tự bù vào các món còn nợ; vui lòng trao đổi với nhân viên.',
+    };
   switch (payment.status) {
     case 'PAID':
       return {

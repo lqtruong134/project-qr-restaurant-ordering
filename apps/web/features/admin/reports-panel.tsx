@@ -168,7 +168,7 @@ export default function ReportsPanel({
           ...(view === 'payments' || view === 'outstanding'
             ? [{ value: 'amount', label: 'Số tiền cao nhất' }]
             : view === 'reconciliation'
-              ? [{ value: 'balance', label: 'Chênh lệch lớn nhất' }]
+              ? [{ value: 'balance', label: 'Khoản cần xử lý lớn nhất' }]
               : []),
         ];
   const s = data?.summary ?? {},
@@ -233,13 +233,13 @@ export default function ReportsPanel({
       : view === 'payments'
         ? [
             {
-              label: 'Thanh toán tiền món',
+              label: 'Tiền đã nhận',
               value: metric('collected'),
               money: true,
               hint: 'Giao dịch thành công; không gồm tiền thối, chưa trừ tiền hoàn',
             },
             {
-              label: 'Đã hoàn tiền món',
+              label: 'Đã hoàn lại khách',
               value: metric('refunded'),
               money: true,
               hint: 'Đã xác nhận hoàn thực tế',
@@ -487,15 +487,19 @@ export default function ReportsPanel({
               <ReportTable
                 title={titles[view]!}
                 columns={[
-                  { label: 'Bàn / phiên', width: 26 },
-                  { label: 'Tổng thanh toán', width: 17, numeric: true },
-                  { label: 'Thanh toán sau hoàn', width: 17, numeric: true },
-                  { label: 'Đối chiếu', width: 24, numeric: true },
-                  { label: 'Chi tiết', width: 16 },
+                  { label: 'Bàn / phiên', width: 22 },
+                  { label: 'Tổng thanh toán', width: 14, numeric: true },
+                  { label: 'Tiền giữ sau hoàn', width: 16, numeric: true },
+                  { label: 'Đã tính vào món', width: 12, numeric: true },
+                  { label: 'Còn phải thu', width: 12, numeric: true },
+                  { label: 'Cần hoàn khách', width: 12, numeric: true },
+                  { label: 'Chi tiết', width: 12 },
                 ]}
               >
                 {data.rows.map((r) => {
-                  const balance = BigInt(String(r.balance));
+                  const hasBalances = r.outstanding !== undefined && r.refundDue !== undefined;
+                  const outstanding = hasBalances ? BigInt(String(r.outstanding)) : undefined;
+                  const refundDue = hasBalances ? BigInt(String(r.refundDue)) : undefined;
                   return (
                     <tr key={r.id}>
                       <ReportCell label="Bàn / phiên">
@@ -517,25 +521,34 @@ export default function ReportsPanel({
                             : 'Chưa có dữ liệu tách VAT'}
                         </small>
                       </ReportCell>
-                      <ReportCell label="Thanh toán sau hoàn" numeric>
+                      <ReportCell label="Tiền giữ sau hoàn" numeric>
                         {vnd(BigInt(String(r.collected)) - BigInt(String(r.refunded ?? 0)))}
-                        {BigInt(String(r.refunded ?? 0)) > 0n && (
-                          <small>
-                            Trước hoàn {vnd(r.collected)} · Đã hoàn {vnd(r.refunded)}
-                          </small>
+                        <small>
+                          Đã nhận {vnd(r.collected)} · Đã hoàn {vnd(r.refunded)}
+                        </small>
+                      </ReportCell>
+                      <ReportCell label="Đã tính vào món" numeric>
+                        {r.appliedAmount === undefined ? '—' : vnd(r.appliedAmount)}
+                        <small>Tiền đã phân bổ cho món; không gồm xóa nợ</small>
+                      </ReportCell>
+                      <ReportCell label="Còn phải thu" numeric>
+                        <strong>{outstanding === undefined ? '—' : vnd(outstanding)}</strong>
+                        {outstanding !== undefined && outstanding > 0n && (
+                          <ReportBadge tone="warning">Còn phải thu</ReportBadge>
+                        )}
+                        {hasBalances && outstanding === 0n && refundDue === 0n && (
+                          <ReportBadge tone="success">Cân bằng tiền</ReportBadge>
                         )}
                       </ReportCell>
-                      <ReportCell label="Đối chiếu" numeric>
-                        <strong>{vnd(balance < 0n ? -balance : balance)}</strong>
-                        <ReportBadge
-                          tone={balance < 0n ? 'danger' : balance > 0n ? 'warning' : 'success'}
-                        >
-                          {balance < 0n
-                            ? 'Cần hoàn khách'
-                            : balance > 0n
-                              ? 'Còn phải thu'
-                              : 'Cân bằng tiền'}
-                        </ReportBadge>
+                      <ReportCell label="Cần hoàn khách" numeric>
+                        <strong>{refundDue === undefined ? '—' : vnd(refundDue)}</strong>
+                        {refundDue !== undefined && refundDue > 0n && (
+                          <ReportBadge tone="danger">Cần hoàn khách</ReportBadge>
+                        )}
+                        {outstanding !== undefined &&
+                          outstanding > 0n &&
+                          refundDue !== undefined &&
+                          refundDue > 0n && <small>Hoàn và thu riêng, chưa tự bù trừ</small>}
                       </ReportCell>
                       <ReportCell label="Chi tiết">
                         <Action run={() => loadReceipt(r)}>Xem đối soát</Action>

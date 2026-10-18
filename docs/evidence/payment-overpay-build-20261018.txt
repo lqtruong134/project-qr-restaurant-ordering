@@ -1,0 +1,33 @@
+Payment scoped-overpayment follow-up, 2026-10-18. Isolated test services/fake payOS only; no production access.
+Final successful build run.
+
+$ pnpm --filter @thesis/web build
+$ node scripts/prepare-docs.mjs && next build
+Prepared local Swagger UI and OpenAPI documentation.
+▲ Next.js 16.3.8 (Turbopack)
+✓ Running next.config.ts took 40ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.2s
+  Running TypeScript ...
+  Finished TypeScript in 2.5s ...
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/7) ...
+  Generating static pages using 9 workers (1/7)
+  Generating static pages using 9 workers (3/7)
+  Generating static pages using 9 workers (5/7)
+✓ Generating static pages using 9 workers (7/7) in 490ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /api-docs
+├ ○ /guest
+├ ○ /login
+├ ○ /workspace
+└ ƒ /workspace/[area]
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand

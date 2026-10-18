@@ -17,9 +17,11 @@ export async function recalculate(c: Connection, sid: string) {
     `UPDATE session_financial_account SET charge_total=(SELECT COALESCE(sum(amount-discount_amount),0) FROM financial_charge WHERE session_id=$1 AND status='ACTIVE'),paid_total=(SELECT COALESCE(sum(amount),0) FROM payment_transaction WHERE session_id=$1 AND status='SUCCEEDED'),refunded_total=(SELECT COALESCE(sum(t.amount),0) FROM refund_transaction t JOIN refund_case f ON f.id=t.refund_case_id WHERE f.session_id=$1 AND t.status='SUCCEEDED'),reserved_payment_amount=(SELECT COALESCE(sum(greatest(p.amount-COALESCE((SELECT sum(t.amount) FROM payment_transaction t WHERE t.payment_intent_id=p.id AND t.status='SUCCEEDED'),0),0)),0) FROM payment_intent p WHERE p.session_id=$1 AND ((p.status IN ('CREATED','PENDING') AND (p.expires_at>now() OR p.provider='PAYOS')) OR (p.provider='PAYOS' AND EXISTS(SELECT 1 FROM payos_payment_request q WHERE q.payment_intent_id=p.id AND (q.status IN ('CREATE_PENDING','ERROR','CANCEL_PENDING') OR q.reconciliation_status='OPEN') AND COALESCE(q.provider_status,'') NOT IN ('PAID','CANCELLED','EXPIRED','FAILED'))))),version=version+1 WHERE session_id=$1`,
     [sid],
   );
+  // Gross receipts stay intact. Only allocations pay charges; unallocated funds
+  // remain refundable at their source even while another charge is still unpaid.
   const a = await one(
     c,
-    'UPDATE session_financial_account SET outstanding_amount=greatest(charge_total-paid_total+refunded_total,0),refund_due_amount=greatest(paid_total-refunded_total-charge_total,0) WHERE session_id=$1 RETURNING *',
+    `UPDATE session_financial_account SET outstanding_amount=(SELECT COALESCE(sum(greatest(f.amount-f.discount_amount-COALESCE((SELECT sum(x.allocated_amount-x.reversed_amount) FROM payment_allocation x JOIN payment_transaction p ON p.id=x.payment_transaction_id WHERE x.financial_charge_id=f.id AND p.status='SUCCEEDED'),0),0)),0) FROM financial_charge f WHERE f.session_id=$1 AND f.status='ACTIVE'),refund_due_amount=(SELECT COALESCE(sum(greatest(p.amount-COALESCE((SELECT sum(t.amount) FROM refund_transaction t JOIN refund_case r ON r.id=t.refund_case_id WHERE r.source_payment_transaction_id=p.id AND t.status='SUCCEEDED'),0)-COALESCE((SELECT sum(x.allocated_amount-x.reversed_amount) FROM payment_allocation x JOIN financial_charge f ON f.id=x.financial_charge_id WHERE x.payment_transaction_id=p.id AND f.status='ACTIVE'),0),0)),0) FROM payment_transaction p WHERE p.session_id=$1 AND p.status='SUCCEEDED') WHERE session_id=$1 RETURNING *`,
     [sid],
   );
   const status =

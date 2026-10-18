@@ -1,5 +1,6 @@
 import { one, reject, type Connection } from '../shared/core-persistence.js';
 import { recalculate } from '../finance/ledger.service.js';
+import { requireRefundSourceBudget } from './refund-budget.service.js';
 import { readRefundRelatedItems } from './refund-context.service.js';
 
 // The document is approved by an explicit ADMIN action. Bind its audit approval to
@@ -25,13 +26,7 @@ export async function readRefundCase(c: Connection, id: string) {
 
 // Caller holds the session lock, then locks the document. Creation and approval
 // retries share this path, so one approval event authorizes one document.
-export async function approveRefund(
-  c: Connection,
-  id: string,
-  restaurant: string,
-  actor: string,
-  creationRelatedItemIds?: string[],
-) {
+export async function approveRefund(c: Connection, id: string, restaurant: string, actor: string) {
   const f = await one(c, 'SELECT * FROM refund_case WHERE id=$1 FOR UPDATE', [id]);
   const current = await readRefundCase(c, id);
   if (current.approved_at) return current;
@@ -55,20 +50,24 @@ export async function approveRefund(
   );
   if (remaining > BigInt(account.refund_due_amount) - BigInt(approved.amount))
     reject('Số dư cần hoàn đã thay đổi; kiểm tra lại hồ sơ trước khi duyệt.');
-  const source = await one(
+  const source = await requireRefundSourceBudget(
     c,
-    "SELECT * FROM payment_transaction WHERE id=$1 AND session_id=$2 AND status='SUCCEEDED'",
-    [f.source_payment_transaction_id, f.session_id],
+    f.session_id,
+    f.source_payment_transaction_id,
+    id,
   );
-  const sourceCases = await one(
-    c,
-    "SELECT COALESCE(sum(amount),0) AS amount FROM refund_case WHERE source_payment_transaction_id=$1 AND status<>'CANCELLED'",
-    [source.id],
-  );
-  if (BigInt(sourceCases.amount) > BigInt(source.amount)) reject('Hoàn vượt giao dịch gốc.');
-  const relatedItemIds = f.order_item_id
-    ? [String(f.order_item_id)]
-    : (creationRelatedItemIds ?? (await readRefundRelatedItems(c, f.session_id, f.created_at)));
+  if (remaining > BigInt(source.available_refund_amount))
+    reject('Nguồn thu không còn đủ phần tiền cần hoàn sau khi trừ các phiếu khác.');
+  const refundKind = source.refund_context_kind;
+  // Only reversals funded by this exact receipt are item context. A QR overpay
+  // must not appear as a refund for unrelated canceled dishes in the session.
+  const priorReversals = new Set(await readRefundRelatedItems(c, f.session_id, f.created_at));
+  const relatedItemIds =
+    refundKind === 'UNAPPLIED_PAYMENT'
+      ? []
+      : f.order_item_id
+        ? [String(f.order_item_id)]
+        : source.reversed_item_ids.filter((itemId) => priorReversals.has(itemId));
   await c.query(
     "INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason,details) VALUES($1,$2,'REFUND_APPROVED','REFUND_CASE',$3,$4,$5)",
     [
@@ -81,6 +80,8 @@ export async function approveRefund(
         paymentId: source.id,
         amount: String(f.amount),
         associationVersion: 1,
+        refundKind,
+        associationScope: refundKind === 'MIXED_PAYMENT_BALANCE' ? 'SHARED_SESSION' : null,
         relatedItemIds,
       }),
     ],

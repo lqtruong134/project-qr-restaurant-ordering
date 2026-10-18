@@ -85,7 +85,7 @@ test('kitchen quick issue, global admin entry, durable staff conversation and al
       await post(kitchen!, '/core/items/' + item.id + '/prepare', {});
     }
     await post(kitchen!, '/core/items/' + good.id + '/ready', {});
-    await staff!.getByRole('button', { name: 'Tải lại', exact: true }).click();
+    await staff!.getByRole('button', { name: 'Làm mới', exact: true }).click();
     await staff!.getByRole('textbox', { name: 'Tìm tên hoặc mã bàn…' }).fill(code);
     const servingTable = staff!
       .locator('.table-tile')
@@ -120,10 +120,12 @@ test('kitchen quick issue, global admin entry, durable staff conversation and al
       expand = adminNav.getByRole('button', { name: 'Mở thanh điều hướng', exact: true });
     if (await expand.count()) await expand.click();
     await selectAdmin(admin!, 'Thực đơn');
-    const ticket = kitchen!
-      .locator('.order-card')
-      .filter({ has: kitchen!.getByRole('heading', { name: 'Bàn ' + code, exact: true }) });
+    const ticket = kitchen!.locator('.order-card').filter({
+      has: kitchen!.getByRole('heading', { name: new RegExp('^Bàn ' + code + '(?:\\s|·|$)') }),
+    });
     const item = ticket.locator('.core-order-item').filter({ hasText: faulty.name });
+    await kitchen!.bringToFront();
+    await kitchen!.getByRole('button', { name: 'Làm mới', exact: true }).click();
     await item.getByText('Báo sự cố và dừng món', { exact: false }).click();
     await item.getByRole('button', { name: 'Lỗi chế biến của nhà hàng', exact: true }).click();
     await expect(item.getByRole('textbox')).toHaveCount(0);
@@ -138,9 +140,9 @@ test('kitchen quick issue, global admin entry, durable staff conversation and al
     await item.getByRole('button', { name: 'Dừng món và báo sự cố', exact: true }).click();
     await expect(admin!.locator('.urgent-bar')).toContainText(/\d+ món \/ kho cần xử lý/);
     await admin!.locator('.urgent-entry').click();
-    const group = admin!
-      .locator('.inbox-case')
-      .filter({ has: admin!.getByRole('heading', { name: 'Bàn ' + code, exact: true }) });
+    const group = admin!.locator('.inbox-case').filter({
+      has: admin!.getByRole('heading', { name: new RegExp('^Bàn ' + code + '(?:\\s|·|$)') }),
+    });
     await expect(group).toContainText(faulty.name);
     await admin!
       .getByRole('textbox', { name: 'Tìm bàn, món hoặc mã phiên…', exact: true })
@@ -180,9 +182,8 @@ test('kitchen quick issue, global admin entry, durable staff conversation and al
         .getByRole('button', { name: /Việc chung/ }),
     ).toHaveAttribute('aria-pressed', 'true');
     await expect(staff!.getByLabel('Loại công việc')).toHaveValue('issue');
-    const tableCard = staff!
-      .locator('.queue-table-card')
-      .filter({ has: staff!.getByRole('heading', { name: code, exact: true }) });
+    const tableCard = staff!.locator('.queue-table-card[data-table-id="' + table.id + '"]');
+    await expect(tableCard.getByRole('heading')).toContainText(code);
     await expect(tableCard.getByRole('button')).toHaveCount(1);
     await tableCard.getByRole('button', { name: 'Chi tiết bàn', exact: true }).click();
     const communication = staff!
@@ -277,7 +278,7 @@ test('kitchen quick issue, global admin entry, durable staff conversation and al
       refundDialog.getByRole('button', { name: 'Xác nhận đã hoàn', exact: true }),
     ).toHaveCount(0);
     await expect(refundDialog.locator('form')).toHaveCount(0);
-    await staff!.getByRole('button', { name: 'Tải lại', exact: true }).click();
+    await staff!.getByRole('button', { name: 'Làm mới', exact: true }).click();
     await expect(tableCard).toContainText('Cần hoàn tiền');
     await tableCard.getByRole('button', { name: 'Chi tiết bàn', exact: true }).click();
     const staffRefundDialog = staff!.getByRole('dialog', {
@@ -300,7 +301,8 @@ test('kitchen quick issue, global admin entry, durable staff conversation and al
       .getByRole('button', { name: 'Xác nhận', exact: true })
       .click();
     await expect(completeRefund).toHaveCount(0);
-    await expect(refundDialog.locator('.admin-approved-refund')).toHaveCount(0);
+    await admin!.bringToFront();
+    await expect(refundDialog.locator('.admin-approved-refund')).toHaveCount(0, { timeout: 15000 });
     await staffRefundDialog.getByRole('button', { name: 'Đóng', exact: true }).click();
     await expect(tableCard).toHaveCount(0);
     await expect
@@ -367,9 +369,11 @@ test('stopping an accepted dish needs no note for a preset reason and creates se
     const orders = await (await staff.request.get('/api/core/orders')).json();
     const item = orders.find((o: { id: string }) => o.id === batch.id).items[0];
     await post(kitchen, '/core/items/' + item.id + '/accept', {});
-    const ticket = kitchen
-      .locator('.order-card')
-      .filter({ has: kitchen.getByRole('heading', { name: 'Bàn ' + code, exact: true }) });
+    const ticket = kitchen.locator('.order-card').filter({
+      has: kitchen.getByRole('heading', { name: new RegExp('^Bàn ' + code + '(?:\\s|·|$)') }),
+    });
+    await kitchen.bringToFront();
+    await kitchen.getByRole('button', { name: 'Làm mới', exact: true }).click();
     await ticket.locator('.rare-action summary').click();
     const form = ticket.locator('form').filter({
       has: kitchen.getByRole('heading', { name: 'Không thể phục vụ món này', exact: true }),
@@ -391,7 +395,7 @@ test('stopping an accepted dish needs no note for a preset reason and creates se
     let bill = await (await staff.request.get('/api/core/sessions/' + opened.id + '/bill')).json();
     expect(bill.account.charge_total).toBe('0');
     expect(bill.closure.canClose).toBe(false);
-    await staff.getByRole('button', { name: 'Tải lại', exact: true }).click();
+    await staff.getByRole('button', { name: 'Làm mới', exact: true }).click();
     await staff.getByRole('textbox', { name: 'Tìm tên hoặc mã bàn…' }).fill(code);
     await staff
       .locator('.table-tile')
@@ -466,7 +470,7 @@ test('stopping an accepted dish needs no note for a preset reason and creates se
     await expect(
       tablePayment.getByRole('heading', { name: 'Thanh toán cả bàn', exact: true }),
     ).toBeVisible();
-    for (const label of ['Đã thanh toán (sau hoàn)', 'Còn phải thanh toán']) {
+    for (const label of ['Đã tính vào tiền món', 'Còn phải thanh toán']) {
       await expect(
         tablePayment
           .locator(':scope > .inbox-facts > div')
@@ -474,9 +478,13 @@ test('stopping an accepted dish needs no note for a preset reason and creates se
           .locator('dd'),
       ).toHaveText('0 đ');
     }
-    await expect(tablePayment.locator(':scope > .inbox-facts > div')).toHaveCount(3);
+    await expect(tablePayment.locator(':scope > .inbox-facts > div')).toHaveCount(2);
+    await expect(tablePayment.locator(':scope > .inbox-facts dt')).toHaveText([
+      'Đã tính vào tiền món',
+      'Còn phải thanh toán',
+    ]);
     await expect(tablePayment.getByText('Đã hoàn cho khách', { exact: true })).toHaveCount(0);
-    await expect(tablePayment.getByText('Còn chờ hoàn tiền món', { exact: true })).toHaveCount(0);
+    await expect(tablePayment.getByText('Cần hoàn lại khách', { exact: true })).toHaveCount(0);
     await expect(stockDialog).toContainText(
       'Khách chưa thanh toán. Món bị dừng không tính tiền, nên không cần hoàn tiền.',
     );

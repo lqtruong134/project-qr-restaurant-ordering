@@ -188,7 +188,7 @@ test('prepaid cancellation separates guest notice, admin approval, cash change a
     expect(forbidden.status()).toBe(403);
 
     // Until an administrator approves a document, serving staff only need to inform the guest.
-    await staff.getByRole('button', { name: 'Tải lại', exact: true }).click();
+    await staff.getByRole('button', { name: 'Làm mới', exact: true }).click();
     await staff.getByRole('textbox', { name: 'Tìm tên hoặc mã bàn…' }).fill(code);
     await staff
       .locator('.table-tile')
@@ -246,9 +246,10 @@ test('prepaid cancellation separates guest notice, admin approval, cash change a
     const facts = inspection.getByRole('region', { name: 'Thanh toán cả bàn', exact: true });
     await expect(facts.locator('.billing-payable dd')).toHaveText('0 đ');
     for (const [label, amount] of [
-      ['Đã thanh toán (sau hoàn)', '49.000 đ'],
+      ['Đã tính vào tiền món', '0 đ'],
+      ['Đã nhận (trước hoàn)', '49.000 đ'],
       ['Còn phải thanh toán', '0 đ'],
-      ['Còn chờ hoàn tiền món', '49.000 đ'],
+      ['Cần hoàn lại khách', '49.000 đ'],
     ]) {
       await expect(
         facts
@@ -354,11 +355,12 @@ test('prepaid cancellation separates guest notice, admin approval, cash change a
         refund_due_amount: '0',
       });
 
-    await expect(refundDialog.locator('.admin-approved-refund')).toHaveCount(0);
+    await admin.bringToFront();
+    await expect(refundDialog.locator('.admin-approved-refund')).toHaveCount(0, { timeout: 15000 });
     await expect(
       refundDialog
         .locator('.bill-balance-grid > div')
-        .filter({ hasText: 'Đã thanh toán (sau hoàn)' })
+        .filter({ hasText: 'Đã tính vào tiền món' })
         .locator('strong'),
     ).toHaveText('0 đ');
 
@@ -396,7 +398,7 @@ test('prepaid cancellation separates guest notice, admin approval, cash change a
       .getByRole('button', { name: 'Thanh toán', exact: true })
       .click();
     const guestStats = guest.locator('.guest-content > .core-card > .core-stats');
-    for (const label of ['Đã thanh toán (sau hoàn)', 'Còn phải thanh toán'])
+    for (const label of ['Đã tính vào tiền món', 'Còn phải thanh toán'])
       await expect(guestStats.locator('p').filter({ hasText: label }).locator('strong')).toHaveText(
         '0 đ',
       );

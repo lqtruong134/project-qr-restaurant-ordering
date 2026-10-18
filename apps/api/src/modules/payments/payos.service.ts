@@ -12,6 +12,7 @@ import { createIntent } from './collection.service.js';
 import { requireCollectionOwner, finishPaymentRequests } from './payment-requests.routes.js';
 import { recalculate } from '../finance/ledger.service.js';
 import { consumePromotion } from '../finance/pricing.service.js';
+import { payosIntentFundsJoin, readRefundSourceBudgets } from './refund-budget.service.js';
 import {
   digest,
   one,
@@ -610,19 +611,24 @@ export class PayosService {
         );
         return { status: 'AWAITING_PROVIDER' };
       }
+      const quoteInvalidatedAtReceipt =
+        q.cancel_requested ||
+        ['CANCELLED', 'EXPIRED'].includes(pi.status) ||
+        new Date(pi.expires_at).getTime() <= Date.now();
       const late =
-        !['CREATED', 'PENDING', 'SUCCEEDED'].includes(pi.status) ||
-        new Date(pi.expires_at).getTime() <= Date.now() ||
-        q.cancel_requested;
-      await c.query(
-        `UPDATE payos_payment_request SET payment_link_id=$2,checkout_url=COALESCE(checkout_url,$3),provider_status=$4,paid_amount=$5,last_error=NULL,next_poll_at=now()+interval '30 seconds' WHERE id=$1`,
-        [q.id, link.id, checkout(link.id), link.status, actual.toString()],
-      );
+        !['CREATED', 'PENDING', 'SUCCEEDED'].includes(pi.status) || quoteInvalidatedAtReceipt;
       const hasNewMoney = link.transactions.some(
         (bank) =>
           ![...prior, ...oldQuarantine].some(
             (previous: Record<string, unknown>) => previous.reference === bank.reference,
           ),
+      );
+      // A signed replay still reports the original gross bank receipt after an
+      // actual refund. It must not reopen an admin-resolved overpayment forever.
+      if (q.reconciliation_status === 'RESOLVED' && !hasNewMoney) return { status: 'PROCESSED' };
+      await c.query(
+        `UPDATE payos_payment_request SET payment_link_id=$2,checkout_url=COALESCE(checkout_url,$3),provider_status=$4,paid_amount=$5,last_error=NULL,next_poll_at=now()+interval '30 seconds' WHERE id=$1`,
+        [q.id, link.id, checkout(link.id), link.status, actual.toString()],
       );
       let anomaly =
         q.reconciliation_status === 'OPEN' ||
@@ -694,6 +700,7 @@ export class PayosService {
               collectionScope: pi.collection_scope,
               payerParticipantId: pi.payer_participant_id,
               bankTransactionAt: bank.transactionDateTime,
+              quoteInvalidatedAtReceipt,
             }),
           ],
         );
@@ -1014,7 +1021,19 @@ export class PayosService {
   async cases() {
     return (
       await this.db.pool.query(
-        `SELECT p.id,p.session_id,t.code AS table_code,s.session_status,p.amount::text,q.paid_amount::text,COALESCE((SELECT sum((x->>'amount')::bigint) FROM jsonb_array_elements(q.quarantined_transactions) x),0)::text AS quarantined_amount,COALESCE(q.provider_status,q.status) AS provider_status,q.last_error,q.updated_at,q.reconciliation_reason AS reason,q.reconciliation_status AS status FROM payos_payment_request q JOIN payment_intent p ON p.id=q.payment_intent_id JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND q.reconciliation_status IS NOT NULL ORDER BY q.updated_at DESC LIMIT 100`,
+        `SELECT p.id,p.session_id,t.code AS table_code,s.session_status,p.amount::text,q.paid_amount::text,
+          COALESCE(funds.recorded_amount,0)::text AS recorded_amount,
+          COALESCE(funds.allocated_amount,0)::text AS allocated_amount,
+          COALESCE(funds.refunded_amount,0)::text AS refunded_amount,
+          COALESCE(funds.unapplied_amount,0)::text AS unapplied_amount,
+          COALESCE((SELECT sum((x->>'amount')::bigint) FROM jsonb_array_elements(q.quarantined_transactions) x),0)::text AS quarantined_amount,
+          COALESCE(q.provider_status,q.status) AS provider_status,q.last_error,q.updated_at,
+          q.reconciliation_reason AS reason,q.reconciliation_status AS status
+         FROM payos_payment_request q JOIN payment_intent p ON p.id=q.payment_intent_id
+         JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id
+         ${payosIntentFundsJoin}
+         WHERE t.restaurant_id=$1 AND q.reconciliation_status IS NOT NULL
+         ORDER BY q.updated_at DESC LIMIT 100`,
         [this.restaurant],
       )
     ).rows;
@@ -1047,7 +1066,27 @@ export class PayosService {
           )
         ).amount,
       );
+      const sources = (await readRefundSourceBudgets(c, pi.session_id, null, null, id)).filter(
+        (source) => source.provider === 'PAYOS',
+      );
+      const sourceDue = sources.reduce((sum, source) => sum + BigInt(source.refundable_amount), 0n);
+      if (sourceDue > 0n)
+        reject(
+          'Hoàn thực tế phần tiền chưa phân bổ của đúng giao dịch payOS trước khi đóng đối soát.',
+        );
+      if (
+        sources.some(
+          (source) =>
+            BigInt(source.amount) - BigInt(source.refunded_amount) !==
+            BigInt(source.allocated_amount),
+        )
+      )
+        reject(
+          'Sổ tiền payOS sau hoàn chưa khớp phân bổ. Kiểm tra nguồn hoàn trước khi đóng đối soát.',
+        );
       let reference: string | null = null;
+      let fulfilledQuote = false;
+      let cancelledQuote = false;
       if (s.session_status !== 'ACTIVE' || quarantine > 0n) {
         if (b.resolution !== 'RETURNED_EXTERNALLY' || quarantine <= 0n)
           reject('Tiền đến sau đóng phiên phải được hoàn ngoài phiếu đã chốt.');
@@ -1062,13 +1101,37 @@ export class PayosService {
           reject(
             'Tiền payOS chưa khớp sổ thu. Kiểm tra trạng thái và giao dịch trước khi đóng đối soát.',
           );
+        const originalApplied = sources.reduce(
+          (sum, source) => sum + BigInt(source.original_allocated_amount),
+          0n,
+        );
+        fulfilledQuote = originalApplied >= BigInt(pi.amount);
+        if (q.provider_status === 'PAID' && !fulfilledQuote) {
+          const invalidated = await one(
+            c,
+            `SELECT EXISTS(SELECT 1 FROM payment_transaction t
+              WHERE t.payment_intent_id=$1 AND t.provider='PAYOS' AND t.status='SUCCEEDED'
+                AND (t.metadata->>'quoteInvalidatedAtReceipt'='true'
+                  OR t.confirmed_at >= $2::timestamptz)) AS before_receipt`,
+            [id, pi.expires_at],
+          );
+          if (!invalidated.before_receipt)
+            reject(
+              'Khoản thu chưa được phân bổ đủ cho phạm vi đã yêu cầu; không thể xác nhận đã thanh toán.',
+            );
+          // A canceled/expired quote can be closed after actual returns without
+          // claiming that its original, now invalid scope was fully paid.
+          cancelledQuote = true;
+        }
         const account = await recalculate(c, pi.session_id);
         if (BigInt(account.refund_due_amount) > 0n)
           reject('Hoàn tất phiếu hoàn tiền cho khách trước khi đóng đối soát.');
       }
       // Externally returned, quarantined funds never become a successful bill payment.
       const onlineStatus =
-        reference && captured < BigInt(pi.amount) ? 'CANCELLED' : q.provider_status;
+        cancelledQuote || (reference && captured < BigInt(pi.amount))
+          ? 'CANCELLED'
+          : q.provider_status;
       const intentStatus = onlineStatus === 'PAID' ? 'SUCCEEDED' : onlineStatus;
       await c.query(
         `UPDATE payos_payment_request SET reconciliation_status='RESOLVED',resolved_by=$2,resolved_at=now(),reconciliation_reason=$3,last_error=NULL,status=$4 WHERE id=$1`,
@@ -1078,7 +1141,7 @@ export class PayosService {
         id,
         intentStatus,
       ]);
-      if (!reference && captured >= BigInt(pi.amount)) {
+      if (!reference && fulfilledQuote) {
         const settled = await recalculate(c, pi.session_id);
         await finishPaymentRequests(
           c,

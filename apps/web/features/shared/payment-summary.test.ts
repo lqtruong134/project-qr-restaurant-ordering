@@ -16,6 +16,8 @@ describe('payment totals distinguish invoice collections from actual refunds', (
       collectedTotal: 143000n,
       refundedTotal: 49000n,
       netPaid: 94000n,
+      appliedTotal: 94000n,
+      unappliedHeld: 0n,
       outstanding: 0n,
       refundDue: 0n,
     });
@@ -54,6 +56,78 @@ describe('payment totals distinguish invoice collections from actual refunds', (
     });
     expect(totals.netPaid).toBe(0n);
     expect(totals.outstanding).toBe(15000n);
+  });
+
+  it('keeps money applied to items separate from a partial overpayment that must be returned', () => {
+    const totals = paymentSummary({
+      charge_total: '20000',
+      paid_total: '12000',
+      refunded_total: '0',
+      outstanding_amount: '10000',
+      refund_due_amount: '2000',
+    });
+    expect(totals).toMatchObject({
+      collectedTotal: 12000n,
+      netPaid: 12000n,
+      appliedTotal: 10000n,
+      unappliedHeld: 2000n,
+      outstanding: 10000n,
+      refundDue: 2000n,
+    });
+    expect(totals.netPaid).toBe(totals.appliedTotal + totals.unappliedHeld);
+    const returned = paymentSummary({
+      charge_total: '20000',
+      paid_total: '12000',
+      refunded_total: '2000',
+      outstanding_amount: '10000',
+      refund_due_amount: '0',
+    });
+    expect(returned).toMatchObject({
+      netPaid: 10000n,
+      appliedTotal: 10000n,
+      outstanding: 10000n,
+      refundDue: 0n,
+    });
+  });
+
+  it('does not count a full-bill overpayment as additional invoice coverage', () => {
+    expect(
+      paymentSummary({
+        charge_total: '20000',
+        paid_total: '22000',
+        outstanding_amount: '0',
+        refund_due_amount: '2000',
+      }),
+    ).toMatchObject({
+      netPaid: 22000n,
+      appliedTotal: 20000n,
+      unappliedHeld: 2000n,
+    });
+  });
+
+  it('preserves balanced closed receipts and keeps a written-off charge out of invoice coverage', () => {
+    expect(
+      paymentSummary({
+        charge_total: '20000',
+        paid_total: '20000',
+        outstanding_amount: '0',
+        refund_due_amount: '0',
+      }).appliedTotal,
+    ).toBe(20000n);
+    expect(
+      paymentSummary({
+        charge_total: '10000',
+        paid_total: '12000',
+        refunded_total: '2000',
+        outstanding_amount: '0',
+        refund_due_amount: '0',
+      }),
+    ).toMatchObject({
+      netPaid: 10000n,
+      appliedTotal: 10000n,
+      refundDue: 0n,
+    });
+    expect(paymentSummary({ charge_total: '20000', paid_total: '12000' }).appliedTotal).toBe(0n);
   });
 
   it('keeps whole-dong precision beyond Number safe integer values', () => {

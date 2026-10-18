@@ -42,3 +42,37 @@ export function onlineReceivedIncrease(previous: Row[], next: Row[]) {
     return sum + (increase > 0n ? increase : 0n);
   }, 0n);
 }
+
+export type OnlineIntentFunds = {
+  recorded: bigint;
+  applied: bigint;
+  refunded: bigint;
+  refundable: bigint;
+};
+/** Sum the source budgets already computed by the server; do not spend unallocated money on other items. */
+export function onlineIntentFunds(
+  intentId: string,
+  payments: Row[],
+): OnlineIntentFunds | undefined {
+  const rows = payments.filter(
+    (payment) => payment.status === 'SUCCEEDED' && payment.payment_intent_id === intentId,
+  );
+  if (
+    !rows.length ||
+    rows.some((payment) =>
+      ['amount', 'allocated_amount', 'refunded_amount', 'refundable_amount'].some(
+        (field) => !/^\d+$/.test(String(payment[field] ?? '')),
+      ),
+    )
+  )
+    return undefined;
+  return rows.reduce(
+    (sum, payment) => ({
+      recorded: sum.recorded + BigInt(String(payment.amount)),
+      applied: sum.applied + BigInt(String(payment.allocated_amount)),
+      refunded: sum.refunded + BigInt(String(payment.refunded_amount)),
+      refundable: sum.refundable + BigInt(String(payment.refundable_amount)),
+    }),
+    { recorded: 0n, applied: 0n, refunded: 0n, refundable: 0n },
+  );
+}

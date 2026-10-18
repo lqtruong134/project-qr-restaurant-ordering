@@ -500,6 +500,462 @@ it('overpayment is actual received money, allocations capped and refund follows 
   b = await bill(p.sid);
   expect(b.account.refund_due_amount).toBe('0');
 });
+
+async function activeAllocations(sid: string) {
+  return (
+    await db.pool.query(
+      'SELECT COALESCE(sum(a.allocated_amount-a.reversed_amount),0)::text AS amount FROM payment_allocation a JOIN financial_charge f ON f.id=a.financial_charge_id WHERE f.session_id=$1 AND f.status=$2',
+      [sid, 'ACTIVE'],
+    )
+  ).rows[0].amount as string;
+}
+async function reconcile(id: string) {
+  return request(
+    '/core/admin/payment-reconciliation/' + id + '/resolve',
+    { resolution: 'RECONCILED', reason: 'Đã đối chiếu và thực hoàn đúng nguồn chuyển dư' },
+    'quyettruong05',
+  );
+}
+
+it.each(['TABLE', 'PARTICIPANT'] as const)(
+  '%s partial-quote overpayment stays refundable at its source until actual returns, without funding another scope',
+  async (scope) => {
+    const p = await party(scope === 'PARTICIPANT' ? '10000' : '20000');
+    const guest = scope === 'PARTICIPANT' ? await joinGuest(p.table.id, 'Khách trả riêng') : null;
+    if (guest) await guestOrder(guest.cookie, p.product.id);
+    const intent = await create(
+      p.sid,
+      '10000',
+      guest ? { collectionScope: 'PARTICIPANT', participantId: guest.id } : {},
+    );
+    const event = await webhook(intent, 12000);
+    expect((await deliver(event)).statusCode).toBe(200);
+    let b = await bill(p.sid);
+    const source = b.payments.find(
+      (entry: { payment_intent_id: string }) => entry.payment_intent_id === intent.id,
+    );
+    expect(source).toBeDefined();
+    expect(b.account).toMatchObject({
+      charge_total: '20000',
+      paid_total: '12000',
+      refunded_total: '0',
+      outstanding_amount: '10000',
+      refund_due_amount: '2000',
+    });
+    expect(await activeAllocations(p.sid)).toBe('10000');
+    expect(source).toMatchObject({
+      amount: '12000',
+      allocated_amount: '10000',
+      refunded_amount: '0',
+      refundable_amount: '2000',
+      pending_refund_amount: '0',
+      available_refund_amount: '2000',
+    });
+    expect((await reconcile(intent.id)).statusCode).toBe(409);
+    expect((await request('/core/sessions/' + p.sid + '/close', {})).statusCode).toBe(409);
+    const cases = await ok('/core/admin/payment-reconciliation', undefined, 'quyettruong05');
+    expect(cases.find((entry: { id: string }) => entry.id === intent.id)).toMatchObject({
+      recorded_amount: '12000',
+      allocated_amount: '10000',
+      refunded_amount: '0',
+      unapplied_amount: '2000',
+    });
+    const body = {
+      amount: '2000',
+      paymentId: source.id,
+      reason: 'Hoàn đúng phần dư của khoản thu từng phần',
+      requestId: randomUUID(),
+    };
+    const refund = await ok('/core/sessions/' + p.sid + '/refunds', body, 'quyettruong05');
+    expect((await ok('/core/sessions/' + p.sid + '/refunds', body, 'quyettruong05')).id).toBe(
+      refund.id,
+    );
+    expect(
+      (
+        await request(
+          '/core/sessions/' + p.sid + '/refunds',
+          { ...body, amount: '1', requestId: randomUUID() },
+          'quyettruong05',
+        )
+      ).statusCode,
+    ).toBe(409);
+    b = await bill(p.sid);
+    expect(b.payments.find((entry: { id: string }) => entry.id === source.id)).toMatchObject({
+      pending_refund_amount: '2000',
+      available_refund_amount: '0',
+    });
+    expect((await reconcile(intent.id)).statusCode).toBe(409);
+    const staff = await db.prisma.app_user.findFirstOrThrow({ where: { username: 'pv001' } });
+    await db.prisma.refund_transaction.create({
+      data: {
+        refund_case_id: refund.id,
+        method: 'BANK_TRANSFER',
+        amount: 2000n,
+        reference: 'FAILED-ISOLATED-' + randomUUID(),
+        status: 'FAILED',
+        processed_by: staff.id,
+      },
+    });
+    expect((await bill(p.sid)).account).toMatchObject({
+      refunded_total: '0',
+      outstanding_amount: '10000',
+      refund_due_amount: '2000',
+    });
+    expect((await reconcile(intent.id)).statusCode).toBe(409);
+    const firstReturn = { amount: '1000', method: 'CASH', requestId: randomUUID() };
+    await ok('/core/refunds/' + refund.id + '/complete', firstReturn);
+    await ok('/core/refunds/' + refund.id + '/complete', firstReturn);
+    expect((await bill(p.sid)).account).toMatchObject({
+      paid_total: '12000',
+      refunded_total: '1000',
+      outstanding_amount: '10000',
+      refund_due_amount: '1000',
+    });
+    expect((await reconcile(intent.id)).statusCode).toBe(409);
+    const secondReturn = { ...firstReturn, requestId: randomUUID() };
+    await ok('/core/refunds/' + refund.id + '/complete', secondReturn);
+    await ok('/core/refunds/' + refund.id + '/complete', secondReturn);
+    expect(
+      await db.prisma.refund_transaction.count({
+        where: { refund_case_id: refund.id, status: 'SUCCEEDED' },
+      }),
+    ).toBe(2);
+    expect((await reconcile(intent.id)).statusCode).toBe(200);
+    const allocationCount = await db.prisma.payment_allocation.count({
+      where: { payment_transaction_id: source.id },
+    });
+    expect((await deliver(event)).statusCode).toBe(200);
+    const recovered = await ok('/core/payments/' + intent.id + '/refresh', {});
+    expect(recovered).toMatchObject({
+      status: 'SUCCEEDED',
+      online: { status: 'PAID', paidAmount: '12000' },
+    });
+    expect(await storedOnline(intent.id)).toMatchObject({
+      status: 'PAID',
+      reconciliation_status: 'RESOLVED',
+    });
+    expect(await bankLedger(intent.id)).toEqual({ count: 1, amount: '12000' });
+    expect(await activeAllocations(p.sid)).toBe('10000');
+    expect(
+      await db.prisma.payment_allocation.count({
+        where: { payment_transaction_id: source.id },
+      }),
+    ).toBe(allocationCount);
+    b = await bill(p.sid);
+    expect(b.account).toMatchObject({
+      paid_total: '12000',
+      refunded_total: '2000',
+      outstanding_amount: '10000',
+      refund_due_amount: '0',
+    });
+    if (guest) {
+      const state = await ok('/guest/state', undefined, guest.cookie);
+      expect(
+        state.onlinePayments.find((entry: GuestOnlinePayment) => entry.scope === 'PARTICIPANT'),
+      ).toMatchObject({
+        paidAmount: '12000',
+        bankConfirmedAmount: '12000',
+        appliedAmount: '10000',
+        refundedAmount: '2000',
+        refundableAmount: '0',
+        remainingAmount: '0',
+      });
+    }
+    const remainder = await create(p.sid, '10000');
+    expect((await deliver(await webhook(remainder, 10000))).statusCode).toBe(200);
+    b = await bill(p.sid);
+    expect(b.account).toMatchObject({
+      charge_total: '20000',
+      paid_total: '22000',
+      refunded_total: '2000',
+      outstanding_amount: '0',
+      refund_due_amount: '0',
+    });
+    expect(await activeAllocations(p.sid)).toBe('20000');
+    const items = (
+      await db.pool.query(
+        'SELECT i.id FROM order_item i JOIN order_batch batch ON batch.id=i.order_batch_id WHERE batch.session_id=$1',
+        [p.sid],
+      )
+    ).rows;
+    for (const item of items) {
+      for (const action of ['accept', 'prepare', 'ready'])
+        await ok('/core/items/' + item.id + '/' + action, {}, 'bep001');
+      await ok('/core/items/' + item.id + '/serve', {});
+    }
+    b = await bill(p.sid);
+    await ok('/core/sessions/' + p.sid + '/receipt-provided', {
+      delivery: 'DECLINED',
+      layout: 'standard',
+      billKey: b.completion.receiptKey,
+    });
+    expect((await bill(p.sid)).closure.canClose).toBe(true);
+    await ok('/core/sessions/' + p.sid + '/close', {});
+  },
+);
+
+it('a whole 20k bill receiving 22k returns only the unallocated 2k and preserves its fully funded charges', async () => {
+  const p = await party('20000');
+  const intent = await create(p.sid, '20000');
+  const event = await webhook(intent, 22000);
+  expect((await deliver(event)).statusCode).toBe(200);
+  let b = await bill(p.sid);
+  expect(b.account).toMatchObject({
+    charge_total: '20000',
+    paid_total: '22000',
+    outstanding_amount: '0',
+    refund_due_amount: '2000',
+  });
+  expect(await activeAllocations(p.sid)).toBe('20000');
+  expect((await reconcile(intent.id)).statusCode).toBe(409);
+  const refund = await ok(
+    '/core/sessions/' + p.sid + '/refunds',
+    {
+      paymentId: b.payments[0].id,
+      amount: '2000',
+      reason: 'Hoàn phần chuyển dư cả hóa đơn',
+      requestId: randomUUID(),
+    },
+    'quyettruong05',
+  );
+  await ok('/core/refunds/' + refund.id + '/complete', {
+    amount: '2000',
+    method: 'CASH',
+    requestId: randomUUID(),
+  });
+  expect((await reconcile(intent.id)).statusCode).toBe(200);
+  expect((await deliver(event)).statusCode).toBe(200);
+  b = await bill(p.sid);
+  expect(b.account).toMatchObject({
+    paid_total: '22000',
+    refunded_total: '2000',
+    outstanding_amount: '0',
+    refund_due_amount: '0',
+  });
+  expect(await activeAllocations(p.sid)).toBe('20000');
+});
+
+it('wrong source refunds cannot consume cash already allocated to active dishes at create, approve or complete', async () => {
+  const p = await party('20000');
+  const cashIntent = await ok('/core/sessions/' + p.sid + '/payments', {
+    method: 'CASH',
+    amount: '10000',
+    requestId: randomUUID(),
+  });
+  const cash = await ok('/core/payments/' + cashIntent.id + '/confirm', {
+    amount: '10000',
+    receivedAmount: '10000',
+  });
+  const online = await create(p.sid, '10000');
+  expect((await deliver(await webhook(online, 12000))).statusCode).toBe(200);
+  expect((await bill(p.sid)).account).toMatchObject({
+    paid_total: '22000',
+    outstanding_amount: '0',
+    refund_due_amount: '2000',
+  });
+  const body = {
+    amount: '2000',
+    paymentId: cash.id,
+    reason: 'Nguồn tiền mặt vẫn đang bảo đảm món chưa hủy',
+    requestId: randomUUID(),
+  };
+  const rejected = await request('/core/sessions/' + p.sid + '/refunds', body, 'quyettruong05');
+  expect(rejected.statusCode).toBe(409);
+  expect(rejected.body).toContain('đang phân bổ');
+  // Old unapproved/approved documents must not bypass the per-source guard.
+  const legacy = await db.prisma.refund_case.create({
+    data: {
+      session_id: p.sid,
+      source_payment_transaction_id: cash.id,
+      amount: 2000n,
+      reason: body.reason,
+    },
+  });
+  expect(
+    (await request('/core/refunds/' + legacy.id + '/approve', {}, 'quyettruong05')).statusCode,
+  ).toBe(409);
+  const admin = await db.prisma.app_user.findFirstOrThrow({ where: { username: 'quyettruong05' } });
+  await db.prisma.business_audit_event.create({
+    data: {
+      restaurant_id: restaurantId,
+      actor_id: admin.id,
+      action: 'REFUND_APPROVED',
+      resource_type: 'REFUND_CASE',
+      resource_id: legacy.id,
+      reason: 'Isolated historical approval fixture before per-source validation',
+      details: { amount: '2000', paymentId: cash.id },
+    },
+  });
+  const complete = await request('/core/refunds/' + legacy.id + '/complete', {
+    amount: '2000',
+    method: 'CASH',
+    requestId: randomUUID(),
+  });
+  expect(complete.statusCode).toBe(409);
+  expect(complete.body).toContain('Nguồn thu');
+  expect(await db.prisma.refund_transaction.count({ where: { refund_case_id: legacy.id } })).toBe(
+    0,
+  );
+  expect(await activeAllocations(p.sid)).toBe('20000');
+  expect((await bill(p.sid)).account.refunded_total).toBe('0');
+});
+
+it('a later waiver releases only the same source allocation and still requires an actual full return before reconciliation', async () => {
+  const p = await party('20000');
+  const intent = await create(p.sid, '10000');
+  expect((await deliver(await webhook(intent, 12000))).statusCode).toBe(200);
+  for (const action of ['accept', 'prepare', 'ready'])
+    await ok('/core/items/' + p.item.id + '/' + action, {}, 'bep001');
+  await ok('/core/items/' + p.item.id + '/serve', {});
+  await ok(
+    '/core/items/' + p.item.id + '/waive',
+    { reasonCode: 'QUALITY_ISSUE', note: 'Đã xác nhận khiếu nại sau khoản trả trước' },
+    'quyettruong05',
+  );
+  let b = await bill(p.sid);
+  expect(b.account).toMatchObject({
+    charge_total: '0',
+    paid_total: '12000',
+    outstanding_amount: '0',
+    refund_due_amount: '12000',
+  });
+  expect(await activeAllocations(p.sid)).toBe('0');
+  const source = b.payments[0];
+  expect(source).toMatchObject({ allocated_amount: '0', available_refund_amount: '12000' });
+  expect((await reconcile(intent.id)).statusCode).toBe(409);
+  const refund = await ok(
+    '/core/sessions/' + p.sid + '/refunds',
+    {
+      paymentId: source.id,
+      amount: '12000',
+      reason: 'Hoàn tiền món được miễn và phần chuyển dư cùng nguồn',
+      requestId: randomUUID(),
+    },
+    'quyettruong05',
+  );
+  await ok('/core/refunds/' + refund.id + '/complete', {
+    amount: '12000',
+    method: 'CASH',
+    requestId: randomUUID(),
+  });
+  expect((await reconcile(intent.id)).statusCode).toBe(200);
+  b = await bill(p.sid);
+  expect(b.account).toMatchObject({
+    charge_total: '0',
+    paid_total: '12000',
+    refunded_total: '12000',
+    outstanding_amount: '0',
+    refund_due_amount: '0',
+  });
+  expect(await activeAllocations(p.sid)).toBe('0');
+  expect((await ok('/core/payments/' + intent.id + '/refresh', {})).online.status).toBe('PAID');
+});
+
+it.each([
+  { label: 'partially', initial: '8000', returned: '2000', kept: '8000' },
+  { label: 'fully', initial: '10000', returned: '10000', kept: '0' },
+])(
+  'a quote invalidated $label before receipt reconciles as cancelled after its exact unapplied funds are returned',
+  async ({ initial, returned, kept }) => {
+    const p = await party(initial);
+    let waived = p.item.id;
+    if (returned === '2000') {
+      const category = await db.prisma.menu_category.findFirstOrThrow();
+      const extra = await ok(
+        '/core/products',
+        {
+          code: 'INVALIDATED-' + randomUUID().slice(0, 7),
+          name: 'Phần món miễn trước khi ngân hàng nhận',
+          categoryId: category.id,
+          price: '2000',
+          stockManaged: false,
+        },
+        'quyettruong05',
+      );
+      const batch = await ok('/core/sessions/' + p.sid + '/orders', {
+        requestId: randomUUID(),
+        lines: [{ productId: extra.id, quantity: 1 }],
+      });
+      waived = (
+        await db.prisma.order_item.findFirstOrThrow({
+          where: { order_batch_id: batch.id },
+        })
+      ).id;
+    }
+    for (const action of ['accept', 'prepare', 'ready'])
+      await ok('/core/items/' + waived + '/' + action, {}, 'bep001');
+    await ok('/core/items/' + waived + '/serve', {});
+    const guest = await joinGuest(p.table.id, 'Khách khoản thu bị thay đổi');
+    const support = await ok('/guest/payment-requests', { method: 'ONLINE' }, guest.cookie);
+    await ok('/core/support/' + support.id + '/claim', {});
+    const intent = await create(p.sid, '10000', { supportRequestId: support.id });
+    await ok(
+      '/core/items/' + waived + '/waive',
+      {
+        reasonCode: 'QUALITY_ISSUE',
+        note: 'Đã miễn món trước thời điểm khách chuyển tiền',
+      },
+      'quyettruong05',
+    );
+    expect((await bill(p.sid)).account.charge_total).toBe(kept);
+    const event = await webhook(intent, 10000);
+    expect((await deliver(event)).statusCode).toBe(200);
+    let b = await bill(p.sid);
+    expect(b.account).toMatchObject({
+      charge_total: kept,
+      paid_total: '10000',
+      refunded_total: '0',
+      outstanding_amount: '0',
+      refund_due_amount: returned,
+    });
+    expect(await activeAllocations(p.sid)).toBe(kept);
+    expect((await reconcile(intent.id)).statusCode).toBe(409);
+    const source = b.payments.find(
+      (entry: { payment_intent_id: string }) => entry.payment_intent_id === intent.id,
+    );
+    expect(source.available_refund_amount).toBe(returned);
+    const refund = await ok(
+      '/core/sessions/' + p.sid + '/refunds',
+      {
+        paymentId: source.id,
+        amount: returned,
+        requestId: randomUUID(),
+        reason: 'Hoàn phần tiền của báo giá không còn hợp lệ trước giao dịch ngân hàng',
+      },
+      'quyettruong05',
+    );
+    await ok('/core/refunds/' + refund.id + '/complete', {
+      amount: returned,
+      method: 'CASH',
+      requestId: randomUUID(),
+    });
+    expect((await reconcile(intent.id)).statusCode).toBe(200);
+    expect(await storedOnline(intent.id)).toMatchObject({
+      status: 'CANCELLED',
+      provider_status: 'PAID',
+      reconciliation_status: 'RESOLVED',
+    });
+    expect(
+      (await bill(p.sid)).intents.find((entry: { id: string }) => entry.id === intent.id).status,
+    ).toBe('CANCELLED');
+    expect(
+      (await db.prisma.support_request.findUniqueOrThrow({ where: { id: support.id } })).status,
+    ).not.toBe('RESOLVED');
+    expect((await deliver(event)).statusCode).toBe(200);
+    const refreshed = await ok('/core/payments/' + intent.id + '/refresh', {});
+    expect(refreshed).toMatchObject({ status: 'CANCELLED', online: { status: 'CANCELLED' } });
+    expect(await activeAllocations(p.sid)).toBe(kept);
+    expect(await bankLedger(intent.id)).toEqual({ count: 1, amount: '10000' });
+    b = await bill(p.sid);
+    expect(b.account).toMatchObject({
+      paid_total: '10000',
+      refunded_total: returned,
+      outstanding_amount: '0',
+      refund_due_amount: '0',
+    });
+  },
+);
+
 it('stale authenticated snapshot cannot downgrade a paid link or bank references', async () => {
   const p = await party('10000'),
     i = await create(p.sid, '10000'),
@@ -534,7 +990,17 @@ it('closed receipt stays frozen and extra late money is quarantined outside the 
   const before = (
     await db.pool.query('SELECT receipt_snapshot FROM table_session WHERE id=$1', [p.sid])
   ).rows[0].receipt_snapshot;
+  const reportBefore = await sessionReconciliation(p.sid);
+  expect(reportBefore.rows[0]).toMatchObject({
+    payable: '10000',
+    collected: '10000',
+    refunded: '0',
+    outstanding: '0',
+    refundDue: '0',
+    appliedAmount: '10000',
+  });
   await deliver(await webhook(i, 2000));
+  expect((await sessionReconciliation(p.sid)).rows).toEqual(reportBefore.rows);
   const after = (
     await db.pool.query('SELECT receipt_snapshot FROM table_session WHERE id=$1', [p.sid])
   ).rows[0].receipt_snapshot;
@@ -1013,12 +1479,22 @@ it('guest online snapshots are table/participant scoped, private, and follow par
       'status',
       'paidAmount',
       'bankConfirmedAmount',
+      'appliedAmount',
+      'refundedAmount',
+      'refundableAmount',
       'remainingAmount',
       'expiresAt',
       'createdAt',
     ].sort(),
   );
-  expect(own).toMatchObject({ paidAmount: '0', bankConfirmedAmount: '0', remainingAmount: '5000' });
+  expect(own).toMatchObject({
+    paidAmount: '0',
+    bankConfirmedAmount: '0',
+    appliedAmount: '0',
+    refundedAmount: '0',
+    refundableAmount: '0',
+    remainingAmount: '5000',
+  });
   const safe = JSON.stringify(stateA.onlinePayments);
   for (const secret of [
     'orderCode',
@@ -1303,4 +1779,140 @@ it('resolution guards reject missing or wrong human actors while allowing explic
     resolution_actor_type: 'SYSTEM',
     resolved_by: null,
   });
+});
+
+async function sessionReconciliation(sid: string, filter = '') {
+  return ok(
+    '/core/admin/reports?view=reconciliation&period=all&search=' +
+      encodeURIComponent(sid) +
+      '&filter=' +
+      filter,
+    undefined,
+    'quyettruong05',
+  );
+}
+
+it.each(['12000', '20000'])(
+  'reconciliation reports keep due and refundable source funds separate when a 10k quote receives %s on a 20k bill',
+  async (received) => {
+    const p = await party('20000');
+    const intent = await create(p.sid, '10000');
+    expect((await deliver(await webhook(intent, Number(received)))).statusCode).toBe(200);
+    const refundDue = (BigInt(received) - 10000n).toString();
+    let report = await sessionReconciliation(p.sid);
+    expect(report.total).toBe(1);
+    expect(report.rows[0]).toMatchObject({
+      id: p.sid,
+      payable: '20000',
+      collected: received,
+      refunded: '0',
+      outstanding: '10000',
+      refundDue,
+      appliedAmount: '10000',
+      financialBalance: (20000n - BigInt(received)).toString(),
+      balance: (20000n - BigInt(received)).toString(),
+    });
+    expect(report.summary).toMatchObject({
+      sessions: 1,
+      balanced: 0,
+      outstanding: '10000',
+      refundDue,
+      appliedAmount: '10000',
+    });
+    for (const filter of ['due', 'refund']) {
+      const filtered = await sessionReconciliation(p.sid, filter);
+      expect(filtered.rows.map((row: { id: string }) => row.id)).toEqual([p.sid]);
+      expect(filtered.summary).toMatchObject({
+        balanced: 0,
+        outstanding: '10000',
+        refundDue,
+      });
+    }
+    const balanced = await sessionReconciliation(p.sid, 'balanced');
+    expect(balanced.total).toBe(0);
+    expect(balanced.summary).toMatchObject({ outstanding: '0', refundDue: '0', balanced: 0 });
+    expect(await activeAllocations(p.sid)).toBe('10000');
+    const b = await bill(p.sid);
+    const refund = await ok(
+      '/core/sessions/' + p.sid + '/refunds',
+      {
+        paymentId: b.payments[0].id,
+        amount: refundDue,
+        reason: 'Hoàn phần chuyển dư của fixture báo cáo đối soát',
+        requestId: randomUUID(),
+      },
+      'quyettruong05',
+    );
+    expect((await sessionReconciliation(p.sid)).summary.refundDue).toBe(refundDue);
+    await ok('/core/refunds/' + refund.id + '/complete', {
+      amount: refundDue,
+      method: 'CASH',
+      requestId: randomUUID(),
+    });
+    report = await sessionReconciliation(p.sid);
+    expect(report.summary).toMatchObject({
+      outstanding: '10000',
+      refundDue: '0',
+      balanced: 0,
+    });
+    expect(report.rows[0]).toMatchObject({
+      collected: received,
+      refunded: refundDue,
+      appliedAmount: '10000',
+      financialBalance: '10000',
+    });
+    expect((await sessionReconciliation(p.sid, 'refund')).total).toBe(0);
+    expect((await sessionReconciliation(p.sid, 'due')).total).toBe(1);
+    expect((await reconcile(intent.id)).statusCode).toBe(200);
+    const remainder = await create(p.sid, '10000');
+    expect((await deliver(await webhook(remainder, 10000))).statusCode).toBe(200);
+    report = await sessionReconciliation(p.sid, 'balanced');
+    expect(report.total).toBe(1);
+    expect(report.rows[0]).toMatchObject({
+      appliedAmount: '20000',
+      outstanding: '0',
+      refundDue: '0',
+      financialBalance: '0',
+    });
+    expect(report.summary).toMatchObject({ balanced: 1, outstanding: '0', refundDue: '0' });
+  },
+);
+
+it('reconciliation reports subtract written-off debt from due without treating it as payment', async () => {
+  const p = await party('20000');
+  const debt = await ok('/core/sessions/' + p.sid + '/outstanding', {
+    reason: 'LEFT_WITHOUT_PAYING',
+    notes: 'Isolated report write-off fixture',
+  });
+  const before = await sessionReconciliation(p.sid);
+  expect(before.summary).toMatchObject({ outstanding: '20000', refundDue: '0', balanced: 0 });
+  for (const action of ['accept', 'prepare', 'ready'])
+    await ok('/core/items/' + p.item.id + '/' + action, {}, 'bep001');
+  await ok('/core/items/' + p.item.id + '/serve', {});
+  await ok(
+    '/core/outstanding/' + debt.id + '/write-off',
+    { reason: 'Isolated report debt write-off after service completion' },
+    'quyettruong05',
+  );
+  const report = await sessionReconciliation(p.sid, 'balanced');
+  expect(report.total).toBe(1);
+  expect(report.rows[0]).toMatchObject({
+    payable: '20000',
+    collected: '0',
+    refunded: '0',
+    written_off: '20000',
+    outstanding: '0',
+    refundDue: '0',
+    appliedAmount: '0',
+    financialBalance: '0',
+    session_status: 'CLOSED',
+  });
+  expect(report.summary).toMatchObject({
+    balanced: 1,
+    outstanding: '0',
+    refundDue: '0',
+    appliedAmount: '0',
+  });
+  expect((await sessionReconciliation(p.sid, 'due')).total).toBe(0);
+  expect((await sessionReconciliation(p.sid, 'refund')).total).toBe(0);
 });

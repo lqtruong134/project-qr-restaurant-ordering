@@ -579,8 +579,7 @@ export function LastPayment({ payment }: { payment: Row }) {
     <section className="last-payment">
       <h3>Lần thanh toán gần nhất</h3>
       <p>
-        {paymentMethodLabel(payment.method)} - Thanh toán cho món{' '}
-        <strong>{vnd(payment.amount)}</strong>
+        {paymentMethodLabel(payment.method)} - Đã nhận <strong>{vnd(payment.amount)}</strong>
       </p>
       {payment.method === 'CASH' && (payment.cash_received_amount ?? m?.cashReceived) && (
         <CashPreview
@@ -602,7 +601,19 @@ export function LastPayment({ payment }: { payment: Row }) {
       {payment.method === 'ONLINE' && (
         <p className="small-note">Hệ thống đã xác minh thanh toán qua payOS.</p>
       )}
-      <p className="small-note">Khoản thanh toán lần này chưa trừ tiền hoàn do hủy món.</p>
+      {payment.allocated_amount !== undefined && (
+        <p className="small-note">
+          Đã tính vào tiền món: <strong>{vnd(payment.allocated_amount)}</strong>
+          {BigInt(String(payment.refundable_amount ?? 0)) > 0n && (
+            <>
+              {' '}
+              · Cần hoàn lại khách: <strong>{vnd(payment.refundable_amount)}</strong>
+            </>
+          )}
+          .
+        </p>
+      )}
+      <p className="small-note">Số tiền nhận lần này chưa trừ các khoản thực tế hoàn lại khách.</p>
       {!!m?.proof && payment.payment_intent_id && (
         <a
           href={'/api/core/payments/' + payment.payment_intent_id + '/proof'}

@@ -1,6 +1,7 @@
 import { PayosService } from './payos.service.js';
 import { completionStatus } from './completion.service.js';
-import { readRefundContext, readRefundRelatedItems } from './refund-context.service.js';
+import { readRefundContext } from './refund-context.service.js';
+import { requireRefundSourceBudget } from './refund-budget.service.js';
 import { approveRefund, requireRefundApproval } from './refund-approval.service.js';
 import { createIntent, confirmPayment } from './collection.service.js';
 import { requireCollectionOwner } from './payment-requests.routes.js';
@@ -232,9 +233,15 @@ export function registerFinance(
           return approveRefund(c, old.id, restaurant, r.identity!.id);
         }
       }
-      const context = b.useDecisionReason === true ? await readRefundContext(c, sid) : null;
+      const source = await requireRefundSourceBudget(c, sid, uuid(b.paymentId));
+      const context =
+        b.useDecisionReason === true && source.refund_context_kind === 'BILL_ADJUSTMENT'
+          ? await readRefundContext(c, sid, source.id)
+          : null;
       if (b.useDecisionReason === true && !context)
-        reject('Chưa có quyết định quản trị để lấy lý do hoàn. Hãy tải lại hoặc liên hệ quản trị.');
+        reject(
+          'Nguồn thu này cần nhập lý do hoàn riêng; không tự dùng lý do hủy món của cả phiên.',
+        );
       const refundReason = context ? context.reason : text(b.reason, 300);
       const a = await recalculate(c, sid);
       const pending = await one(
@@ -245,35 +252,19 @@ export function registerFinance(
       const amount = money(b.amount);
       if (BigInt(amount) > BigInt(a.refund_due_amount) - BigInt(pending.amount))
         reject('Số tiền vượt số dư cần hoàn chưa lập hồ sơ.');
-      const source = await one(
-        c,
-        "SELECT * FROM payment_transaction WHERE id=$1 AND session_id=$2 AND status='SUCCEEDED'",
-        [uuid(b.paymentId), sid],
-      );
-      const refunded = await one(
-        c,
-        "SELECT COALESCE(sum(amount),0) AS amount FROM refund_case WHERE source_payment_transaction_id=$1 AND status<>'CANCELLED'",
-        [source.id],
-      );
-      const sourceRemaining = BigInt(source.amount) - BigInt(refunded.amount);
+      const sourceRemaining = BigInt(source.available_refund_amount);
       if (BigInt(amount) > sourceRemaining)
         reject(
           'Giao dịch đã chọn chỉ còn có thể lập phiếu hoàn ' +
-            (sourceRemaining > 0n ? sourceRemaining : 0n).toLocaleString('vi-VN') +
-            ' đ. Chọn giao dịch khác hoặc chia số tiền thành nhiều phiếu hoàn.',
+            sourceRemaining.toLocaleString('vi-VN') +
+            ' đ. Tiền đang phân bổ cho món chưa hủy không thể hoàn từ giao dịch này.',
         );
       const refund = await one(
         c,
         'INSERT INTO refund_case(session_id,source_payment_transaction_id,amount,reason,assigned_staff_id,request_key) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
         [sid, source.id, amount, refundReason, r.identity!.id, requestKey],
       );
-      return approveRefund(
-        c,
-        refund.id,
-        restaurant,
-        r.identity!.id,
-        await readRefundRelatedItems(c, sid),
-      );
+      return approveRefund(c, refund.id, restaurant, r.identity!.id);
     }),
   );
   app.post('/core/refunds/:id/approve', { config: { permission: 'admin.workspace' } }, (r) =>
@@ -320,6 +311,16 @@ export function registerFinance(
       if (!['OPEN', 'IN_PROGRESS'].includes(f.status)) reject('Hồ sơ hoàn đã đóng.');
       const a = await recalculate(c, f.session_id);
       if (BigInt(amount) > BigInt(a.refund_due_amount)) reject('Số dư cần hoàn đã thay đổi.');
+      const source = await requireRefundSourceBudget(
+        c,
+        f.session_id,
+        f.source_payment_transaction_id,
+        id,
+      );
+      if (BigInt(amount) > BigInt(source.available_refund_amount))
+        reject(
+          'Nguồn thu không còn đủ tiền chưa phân bổ để hoàn. Tải lại hồ sơ trước khi trả tiền.',
+        );
       const method = text(b.method);
       if (!['CASH', 'BANK_TRANSFER'].includes(method))
         reject('Chọn tiền mặt hoặc chuyển khoản.', 400);

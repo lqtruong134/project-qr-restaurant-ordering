@@ -1,5 +1,13 @@
 # 25. Khách gọi thanh toán — nhân viên thu tiền tại bàn
 
+## Đọc đúng tiền khi khách chuyển dư — 18/10/2026
+
+STAFF/GUEST và phiếu đang mở tách tiền **đã nhận** khỏi **đã tính vào tiền món**. Ví dụ hóa đơn 20.000đ, nhân viên chỉ lập khoản 10.000đ nhưng ngân hàng nhận 12.000đ: đã nhận 12.000đ, đã tính vào món 10.000đ, **còn phải trả 10.000đ và cần hoàn 2.000đ**. Cả hai nghĩa vụ phải xuất hiện đồng thời; không báo còn thiếu 8.000đ hoặc đã thanh toán toàn bộ 12.000đ vào món. Thẻ khoản online cũng tách số ngân hàng xác nhận, đã phân bổ, đã hoàn thật và tiền chưa phân bổ cần hoàn. Món/phần của từng khách vẫn tính theo allocation đúng phạm vi.
+
+Admin lập phiếu từ nguồn có số dư khả dụng do server trả. Giao dịch đã dùng hết cho món còn hiệu lực không được chọn để hoàn khoản dư của giao dịch khác. Phiếu đang mở giữ phần tiền dự kiến hoàn, nhưng chưa tăng số **Đã hoàn**. Phục vụ thực trả, chọn hình thức, nhập tham chiếu bắt buộc khi chuyển khoản rồi bấm xác nhận; chỉ giao dịch hoàn thành công mới giảm số cần hoàn.
+
+**Đối soát online** cho admin thấy tiền yêu cầu, tiền ngân hàng, tiền ghi sổ, tiền đã phân bổ, tiền đã hoàn và tiền chưa phân bổ. Còn 2.000đ chưa phân bổ thì hướng dẫn lập/hoàn đúng giao dịch; form đóng đối soát bị ẩn, API cũng từ chối nếu cố gửi. Sau hoàn đủ và làm mới, admin mới đóng đối soát; bàn còn phải trả 10.000đ thì vẫn không được kết thúc bình thường. Lập khoản mới nếu khách muốn trả phần còn lại; không tự dùng tiền dư ngoài phạm vi đã thống nhất. [Ví dụ và công thức](06-thanh-toan.md).
+
 ## Online tại bàn qua payOS — cập nhật 17/10/2026
 
 **Khách gọi phục vụ; nhân viên lập khoản thu; server xác nhận tiền; cả hai màn hình tự cập nhật.** Giao diện khách hiện có **Tiền mặt / Chuyển khoản**, không có nút tự tạo payOS. Nhân viên trao đổi rồi chọn **Online (payOS)** khi phù hợp. Chưa cấu hình online thì hai hình thức thủ công vẫn dùng được. [Thiết lập](12-van-hanh.md) · [Sổ tiền và đối soát](06-thanh-toan.md).
@@ -37,7 +45,7 @@ Ví dụ bàn còn 94.000đ, nhân viên lập khoản 49.000đ: đủ khoản n
 
 Sau trả một phần, **chỉ chuyển phần còn thiếu**. Nếu QR/ứng dụng ngân hàng không cho đổi số tiền thì nhờ nhân viên hướng dẫn; không chuyển lại toàn bộ khoản. Một số kênh tài khoản ảo có thể từ chối/hoàn chuyển sai số tiền, vì vậy chỉ căn cứ kết quả được ngân hàng/provider xác nhận. [payOS: tài khoản ảo và chuyển sai số tiền](https://payos.vn/docs/cau-hoi-thuong-gap/).
 
-Màn hình khách tách **Đã ghi nhận thanh toán** và thông báo **Ngân hàng đã xác nhận nhưng nhà hàng đang đối soát** nếu có. Tiền chỉ được cách ly/chưa phân bổ không làm tổng đã trả của bàn tăng giả.
+Màn hình khách tách **Đã nhận tiền / Đã tính vào tiền món / Cần hoàn** và thông báo **Ngân hàng đã xác nhận nhưng nhà hàng đang đối soát** nếu có. Tiền chỉ được cách ly/chưa phân bổ không làm tổng đã trả của bàn tăng giả.
 
 ### Lời gọi thu tiền tự hoàn tất theo đúng khoản
 

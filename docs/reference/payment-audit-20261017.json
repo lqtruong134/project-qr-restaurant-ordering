@@ -109,9 +109,162 @@
   ],
   "reviewNotes": [
     {
-      "status": "Requires review; not changed in this publication-only task",
-      "case": "Partial quote 10000 on bill 20000 receives 12000: captured money can exceed the quote while allocation is capped at the quote. Review allocation balance and participant/item dues before approving reconciliation or deployment.",
-      "basis": "Static review of applyLink allocation limits and resolve ledger checks; no additional production operation or automated regression performed during publication."
+      "status": "Resolved by allocation/source-budget follow-up on 2026-10-18; original 2026-10-17 findings retained below",
+      "case": "Partial quote 10000 on bill 20000 receives 12000: ledger retains 12000, allocations stay capped at 10000, outstanding is 10000 and refund due is 2000. Admin cannot reconcile until the 2000 has actually been returned.",
+      "basis": "Reproduced with isolated integration tests before the ledger correction. Follow-up regression verifies source balances, partial/full overpayment, actual refunds, API reconciliation guards, replay, closing and report filtering. No production access.",
+      "originalPublicationNote": {
+        "status": "Requires review; not changed in this publication-only task",
+        "case": "Partial quote 10000 on bill 20000 receives 12000: captured money can exceed the quote while allocation is capped at the quote. Review allocation balance and participant/item dues before approving reconciliation or deployment.",
+        "basis": "Static review of applyLink allocation limits and resolve ledger checks; no additional production operation or automated regression performed during publication."
+      }
     }
-  ]
+  ],
+  "followup": {
+    "date": "2026-10-18",
+    "sourceBaseCommit": "8bfb0f4fc0c4e061ceff8ee7be00f04a4ea330ac",
+    "branch": "fix/payos-payment-flow",
+    "rootCause": "Global receipt netting hid money not allocated to the staff-authorized quote. The session account and report could understate outstanding/refund due, while resolve checked provider gross and the incorrect global refund balance.",
+    "originalExample": {
+      "bill": "20000",
+      "staffQuote": "10000",
+      "bankReceived": "12000",
+      "allocated": "10000",
+      "before": {
+        "outstanding": "8000",
+        "refundDue": "0",
+        "reconciliationCouldClose": true
+      },
+      "after": {
+        "outstanding": "10000",
+        "refundDue": "2000",
+        "reconciliationCouldClose": false
+      },
+      "approvedRefundOnly": {
+        "actualRefunded": "0",
+        "outstanding": "10000",
+        "refundDue": "2000",
+        "reconciliationCouldClose": false
+      },
+      "afterActualReturn": {
+        "actualRefunded": "2000",
+        "outstanding": "10000",
+        "refundDue": "0",
+        "reconciliationCouldClose": true,
+        "sessionCouldClose": false
+      },
+      "afterNewAuthorizedRemainderPayment": {
+        "totalReceived": "22000",
+        "allocated": "20000",
+        "actualRefunded": "2000",
+        "outstanding": "0",
+        "refundDue": "0"
+      }
+    },
+    "rules": [
+      "Only active net allocations reduce charge dues; never automatically spend excess outside the original quote.",
+      "Each source refunds only its unallocated net retained funds, minus other open document reservations, checked on creation, approval and actual completion.",
+      "Only SUCCEEDED actual refund transactions reduce the owed-back balance; approval, failed refund or notes do not.",
+      "Reconciliation requires each source net receipt to equal active allocations and the verified provider gross to match the ledger.",
+      "Canceled/expired quotes received too late may resolve CANCELLED after actual returns, without false PAID/request completion.",
+      "Replays preserve reconciled cases without adding/reallocating funds; new references still require handling.",
+      "Reconciliation reports filter and total outstanding/refund obligations independently, including net-zero unresolved sessions.",
+      "Closed receipt snapshots remain unchanged."
+    ],
+    "tests": {
+      "unit": 272,
+      "unitFiles": 38,
+      "integration": 400,
+      "integrationFiles": 26,
+      "payosDomain": 45,
+      "browser": 102,
+      "browserSuites": 9,
+      "browserProjects": [
+        "desktop",
+        "mobile",
+        "webkit-mobile"
+      ],
+      "productionNextRoutes": 7
+    },
+    "evidence": [
+      "docs/evidence/payment-overpay-check-20261018.txt",
+      "docs/evidence/payment-overpay-integration-20261018.txt",
+      "docs/evidence/payment-overpay-browser-20261018.txt",
+      "docs/evidence/payment-overpay-build-20261018.txt"
+    ],
+    "boundaries": {
+      "productionDatabaseAccess": false,
+      "realProviderCalls": false,
+      "realPaymentsOrRefunds": false,
+      "secretChanges": false,
+      "productionMigration": false,
+      "additionalMigration": false,
+      "mainMerge": false,
+      "deployment": false
+    },
+    "migrationAlreadyOnBranch": "packages/database/prisma/migrations/202610170001_payment_system_resolution/migration.sql",
+    "files": [
+      "apps/api/src/modules/admin/reports.routes.ts",
+      "apps/api/src/modules/finance/ledger.service.ts",
+      "apps/api/src/modules/payments/payments.routes.ts",
+      "apps/api/src/modules/payments/payos.service.ts",
+      "apps/api/src/modules/payments/receipt.service.ts",
+      "apps/api/src/modules/payments/refund-approval.service.ts",
+      "apps/api/src/modules/payments/refund-budget.service.ts",
+      "apps/api/src/modules/payments/refund-context.service.ts",
+      "apps/api/src/modules/payments/refund-history.service.ts",
+      "apps/api/src/modules/sessions/guest-payment-view.test.ts",
+      "apps/api/src/modules/sessions/guest-payment-view.ts",
+      "apps/web/features/admin/online-reconciliation-panel.tsx",
+      "apps/web/features/admin/operations-inbox.tsx",
+      "apps/web/features/admin/reports-panel.tsx",
+      "apps/web/features/guest/online-payments.tsx",
+      "apps/web/features/guest/payment-status.test.ts",
+      "apps/web/features/guest/payment-status.ts",
+      "apps/web/features/guest/payment-summary.tsx",
+      "apps/web/features/guest/refund-summary.tsx",
+      "apps/web/features/shared/payment-breakdown.tsx",
+      "apps/web/features/shared/payment-refresh.test.ts",
+      "apps/web/features/shared/payment-refresh.ts",
+      "apps/web/features/shared/payment-summary.test.ts",
+      "apps/web/features/shared/payment-summary.ts",
+      "apps/web/features/shared/refund-source.test.ts",
+      "apps/web/features/shared/refund-source.ts",
+      "apps/web/features/workspace/bill-panel.tsx",
+      "apps/web/features/workspace/online-payment-card.tsx",
+      "apps/web/features/workspace/payment-collection.tsx",
+      "apps/web/features/workspace/receipt.tsx",
+      "apps/web/features/workspace/refund-creation.tsx",
+      "docs/00-BAT-DAU.html",
+      "docs/00-bat-dau.md",
+      "docs/06-thanh-toan.html",
+      "docs/06-thanh-toan.md",
+      "docs/15-doi-chieu.html",
+      "docs/15-doi-chieu.md",
+      "docs/17-api.html",
+      "docs/17-api.md",
+      "docs/25-thu-tien-tai-ban.html",
+      "docs/25-thu-tien-tai-ban.md",
+      "docs/26-trien-khai-qtruongres.html",
+      "docs/26-trien-khai-qtruongres.md",
+      "docs/assets/search-data.js",
+      "docs/evidence/payment-overpay-browser-20261018.txt",
+      "docs/evidence/payment-overpay-build-20261018.txt",
+      "docs/evidence/payment-overpay-check-20261018.txt",
+      "docs/evidence/payment-overpay-integration-20261018.txt",
+      "docs/reference/payment-audit-20261017.json",
+      "docs/tools/export-html.mjs",
+      "packages/contracts/src/payments-online.ts",
+      "tests/browser/cash-refund-breakdown.spec.ts",
+      "tests/browser/dish-issue.spec.ts",
+      "tests/browser/inspection-workflow.spec.ts",
+      "tests/browser/payos-live-flow.spec.ts",
+      "tests/browser/payos-ui.spec.ts",
+      "tests/browser/prepaid-refund-approval.spec.ts",
+      "tests/browser/pricing-customer-receipt.spec.ts",
+      "tests/browser/pricing-live-flow.spec.ts",
+      "tests/browser/refund-experience.spec.ts",
+      "tests/payment-collection.integration.test.ts",
+      "tests/payos.integration.test.ts"
+    ]
+  }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { onlineReceivedIncrease, paymentRevision } from './payment-refresh';
+import { onlineReceivedIncrease, onlineIntentFunds, paymentRevision } from './payment-refresh';
 import { hasPendingOnlinePayment, type PaymentIntent } from './online-payment';
 const payment = (id: string, amount = '0', status = 'PENDING'): PaymentIntent => ({
   id,
@@ -59,5 +59,59 @@ describe('payment read-model changes', () => {
     expect(onlineReceivedIncrease([], [{ ...payment, status: 'PENDING' }])).toBe(0n);
     expect(onlineReceivedIncrease([payment], [{ ...payment, status: 'FAILED' }])).toBe(0n);
     expect(onlineReceivedIncrease([], [{ ...payment, method: 'CASH' }])).toBe(0n);
+  });
+});
+
+describe('online receipt funds preserve the server allocation budget', () => {
+  const receipt = {
+    id: 'receipt',
+    payment_intent_id: 'intent',
+    method: 'ONLINE',
+    status: 'SUCCEEDED',
+    amount: '12000',
+    allocated_amount: '10000',
+    refunded_amount: '0',
+    refundable_amount: '2000',
+  };
+  it('shows twelve received, ten applied and two to refund without consuming another charge', () => {
+    expect(
+      onlineIntentFunds('intent', [
+        receipt,
+        { ...receipt, id: 'other', payment_intent_id: 'other-intent' },
+        { ...receipt, id: 'failed', status: 'FAILED' },
+      ]),
+    ).toEqual({
+      recorded: 12000n,
+      applied: 10000n,
+      refunded: 0n,
+      refundable: 2000n,
+    });
+  });
+  it('sums source rows for one intent after actual partial refunds', () => {
+    expect(
+      onlineIntentFunds('intent', [
+        { ...receipt, refunded_amount: '1000', refundable_amount: '1000' },
+        {
+          ...receipt,
+          id: 'receipt2',
+          amount: '5000',
+          allocated_amount: '5000',
+          refundable_amount: '0',
+        },
+      ]),
+    ).toEqual({
+      recorded: 17000n,
+      applied: 15000n,
+      refunded: 1000n,
+      refundable: 1000n,
+    });
+  });
+  it('does not invent an allocation budget for an old or malformed source projection', () => {
+    expect(onlineIntentFunds('absent', [receipt])).toBeUndefined();
+    for (const invalid of [null, '-1', '1.5', 'not-money']) {
+      expect(
+        onlineIntentFunds('intent', [{ ...receipt, allocated_amount: invalid }]),
+      ).toBeUndefined();
+    }
   });
 });

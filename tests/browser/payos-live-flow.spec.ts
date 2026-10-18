@@ -404,12 +404,15 @@ test('guest calls staff, cash and multiple bank receipts auto-update both roles 
     ).toBe(true);
     await expect(
       guest
-        .locator('.core-stats p')
-        .filter({ hasText: 'Đã thanh toán (sau hoàn)' })
+        .locator('.guest-content > .core-card > .core-stats > p')
+        .filter({ hasText: 'Đã tính vào tiền món' })
         .locator('strong'),
     ).toHaveText('450.000 đ');
     await expect(
-      guest.locator('.core-stats p').filter({ hasText: 'Còn phải thanh toán' }).locator('strong'),
+      guest
+        .locator('.guest-content > .core-card > .core-stats > p')
+        .filter({ hasText: 'Còn phải thanh toán' })
+        .locator('strong'),
     ).toHaveText('0 đ');
     await expect(
       guest.getByRole('heading', { name: 'Bàn đã thanh toán đủ', exact: true }),

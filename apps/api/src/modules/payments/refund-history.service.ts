@@ -42,6 +42,9 @@ export async function withItemRefundHistory(c: Connection, rows: Record<string, 
          WHERE charge.session_id=f.session_id AND charge.charge_type='ITEM'
            AND charge.status='REVERSED' AND charge.amount>0 AND charge.order_item_id IS NOT NULL
            AND charge.reversed_at<=f.created_at
+           AND EXISTS(SELECT 1 FROM payment_allocation allocation
+             WHERE allocation.payment_transaction_id=f.source_payment_transaction_id
+               AND allocation.financial_charge_id=charge.id AND allocation.reversed_amount>0)
        ) legacy ON true
        WHERE f.session_id=ANY($1::uuid[]) AND f.status<>'CANCELLED'
        ORDER BY f.created_at,f.id`,
@@ -52,6 +55,7 @@ export async function withItemRefundHistory(c: Connection, rows: Record<string, 
     const cases: RefundHistoryCase[] = [];
     for (const document of documents) {
       if (document.session_id !== row.session_id) continue;
+      if (document.approval_details?.refundKind === 'UNAPPLIED_PAYMENT') continue;
       const saved = document.approval_details?.associationVersion === 1;
       const related = document.order_item_id
         ? [String(document.order_item_id)]
@@ -60,7 +64,13 @@ export async function withItemRefundHistory(c: Connection, rows: Record<string, 
           : itemIds(document.legacy_item_ids);
       if (!related.includes(String(row.id))) continue;
       const scope: RefundScope =
-        related.length === 1 ? 'ITEM' : saved ? 'SHARED_SESSION' : 'SESSION';
+        saved && document.approval_details.associationScope === 'SHARED_SESSION'
+          ? 'SHARED_SESSION'
+          : related.length === 1
+            ? 'ITEM'
+            : saved
+              ? 'SHARED_SESSION'
+              : 'SESSION';
       const remaining = BigInt(document.amount) - BigInt(document.returned_amount);
       cases.push({
         id: String(document.id),
