@@ -102,6 +102,8 @@ export default function Admin() {
     void refresh();
   }
   const current = adminPage(tab, section);
+  const showPayments =
+    (tab === 'exceptions' && section === 'payment') || (tab === 'reports' && section === 'online');
   return (
     <section className={'core-app admin-layout' + (navCollapsed ? ' nav-collapsed' : '')}>
       <AdminNavigation
@@ -112,6 +114,7 @@ export default function Admin() {
         collapsed={navCollapsed}
         collapse={setNavCollapsed}
         open={open}
+        paymentExceptionCount={urgent.paymentCases.length}
         refresh={async () => {
           await Promise.all([refresh(), urgent.refresh()]);
         }}
@@ -121,6 +124,9 @@ export default function Admin() {
         {tab !== 'overview' && tab !== 'exceptions' && (
           <UrgentBar
             {...urgent}
+            openPayments={() => {
+              open('exceptions', 'payment');
+            }}
             openReports={() => {
               open('exceptions', 'shortfall');
             }}
@@ -163,10 +169,8 @@ export default function Admin() {
             {error}
           </p>
         )}
-        {tab === 'reports' && section === 'online' && (
-          <OnlineReconciliationPanel key={navigation} />
-        )}
-        {!data && !(tab === 'reports' && section === 'online') ? (
+        {showPayments && <OnlineReconciliationPanel key={navigation} onUpdated={urgent.refresh} />}
+        {!data && !showPayments ? (
           <p role="status">
             {error
               ? 'Chưa có dữ liệu để hiển thị. Chọn Tải lại dữ liệu để thử lại.'
@@ -174,7 +178,7 @@ export default function Admin() {
           </p>
         ) : data ? (
           <>
-            {tab === 'exceptions' && (
+            {tab === 'exceptions' && section !== 'payment' && (
               <OperationsInbox
                 key={navigation}
                 work={urgent}

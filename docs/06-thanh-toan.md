@@ -1,5 +1,86 @@
 # 06. Hiểu tiền, hóa đơn và điều kiện đóng bàn
 
+## Audit và mô hình thanh toán hiện hành — 19/10/2026
+
+Phần này mô tả nhánh **`fix/payos-payment-experience`** và thay cho các hướng dẫn cũ bên dưới về yêu cầu đối soát thủ công cho mọi khoản online hoặc nhập mã để xác nhận `RETURNED_EXTERNALLY`. Đây là thay đổi mã nguồn và kiểm thử bằng dữ liệu giả. **Đợt 19/10 không đọc production DB, không gọi payOS thật, không xác nhận merchant/tài khoản nhận thật và chưa chứng minh giao dịch 5.000đ được chủ dự án phản ánh đã được ghi sổ hoặc phân bổ.** Dashboard, ảnh QR biến mất và ảnh giao diện không đủ để kết luận khoản đó đã trả vào hóa đơn. Biên bản các ngày trước là bằng chứng lịch sử của chính đợt đó; không chuyển kết luận của chúng thành kết quả kiểm tra mới.
+
+### Những nguyên nhân đã chứng minh trong code
+
+| Phát hiện | Hậu quả có thể tái hiện bằng môi trường giả | Cách xử lý trên nhánh mới |
+| --- | --- | --- |
+| Snapshot webhook cũ giữ số tiền/tham chiếu nhưng bỏ tài khoản nhận và tài khoản ảo đã được ký | Lần GET về sau chỉ có tài khoản chính không còn đủ bằng chứng gắn với tài khoản ảo của khoản thu; một khoản hợp lệ có thể bị báo mismatch | Giữ bằng chứng recipient đã normalize sau SDK verify. Chỉ kết hợp hai nguồn đã ký khi cùng nhà hàng, `orderCode`, link, reference, số tiền và VND |
+| Hồ sơ OPEN cũ tiếp tục chi phối nhánh xử lý, trong khi worker chủ yếu lấy khoản chưa terminal | Sau khi provider đã PAID, bằng chứng hợp lệ về sau vẫn có thể bị giữ trong đối soát và không tự phục hồi | Cho worker thử lại các nhóm lỗi có khả năng phục hồi; chỉ tự kết thúc khi toàn bộ kiểm tra hiện tại đạt, ghi sổ/phân bổ thành công và không còn bất thường thật |
+| Nhánh lỗi tài khoản nhận có thể kết thúc trước khi cập nhật số tiền ngân hàng báo | UI có thể hiện 0đ dù đã có thông báo có chữ ký về tiền, khiến admin/nhân viên không hiểu tiền đang ở tầng nào | Tách số tiền provider báo với sổ thu. Chỉ các thông báo khớp đầy đủ định danh mới được đưa vào tổng báo nhận; chưa đủ xác minh không tăng tiền ghi sổ hoặc phân bổ |
+| Chọn cả bàn trừ tiền đang giữ chỗ, còn chọn món một khách dùng số nợ riêng chưa bị giới hạn chung | 69.000đ và 64.000đ có thể cùng xuất hiện dù tiền món chưa được trả | Backend trả cùng `financialSummary` và `collectionAvailability`; mọi lựa chọn bị giới hạn bởi phần còn được lập khoản mới của cả phiên |
+| Admin nhập tham chiếu/lý do trong một biểu mẫu chung; STAFF còn đường xử lý cảnh báo kỹ thuật | Việc tiếp nhận bị hiểu như xác minh, nhập mã bị hiểu như bằng chứng hoàn, cùng nguyên nhân tạo nhiều việc | Tách tiếp nhận, xác minh, hoàn thực tế và đóng hồ sơ; chỉ mở đúng hành động hợp lệ từ backend |
+
+Các lỗi trên là **nguyên nhân ứng viên của tình huống thật**, không phải truy vết giao dịch production. Cần kết quả đọc chỉ đọc đã che dữ liệu để biết khoản thật dừng ở lớp báo nhận, sổ thu, phân bổ, tài khoản phiên hay cảnh báo. Không sửa dữ liệu kế toán để làm giao diện khớp ảnh.
+
+[FAQ payOS](https://payos.vn/docs/cau-hoi-thuong-gap/) xác nhận link dùng VietQR Pro có thể hiển thị tài khoản ảo theo đơn/số tiền. Vì vậy khác tài khoản chính không tự chứng minh sai người nhận. Ngược lại, một tài khoản ảo được chỉ rõ nhưng không khớp vẫn bị từ chối; không dùng cùng tài khoản chính để bỏ qua VA sai. Thuật toán cụ thể là quyết định của dự án trong `payos-normalization.ts`, phải đi kèm bằng chứng và test, không phải lời đảm bảo của nhà cung cấp cho merchant đang vận hành.
+
+Bản tin cũ thiếu recipient không được tự suy ra từ cấu hình hiện tại. Một lần gửi lại chỉ được bổ sung bằng chứng sau khi SDK xác minh chữ ký, dữ liệu ngân hàng gốc giữ nguyên và có audit. Không biến chữ ký hợp lệ thành sự cho phép bỏ kiểm tra số tiền, tài khoản, link hoặc phạm vi hóa đơn.
+
+### Một nguồn dữ liệu tài chính, nhiều ý nghĩa tiền
+
+`payment-position.service.ts` tạo hai projection cho các API đọc bill/trạng thái: `financialSummary` cho số tiền cả phiên, `collectionAvailability` cho phần được phép lập khoản mới ở cả bàn và từng người. Các số là chuỗi số nguyên VND, không tính tiền bằng số thực trên frontend. Khoản online đang có kết quả chưa chắc chắn có thể chặn lập khoản thay thế; đây không phải chứng cứ khách đã trả.
+
+| Khái niệm | Ý nghĩa và điều kiện thay đổi |
+| --- | --- |
+| Tổng hóa đơn | Tổng charge còn hiệu lực sau chính sách giảm/VAT; không đổi vì QR được tạo hoặc biến mất |
+| payOS/ngân hàng báo nhận | Dữ liệu provider đã xác thực nguồn; có thể còn chờ kiểm tra người nhận/nghiệp vụ. Tổng này chỉ thuộc kênh online, không cộng tiền mặt vào số ngân hàng báo |
+| Đã ghi sổ | Giao dịch thu thành công đã commit. Tổng phiên có thể gồm CASH, BANK_TRANSFER và ONLINE; không so tổng nhiều kênh với riêng payOS |
+| Đã tính vào tiền món | Phân bổ còn hiệu lực vào charge; đây mới là phần làm giảm nợ món |
+| Còn phải thu | Charge còn hiệu lực trừ phân bổ còn hiệu lực; không trừ QR đang chờ |
+| QR đang chờ / tiền giữ chỗ | Số khoản online còn chờ và phần dành cho các khoản thu chưa kết thúc; ngăn thu trùng, không phải tiền đã nhận |
+| Còn được lập khoản mới | Phần chưa bị giữ chỗ trong nợ hiện tại; bằng 0 khi đang có trạng thái cần kiểm tra theo guard backend |
+| Chưa phân bổ / cần hoàn | Tiền ghi sổ còn lại ở từng nguồn sau phân bổ và hoàn thành công; không tự trả sang món hoặc người khác |
+| Đã hoàn thực tế | Chỉ tăng sau giao dịch hoàn thành công; duyệt hồ sơ hoặc gõ tham chiếu không làm tăng số này |
+
+Ví dụ minh họa chỉ có kênh online:
+
+| Hóa đơn 69.000đ, khoản QR 5.000đ | Đã báo nhận | Đã ghi sổ | Đã tính vào món | Còn phải thu | Giữ chỗ | Còn được lập khoản mới |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Đang chờ QR, chưa chuyển | 0 | 0 | 0 | 69.000 | 5.000 | 64.000 |
+| Đã báo nhận, còn bất thường cần kiểm tra | 5.000 | 0 | 0 | 69.000 | Theo trạng thái khoản thu | 0 khi guard đang chặn |
+| Đã xác minh, ghi sổ và phân bổ đủ khoản | 5.000 | 5.000 | 5.000 | 64.000 | 0 | 64.000 |
+
+Hai số 64.000đ ở hàng đầu và cuối có **ý nghĩa khác nhau**. Khi QR chờ, đó là phần được lập khoản mới; sau phân bổ, đó mới là nợ còn lại. Lựa chọn “món của một khách” có thể còn nợ riêng 69.000đ nhưng không được lập vượt phần khả dụng chung 64.000đ. Không suy ra đã thanh toán từ nhãn lựa chọn, redirect hay trạng thái provider đơn lẻ.
+
+Giữ nguyên quy tắc dư khoản thu của đợt 18/10: hóa đơn 20.000đ, khoản được lập 10.000đ, nhận 12.000đ → ghi sổ 12.000đ, phân bổ 10.000đ, còn thu 10.000đ, cần hoàn 2.000đ. Hoàn thật 2.000đ không làm nợ 10.000đ biến mất. Trong chi tiết admin, `unapplied_amount` thuộc khoản thu đang xem, còn `refund_due_amount` thuộc **cả phiên**; UI ghi rõ phạm vi, không cộng hai số thành một nghĩa vụ mới.
+
+### Trạng thái, vai trò và điều kiện kết thúc
+
+| Tình trạng thực tế | STAFF/GUEST thấy và làm gì? | Backend/ADMIN |
+| --- | --- | --- |
+| QR chờ, chưa có tiền | Số yêu cầu và QR/link; chờ chuyển đúng khoản | Giữ chỗ, không giảm nợ; không tạo việc admin bình thường |
+| Provider báo tiền, ghi sổ đang chờ hoặc chưa đủ bằng chứng | Đang xác minh/nhà hàng đang kiểm tra, nhắc không chuyển hoặc thu lại | Retry an toàn; chỉ tạo ngoại lệ khi có bất thường thật; không báo thành công từ provider PAID đơn lẻ |
+| Khoản hợp lệ được ghi sổ và phân bổ | Thông báo thành công của khoản hoặc đã trả một phần; hóa đơn tự cập nhật | Ghi mỗi reference đúng một lần, kết thúc đúng lời gọi thanh toán; không yêu cầu STAFF/admin xác nhận lại |
+| Sai tài khoản, sai định danh, lịch sử xung đột, tiền đến muộn | Thông báo ngắn, không có biểu mẫu đóng cảnh báo kỹ thuật | Hàng đợi ngoại lệ với lý do, bằng chứng và bước hợp lệ; chưa đủ điều kiện thì giữ chặn |
+| Tiền dư/chưa phân bổ | Tách còn phải trả và chờ hoàn | ADMIN lập/duyệt theo nguồn; STAFF thực trả, xác nhận; không tự hoàn qua payOS |
+| Hết hạn/hủy/thất bại | QR không dùng tiếp; xem tiền đã nhận và nợ thật trước khi lập khoản thay thế | Giữ giao dịch đã thu và lịch sử; khoản đến muộn vẫn kiểm tra riêng |
+
+ADMIN vào **Việc cần xử lý → Ngoại lệ thanh toán**; đường **Báo cáo → Đối soát online** mở cùng trung tâm. Badge chỉ đếm hồ sơ OPEN, kể cả hồ sơ đã có người tiếp nhận. Hàng đợi ưu tiên cập nhật mới nhất; “Lịch sử đã đóng” giữ dấu vết. Thông báo có chữ ký nhưng chưa khớp khoản thu có vùng riêng, không được tự gán vào bàn. Đường dẫn việc hoàn bị gộp khi cùng nguồn đã được hồ sơ ngoại lệ bao phủ đủ; dữ liệu cảnh báo và tiền gốc không bị xóa.
+
+Ba bước độc lập: **tiếp nhận** chỉ ghi audit người đang kiểm tra; **xác minh** là kết quả backend kiểm bằng chứng hiện tại sau bất thường; **đóng hồ sơ** phải kiểm tra lại dưới khóa. Tham chiếu provider đã biết hiển thị chỉ đọc. `can_resolve` và `resolution_blockers` do backend trả và dùng cùng điều kiện với mutation; nút bị ẩn không thay thế guard API. Thiếu chứng cứ, còn tiền chưa phân bổ/cần hoàn, sổ không khớp, provider chưa kết thúc hoặc phiên đã chốt thì không cho đóng.
+
+**`RETURNED_EXTERNALLY` không còn là lối đóng bằng mã nhập tay.** Khoản cách ly/đến sau phiên đã chốt cần bằng chứng trả tiền ngân hàng được xác minh riêng; bản này chưa có workflow chứng minh outbound đó nên vẫn chặn, không cho giả “đã hoàn” hay sửa phiếu đã đóng. Thao tác hoàn nguồn đã ghi sổ vẫn theo luồng hoàn hiện có với phân quyền, ngân sách đúng nguồn và audit.
+
+### Tự phục hồi, polling và dữ liệu lịch sử
+
+Webhook đã verify kích hoạt kiểm tra; backend worker bổ sung refresh/retry có khóa và lease. Snapshot GET cũ không được phủ nhận tiền đã ghi hợp lệ, reference lặp không tạo giao dịch thứ hai. Màn hình đọc trạng thái có kiểm soát, tạm dừng khi ẩn/offline và cập nhật khi focus/reconnect; nút kiểm tra nằm trong vùng phục hồi thu gọn, hướng dẫn chỉ dùng khi khoản chờ lâu hoặc kết nối lỗi. Chưa cần SSE/WebSocket cho quy mô và bộ kiểm thử hiện tại; polling không làm provider PAID thành bằng chứng allocation.
+
+Đợt 19/10 **không thêm SQL migration, không đổi CHECK hoặc schema để phục hồi tự động**. Khi một ngoại lệ có thể phục hồi đã được kiểm đầy đủ, hệ thống kết thúc trạng thái hoạt động bằng `reconciliation_status = NULL`, giữ `resolved_at` và sự kiện `PAYOS_VERIFICATION_RECOVERED` với actor SYSTEM. Read model vẫn chiếu nó thành lịch sử RESOLVED. Đây là cách tương thích CHECK hiện có đối với hồ sơ do người dùng đóng; không bịa `resolved_by` của admin và không xóa hồ sơ/bằng chứng. Một bất thường mới có thể mở hồ sơ lại với audit riêng.
+
+Các đường mã chính: `payos-normalization.ts`, `payos.service.ts`, `payment-reported-funds.ts`, `payment-position.service.ts`, `payos-resolution.ts` trong `apps/api/src/modules/payments/`; contract ở `packages/contracts/src/payments-online.ts`. [Kết quả và giới hạn kiểm thử hiện hành](15-doi-chieu.md) là nơi chốt số lượng test/build. Bộ kiểm thử giả không xác nhận merchant production, giao dịch thật, tốc độ webhook ngân hàng hoặc độ bền vận hành dài ngày.
+
+### Nguồn tham khảo và phạm vi áp dụng
+
+- [payOS API](https://payos.vn/docs/api/) và [webhook](https://payos.vn/docs/du-lieu-tra-ve/webhook/): trường định danh, giao dịch, chữ ký và dữ liệu trả về. Hệ thống giữ SDK verify; Return URL chỉ phục vụ điều hướng.
+- [payOS FAQ](https://payos.vn/docs/cau-hoi-thuong-gap/): tài khoản ảo và khác biệt theo kênh VietQR Pro. Không giả định mọi merchant chấp nhận chuyển thiếu/dư; nghiệm thu thật phải kiểm tra đúng kênh.
+- [Toast: chia khoản thanh toán](https://support.toasttab.com/en/article/Split-Payments-with-Toast-Mobile-Order-Pay): tham khảo cách tách phần của một người và phần còn lại của bàn. Dự án giữ giới hạn phân bổ của từng khoản, không sao chép luồng sản phẩm khác.
+- [Square: tìm giao dịch và mở chi tiết](https://squareup.com/help/us/en/article/5145-transaction-search): tham khảo filter trạng thái, chi tiết và hành động từ giao dịch gốc.
+- [Stripe: tự đối chiếu chuyển khoản](https://support.stripe.com/questions/bank-transfer-reconciliation?locale=en-GB): tham khảo việc tự xử lý khoản khớp và tách ngoại lệ. Đây là nguyên tắc UX, không phải dùng quy tắc khớp invoice của Stripe thay guard nhà hàng.
+
 ## Chuyển dư khoản thanh toán một phần — 18/10/2026
 
 Tiền ngân hàng thực nhận và tiền đã trả cho món là hai số khác nhau. Mỗi khoản thu có phạm vi/số tiền được nhân viên lập; tiền vượt giới hạn đó **không tự trả sang món hoặc người khác**, kể cả cả bàn vẫn còn thiếu. Dư nợ tính từ charge còn hiệu lực trừ phân bổ thực tế; tiền cần hoàn tính riêng tại từng giao dịch gốc, sau khi trừ phân bổ còn hiệu lực và các lần hoàn thành công. Vì vậy một bàn có thể **vừa còn phải thu, vừa cần hoàn**.
@@ -291,3 +372,16 @@ Danh sách xem trước và API đóng bàn dùng chung **close-readiness.ts**. 
 ## Đọc số thu và số hoàn trên màn hình khách
 
 Khách đã trả trước hoàn là tổng thu ban đầu, không bị đổi thành 0 sau khi hoàn. Đã hoàn lại chỉ gồm giao dịch hoàn thành công; Còn chờ hoàn là số dư hiện tại. Nhà hàng còn giữ = tổng thu − tổng đã hoàn. Khi hoàn đủ cho một bàn có toàn bộ món bị hủy, màn hình ghi rõ đã hoàn đủ và giữ lịch sử các lần trả tiền. [Ví dụ và tự test ở bài 24](24-su-co-mon-va-phieu-thanh-toan.md).
+
+
+## Chẩn đoán chỉ đọc giao dịch A01 / #FFC78214 — 19/10/2026
+
+Đợt audit mã nguồn không đọc DB production hoặc gọi merchant thật. Các dấu hiệu chủ nhà hàng cung cấp chưa đủ để xác nhận 5.000đ đã vào sổ/phân bổ. Người vận hành có quyền đọc có thể chạy [SQL chẩn đoán đã giới hạn dữ liệu](reference/payment-readonly-audit-20261019.sql) bằng client PostgreSQL được cấp quyền đọc. Tệp tự mở transaction READ ONLY, giới hạn 5 giây và kết thúc bằng ROLLBACK; **không tự chạy tệp này trong đợt sửa mã**. Nếu kết quả rỗng, cần đối chiếu lại mã phiên hiển thị với UUID; không bỏ bộ lọc để xuất toàn bộ dữ liệu.
+
+Kết quả chỉ gồm số tiền, trạng thái và boolean đối chiếu; không xuất số tài khoản, tên khách, khóa, payload nguyên bản hoặc tham chiếu đầy đủ. Chỉ chia sẻ trường đã che này. Không gửi .env, checksum key, API key, cookie hoặc thông tin đăng nhập DB.
+
+Đối chiếu theo thứ tự: có transaction SUCCEEDED chưa → có active allocation bao nhiêu → account.outstanding là bao nhiêu → provider báo bao nhiêu → snapshot webhook có bằng chứng recipient v2 không. Nếu bản cũ thiếu trường tài khoản thì NULL không có nghĩa tài khoản sai; nó có nghĩa chưa đủ dữ liệu để kết luận. GET hiện hành của payOS có thể còn cần được người vận hành đối chiếu riêng: chỉ cung cấp boolean tài khoản chính/tài khoản ảo có trùng kỳ vọng không, cùng order/link/reference có khớp không; không gửi nguyên mã hoặc tài khoản.
+
+Với dữ liệu cũ chỉ có recipient-less snapshot và GET thiếu tài khoản ảo, bản sửa **không tự dựng bằng chứng**. Cần phản hồi tạo link gốc hoặc lần gửi lại webhook có chữ ký hợp lệ từ payOS; nếu không có thì tiếp tục ngoại lệ, liên hệ nhà cung cấp. Khoản đến sau chốt cần chứng từ hoàn ngân hàng có thể xác minh; phiên bản này không có connector xác minh chi ra nên không cho đóng chỉ bằng mã nhập tay. Việc này là giới hạn có chủ đích, không phải đã hoàn tiền.
+
+Khi được phê duyệt nâng cấp riêng: sao lưu theo quy trình hiện hành, review branch và diff, build lại API/web từ cùng commit. Đợt này không có migration mới; giữ nguyên 37 migration hiện có. Không chạy seed/reset hay tự sửa hồ sơ kế toán cũ. Chỉ sau khi người vận hành triển khai mới thực hiện checklist giao dịch thật bên trên. Chuẩn bị phương án quay lại image trước và theo dõi hàng đợi ngoại lệ; quay lại mã không được xóa bằng chứng/transaction đã ghi.

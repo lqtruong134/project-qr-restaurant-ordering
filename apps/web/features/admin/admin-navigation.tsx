@@ -1,6 +1,7 @@
 'use client';
 import { Icon } from '../shared/primitives';
 import { Action } from '../shared/components';
+import styles from './payment-exceptions.module.css';
 
 type Page = { id: string; label: string; title: string; description: string };
 type Group = { id: string; label: string; icon: string; children?: Page[] };
@@ -15,13 +16,21 @@ export const adminNavigation: Group[] = [
         id: 'all',
         label: 'Tất cả việc đang chờ',
         title: 'Việc cần xử lý',
-        description: 'Sự cố món và nguyên liệu, khoản cần hoàn và hồ sơ thiếu tiền đang chờ xử lý.',
+        description:
+          'Sự cố món và nguyên liệu, ngoại lệ thanh toán, khoản cần hoàn và hồ sơ thiếu tiền.',
       },
       {
         id: 'incident',
         label: 'Món & nguyên liệu',
         title: 'Sự cố món và nguyên liệu',
         description: 'Kiểm tra sự cố bếp báo, khoản tiền món và khả năng phục vụ.',
+      },
+      {
+        id: 'payment',
+        label: 'Ngoại lệ thanh toán',
+        title: 'Trung tâm ngoại lệ thanh toán',
+        description:
+          'Kiểm tra khoản online bất thường, bằng chứng ngân hàng và việc cần xử lý tiếp theo.',
       },
       {
         id: 'refund',
@@ -232,8 +241,9 @@ export const adminNavigation: Group[] = [
       {
         id: 'online',
         label: 'Đối soát online',
-        title: 'Đối soát thanh toán online',
-        description: 'Kiểm tra khoản chuyển tiền cần đối soát và ghi nhận căn cứ xử lý.',
+        title: 'Trung tâm ngoại lệ thanh toán',
+        description:
+          'Tra cứu ngoại lệ online và lịch sử xử lý; giao dịch hợp lệ được tự động ghi nhận.',
       },
       {
         id: 'payments',
@@ -296,6 +306,7 @@ export default function AdminNavigation({
   collapse,
   open,
   refresh,
+  paymentExceptionCount = 0,
 }: {
   tab: string;
   section: string;
@@ -305,6 +316,7 @@ export default function AdminNavigation({
   collapse: (value: boolean) => void;
   open: (tab: string, section?: string) => void;
   refresh: () => Promise<void>;
+  paymentExceptionCount?: number;
 }) {
   const current = adminPage(tab, section);
   return (
@@ -350,6 +362,14 @@ export default function AdminNavigation({
           >
             <Icon name={group.icon} size={18} />
             <span className="sidebar-label">{group.label}</span>
+            {group.id === 'exceptions' && paymentExceptionCount > 0 && (
+              <span
+                className={styles.navBadge}
+                aria-label={`${paymentExceptionCount} ngoại lệ thanh toán đang chờ`}
+              >
+                {paymentExceptionCount}
+              </span>
+            )}
             {group.children && (
               <svg
                 className="sidebar-chevron"
@@ -375,6 +395,7 @@ export default function AdminNavigation({
                 <button
                   type="button"
                   className="sidebar-child secondary-button"
+                  aria-label={child.label}
                   key={child.id}
                   aria-current={
                     tab === group.id && current.section === child.id ? 'page' : undefined
@@ -382,6 +403,13 @@ export default function AdminNavigation({
                   onClick={() => open(group.id, child.id)}
                 >
                   <span>{child.label}</span>
+                  {group.id === 'exceptions' &&
+                    child.id === 'payment' &&
+                    paymentExceptionCount > 0 && (
+                      <span className={styles.navBadge} aria-hidden="true">
+                        {paymentExceptionCount}
+                      </span>
+                    )}
                 </button>
               ))}
             </div>

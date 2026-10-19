@@ -1,3 +1,4 @@
+import { readPaymentPosition } from './payment-position.service.js';
 import { readPaymentIntents } from './payos.service.js';
 import { payosCapabilities } from './payos-adapter.js';
 import { readBillingSummary, consumePromotion } from '../finance/pricing.service.js';
@@ -26,6 +27,7 @@ export async function readBill(c: Connection, s: Record<string, unknown>, restau
   return {
     session: s,
     account,
+    ...(await readPaymentPosition(c, String(s.id), account)),
     billing: await readBillingSummary(c, String(s.id)),
     completion: await completionStatus(c, String(s.id)),
     refundContext: await readRefundContext(c, String(s.id)),

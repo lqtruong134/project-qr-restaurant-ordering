@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { onlineReceivedIncrease, onlineIntentFunds, paymentRevision } from './payment-refresh';
+import {
+  onlineAppliedIncrease,
+  onlineViewFunds,
+  onlineReceivedIncrease,
+  onlineIntentFunds,
+  paymentRevision,
+} from './payment-refresh';
 import { hasPendingOnlinePayment, type PaymentIntent } from './online-payment';
 const payment = (id: string, amount = '0', status = 'PENDING'): PaymentIntent => ({
   id,
@@ -113,5 +119,62 @@ describe('online receipt funds preserve the server allocation budget', () => {
         onlineIntentFunds('intent', [{ ...receipt, allocated_amount: invalid }]),
       ).toBeUndefined();
     }
+  });
+});
+
+describe('success notifications follow committed bill coverage', () => {
+  const receipt = {
+    id: 'online',
+    status: 'SUCCEEDED',
+    method: 'ONLINE',
+    amount: '5000',
+    allocated_amount: '5000',
+  };
+  it('announces the valid 5k allocation without treating a 5k reservation as payment', () => {
+    expect(onlineAppliedIncrease([], [{ ...receipt, status: 'PENDING' }])).toBe(0n);
+    expect(onlineAppliedIncrease([], [receipt])).toBe(5000n);
+    expect(onlineAppliedIncrease([receipt], [receipt])).toBe(0n);
+  });
+  it('does not announce unallocated, quarantined, missing or refunded money as payment', () => {
+    expect(
+      onlineAppliedIncrease([], [{ ...receipt, amount: '12000', allocated_amount: '10000' }]),
+    ).toBe(10000n);
+    expect(onlineAppliedIncrease([], [{ ...receipt, allocated_amount: '0' }])).toBe(0n);
+    expect(
+      onlineAppliedIncrease(
+        [],
+        [{ id: 'old', method: 'ONLINE', status: 'SUCCEEDED', amount: '5000' }],
+      ),
+    ).toBe(0n);
+    expect(onlineAppliedIncrease([receipt], [{ ...receipt, allocated_amount: '0' }])).toBe(0n);
+    expect(onlineAppliedIncrease([], [{ ...receipt, method: 'CASH' }])).toBe(0n);
+  });
+});
+
+describe('per-intent money projection is not the provider-reported total', () => {
+  it('reads 5k bank-reported with zero posted/applied as zero bill coverage', () => {
+    const online = {
+      ...payment('a').online!,
+      paidAmount: '5000',
+      bankReportedAmount: '5000',
+      recordedAmount: '0',
+      appliedAmount: '0',
+      refundedAmount: '0',
+      unallocatedAmount: '0',
+    };
+    expect(onlineViewFunds(online)).toEqual({
+      recorded: 0n,
+      applied: 0n,
+      refunded: 0n,
+      refundable: 0n,
+    });
+    expect(
+      onlineViewFunds({
+        ...online,
+        recordedAmount: '12000',
+        appliedAmount: '10000',
+        unallocatedAmount: '2000',
+      }),
+    ).toEqual({ recorded: 12000n, applied: 10000n, refunded: 0n, refundable: 2000n });
   });
 });

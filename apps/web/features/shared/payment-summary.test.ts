@@ -250,3 +250,38 @@ describe('cash tender, change and refund reconciliation', () => {
     ).toBeNull();
   });
 });
+
+it('uses the canonical live financial projection and never deducts pending collection capacity from debt', () => {
+  const financial = {
+    billTotal: '69000',
+    bankReportedAmount: '5000',
+    recordedAmount: '0',
+    appliedAmount: '0',
+    outstandingAmount: '69000',
+    pendingOnlineAmount: '5000',
+    reservedAmount: '5000',
+    availableToCollect: '64000',
+    unallocatedAmount: '0',
+    refundDueAmount: '0',
+    refundedAmount: '0',
+    reviewRequired: false,
+  };
+  expect(
+    paymentSummary(
+      { charge_total: '69000', paid_total: '99999', outstanding_amount: '0' },
+      financial,
+    ),
+  ).toMatchObject({ appliedTotal: 0n, collectedTotal: 0n, outstanding: 69000n });
+  expect(
+    paymentSummary(
+      {},
+      {
+        ...financial,
+        recordedAmount: '5000',
+        appliedAmount: '5000',
+        outstandingAmount: '64000',
+        reservedAmount: '0',
+      },
+    ),
+  ).toMatchObject({ appliedTotal: 5000n, outstanding: 64000n });
+});

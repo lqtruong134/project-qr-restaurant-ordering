@@ -1,5 +1,66 @@
 # 15. Hồ sơ đối chiếu và giới hạn xác minh
 
+## Hoàn tất review trải nghiệm payOS — 20/10/2026
+
+Nhánh **`fix/payos-payment-experience`**, nền `5c04e7865b11f827ca65c1d4f80cce37e33d5750`. Bản này chỉ chuẩn bị mã để review. **Không truy cập DB production, không gọi payOS thật, không giao dịch/hoàn tiền thật, không sửa secrets, không chạy migration, không deploy hoặc merge main.**
+
+### Kết luận có bằng chứng và phần chưa xác minh
+
+Đã tái hiện bằng fake payOS và PostgreSQL cách ly: snapshot webhook bỏ bằng chứng recipient/VA đã ký; GET thiếu VA có thể tạo mismatch dù bằng chứng webhook hợp lệ; OPEN cũ/worker terminal làm trường hợp có thể phục hồi bị kẹt; số provider báo có thể còn hiện 0 trước nhánh lỗi; phần được lập khoản mới và nợ món hiển thị lẫn nhau. Việc so cùng primary khi VA được chỉ rõ nhưng sai cũng đã được siết. Mọi khớp dùng đúng order/link/reference/amount/VND/tenant và bằng chứng create độc lập; không lấy GET tự chứng minh chính tài khoản của GET.
+
+**Chưa có truy vết production cho khoản thật 5.000đ của A01/#FFC78214**, nên đây là nguyên nhân ứng viên, không khẳng định khoản đó đã được ghi sổ. Dashboard/redirect/QR biến mất không chứng minh allocation. [SQL chẩn đoán chỉ đọc](reference/payment-readonly-audit-20261019.sql) chỉ xuất số tiền, trạng thái và boolean; ghi chú tự nhập không được xuất. SQL đã chạy READ ONLY/ROLLBACK trên fixture, không chạy production.
+
+### Trước và sau
+
+| Tình huống | Trước | Sau |
+| --- | --- | --- |
+| Bill 69.000đ, QR chờ 5.000đ | Lựa chọn 64.000đ dễ bị hiểu là đã trả | Nợ vẫn 69.000đ; giữ chỗ 5.000đ; được lập khoản mới 64.000đ cho cả hai scope |
+| Đã xác minh và phân bổ 5.000đ | QR mất nhưng số dư/phản hồi có thể không rõ | STAFF/GUEST tự cập nhật đã trả 5.000đ, còn 64.000đ, trạng thái thay QR |
+| Ngân hàng báo tiền nhưng thiếu bằng chứng | Thông tin 0đ hoặc cảnh báo khó hiểu | Tách báo nhận/ghi sổ/phân bổ; nhắc không chuyển/thu lại, chưa giảm nợ |
+| Có bằng chứng mới hợp lệ sau lỗi recipient | Có thể kẹt OPEN dù provider terminal | Worker/refresh phục hồi có kiểm tra, giữ audit và lịch sử, không đóng khi còn dư/cần hoàn |
+| Ngoại lệ thật | STAFF có việc kỹ thuật 0đ, admin nhập mã thủ công | Chỉ ADMIN tiếp nhận, xác minh lại, hoàn đúng nguồn, đóng khi backend cho phép; dữ liệu biết sẵn chỉ đọc |
+| 12.000đ cho quote 10.000đ/bill 20.000đ | Quy tắc 18/10 phải được bảo toàn | Phân bổ tối đa 10.000đ, còn nợ 10.000đ, cần hoàn 2.000đ; không tự bù sang món khác |
+| Phiên đã chốt/tiền cách ly đến muộn | Có form nhập mã hoàn ngoài | Không xem mã nhập tay là bằng chứng; chưa có xác minh outbound thì giữ chặn, phiếu cũ bất biến |
+
+STAFF chỉ nhận việc/lập khoản đúng phạm vi và thực trả hoàn đã duyệt; không xác nhận online thủ công. GUEST nhận lời hướng dẫn ngắn, không lộ thuật ngữ kỹ thuật/tham chiếu/khóa. ADMIN có trung tâm ngoại lệ trong Việc cần xử lý, badge OPEN, tiếp nhận riêng với xác minh/đóng, toàn bộ OPEN được trả dù trên 100 hồ sơ; lịch sử giới hạn 100. Các đường báo cáo cũ mở cùng trung tâm. Chỉ gộp điều hướng việc trùng đã được ngoại lệ bao phủ, không xóa cảnh báo kế toán.
+
+### Kiểm chứng cuối
+
+| Nhóm | Kết quả và phạm vi |
+| --- | --- |
+| Quality gate | `pnpm check`: format, ESLint, TypeScript và **311/311 unit / 41 tệp** đạt |
+| Integration | **428/428 / 27 tệp** đạt trên PostgreSQL tmpfs riêng; gồm **45 payOS domain + 34 protocol + 28 recovery**. CASH/manual bank, refund, VAT/promotion, đóng phiên, báo cáo và các module khác còn đạt |
+| Browser | **60/60 lượt cuối**: 48 ca thuộc ba suite payment/admin/live-flow và 12 ca phục hồi legacy, trên desktop/Android/Safari; có hai Page thật dùng chung trạng thái và một luồng browser → Fastify → PostgreSQL → fake provider |
+| Docker | API/web production Dockerfile đều build image review thành công từ context Git đã lọc secrets; không đổi Dockerfile. API runtime **22/22 deployment tests**, UID10001 đọc 3.202 file/796 thư mục, import/native addon/Fastify health đạt; web UID10001 đọc 1.342 file/303 thư mục và GET /login trả 200, read-only/network none |
+| Diagnostic | SQL READ ONLY/ROLLBACK kiểm tra tiền 5.000đ/69.000đ trong fixture, chống lộ free-text/account/reference/link; không sửa ledger/ghi chú. Đã kiểm riêng sau privacy fix |
+| API docs | Generator đăng ký route bằng DB giả localhost:9, không listen/handler: **179 nghiệp vụ / 188 route** (7 auth/workspace + 2 health), không tính HEAD tự sinh |
+| Phạm vi bảo toàn | Không thêm migration, schema/37 SQL migration/lockfile/compose/dev workflow/deployment config không đổi. Phiếu đã đóng được giữ nguyên; secret check và staged diff được kiểm trước commit |
+
+Hai ca integration cũ được chỉnh vì trước đó coi webhook đã có chữ ký là đủ dù mất phản hồi create và chưa có recipient kỳ vọng. Ca timeout nay lưu bằng chứng create thật trước khi gây timeout GET; ca mất create giữ bank-reported 5.000đ nhưng ledger 0/OPEN. Không nới recipient guard, không bỏ race test. Test cũ kỳ vọng mã hoàn gõ tay đóng hồ sơ được thay bằng assertion 409/OPEN/phiếu không đổi. Hai browser admin cũ được thay bằng tám ca admin mới; không chỉ đổi chữ để làm xanh.
+
+Các bộ kiểm thử bao gồm replay/concurrent refresh/lease, GET đi sau webhook, sai VA dù cùng primary, mất create, under/overpay, trễ/hủy/hết hạn, lỗi ghi sổ rollback rồi retry, chứng cứ cũ không đóng ngoại lệ mới, hoàn từng nguồn/đóng đối soát, privacy/role/tenant, reload/offline/visibility/reconnect và nhiều tab. Hai tab dùng shared mock store; luồng tiền thực của domain dùng provider giả, không mô phỏng được tốc độ/nghiệp vụ chấp nhận tiền của ngân hàng thật hoặc chạy bền dài ngày.
+
+### Tái chạy bộ browser review bằng cấu hình cách ly
+
+`playwright.payment-review.config.ts` không nạp `.env`, không khởi động API thật; web chỉ chạy trên localhost:3334 và API_BASE_URL trỏ localhost:9. Cần một PostgreSQL kiểm thử riêng trên loopback có quyền tạo/xóa database tạm và bộ Playwright browser đã cài. Gán `PAYMENT_REVIEW_DATABASE_URL` bằng URL của **server thử riêng**, không dùng URL ứng dụng/production. Runner tự tạo khóa auth ngẫu nhiên, tắt merchant/model, từ chối URL remote/query override và từ chối các tệp env tự nạp trong apps/web. Từng fixture sở hữu database tên ngẫu nhiên và dọn sau chạy.
+
+```bash
+# Biến này phải trỏ PostgreSQL kiểm thử riêng do reviewer chuẩn bị.
+export PAYMENT_REVIEW_DATABASE_URL='<URL_POSTGRESQL_KIEM_THU_LOOPBACK>'
+pnpm exec playwright test --config playwright.payment-review.config.ts tests/browser/payment-experience.spec.ts tests/browser/payment-admin.spec.ts tests/browser/payos-live-flow.spec.ts
+```
+
+Lệnh trên chạy 48 ca trên ba browser. File payos-ui.spec.ts vẫn thuộc testMatch để chọn regression legacy theo tên; không cần giữ các config scratch trong .runtime. Các bài kiểm thử 69k/5k và admin/domain cùng chứng minh yêu cầu theo nhiều lớp; E2E Fastify/PostgreSQL hiện dùng bill 450k với CASH và nhiều lần online, chưa có một E2E duy nhất gom cả ba UI cho đúng bill 69k.
+
+### Review mã và nâng cấp
+
+Các nhóm chính: payments core (normalization/service/position/reported-funds/resolution); finance read bill/guest/catalog/alerts routes; contracts; STAFF bill/QR/thu tiền; GUEST status/summary; shared polling/verification; ADMIN exception centre; unit/integration/browser tests; API generator và tài liệu 00/06/15/17/25. [Manifest và kết quả đã lọc](reference/payos-experience-review-20261020.json) liệt kê toàn bộ file trong đợt này.
+
+Không có migration mới. Chỉ sau một phê duyệt triển khai riêng: review diff, backup theo runbook, build API/web cùng commit, xác nhận migration nền hiện có bằng quyền operator, giữ phương án rollback image và theo dõi ngoại lệ. Không seed/reset hoặc sửa lịch sử để khớp UI. Bằng chứng recipient v1 bị mất không tự được dựng lại từ cấu hình hiện tại; cần phản hồi create gốc hoặc fresh signed replay hợp lệ. Khoản cách ly sau chốt vẫn cần workflow/chứng từ outbound thực sự, phiên bản này không tự giải quyết bằng mã nhập tay.
+
+Checklist nghiệm thu thật 5.000đ cho operator nằm tại [bài 25](25-thu-tien-tai-ban.md): trước chuyển nợ chưa giảm → sau xác minh/phân bổ cả hai vai trò 5.000đ/64.000đ → không có việc admin/STAFF kỹ thuật → reload/replay không nhân tiền → giữ nguyên chứng cứ và dừng nghiệm thu nếu sai. Đợt review này không thực hiện checklist thật.
+
+
 ## Sửa chuyển dư khoản thu có giới hạn — 18/10/2026
 
 Follow-up trên nhánh **fix/payos-payment-flow**, nền **8bfb0f4**. Đã tái hiện lỗi trên DB kiểm thử cách ly: hóa đơn 20.000đ, STAFF lập 10.000đ, ngân hàng nhận 12.000đ; transaction giữ 12.000đ và allocation đúng giới hạn 10.000đ, nhưng công thức tổng cũ báo thiếu 8.000đ/cần hoàn 0đ. Vì resolve chỉ đối chiếu gross với provider và số cần hoàn tổng ấy, admin có thể đóng RECONCILED khi còn 2.000đ chưa được xử lý.

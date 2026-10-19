@@ -6,6 +6,7 @@ import { HistoryList } from '../shared/history-filters';
 import { restaurantDateTime } from '../shared/restaurant-time';
 import { requestId } from '../shared/request-id';
 import { paymentSummary } from '../shared/payment-summary';
+import { PaymentVerification } from '../shared/payment-verification';
 import { PaymentBreakdown } from '../shared/payment-breakdown';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Action, api, EntryForm, options, vnd, type Product, type Row } from '../shared/components';
@@ -14,7 +15,7 @@ import { OnlinePaymentCard } from './online-payment-card';
 import { hasPendingOnlinePayment, paymentMethodLabel } from '../shared/online-payment';
 import {
   paymentRevision,
-  onlineReceivedIncrease,
+  onlineAppliedIncrease,
   onlineIntentFunds,
 } from '../shared/payment-refresh';
 import { useSmartRefresh } from '../shared/use-smart-refresh';
@@ -87,11 +88,24 @@ export default function BillPanel({
         setBill(next);
         setError('');
         if (previous) {
-          const increase = onlineReceivedIncrease(previous.payments, next.payments);
+          const increase = onlineAppliedIncrease(previous.payments, next.payments);
           if (increase > 0n) {
-            setCollectionError(false);
+            const reviewing =
+              next.financialSummary?.reviewRequired ??
+              next.intents.some((intent) => intent.online?.status === 'REQUIRES_RECONCILIATION');
+            setCollectionError(reviewing);
             setCollectionNotice(
-              'Đã nhận ' + vnd(increase) + ' qua payOS. Hóa đơn và số tiền còn lại đã cập nhật.',
+              reviewing
+                ? 'Đã ghi nhận ' +
+                    vnd(increase) +
+                    ' vào tiền món. Khoản chuyển vẫn cần quản trị kiểm tra; không thu lại cùng khoản này.'
+                : 'Thanh toán thành công — Đã nhận ' +
+                    vnd(increase) +
+                    ' qua payOS và tính vào tiền món. Còn phải thu ' +
+                    vnd(
+                      next.financialSummary?.outstandingAmount ?? next.account.outstanding_amount,
+                    ) +
+                    '.',
             );
           }
           if (paymentRevision(previous) !== paymentRevision(next)) await doneRef.current();
@@ -175,7 +189,7 @@ export default function BillPanel({
     };
   }, [focusRefund, hasBill]);
   const currentRequests = bill?.paymentRequests ?? requests;
-  const totals = paymentSummary(bill?.account);
+  const totals = paymentSummary(bill?.account, bill?.financialSummary);
   const openRefunds =
     bill?.refunds.filter((r) => ['OPEN', 'IN_PROGRESS'].includes(String(r.status))) ?? [];
   const approvedRefunds = openRefunds.filter(
@@ -225,7 +239,8 @@ export default function BillPanel({
               </div>
             )}
             <div>
-              <span>Đã tính vào tiền món</span>
+              <span>Đã thanh toán</span>
+              <small className="payment-paid-label-note">Đã tính vào tiền món</small>
               <strong>{vnd(totals.appliedTotal)}</strong>
             </div>
             <div>
@@ -239,6 +254,7 @@ export default function BillPanel({
               </div>
             )}
           </div>
+          <PaymentVerification summary={bill.financialSummary} />
           {totals.refundedTotal > 0n && (
             <p className="small-note">Đã trừ các khoản thực tế hoàn lại khách.</p>
           )}

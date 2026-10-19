@@ -1,5 +1,15 @@
 # 17. Danh mục API hiện hành
 
+## Projection tài chính và trung tâm ngoại lệ — 19/10/2026
+
+GET `/core/sessions/:id/bill` và `/guest/state` thêm `financialSummary` (tiền báo nhận/ghi sổ/phân bổ/còn nợ/giữ chỗ/chưa phân bổ/cần hoàn/đã hoàn) và `collectionAvailability` (nợ, giữ chỗ, phần được lập khoản mới và lý do chặn). Guest chỉ nhận dòng participant của mình; các tổng cả bàn không lộ danh tính hoặc tham chiếu ngân hàng. Snapshot phiếu đã đóng được trả nguyên trạng. Tiền dạng chuỗi số nguyên VND; frontend không tự trừ QR khỏi nợ.
+
+GET `/core/tables` tách `pending_manual_payments` khỏi `pending_online_payments` để STAFF không có việc xác nhận online 0đ. GET `/core/alerts` thêm cờ `payment_reconciliation`; alert kỹ thuật payOS chỉ được ADMIN tiếp nhận tại trung tâm riêng, không qua generic STAFF ack/resolve.
+
+GET `/core/admin/payment-reconciliation` trả **toàn bộ OPEN**, chỉ giới hạn 100 lịch sử, đúng tenant; thêm tham chiếu chỉ đọc, thời điểm xác minh/tiếp nhận/đóng, `can_resolve` và các blocker. Hai POST mới cần quyền `admin.workspace`, Origin/CSRF và khóa tenant/session: `/:id/refresh` xác minh lại bằng provider, `/:id/acknowledge` chỉ ghi audit tiếp nhận. POST `/:id/resolve` dùng cùng điều kiện với read model và kiểm tra lại dưới khóa; không nhận mã gõ tay làm chứng cứ đã thu/hoàn. Chưa có chứng từ outbound được xác minh nên `RETURNED_EXTERNALLY` vẫn bị chặn. Không thay URL cũ hoặc dùng return URL xác nhận tiền.
+
+Mã generator đăng ký route, không listen hoặc chạy handler và không cần kết nối database thật. Tham khảo request/response hiện hành trong [Swagger đầu vào](core45/openapi-paths.json); số route lịch sử phía dưới thuộc lần kiểm tra cũ. [Thiết kế thanh toán](06-thanh-toan.md) · [kiểm chứng](15-doi-chieu.md).
+
 ## Số dư theo phân bổ và nguồn hoàn — 18/10/2026
 
 Không thêm endpoint. GET /core/sessions/:id/bill bổ sung cho từng payment thành công: allocated_amount (phân bổ còn hiệu lực), refunded_amount (hoàn thành công), refundable_amount (tiền chưa phân bổ còn phải trả lại), pending_refund_amount, available_refund_amount và refund_context_kind. Giao diện chỉ cho chọn nguồn có ngân sách khả dụng do server tính; backend vẫn kiểm tra lại khi tạo, duyệt và thực hiện hoàn.

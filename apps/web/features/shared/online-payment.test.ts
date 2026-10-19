@@ -30,12 +30,51 @@ describe('online payment presentation safeguards', () => {
   it('keeps paid confirmation server-derived and hides QR', () => {
     const payment = intent();
     payment.status = 'SUCCEEDED';
+    Object.assign(payment.online!, {
+      recordedAmount: '150000',
+      appliedAmount: '150000',
+      refundedAmount: '0',
+      unallocatedAmount: '0',
+    });
     expect(onlinePaymentState(payment, now)).toMatchObject({ kind: 'paid', showQr: false });
+  });
+  it('never treats PAID with bank or gross-only money as committed invoice payment', () => {
+    const payment = intent('PAID');
+    payment.status = 'SUCCEEDED';
+    payment.online!.paidAmount = '150000';
+    Object.assign(payment.online!, { bankReportedAmount: '150000', recordedAmount: '150000' });
+    expect(onlinePaymentState(payment, now)).toMatchObject({ kind: 'pending', showQr: false });
+    expect(
+      onlinePaymentState(payment, now, {
+        recorded: 150000n,
+        applied: 150000n,
+        refunded: 0n,
+        refundable: 0n,
+      }),
+    ).toMatchObject({ kind: 'paid', showQr: false });
+  });
+  it('keeps refunded money separate from successful invoice allocation', () => {
+    const payment = intent('PAID');
+    payment.status = 'SUCCEEDED';
+    Object.assign(payment.online!, {
+      recordedAmount: '150000',
+      appliedAmount: '0',
+      refundedAmount: '150000',
+      unallocatedAmount: '0',
+    });
+    expect(onlinePaymentState(payment, now)).toMatchObject({ kind: 'refunded', showQr: false });
   });
   it('prioritizes reconciliation over a succeeded intent so staff cannot recollect', () => {
     const payment = intent('REQUIRES_RECONCILIATION');
     payment.status = 'SUCCEEDED';
     expect(onlinePaymentState(payment, now)).toMatchObject({ kind: 'review', showQr: false });
+  });
+  it('does not call provider PAID a payment before the restaurant commits receipt', () => {
+    expect(onlinePaymentState(intent('PAID'), now)).toMatchObject({
+      kind: 'pending',
+      showQr: false,
+    });
+    expect(onlinePaymentState(intent('PAID'), now).title).toContain('xác nhận');
   });
   it('underpaid keeps the same QR with actual bank progress', () => {
     const payment = intent('UNDERPAID');

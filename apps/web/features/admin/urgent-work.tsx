@@ -1,4 +1,7 @@
 'use client';
+import type { PaymentReconciliationCase } from '@thesis/contracts';
+import styles from './payment-exceptions.module.css';
+import { refundsOutsidePaymentCases } from './payment-work';
 import { SessionReference } from '../shared/session-reference';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { openShortfalls } from './operations-inbox';
@@ -9,6 +12,8 @@ export function useUrgentWork() {
   const [issues, setIssues] = useState<Row[]>([]),
     [refunds, setRefunds] = useState<Row[]>([]),
     [outstanding, setOutstanding] = useState<Row[]>([]),
+    [paymentCases, setPaymentCases] = useState<PaymentReconciliationCase[]>([]),
+    [paymentError, setPaymentError] = useState(''),
     [error, setError] = useState(''),
     [updatedAt, setUpdatedAt] = useState<string>();
   const loading = useRef(false);
@@ -53,6 +58,13 @@ export function useUrgentWork() {
     } catch {
       setError('Chưa tải được danh sách công việc. Chọn Tải lại dữ liệu để thử lại.');
     } finally {
+      try {
+        const cases = await api<PaymentReconciliationCase[]>('/core/admin/payment-reconciliation');
+        setPaymentCases(cases.filter((item) => item.status === 'OPEN'));
+        setPaymentError('');
+      } catch {
+        setPaymentError('Chưa cập nhật được ngoại lệ thanh toán. Dữ liệu gần nhất được giữ lại.');
+      }
       loading.current = false;
     }
   }, []);
@@ -72,7 +84,16 @@ export function useUrgentWork() {
       document.removeEventListener('visibilitychange', tick);
     };
   }, [refresh]);
-  return { issues, refunds, outstanding, error, updatedAt, refresh };
+  return {
+    issues,
+    refunds: refundsOutsidePaymentCases(refunds, paymentCases),
+    outstanding,
+    paymentCases,
+    paymentError,
+    error,
+    updatedAt,
+    refresh,
+  };
 }
 export function UrgentBar({
   issues,
@@ -82,6 +103,9 @@ export function UrgentBar({
   open,
   openReports,
   updatedAt,
+  paymentCases = [],
+  paymentError,
+  openPayments,
 }: {
   issues: Row[];
   refunds: Row[];
@@ -90,11 +114,17 @@ export function UrgentBar({
   error: string;
   open: () => void;
   updatedAt?: string;
+  paymentCases?: PaymentReconciliationCase[];
+  paymentError?: string;
+  openPayments?: () => void;
 }) {
   return (
     <div
       className={
-        'urgent-bar' + (issues.length || refunds.length || outstanding.length ? ' has-urgent' : '')
+        'urgent-bar' +
+        (issues.length || refunds.length || outstanding.length || paymentCases.length
+          ? ' has-urgent'
+          : '')
       }
     >
       <button onClick={open} className="urgent-entry">
@@ -102,12 +132,12 @@ export function UrgentBar({
         <span>
           <strong>
             {updatedAt
-              ? `Việc cần xử lý - ${issues.length + refunds.length + outstanding.length}`
+              ? `Việc cần xử lý - ${issues.length + refunds.length + outstanding.length + paymentCases.length}`
               : 'Đang kiểm tra việc cần xử lý…'}
           </strong>
           <small>
-            {issues.length || refunds.length || outstanding.length
-              ? `${issues.length} món / kho cần xử lý - ${refunds.length} bàn cần hoàn tiền - ${outstanding.length} hồ sơ thiếu tiền`
+            {issues.length || refunds.length || outstanding.length || paymentCases.length
+              ? `${issues.length} món / kho cần xử lý - ${refunds.length} bàn cần hoàn tiền - ${outstanding.length} hồ sơ thiếu tiền${paymentCases.length ? ` - ${paymentCases.length} ngoại lệ thanh toán` : ''}`
               : 'Không có công việc đang chờ xử lý.'}
           </small>
         </span>
@@ -120,6 +150,14 @@ export function UrgentBar({
           <Icon name="arrow" size={16} />
         </button>
       )}
+      {paymentCases.length > 0 && openPayments && (
+        <button className={styles.urgentLink} onClick={openPayments}>
+          <Icon name="warning" size={18} />
+          <strong>{paymentCases.length} ngoại lệ thanh toán cần kiểm tra</strong>
+          <Icon name="arrow" size={16} />
+        </button>
+      )}
+      {paymentError && <small role="status">{paymentError}</small>}
       {error && <small role="status">{error}</small>}
     </div>
   );

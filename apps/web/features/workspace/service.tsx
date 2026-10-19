@@ -84,7 +84,7 @@ export default function Service({
         setCategories(c.categories);
         setTables(t);
         setSupport(s);
-        setAlerts(a.filter((alert) => !alert.requires_admin));
+        setAlerts(a.filter((alert) => !alert.requires_admin && !alert.payment_reconciliation));
         setProducts(
           c.products.filter((p) => c.categories.some((x) => x.id === p.category_id && x.is_active)),
         );

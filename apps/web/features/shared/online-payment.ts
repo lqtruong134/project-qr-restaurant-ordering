@@ -1,4 +1,5 @@
 import type { OnlinePaymentView } from '@thesis/contracts';
+import { onlineViewFunds, type OnlineIntentFunds } from './online-funds';
 export type { OnlinePaymentView, PaymentCapabilities } from '@thesis/contracts';
 export type PaymentIntent = {
   id: string;
@@ -30,22 +31,50 @@ export function safeCheckoutUrl(value: string | null | undefined) {
     return undefined;
   }
 }
-export function onlinePaymentState(intent: PaymentIntent, now = Date.now()) {
+export function onlinePaymentState(
+  intent: PaymentIntent,
+  now = Date.now(),
+  sourceFunds?: OnlineIntentFunds,
+) {
   const online = intent.online;
   const status = online?.status;
   if (status === 'REQUIRES_RECONCILIATION')
     return {
       kind: 'review',
-      title: 'Cần quản trị đối soát',
+      title: 'Quản trị đang kiểm tra khoản chuyển',
       detail:
-        'Khoản chuyển tiền cần được kiểm tra. Không thu thêm cho cùng khoản này; báo quản trị đối chiếu giao dịch.',
+        'Khoản chuyển đang cần quản trị kiểm tra trước khi ghi nhận thanh toán. Không thu lại cùng khoản này.',
       showQr: false,
     };
-  if (intent.status === 'SUCCEEDED' || status === 'PAID')
+  if (intent.status === 'SUCCEEDED') {
+    const funds = onlineViewFunds(online) ?? sourceFunds;
+    if (
+      funds &&
+      funds.applied > 0n &&
+      funds.refundable === 0n &&
+      funds.recorded >= funds.applied + funds.refunded
+    )
+      return {
+        kind: 'paid',
+        title: 'Thanh toán thành công',
+        detail: 'Hệ thống đã xác minh khoản chuyển tiền. Bạn không cần xác nhận nhận tiền thêm.',
+        showQr: false,
+      };
+    if (funds && funds.applied === 0n && funds.refunded > 0n && funds.recorded === funds.refunded)
+      return {
+        kind: 'refunded',
+        title: 'Khoản thanh toán đã được hoàn lại',
+        detail:
+          'Tiền đã được hoàn trả và không còn được tính vào tiền món. Xem số dư hóa đơn trước khi thu khoản mới.',
+        showQr: false,
+      };
+  }
+  if (status === 'PAID' || intent.status === 'SUCCEEDED')
     return {
-      kind: 'paid',
-      title: 'Đã nhận thanh toán online',
-      detail: 'Hệ thống đã xác minh khoản chuyển tiền. Bạn không cần xác nhận nhận tiền thêm.',
+      kind: 'pending',
+      title: 'Đang xác nhận tiền vào hóa đơn',
+      detail:
+        'Ngân hàng đã báo kết quả. Nhà hàng đang hoàn tất ghi nhận tiền vào món; chưa thu lại cùng khoản này.',
       showQr: false,
     };
   if (status === 'CANCEL_PENDING')
@@ -93,7 +122,8 @@ export function onlinePaymentState(intent: PaymentIntent, now = Date.now()) {
     return {
       kind: 'error',
       title: 'Chưa tạo được QR thanh toán',
-      detail: online?.lastError || 'Kiểm tra kết nối rồi thử lại. Chưa có xác nhận nhận tiền.',
+      detail:
+        'Hệ thống sẽ tự thử kết nối lại. Chưa có xác nhận thanh toán; không tạo lại cùng khoản thu khi chưa rõ kết quả.',
       showQr: false,
     };
   if (!online || status === 'CREATE_PENDING')

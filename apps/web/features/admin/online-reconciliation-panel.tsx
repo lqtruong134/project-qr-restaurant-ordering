@@ -1,82 +1,359 @@
 'use client';
 import type { PaymentReconciliationCase, UnmatchedPaymentWebhook } from '@thesis/contracts';
-import { useCallback, useEffect, useState } from 'react';
-import { api, EntryForm, vnd } from '../shared/components';
-import { Empty, Search, matches } from '../shared/primitives';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Action, api, vnd } from '../shared/components';
+import { Empty, Icon, Modal, Search, matches } from '../shared/primitives';
 import { restaurantDateTime } from '../shared/restaurant-time';
 import { SessionReference } from '../shared/session-reference';
+import BillPanel from '../workspace/bill-panel';
+import styles from './payment-exceptions.module.css';
 
-export default function OnlineReconciliationPanel() {
+const providerStates: Record<string, string> = {
+  CREATE_PENDING: 'Đang tạo khoản thu',
+  PENDING: 'Đang chờ khách thanh toán',
+  PROCESSING: 'Đang kiểm tra giao dịch',
+  UNDERPAID: 'Đã nhận một phần số tiền yêu cầu',
+  PAID: 'payOS báo đã thanh toán',
+  CANCEL_PENDING: 'Đang hủy khoản thu',
+  CANCELLED: 'Khoản thu đã hủy',
+  EXPIRED: 'Khoản thu đã hết hạn',
+  FAILED: 'Khoản thu thất bại',
+  ERROR: 'Chưa đối chiếu được với payOS',
+  REQUIRES_RECONCILIATION: 'Đang cần đối chiếu',
+};
+const money = (value: string | undefined) => (value === undefined ? 'Chưa có dữ liệu' : vnd(value));
+const positive = (value: string | undefined) =>
+  value !== undefined && /^\d+$/.test(value) && BigInt(value) > 0n;
+
+function CaseCard({
+  row,
+  refresh,
+  refund,
+  notify,
+}: {
+  row: PaymentReconciliationCase;
+  refresh: () => Promise<void>;
+  refund: () => void;
+  notify: (message: string) => void;
+}) {
+  const closed = row.status === 'RESOLVED';
+  const blockers = row.resolution_blockers ?? ['Cập nhật kết quả đối chiếu trước khi đóng hồ sơ.'];
+  const hasRefund = positive(row.unapplied_amount) || positive(row.refund_due_amount);
+  return (
+    <article
+      className="online-reconciliation-card"
+      aria-label={`Ngoại lệ thanh toán bàn ${row.table_code}`}
+    >
+      <div className={styles.header}>
+        <div>
+          <h3>
+            Bàn {row.table_code}
+            <SessionReference id={row.session_id} />
+          </h3>
+          <p className="small-note">
+            {row.session_status === 'CLOSED' ? 'Phiên đã đóng' : 'Phiên đang phục vụ'} · Cập nhật{' '}
+            {restaurantDateTime(row.updated_at)}
+          </p>
+        </div>
+        <span className={styles.status + (closed ? ' ' + styles.closed : '')}>
+          {closed
+            ? 'Đã đóng hồ sơ'
+            : row.acknowledged_at
+              ? 'Đã tiếp nhận · còn cần xử lý'
+              : 'Chờ quản trị kiểm tra'}
+        </span>
+      </div>
+      <div className="online-reconciliation-facts">
+        {[
+          ['Số tiền yêu cầu', row.amount],
+          ['payOS báo đã nhận', row.paid_amount],
+          ['Đã ghi sổ giao dịch', row.recorded_amount],
+          ['Đã tính vào tiền món', row.allocated_amount],
+          ['Chưa phân bổ vào tiền món', row.unapplied_amount],
+          ['Còn cần hoàn của cả phiên', row.refund_due_amount],
+          ['Đã hoàn thực tế', row.refunded_amount],
+          ['Chưa được phép ghi sổ', row.quarantined_amount],
+        ].map(([title, value]) => (
+          <div key={title}>
+            <span>{title}</span>
+            <strong>{money(value)}</strong>
+          </div>
+        ))}
+      </div>
+      <p className="small-note">
+        Tiền payOS báo đã nhận chỉ giảm công nợ khi đã được xác minh và tính vào tiền món. Tiền chưa
+        phân bổ và khoản cần hoàn được xử lý riêng.
+      </p>
+      {row.reason && (
+        <div className={styles.reason}>
+          <strong>Nguyên nhân cần kiểm tra</strong>
+          <p>{row.reason}</p>
+        </div>
+      )}
+      <dl className={styles.stages} aria-label="Tiến trình xử lý hồ sơ">
+        <div>
+          <dt>Tiếp nhận cảnh báo</dt>
+          <dd>
+            {row.acknowledged_at
+              ? `Đã tiếp nhận${row.acknowledged_by_name ? ' · ' + row.acknowledged_by_name : ''}`
+              : 'Chưa tiếp nhận'}
+          </dd>
+        </div>
+        <div>
+          <dt>Xác minh giao dịch</dt>
+          <dd>
+            {row.verified_at
+              ? `Đã xác minh · ${restaurantDateTime(row.verified_at)}`
+              : 'Chưa đủ bằng chứng xác minh'}
+          </dd>
+        </div>
+        <div>
+          <dt>Kết thúc hồ sơ</dt>
+          <dd>{closed ? 'Đã đóng và lưu lịch sử' : 'Hồ sơ đang mở'}</dd>
+        </div>
+      </dl>
+      <details className={styles.evidence}>
+        <summary>Xem đối chiếu và bằng chứng</summary>
+        <dl>
+          <div>
+            <dt>Trạng thái payOS</dt>
+            <dd>
+              {providerStates[row.provider_status] ?? 'Chưa xác định trạng thái'}{' '}
+              <small>({row.provider_status})</small>
+            </dd>
+          </div>
+          <div>
+            <dt>Tham chiếu đã nhận từ payOS</dt>
+            <dd>
+              {row.provider_references?.length
+                ? row.provider_references.map((reference) => (
+                    <code key={reference}>{reference}</code>
+                  ))
+                : 'Chưa có tham chiếu đáng tin cậy.'}
+            </dd>
+          </div>
+          {row.last_error && (
+            <div>
+              <dt>Kết quả kiểm tra gần nhất</dt>
+              <dd>{row.last_error}</dd>
+            </div>
+          )}
+          {row.acknowledged_at && (
+            <div>
+              <dt>Thời điểm tiếp nhận</dt>
+              <dd>{restaurantDateTime(row.acknowledged_at)}</dd>
+            </div>
+          )}
+          {row.resolved_at && (
+            <div>
+              <dt>Thời điểm đóng hồ sơ</dt>
+              <dd>{restaurantDateTime(row.resolved_at)}</dd>
+            </div>
+          )}
+          {row.resolution_note && (
+            <div>
+              <dt>Kết quả đã lưu</dt>
+              <dd>{row.resolution_note}</dd>
+            </div>
+          )}
+        </dl>
+      </details>
+      {!closed && (
+        <div className={styles.next}>
+          <h4>Bước xử lý tiếp theo</h4>
+          {!row.can_resolve && (
+            <div className={styles.blockers}>
+              <p>Chưa thể đóng hồ sơ</p>
+              <ul>
+                {blockers.map((blocker) => (
+                  <li key={blocker}>{blocker}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {positive(row.unapplied_amount) ? (
+            <p>
+              Còn {vnd(row.unapplied_amount)} đã nhận nhưng chưa tính vào tiền món. Lập phiếu hoàn
+              từ đúng giao dịch gốc, chờ trả tiền và xác nhận thực tế trước khi đóng hồ sơ.
+            </p>
+          ) : positive(row.refund_due_amount) ? (
+            <p>
+              Phiên còn {vnd(row.refund_due_amount)} cần hoàn. Kiểm tra các giao dịch gốc và hoàn
+              tất trả tiền thực tế trước khi đóng hồ sơ.
+            </p>
+          ) : null}
+          <div className={styles.actions}>
+            {!row.acknowledged_at && (
+              <Action
+                run={async () => {
+                  await api('/core/admin/payment-reconciliation/' + row.id + '/acknowledge', {});
+                  await refresh();
+                  notify(
+                    'Đã tiếp nhận cảnh báo. Việc tiếp nhận chưa xác minh giao dịch và không thay đổi số dư.',
+                  );
+                }}
+              >
+                Tiếp nhận kiểm tra
+              </Action>
+            )}
+            <Action
+              run={async () => {
+                try {
+                  await api('/core/admin/payment-reconciliation/' + row.id + '/refresh', {});
+                } finally {
+                  await refresh();
+                }
+              }}
+            >
+              <Icon name="refresh" size={16} /> Đối chiếu lại với payOS
+            </Action>
+            {hasRefund && (
+              <button className="secondary-button" type="button" onClick={refund}>
+                Mở xử lý hoàn tiền tại bàn
+              </button>
+            )}
+            {row.can_resolve && (
+              <Action
+                confirmTitle="Đóng hồ sơ ngoại lệ thanh toán?"
+                confirmLabel="Đóng hồ sơ"
+                confirm="Hệ thống sẽ kiểm tra lại bằng chứng, sổ thu và tiền hoàn trước khi đóng hồ sơ. Thao tác này không thay cho việc nhận hoặc trả tiền thực tế."
+                successMessage="Đã đóng hồ sơ ngoại lệ. Lịch sử được giữ lại."
+                run={async () => {
+                  try {
+                    await api('/core/admin/payment-reconciliation/' + row.id + '/resolve', {
+                      resolution: 'RECONCILED',
+                    });
+                  } finally {
+                    await refresh();
+                  }
+                }}
+              >
+                Đóng hồ sơ sau đối chiếu
+              </Action>
+            )}
+          </div>
+          <p className="small-note">
+            Tiếp nhận chỉ ghi người đang kiểm tra. Xác minh và đóng hồ sơ luôn dựa trên bằng chứng
+            cùng số tiền thực tế.
+          </p>
+        </div>
+      )}
+    </article>
+  );
+}
+
+export default function OnlineReconciliationPanel({
+  onUpdated,
+}: {
+  onUpdated?: () => Promise<void>;
+}) {
   const [rows, setRows] = useState<PaymentReconciliationCase[]>([]),
     [loaded, setLoaded] = useState(false),
     [error, setError] = useState(''),
     [search, setSearch] = useState(''),
-    [status, setStatus] = useState('OPEN');
+    [notice, setNotice] = useState(''),
+    [status, setStatus] = useState('OPEN'),
+    [refundSession, setRefundSession] = useState<string>();
   const [unmatched, setUnmatched] = useState<UnmatchedPaymentWebhook[]>([]),
-    [inboxLoaded, setInboxLoaded] = useState(false),
     [inboxError, setInboxError] = useState('');
+  const loading = useRef(false);
   const refresh = useCallback(async () => {
+    if (loading.current) return;
+    loading.current = true;
     try {
-      setRows(await api<PaymentReconciliationCase[]>('/core/admin/payment-reconciliation'));
-      setError('');
-      setLoaded(true);
-    } catch (error) {
-      setError((error as Error).message);
-    }
-  }, []);
-  const refreshInbox = useCallback(async () => {
-    try {
-      setUnmatched(await api<UnmatchedPaymentWebhook[]>('/core/admin/payment-webhooks/unmatched'));
-      setInboxError('');
-    } catch (error) {
-      setInboxError((error as Error).message);
+      const results = await Promise.allSettled([
+        api<PaymentReconciliationCase[]>('/core/admin/payment-reconciliation'),
+        api<UnmatchedPaymentWebhook[]>('/core/admin/payment-webhooks/unmatched'),
+      ]);
+      if (results[0].status === 'fulfilled') {
+        setRows(results[0].value);
+        setError('');
+      } else setError('Chưa cập nhật được hồ sơ. Dữ liệu gần nhất được giữ lại; hãy thử làm mới.');
+      if (results[1].status === 'fulfilled') {
+        setUnmatched(results[1].value);
+        setInboxError('');
+      } else setInboxError('Chưa cập nhật được thông báo payOS chưa khớp.');
     } finally {
-      setInboxLoaded(true);
+      loading.current = false;
+      setLoaded(true);
     }
   }, []);
+  const refreshAll = async () => {
+    await refresh();
+    await onUpdated?.();
+  };
   useEffect(() => {
     void refresh();
-    void refreshInbox();
-  }, [refresh, refreshInbox]);
-  const selected = rows.filter(
-    (row) =>
-      (status === 'ALL' || row.status === status) &&
-      matches(
-        [row.table_code, row.session_id, row.id, row.reason, row.provider_status].join(' '),
-        search,
-      ),
-  );
+    const tick = () => {
+      if (!document.hidden && navigator.onLine) void refresh();
+    };
+    const timer = setInterval(tick, 5000);
+    window.addEventListener('focus', tick);
+    window.addEventListener('online', tick);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', tick);
+      window.removeEventListener('online', tick);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [refresh]);
+  const pending = rows.filter((row) => row.status === 'OPEN');
+  const selected = rows
+    .filter(
+      (row) =>
+        (status === 'ALL' || row.status === status) &&
+        matches(
+          [
+            row.table_code,
+            row.session_id,
+            row.id,
+            row.reason,
+            row.provider_status,
+            ...(row.provider_references ?? []),
+          ].join(' '),
+          search,
+        ),
+    )
+    .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
   return (
-    <section className="online-reconciliation-panel" aria-label="Đối soát thanh toán online">
-      <p className="small-note">
-        Kiểm tra giao dịch cần đối soát với sao kê và payOS. Việc kết thúc hồ sơ không tự ghi nhận
-        thêm tiền vào hóa đơn.
-      </p>
+    <section
+      className={'online-reconciliation-panel ' + styles.panel}
+      aria-label="Đối soát thanh toán online"
+    >
+      <div className={styles.summary}>
+        <strong>
+          {loaded
+            ? `${pending.length} hồ sơ ngoại lệ đang chờ`
+            : 'Đang kiểm tra ngoại lệ thanh toán…'}
+        </strong>
+        <p className="small-note">
+          Giao dịch hợp lệ được tự động ghi nhận. Chỉ các khoản bất thường cần quản trị xử lý.
+        </p>
+      </div>
       <div className="online-reconciliation-toolbar">
         <Search
           value={search}
           onChange={setSearch}
-          placeholder="Tìm bàn, mã phiên hoặc lý do đối soát…"
+          placeholder="Tìm bàn, mã phiên, tham chiếu hoặc nguyên nhân…"
         />
         <label>
           Trạng thái hồ sơ
-          <select value={status} onChange={(event) => setStatus(event.target.value)}>
-            <option value="OPEN">Cần đối soát</option>
-            <option value="RESOLVED">Đã xử lý</option>
-            <option value="ALL">Tất cả</option>
+          <select
+            aria-label="Trạng thái hồ sơ"
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+          >
+            <option value="OPEN">Cần xử lý</option>
+            <option value="RESOLVED">Lịch sử đã đóng</option>
+            <option value="ALL">Tất cả hồ sơ</option>
           </select>
         </label>
-        <button
-          className="secondary-button"
-          type="button"
-          onClick={() => {
-            void refresh();
-            void refreshInbox();
-          }}
-        >
-          Làm mới đối soát
-        </button>
+        <Action run={refreshAll}>
+          <Icon name="refresh" size={16} /> Làm mới đối soát
+        </Action>
       </div>
+      {notice && <p role="status">{notice}</p>}
       {error && (
         <p className="form-error" role="alert">
           {error}
@@ -84,148 +361,61 @@ export default function OnlineReconciliationPanel() {
       )}
       {!loaded ? (
         <p role="status">Đang tải hồ sơ đối soát…</p>
-      ) : !selected.length ? (
+      ) : !selected.length && !error ? (
         <Empty
-          title={search ? 'Không tìm thấy hồ sơ đối soát' : 'Không có khoản online cần đối soát'}
+          title={
+            search
+              ? 'Không tìm thấy hồ sơ đối soát'
+              : status === 'RESOLVED'
+                ? 'Chưa có hồ sơ đã đóng'
+                : status === 'ALL'
+                  ? 'Chưa có hồ sơ ngoại lệ thanh toán'
+                  : 'Không có khoản online cần đối soát'
+          }
           icon="receipt"
         >
           {search
-            ? 'Thử tên bàn hoặc mã phiên khác.'
+            ? 'Thử tên bàn, mã phiên hoặc tham chiếu khác.'
             : 'Các khoản thanh toán online hợp lệ được hệ thống tự ghi nhận.'}
         </Empty>
       ) : (
         <div className="online-reconciliation-list">
           {selected.map((row) => (
-            <article className="online-reconciliation-card" key={row.id}>
-              <div className="core-line">
-                <h3>
-                  Bàn {row.table_code}
-                  <SessionReference id={row.session_id} />
-                </h3>
-                <strong>{row.status === 'OPEN' ? 'Cần đối soát' : 'Đã xử lý'}</strong>
-              </div>
-              <p className="small-note">
-                {row.session_status === 'CLOSED' ? 'Phiên đã đóng' : 'Phiên đang phục vụ'} · Cập
-                nhật {restaurantDateTime(row.updated_at)}
-              </p>
-              <div className="online-reconciliation-facts">
-                <div>
-                  <span>Số tiền yêu cầu</span>
-                  <strong>{vnd(row.amount)}</strong>
-                </div>
-                <div>
-                  <span>Ngân hàng đã xác nhận</span>
-                  <strong>{vnd(row.paid_amount)}</strong>
-                </div>
-                {row.recorded_amount !== undefined && (
-                  <div>
-                    <span>Đã nhận vào sổ giao dịch</span>
-                    <strong>{vnd(row.recorded_amount)}</strong>
-                  </div>
-                )}
-                {row.allocated_amount !== undefined && (
-                  <div>
-                    <span>Đã tính vào tiền món</span>
-                    <strong>{vnd(row.allocated_amount)}</strong>
-                  </div>
-                )}
-                {row.refunded_amount !== undefined && (
-                  <div>
-                    <span>Đã hoàn lại khách</span>
-                    <strong>{vnd(row.refunded_amount)}</strong>
-                  </div>
-                )}
-                {row.unapplied_amount !== undefined && (
-                  <div>
-                    <span>Chưa phân bổ, cần hoàn</span>
-                    <strong>{vnd(row.unapplied_amount)}</strong>
-                  </div>
-                )}
-                <div>
-                  <span>Tiền cần kiểm tra riêng</span>
-                  <strong>{vnd(row.quarantined_amount)}</strong>
-                </div>
-              </div>
-              {row.reason && <p>{row.reason}</p>}
-              {row.last_error && <p className="small-note">{row.last_error}</p>}
-              {row.status === 'OPEN' && BigInt(row.unapplied_amount ?? '0') > 0n && (
-                <p role="status" className="small-note">
-                  Còn {vnd(row.unapplied_amount)} đã nhận nhưng chưa tính vào tiền món. Lập phiếu
-                  hoàn từ đúng giao dịch gốc, chờ nhân viên trả tiền và xác nhận, rồi làm mới đối
-                  soát. Ghi chú trả ngoài ngân hàng không thay cho khoản hoàn này.
-                </p>
-              )}
-              {row.status === 'OPEN' && BigInt(row.unapplied_amount ?? '0') === 0n && (
-                <EntryForm
-                  title="Ghi nhận kết quả đối soát"
-                  fields={[
-                    {
-                      key: 'resolution',
-                      label: 'Kết quả xử lý',
-                      options: [
-                        ...(row.session_status !== 'CLOSED'
-                          ? [{ value: 'RECONCILED', label: 'Đã đối chiếu, kết thúc hồ sơ' }]
-                          : []),
-                        ...(BigInt(row.quarantined_amount) > 0n
-                          ? [
-                              {
-                                value: 'RETURNED_EXTERNALLY',
-                                label: 'Đã trả tiền chưa ghi sổ qua ngân hàng',
-                              },
-                            ]
-                          : []),
-                      ],
-                    },
-                    { key: 'reference', label: 'Mã giao dịch / tham chiếu sao kê', maxLength: 120 },
-                    {
-                      key: 'reason',
-                      type: 'textarea',
-                      label: 'Nội dung đối soát và căn cứ xử lý',
-                      maxLength: 300,
-                    },
-                  ]}
-                  submit="Lưu kết quả đối soát"
-                  successMessage="Đã lưu kết quả đối soát thanh toán online."
-                  confirm={(values) =>
-                    values.resolution === 'RETURNED_EXTERNALLY'
-                      ? 'Bạn đã kiểm tra và thực sự trả tiền qua ngân hàng? Thao tác này chỉ lưu kết quả đối soát, không sửa phiếu đã chốt.'
-                      : 'Bạn đã đối chiếu tiền nhận, trạng thái payOS và xử lý đủ các khoản hoàn?'
-                  }
-                  onSubmit={async (values) => {
-                    await api('/core/admin/payment-reconciliation/' + row.id + '/resolve', values);
-                    await refresh();
-                  }}
-                />
-              )}
-            </article>
+            <CaseCard
+              key={row.id}
+              row={row}
+              refresh={refreshAll}
+              refund={() => setRefundSession(row.session_id)}
+              notify={setNotice}
+            />
           ))}
         </div>
       )}
-      <section aria-label="Thông báo payOS chưa khớp khoản thu">
-        <h3>Thông báo payOS chưa khớp khoản thu</h3>
+      <section className={styles.history} aria-label="Thông báo payOS chưa khớp khoản thu">
+        <h3>Thông báo payOS chưa khớp khoản thu {loaded && `(${unmatched.length})`}</h3>
         <p className="small-note">
-          Các thông báo đã xác minh chữ ký nhưng chưa tìm được khoản thu trong nhà hàng. Có thể là
-          thông báo kiểm tra webhook hoặc giao dịch ngoài luồng; số tiền bên dưới chưa được ghi vào
-          hóa đơn. Đối chiếu dashboard payOS và sao kê trước khi kết luận.
+          Thông báo có chữ ký hợp lệ nhưng chưa tìm được khoản thu tương ứng. Số tiền này chưa được
+          ghi vào hóa đơn. Kiểm tra tham chiếu với payOS và sao kê; thông báo này không đủ để tự gán
+          tiền vào một bàn.
         </p>
         {inboxError && (
           <p className="form-error" role="alert">
-            Chưa tải được thông báo chưa khớp: {inboxError}
+            {inboxError}
           </p>
         )}
-        {!inboxLoaded ? (
-          <p role="status">Đang tải thông báo payOS chưa khớp…</p>
+        {!loaded ? (
+          <p role="status">Đang tải thông báo chưa khớp…</p>
         ) : !inboxError && !unmatched.length ? (
           <Empty title="Không có thông báo payOS chưa khớp" icon="receipt">
-            Không có thông báo có số tiền dương cần kiểm tra trong danh sách này.
+            Không có thông báo có số tiền dương cần kiểm tra.
           </Empty>
         ) : (
           <div className="online-reconciliation-list">
             {unmatched.map((notification) => (
               <article className="online-reconciliation-card" key={notification.id}>
-                <div className="core-line">
+                <div className={styles.header}>
                   <h3>Mã thanh toán {notification.orderCode ?? 'chưa có'}</h3>
-                  <strong>Chưa khớp khoản thu</strong>
+                  <span className={styles.status}>Chưa khớp khoản thu</span>
                 </div>
                 <p className="small-note">
                   Nhận thông báo {restaurantDateTime(notification.receivedAt)}
@@ -244,12 +434,30 @@ export default function OnlineReconciliationPanel() {
                     <strong>{notification.reference}</strong>
                   </div>
                 </div>
-                <p className="small-note">Chỉ để đối chiếu; chưa xác nhận đã nhận tiền cho bàn.</p>
+                <p className="small-note">Chưa xác nhận đã nhận tiền cho bàn.</p>
               </article>
             ))}
           </div>
         )}
       </section>
+      {refundSession && (
+        <Modal
+          title="Kiểm tra và hoàn tiền từ giao dịch gốc"
+          wide
+          close={() => setRefundSession(undefined)}
+        >
+          <div className={styles.refundDialog}>
+            <BillPanel
+              id={refundSession}
+              products={[]}
+              financialOnly
+              focusRefund
+              onClose={() => setRefundSession(undefined)}
+              done={refreshAll}
+            />
+          </div>
+        </Modal>
+      )}
     </section>
   );
 }

@@ -1,4 +1,5 @@
 'use client';
+import { collectionAmounts } from '../shared/collection-availability';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, vnd, type Row } from '../shared/components';
 import { CashHistory } from './payment-handover';
@@ -292,21 +293,14 @@ export function CollectionForm({
       }
     }
   }, [requests, preferredRequestId, request, busy]);
-  const available =
-    value(bill.account.outstanding_amount) - value(bill.account.reserved_payment_amount);
-  const own =
-    (bill.charges ?? [])
-      .filter((c) => c.status === 'ACTIVE' && c.owner_participant_id === participant)
-      .reduce((sum, c) => sum + value(c.unpaid_amount), 0n) -
-    bill.intents
-      .filter(
-        (p) =>
-          p.payer_participant_id === participant &&
-          p.collection_scope === 'PARTICIPANT' &&
-          ['CREATED', 'PENDING'].includes(String(p.status)) &&
-          new Date(String(p.expires_at)).getTime() > Date.now(),
-      )
-      .reduce((sum, p) => sum + value(p.amount), 0n);
+  const {
+    outstanding,
+    reserved,
+    available,
+    ownOutstanding,
+    ownAvailable: own,
+    blockedReason,
+  } = collectionAmounts(bill.account, bill.charges ?? [], participant, bill.collectionAvailability);
   const amount =
     scope === 'CUSTOM'
       ? custom
@@ -323,6 +317,12 @@ export function CollectionForm({
       : method === 'CASH'
         ? value(cash) >= value(amount)
         : !!(reference.trim() || image));
+  if (blockedReason)
+    return (
+      <p className="payment-reservation-note" role="status">
+        {blockedReason}
+      </p>
+    );
   if (available <= 0n)
     return (
       <p className="small-note">
@@ -332,7 +332,9 @@ export function CollectionForm({
             : !bill.closure?.canClose
               ? 'Đã thu đủ tiền. Còn công việc cần hoàn tất trước khi kết thúc bàn; xem danh sách bên dưới.'
               : 'Đã thu đủ tiền và hoàn tất công việc. Chỉ kết thúc bàn sau khi khách đã rời đi.'
-          : 'Số tiền còn lại đã có khoản thu chờ xác nhận. Tiếp tục kiểm tra bên dưới.'}
+          : 'Còn phải thu ' +
+            vnd(outstanding) +
+            '. Toàn bộ số này đang có khoản thu chờ xác nhận; chưa được xem là đã thanh toán.'}
       </p>
     );
   if ((bill.paymentRequests?.length ?? 0) > 0 && !requests.length)
@@ -463,8 +465,8 @@ export function CollectionForm({
         )}
         <div className="amount-choices" aria-label="Chọn phần tiền thanh toán">
           {[
-            ['TABLE', 'Cả bàn', vnd(available)],
-            ['PARTICIPANT', 'Món của một khách', vnd(own > 0n ? own : 0n)],
+            ['TABLE', 'Cả bàn', 'Còn phải thu ' + vnd(outstanding)],
+            ['PARTICIPANT', 'Món của một khách', 'Còn phải thu ' + vnd(ownOutstanding)],
             ['CUSTOM', 'Số tiền khác', 'Nhập khoản thu'],
           ].map(([s, label, detail]) => (
             <button
@@ -480,6 +482,32 @@ export function CollectionForm({
               <span>{detail}</span>
             </button>
           ))}
+        </div>
+        <div
+          className="collection-availability"
+          role="group"
+          aria-label="Số tiền còn thu và khoản đang chờ"
+        >
+          <p>
+            <span>Còn phải thu trong phạm vi đã chọn</span>
+            <strong>{vnd(scope === 'PARTICIPANT' ? ownOutstanding : outstanding)}</strong>
+          </p>
+          {reserved > 0n && (
+            <p>
+              <span>Đang có khoản thu chờ xác nhận của bàn</span>
+              <strong>{vnd(reserved)}</strong>
+            </p>
+          )}
+          <p>
+            <span>Có thể tạo khoản thu mới</span>
+            <strong>{vnd(scope === 'PARTICIPANT' ? own : available)}</strong>
+          </p>
+          {reserved > 0n && (
+            <small>
+              Khoản đang chờ chưa phải tiền đã thanh toán. Số có thể thu mới đã loại phần chờ để
+              tránh thu trùng.
+            </small>
+          )}
         </div>
         {scope === 'PARTICIPANT' && (
           <>

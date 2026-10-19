@@ -1,9 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
+import { Icon } from '../shared/primitives';
 import { api, vnd } from '../shared/components';
 import { restaurantDateTime } from '../shared/restaurant-time';
-import type { OnlineIntentFunds } from '../shared/payment-refresh';
+import { onlineViewFunds, type OnlineIntentFunds } from '../shared/payment-refresh';
 import {
   isOnlinePaymentPending,
   onlinePaymentState,
@@ -14,7 +15,7 @@ import {
 export function OnlinePaymentCard({
   intent,
   canManage = false,
-  funds,
+  funds: sourceFunds,
   done,
   report,
 }: {
@@ -28,7 +29,8 @@ export function OnlinePaymentCard({
     [qrError, setQrError] = useState(''),
     [now, setNow] = useState(Date.now()),
     [busy, setBusy] = useState(false);
-  const state = onlinePaymentState(intent, now);
+  const funds = onlineViewFunds(intent.online) ?? sourceFunds;
+  const state = onlinePaymentState(intent, now, funds);
   const online = intent.online;
   const canPay =
     state.kind === 'pending' && ['PENDING', 'UNDERPAID'].includes(String(online?.status));
@@ -63,7 +65,7 @@ export function OnlinePaymentCard({
       live = false;
     };
   }, [online?.qrCode, state.showQr]);
-  const received = online?.paidAmount ?? '0';
+  const received = online?.bankReportedAmount ?? online?.paidAmount ?? '0';
   const remaining = online?.remainingAmount ?? String(intent.amount);
   return (
     <section
@@ -74,14 +76,35 @@ export function OnlinePaymentCard({
     >
       <div className="online-payment-heading">
         <div>
-          <span className="online-payment-provider">Online · payOS</span>
+          <span className="online-payment-provider">
+            <Icon
+              name={state.kind === 'paid' ? 'check' : state.kind === 'review' ? 'warning' : 'clock'}
+              size={18}
+            />
+            Online · payOS
+          </span>
           <h3 role="status" aria-live="polite">
             {funds && funds.refundable > 0n ? 'Đã nhận tiền; còn khoản cần hoàn' : state.title}
           </h3>
         </div>
-        <strong className="online-payment-amount">{vnd(intent.amount)}</strong>
+        <div className="online-payment-requested">
+          <small>Số tiền khoản thu</small>
+          <strong className="online-payment-amount">{vnd(intent.amount)}</strong>
+        </div>
       </div>
-      <p className="online-payment-detail">{state.detail}</p>
+      {!(state.kind === 'paid' && funds) && <p className="online-payment-detail">{state.detail}</p>}
+      {state.kind === 'paid' && funds && (
+        <p className="online-payment-confirmation" role="status">
+          Đã nhận {vnd(funds.recorded)} qua payOS; đã thanh toán {vnd(funds.applied)} cho tiền món.
+          Không cần xác nhận thủ công.
+        </p>
+      )}
+      {state.kind === 'review' && (
+        <p className="online-payment-next-step">
+          Thông tin đã chuyển tới quản trị. Phục vụ chỉ cần báo khách chờ kiểm tra, không thu lại
+          cùng khoản chuyển.
+        </p>
+      )}
       {(state.showQr || checkout) && (
         <div className="online-payment-instructions">
           <div className="online-payment-qr">
@@ -107,7 +130,7 @@ export function OnlinePaymentCard({
               <strong>{vnd(intent.amount)}</strong>
             </p>
             <p>
-              <span>Đã nhận qua ngân hàng</span>
+              <span>Ngân hàng báo đã chuyển</span>
               <strong>{vnd(received)}</strong>
             </p>
             <p>
@@ -165,30 +188,38 @@ export function OnlinePaymentCard({
           </div>
         </div>
       )}
-      {funds && !state.showQr && (
-        <p>
-          Đã tính vào tiền món <strong>{vnd(funds.applied)}</strong>
-          {funds.refunded > 0n && (
-            <>
-              ; đã hoàn lại khách <strong>{vnd(funds.refunded)}</strong>
-            </>
-          )}
-          {funds.refundable > 0n && (
-            <>
-              ; còn cần hoàn lại khách <strong>{vnd(funds.refundable)}</strong>. Khoản này chưa tự
-              bù vào các món còn nợ
-            </>
-          )}
-          .
-        </p>
-      )}
-      {!state.showQr && BigInt(received) > 0n && (
-        <p className="online-payment-received">
-          Ngân hàng đã xác nhận <strong>{vnd(received)}</strong> cho khoản thu này.
-        </p>
-      )}
+      {funds &&
+        !state.showQr &&
+        (state.kind !== 'paid' || funds.refunded > 0n || funds.refundable > 0n) && (
+          <p>
+            Đã tính vào tiền món <strong>{vnd(funds.applied)}</strong>
+            {funds.refunded > 0n && (
+              <>
+                ; đã hoàn lại khách <strong>{vnd(funds.refunded)}</strong>
+              </>
+            )}
+            {funds.refundable > 0n && (
+              <>
+                ; còn cần hoàn lại khách <strong>{vnd(funds.refundable)}</strong>. Khoản này chưa tự
+                bù vào các món còn nợ
+              </>
+            )}
+            .
+          </p>
+        )}
+      {!state.showQr &&
+        BigInt(received) > 0n &&
+        (state.kind !== 'paid' ||
+          !funds ||
+          BigInt(received) !== funds.recorded ||
+          funds.refunded > 0n) && (
+          <p className="online-payment-received">
+            Ngân hàng báo đã chuyển <strong>{vnd(received)}</strong> cho khoản thu này.
+          </p>
+        )}
       {canManage && state.kind !== 'paid' && (
-        <div className="online-payment-actions">
+        <details className="online-payment-actions payment-recovery">
+          <summary>Thanh toán chậm hoặc cần kiểm tra?</summary>
           <button
             className="secondary-button"
             type="button"
@@ -214,7 +245,7 @@ export function OnlinePaymentCard({
             Hệ thống tự cập nhật khi ngân hàng xác nhận. Chỉ kiểm tra thủ công khi chờ lâu hoặc kết
             nối vừa phục hồi.
           </p>
-        </div>
+        </details>
       )}
     </section>
   );

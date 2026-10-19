@@ -367,7 +367,7 @@ test('guest calls staff, cash and multiple bank receipts auto-update both roles 
     await bankPaid(first, 100000);
     await staff.clock.runFor(3500);
     await guest.clock.runFor(3500);
-    await expect(firstCard).toContainText('Đã nhận thanh toán online');
+    await expect(firstCard).toContainText('Thanh toán thành công');
     await expect(firstCard.getByRole('img')).toHaveCount(0);
     await expect(dialog.locator('.last-payment')).toContainText('100.000 đ');
     await expect(guestOnline).toContainText('Thanh toán thành công');

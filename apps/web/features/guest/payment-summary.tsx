@@ -1,7 +1,12 @@
-import type { BillingSummary, GuestOnlinePayment } from '@thesis/contracts';
+import type {
+  BillingSummary,
+  GuestOnlinePayment,
+  PaymentFinancialSummary,
+} from '@thesis/contracts';
 import { BillingTotals } from '../shared/billing-totals';
 import { vnd, type Row } from '../shared/components';
 import { paymentFlowSummary } from '../shared/payment-summary';
+import { PaymentVerification } from '../shared/payment-verification';
 import { PaymentBreakdown } from '../shared/payment-breakdown';
 import { GuestOnlinePayments } from './online-payments';
 
@@ -11,14 +16,16 @@ export function GuestPaymentSummary({
   requests = [],
   payments = [],
   onlinePayments = [],
+  financialSummary,
 }: {
   account: Row;
   billing?: BillingSummary;
   requests?: Row[];
   payments?: Row[];
   onlinePayments?: GuestOnlinePayment[];
+  financialSummary?: PaymentFinancialSummary;
 }) {
-  const totals = paymentFlowSummary(account, payments);
+  const totals = paymentFlowSummary(account, payments, financialSummary);
   const pending =
     totals.outstanding > 0n
       ? requests.filter(
@@ -41,7 +48,8 @@ export function GuestPaymentSummary({
           </p>
         )}
         <p>
-          Đã tính vào tiền món<strong>{vnd(totals.appliedTotal)}</strong>
+          Đã thanh toán<small className="payment-paid-label-note">Đã tính vào tiền món</small>
+          <strong>{vnd(totals.appliedTotal)}</strong>
         </p>
         <p>
           Còn phải thanh toán<strong>{vnd(totals.outstanding)}</strong>
@@ -66,6 +74,13 @@ export function GuestPaymentSummary({
           đổi với nhân viên để xử lý riêng hai khoản.
         </p>
       )}
+      {financialSummary && BigInt(financialSummary.reservedAmount) > 0n && (
+        <p className="payment-reservation-note" role="status">
+          Có {vnd(financialSummary.reservedAmount)} đang chờ xác nhận. Khoản chờ chưa phải tiền đã
+          thanh toán và chưa làm giảm số còn phải trả.
+        </p>
+      )}
+      <PaymentVerification summary={financialSummary} />
       <GuestOnlinePayments payments={onlinePayments} />
       {totals.refundedTotal > 0n && (
         <p className="small-note">Đã trừ các khoản thực tế hoàn lại khách.</p>

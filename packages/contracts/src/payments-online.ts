@@ -20,6 +20,11 @@ export type OnlinePaymentView = {
   expiresAt: string;
   lastError: string | null;
   paidAmount: string;
+  bankReportedAmount?: string;
+  recordedAmount?: string;
+  appliedAmount?: string;
+  refundedAmount?: string;
+  unallocatedAmount?: string;
   remainingAmount: string;
 };
 export type PaymentReconciliationCase = {
@@ -39,6 +44,16 @@ export type PaymentReconciliationCase = {
   updated_at: string;
   reason: string | null;
   status: 'OPEN' | 'RESOLVED';
+  provider_references?: string[];
+  verified_at?: string | null;
+  acknowledged_at?: string | null;
+  acknowledged_by_name?: string | null;
+  resolved_at?: string | null;
+  resolution_note?: string | null;
+  refund_due_amount?: string;
+  can_resolve?: boolean;
+  resolution_blockers?: string[];
+  can_return_externally?: boolean;
 };
 
 export type UnmatchedPaymentWebhook = {
@@ -70,4 +85,32 @@ export type GuestOnlinePayment = {
   expiresAt: string;
   createdAt: string;
   supportRequestId?: string;
+};
+
+/** Backend projection: a reservation never counts as a payment. All money is integer VND. */
+export type CollectionAvailability = {
+  outstandingAmount: string;
+  reservedAmount: string;
+  availableAmount: string;
+  blockedReason: string | null;
+  participants: {
+    participantId: string;
+    outstandingAmount: string;
+    reservedAmount: string;
+    availableAmount: string;
+  }[];
+};
+export type PaymentFinancialSummary = {
+  billTotal: string;
+  bankReportedAmount: string;
+  recordedAmount: string;
+  appliedAmount: string;
+  outstandingAmount: string;
+  pendingOnlineAmount: string;
+  reservedAmount: string;
+  availableToCollect: string;
+  unallocatedAmount: string;
+  refundDueAmount: string;
+  refundedAmount: string;
+  reviewRequired: boolean;
 };
