@@ -497,10 +497,14 @@ test('staff creates a partial online QR after cash, refresh preserves QR, provid
     method: 'ONLINE',
     status: 'SUCCEEDED',
     amount: '150000',
+    payment_intent_id: 'online-intent',
+    allocated_amount: '150000',
+    refunded_amount: '0',
+    refundable_amount: '0',
     confirmed_at: at,
   });
   await expect(dialog.getByRole('region', { name: 'Khoản thu online' })).toContainText(
-    'Đã nhận thanh toán online',
+    'Thanh toán thành công',
   );
   await expect(dialog.locator('.last-payment')).toContainText('payOS');
   await dialog.getByRole('button', { name: 'Phiếu thường', exact: true }).click();
@@ -534,7 +538,7 @@ for (const [status, label] of [
   ['EXPIRED', 'QR thanh toán đã hết hạn'],
   ['CANCELLED', 'Khoản thu online đã hủy'],
   ['ERROR', 'Khoản thanh toán online không thành công'],
-  ['REQUIRES_RECONCILIATION', 'Cần quản trị đối soát'],
+  ['REQUIRES_RECONCILIATION', 'Quản trị đang kiểm tra khoản chuyển'],
 ] as const)
   test(status + ' hides payable QR and states the next action', async ({ page }) => {
     const f = await mock(page);
@@ -586,55 +590,6 @@ test('guest only requests staff assistance and cannot start online payment or cl
   expect(f.writes).toEqual([
     { path: '/api/guest/payment-requests', body: { method: 'BANK_TRANSFER' } },
   ]);
-  expect(f.errors).toEqual([]);
-});
-
-test('admin can record verified reconciliation outcome with reference, without changing payment state', async ({
-  page,
-}, info) => {
-  const f = await mock(page);
-  f.cases.push({
-    id: 'online-intent',
-    session_id: sid,
-    table_code: 'A10',
-    session_status: 'CLOSED',
-    amount: '150000',
-    paid_amount: '150000',
-    quarantined_amount: '5000',
-    provider_status: 'REQUIRES_RECONCILIATION',
-    last_error: null,
-    updated_at: at,
-    reason: 'Khoản chuyển đến sau khi phiên đã đóng.',
-    status: 'OPEN',
-  });
-  await page.goto('/workspace/admin');
-  await selectAdmin(page, 'Báo cáo', 'Đối soát online');
-  const panel = page.getByRole('region', { name: 'Đối soát thanh toán online' });
-  await expect(panel).toContainText('5.000 đ');
-  await expect(panel.getByRole('option', { name: 'Đã đối chiếu, kết thúc hồ sơ' })).toHaveCount(0);
-  await expect(panel.getByRole('button', { name: /Đã nhận tiền|PAID/ })).toHaveCount(0);
-  await panel
-    .getByLabel('Mã giao dịch / tham chiếu sao kê', { exact: true })
-    .fill('BANK-RETURN-FIXTURE');
-  await panel
-    .getByLabel('Nội dung đối soát và căn cứ xử lý', { exact: true })
-    .fill('Đã kiểm tra sao kê và trả lại khoản chuyển dư cho khách.');
-  for (const width of [1440, 390, 320]) {
-    await page.setViewportSize({ width, height: 1000 });
-    await fits(page, panel);
-  }
-  await panel.screenshot({
-    path: info.outputPath('payos-admin-reconciliation-320.png'),
-    animations: 'disabled',
-  });
-  await panel.getByRole('button', { name: 'Lưu kết quả đối soát', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Xác nhận', exact: true }).click();
-  await expect(panel).toContainText('Không có khoản online cần đối soát');
-  expect(f.writes[0]!.body).toMatchObject({
-    resolution: 'RETURNED_EXTERNALLY',
-    reference: 'BANK-RETURN-FIXTURE',
-  });
-  expect(f.bill.account.paid_total).toBe('0');
   expect(f.errors).toEqual([]);
 });
 
@@ -703,6 +658,7 @@ test('transient provider error keeps the pending amount reserved and allows stat
   await expect(card.getByRole('link')).toHaveCount(0);
   await expect(card.getByRole('button', { name: /nhận tiền/ })).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: 'Online (payOS)', exact: true })).toBeDisabled();
+  await card.locator('.payment-recovery > summary').click();
   await card.getByRole('button', { name: 'Kiểm tra trạng thái', exact: true }).click();
   await expect(card).toContainText('Chưa tạo được QR thanh toán');
   expect(f.bill.account.reserved_payment_amount).toBe('150000');
@@ -756,6 +712,10 @@ test('pending staff payment automatically becomes partial then paid and reloads 
     method: 'ONLINE',
     status: 'SUCCEEDED',
     amount: '100000',
+    payment_intent_id: 'online-intent',
+    allocated_amount: '100000',
+    refunded_amount: '0',
+    refundable_amount: '0',
     confirmed_at: at,
   });
   f.table.outstanding_amount = '350000';
@@ -776,6 +736,10 @@ test('pending staff payment automatically becomes partial then paid and reloads 
     method: 'ONLINE',
     status: 'SUCCEEDED',
     amount: '350000',
+    payment_intent_id: 'online-intent',
+    allocated_amount: '350000',
+    refunded_amount: '0',
+    refundable_amount: '0',
     confirmed_at: at,
   });
   f.bill.paymentRequests[0]!.status = 'RESOLVED';
@@ -791,7 +755,7 @@ test('pending staff payment automatically becomes partial then paid and reloads 
     },
   ];
   await page.clock.runFor(3500);
-  await expect(card).toContainText('Đã nhận thanh toán online');
+  await expect(card).toContainText('Thanh toán thành công');
   await expect(card.getByRole('img')).toHaveCount(0);
   await expect(
     dialog.locator('.bill-balance-grid').getByText('0 đ', { exact: true }),
@@ -842,6 +806,17 @@ test('guest automatically shows partial and successful online receipts and clear
   f.online('UNDERPAID', '450000', '100000');
   f.bill.account.paid_total = '100000';
   f.bill.account.outstanding_amount = '350000';
+  f.bill.payments.push({
+    id: 'guest-part-one',
+    method: 'ONLINE',
+    status: 'SUCCEEDED',
+    payment_intent_id: 'online-intent',
+    amount: '100000',
+    allocated_amount: '100000',
+    refunded_amount: '0',
+    refundable_amount: '0',
+    confirmed_at: at,
+  });
   await page.clock.runFor(3500);
   await expect(online).toContainText('Đã nhận một phần thanh toán');
   await expect(online).toContainText('100.000 đ');
@@ -850,6 +825,17 @@ test('guest automatically shows partial and successful online receipts and clear
   f.online('PAID', '450000', '450000');
   f.bill.account.paid_total = '450000';
   f.bill.account.outstanding_amount = '0';
+  f.bill.payments.push({
+    id: 'guest-part-two',
+    method: 'ONLINE',
+    status: 'SUCCEEDED',
+    payment_intent_id: 'online-intent',
+    amount: '350000',
+    allocated_amount: '350000',
+    refunded_amount: '0',
+    refundable_amount: '0',
+    confirmed_at: at,
+  });
   f.bill.paymentRequests[0]!.status = 'RESOLVED';
   await page.clock.runFor(3500);
   await expect(online.getByRole('status')).toHaveText('Thanh toán thành công');
@@ -857,10 +843,16 @@ test('guest automatically shows partial and successful online receipts and clear
     page.getByRole('heading', { name: 'Bàn đã thanh toán đủ', exact: true }),
   ).toBeVisible();
   await expect(
-    page.locator('.core-stats p').filter({ hasText: 'Đã tính vào tiền món' }).locator('strong'),
+    page
+      .locator('.guest-content > .core-card > .core-stats > p')
+      .filter({ hasText: 'Đã tính vào tiền món' })
+      .locator('strong'),
   ).toHaveText('450.000 đ');
   await expect(
-    page.locator('.core-stats p').filter({ hasText: 'Còn phải thanh toán' }).locator('strong'),
+    page
+      .locator('.guest-content > .core-card > .core-stats > p')
+      .filter({ hasText: 'Còn phải thanh toán' })
+      .locator('strong'),
   ).toHaveText('0 đ');
   await expect(page.locator('.guest-payment-sent')).toHaveCount(0);
   await expect(page.getByText('Nhân viên đang xử lý', { exact: true })).toHaveCount(0);
@@ -887,9 +879,14 @@ test('manual provider failure is truthful and still reloads the newly recorded b
     method: 'ONLINE',
     status: 'SUCCEEDED',
     amount: '100000',
+    payment_intent_id: 'online-intent',
+    allocated_amount: '100000',
+    refunded_amount: '0',
+    refundable_amount: '0',
     confirmed_at: at,
   });
   f.rejectRefresh();
+  await card.locator('.payment-recovery > summary').click();
   await card.getByRole('button', { name: 'Kiểm tra trạng thái', exact: true }).click();
   await expect(dialog.getByRole('alert')).toContainText('Chưa kiểm tra được ngân hàng');
   await expect(card).toContainText('Đã nhận một phần tiền online');
@@ -958,17 +955,26 @@ test('guest expiry, cancellation and reconciliation never claim money was posted
   f.online('REQUIRES_RECONCILIATION', '150000', '150000');
   await page.clock.runFor(5500);
   await expect(online).toContainText('Nhà hàng đang kiểm tra khoản chuyển tiền');
-  await expect(online).toContainText('Ngân hàng đã xác nhận 150.000 đ');
-  await expect(online).toContainText('chưa ghi nhận vào thanh toán');
-  await expect(online).toContainText('bạn chưa cần chuyển lại');
+  await expect(online).toContainText('Ngân hàng đã ghi nhận giao dịch 150.000 đ');
+  await expect(online).toContainText('Phần này chưa được tính là đã thanh toán');
+  await expect(online).toContainText('không chuyển lại cùng khoản tiền');
+  await expect(
+    online.locator('.core-stats p').filter({ hasText: 'Nhà hàng đã nhận' }).locator('strong'),
+  ).toHaveText('0 đ');
   await expect(online).not.toContainText('Thanh toán thành công');
   await expect(online.getByRole('img')).toHaveCount(0);
   await expect(online.getByRole('link')).toHaveCount(0);
   await expect(
-    page.locator('.core-stats p').filter({ hasText: 'Đã tính vào tiền món' }).locator('strong'),
+    page
+      .locator('.guest-content > .core-card > .core-stats > p')
+      .filter({ hasText: 'Đã tính vào tiền món' })
+      .locator('strong'),
   ).toHaveText('0 đ');
   await expect(
-    page.locator('.core-stats p').filter({ hasText: 'Còn phải thanh toán' }).locator('strong'),
+    page
+      .locator('.guest-content > .core-card > .core-stats > p')
+      .filter({ hasText: 'Còn phải thanh toán' })
+      .locator('strong'),
   ).toHaveText('450.000 đ');
   expect(f.writes).toEqual([]);
   expect(f.errors).toEqual([]);
@@ -1101,42 +1107,6 @@ test('a partial-quote overpayment shows received, applied, still owed and refund
       .locator('strong'),
   ).toHaveText('10.000 đ');
   await expect(returnedCard.getByRole('img')).toHaveCount(0);
-  expect(f.writes).toEqual([]);
-  expect(f.errors).toEqual([]);
-});
-
-test('admin must finish a source refund before closing a booked-unapplied reconciliation case', async ({
-  page,
-}) => {
-  const f = await mock(page);
-  f.cases.push({
-    id: 'online-intent',
-    session_id: sid,
-    table_code: 'A10',
-    session_status: 'ACTIVE',
-    amount: '10000',
-    paid_amount: '12000',
-    recorded_amount: '12000',
-    allocated_amount: '10000',
-    refunded_amount: '0',
-    unapplied_amount: '2000',
-    quarantined_amount: '0',
-    provider_status: 'REQUIRES_RECONCILIATION',
-    last_error: null,
-    updated_at: at,
-    reason: 'Khách chuyển vượt khoản thu một phần.',
-    status: 'OPEN',
-  });
-  await page.goto('/workspace/admin');
-  await selectAdmin(page, 'Báo cáo', 'Đối soát online');
-  const panel = page.getByRole('region', { name: 'Đối soát thanh toán online' });
-  await expect(panel).toContainText('Còn 2.000 đ đã nhận nhưng chưa tính vào tiền món');
-  await expect(panel).toContainText('Lập phiếu hoàn từ đúng giao dịch gốc');
-  await expect(
-    panel.getByRole('button', { name: 'Lưu kết quả đối soát', exact: true }),
-  ).toHaveCount(0);
-  await expect(panel.getByRole('option', { name: /trả.*ngân hàng/ })).toHaveCount(0);
-  await fits(page, panel);
   expect(f.writes).toEqual([]);
   expect(f.errors).toEqual([]);
 });

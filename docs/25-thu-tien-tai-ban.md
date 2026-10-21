@@ -1,5 +1,76 @@
 # 25. Khách gọi thanh toán — nhân viên thu tiền tại bàn
 
+## Luồng thu tiền và xử lý ngoại lệ mới — 19/10/2026
+
+Hướng dẫn này áp dụng cho nhánh **`fix/payos-payment-experience`**, thay cho mô tả cũ bên dưới về nhập mã hoàn ngoài để đóng đối soát và bắt kiểm tra lại thủ công ở giao dịch bình thường. Chưa deploy hoặc chạy giao dịch thật trong đợt cập nhật. Tình huống 5.000đ do chủ dự án phản ánh chưa được truy vết production trong đợt này; không coi màn hình payOS hoặc QR biến mất là chứng cứ đã trả hóa đơn. [Bài 06](06-thanh-toan.md) giải thích audit, số tiền và giới hạn bằng chứng; [bài 15](15-doi-chieu.md) chốt kết quả kiểm thử.
+
+### Trước và sau thay đổi
+
+| Tình huống | Trải nghiệm trước có thể gây nhầm | Trải nghiệm hiện hành |
+| --- | --- | --- |
+| Bill 69.000đ, đang có QR 5.000đ | “Cả bàn” hiện 64.000đ như thể đã trả, “món một khách” còn 69.000đ | Tách còn phải thu 69.000đ, đang giữ 5.000đ và còn được lập khoản mới 64.000đ; phần của một khách cũng chịu giới hạn khả dụng chung |
+| Backend xác minh và phân bổ 5.000đ thành công | QR mất, phản hồi thành công hoặc hóa đơn cha chậm đổi | Thẻ được thay bằng kết quả khoản thu; số đã trả và số còn phải thu cùng cập nhật. Không bắt bấm xác nhận online |
+| Ngân hàng báo tiền nhưng chưa ghi sổ/phân bổ | 0đ hoặc “cần đối soát” khó hiểu, dễ thu lại | Hiện tiền báo nhận riêng, nói rõ nhà hàng đang kiểm tra và nhắc không chuyển/thu lại cùng khoản |
+| Ngoại lệ online | STAFF có biểu mẫu xử lý kỹ thuật, ADMIN phải tìm trong báo cáo | STAFF có thông báo ngắn; ADMIN có badge và trung tâm ngoại lệ trực tiếp |
+| Mã tham chiếu đã có | ADMIN nhập lại mã như một căn cứ tự xác nhận | Tham chiếu hiển thị chỉ đọc; tiếp nhận không đổi tiền, đóng hồ sơ dùng điều kiện backend |
+| Chuyển dư 2.000đ của khoản 10.000đ | Dễ nghĩ khoản dư tự trả món khác hoặc duyệt hoàn là đã hoàn | Tách phân bổ 10.000đ, còn nợ bill và cần hoàn 2.000đ; chỉ hoàn thực tế mới đổi tiền đã hoàn |
+
+### Luồng màn hình theo từng vai trò
+
+**STAFF:** Việc cần làm → mở đúng bàn, nhận lời gọi nếu cần → Thu tiền & phiếu → kiểm tra Tổng hóa đơn / Đã thanh toán / Còn phải thu → chọn người trả và phạm vi → xem phần còn được lập khoản mới → tạo QR → chờ tự cập nhật → thấy kết quả khoản thu và số dư mới → tiếp tục thu phần còn lại hoặc xử lý các việc còn mở.
+
+**GUEST:** Thanh toán → xem khoản được yêu cầu → quét QR/link do nhân viên cung cấp → chờ xác minh → thấy khoản thành công hoặc trả một phần và số dư của bàn. Nếu cần kiểm tra, màn hình nhắc không chuyển lại; không có thuật ngữ lease/webhook/allocation và không có nút tự nhận tiền.
+
+**ADMIN:** Badge Việc cần xử lý → Ngoại lệ thanh toán → chọn hồ sơ/bằng chứng → tiếp nhận nếu cần → đọc lý do và bước tiếp theo → đối chiếu lại payOS hoặc mở hoàn tại bàn → chỉ đóng khi backend đủ điều kiện → hồ sơ rời danh sách đang chờ, còn trong Lịch sử đã đóng.
+
+Các bước không tạo màn hình trung gian riêng cho từng lớp kỹ thuật. Ở điện thoại, bộ lọc xếp một cột, mã dài tự xuống dòng và các số tiền có nhãn đầy đủ. Dữ liệu thiếu được ghi “Chưa có dữ liệu”, không tự biến thành 0 hoặc đã xác minh.
+
+### Đọc ba con số chính trước khi thu
+
+Ví dụ bill 69.000đ và QR chờ 5.000đ: **Tổng hóa đơn 69.000đ / Đã thanh toán 0đ / Còn phải thu 69.000đ**. “Còn được lập khoản mới 64.000đ” chỉ phục vụ tránh thu trùng. Sau khi server ghi và phân bổ 5.000đ: **Đã thanh toán 5.000đ / Còn phải thu 64.000đ**. Cùng một số 64.000đ không được dùng thay hai khái niệm này.
+
+Phần tổng nhận/phân bổ/hoàn chi tiết vẫn có để giải thích khi khách chuyển dư hoặc món được miễn sau thu. Không bù tiền cần hoàn vào khoản nợ khác. Tổng tiền mặt/chuyển khoản thường và payOS vẫn theo đúng kênh, không cần lập khoản thu giả để bù trạng thái online.
+
+| Trạng thái khoản online | Cách phục vụ xử lý |
+| --- | --- |
+| Đang chờ thanh toán | Cho khách quét đúng QR/số tiền; không cần nhấn Kiểm tra trạng thái trong luồng bình thường |
+| Đang xác minh | Chờ hệ thống, không thu lại cùng khoản và không tự đánh dấu nhận tiền |
+| Đã báo nhận, nhà hàng đang kiểm tra | Nói ngắn gọn “Khoản chuyển này đang cần quản trị kiểm tra. Không chuyển lại”; mở chi tiết nếu cần |
+| Khoản thu thành công / nhận một phần | Kiểm tra số thực tế đã tính vào món và phần còn thiếu; khoản thành công chưa có nghĩa cả bàn đã trả đủ |
+| Hết hạn, hủy hoặc thất bại | Không dùng lại QR; xem tiền đã ghi nhận và trạng thái hiện tại trước khi lập khoản thay thế |
+| Chờ lâu hoặc kết nối lỗi | Mở vùng kiểm tra dự phòng; thao tác phục hồi chỉ kiểm tra khoản cũ. Lỗi mạng không có nghĩa tiền chưa về hoặc cần chuyển lần nữa |
+
+Thông báo thành công dựa trên phần phân bổ online mới tăng từ server; gross nhận tiền tăng nhưng chưa phân bổ không được phát thông báo đã trả món. Khi QR không còn dùng được, thẻ vẫn giữ trạng thái và hướng dẫn tương ứng. Tab ẩn/offline dừng lịch theo dõi phù hợp; focus/reconnect đọc lại. Polling có timeout/backoff/singleflight đáp ứng đợt này, chưa thêm SSE/WebSocket; không hứa cập nhật tức thời khi ngân hàng hoặc mạng chậm.
+
+### ADMIN cần làm đúng việc nào?
+
+Trung tâm hiển thị số tiền yêu cầu, payOS báo nhận, ghi sổ, đã tính vào món, chưa phân bổ, đã hoàn thực tế, tiền chưa được phép ghi sổ và nghĩa vụ hoàn của **cả phiên**. Trong vùng bằng chứng có trạng thái provider, tham chiếu readonly, kết quả kiểm tra gần nhất và mốc tiếp nhận/đóng hồ sơ. Lý do kỹ thuật được đặt cạnh bước hợp lệ tiếp theo, không yêu cầu người dùng đi tìm qua nhiều báo cáo.
+
+- **Tiếp nhận kiểm tra:** ghi ai đang xem, giữ hồ sơ OPEN và badge. Không xác minh giao dịch, không nhận tiền hoặc hoàn tiền.
+- **Đối chiếu lại với payOS:** dùng endpoint ADMIN riêng, kiểm lại đúng khoản cũ bằng dữ liệu đáng tin cậy. Không tự tạo QR mới, không nhận chữ PAID đơn lẻ làm chứng cứ tiền vào món.
+- **Mở xử lý hoàn tiền tại bàn:** dùng giao dịch gốc và luồng hoàn đã có. ADMIN lập/duyệt, STAFF trả thật và xác nhận. Trước khi hết nghĩa vụ hoàn, không đóng hồ sơ chỉ bằng ghi chú.
+- **Đóng hồ sơ sau đối chiếu:** chỉ xuất hiện khi backend cho phép; một xác nhận ngắn, không nhập lại mã hệ thống đã biết. Backend kiểm tra lại dưới khóa, nên dữ liệu đổi hoặc còn tiền chưa xử lý vẫn bị từ chối.
+
+Hồ sơ có đủ bằng chứng hợp lệ có thể tự kết thúc sau retry, không buộc ADMIN bấm lần cuối. Còn sai tài khoản, định danh không khớp, nguồn tiền chưa phân bổ, hoàn chưa xong, tiền đến sau phiếu đã chốt hoặc sổ chưa khớp thì vẫn ở hàng đợi. Thông báo chưa ghép được khoản thu được tách riêng và không có nút tùy ý gán vào bàn. Cùng một khoản dư đã có hồ sơ xử lý đủ phạm vi không tạo thêm đường dẫn việc hoàn trùng; cảnh báo gốc vẫn được giữ.
+
+**Không nhập mã giao dịch để thay bằng chứng đã hoàn ngân hàng.** Luồng `RETURNED_EXTERNALLY` kiểu cũ bị chặn. Nếu tiền đang cách ly hoặc đến sau khi phiên đã chốt, chưa có workflow xác minh chứng từ outbound thì giữ chặn và lịch sử; báo quản trị có thẩm quyền kiểm tra ngoài luồng, không sửa phiếu cũ hoặc lập thu/hoàn giả trong ứng dụng. [Điều kiện và giới hạn ở bài 06](06-thanh-toan.md).
+
+### Checklist 5.000đ cho người vận hành sau một đợt triển khai được cho phép
+
+Đây là checklist để operator nghiệm thu; tài liệu không tự thực hiện bước triển khai, chuyển tiền hay chỉnh database. Chọn đúng merchant/kênh/tài khoản và tình huống được chủ nhà hàng chấp thuận; FAQ payOS nêu tài khoản ảo có thể gắn đúng đơn/số tiền, vì vậy không giả định mọi kênh cho chuyển thiếu/dư tùy ý.
+
+1. Mở cùng bàn trên STAFF và GUEST; ghi số tổng hóa đơn, đã trả, còn phải thu và số cần hoàn. Có thể dùng bill kiểm thử 69.000đ đã được phép, không lấy ảnh giao diện cũ làm trạng thái hiện tại.
+2. Nhân viên lập đúng khoản 5.000đ/phạm vi/người trả. Trước khi chuyển, nợ món chưa giảm; QR chờ và số giữ chỗ được ghi rõ. Không tạo lần hai khi tạo link bị chậm.
+3. Sau một lần chuyển được phép, đối chiếu kết quả ngân hàng/payOS và server. Chỉ khi cùng khoản được xác minh, có giao dịch ghi sổ và phân bổ 5.000đ thì kỳ vọng bill còn 64.000đ.
+4. STAFF/GUEST tự cập nhật, có thông báo kết quả; không còn biểu mẫu xác nhận online hoặc việc “Kiểm tra giao dịch 0đ”. Lời gọi đúng phạm vi tự kết thúc; bàn vẫn mở nếu còn nợ hoặc việc khác.
+5. Reload, đổi tab và quay lại bằng thiết bị thứ hai; số tiền và trạng thái phải nhất quán, không xuất hiện giao dịch thứ hai. Không chuyển thêm tiền để thử idempotency.
+6. ADMIN không có công việc cho khoản bình thường. Nếu thật sự có ngoại lệ, kiểm tra tiền báo nhận/ghi sổ/phân bổ và lý do; đừng đóng bằng mã nhập tay hoặc thu lại cùng khoản.
+7. Nếu kết quả không khớp, giữ nguyên chứng cứ, chỉ lấy báo cáo đọc chỉ đọc đã che tài khoản/tên/tham chiếu theo quyền vận hành. Dừng nghiệm thu và điều tra, không sửa số dư hoặc reset dữ liệu để làm đạt.
+
+Kết quả mock hiện hành tham chiếu các suite `tests/browser/payment-experience.spec.ts`, `tests/browser/payment-admin.spec.ts`, `tests/payos-provider-recovery.integration.test.ts`, `tests/payos.integration.test.ts` và test đơn vị recipient/readiness/availability. Ảnh admin 320px trong `test-results/payment-admin/.../payment-admin-320.png` là dữ liệu giả; không phải bằng chứng ngân hàng. Số lượng/kết quả cuối, lần kiểm tra lại và giới hạn xác minh được ghi ở [bài 15](15-doi-chieu.md).
+
+Nguyên tắc thiết kế tham khảo [Toast về chia khoản](https://support.toasttab.com/en/article/Split-Payments-with-Toast-Mobile-Order-Pay), [Square về tìm và mở giao dịch](https://squareup.com/help/us/en/article/5145-transaction-search), [Stripe về tự đối chiếu khoản khớp](https://support.stripe.com/questions/bank-transfer-reconciliation?locale=en-GB), cùng [payOS FAQ](https://payos.vn/docs/cau-hoi-thuong-gap/) và [API/chữ ký](https://payos.vn/docs/api/). Các tài liệu này định hướng cách trình bày; quy tắc tiền của dự án vẫn phải qua backend, giao dịch nguyên tử và kiểm thử riêng.
+
 ## Đọc đúng tiền khi khách chuyển dư — 18/10/2026
 
 STAFF/GUEST và phiếu đang mở tách tiền **đã nhận** khỏi **đã tính vào tiền món**. Ví dụ hóa đơn 20.000đ, nhân viên chỉ lập khoản 10.000đ nhưng ngân hàng nhận 12.000đ: đã nhận 12.000đ, đã tính vào món 10.000đ, **còn phải trả 10.000đ và cần hoàn 2.000đ**. Cả hai nghĩa vụ phải xuất hiện đồng thời; không báo còn thiếu 8.000đ hoặc đã thanh toán toàn bộ 12.000đ vào món. Thẻ khoản online cũng tách số ngân hàng xác nhận, đã phân bổ, đã hoàn thật và tiền chưa phân bổ cần hoàn. Món/phần của từng khách vẫn tính theo allocation đúng phạm vi.

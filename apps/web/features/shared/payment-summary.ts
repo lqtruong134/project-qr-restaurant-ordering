@@ -1,3 +1,4 @@
+import type { PaymentFinancialSummary } from '@thesis/contracts';
 export type PaymentAccount = {
   [key: string]: unknown;
   charge_total?: unknown;
@@ -8,19 +9,28 @@ export type PaymentAccount = {
 };
 
 /** Gross receipts exclude cash tender/change; invoice coverage comes only from the server allocation balance. */
-export function paymentSummary(account: PaymentAccount | null | undefined) {
-  const billTotal = BigInt(String(account?.charge_total ?? 0));
-  const collectedTotal = BigInt(String(account?.paid_total ?? 0));
-  const refundedTotal = BigInt(String(account?.refunded_total ?? 0));
-  const outstanding = BigInt(String(account?.outstanding_amount ?? 0));
-  const refundDue = BigInt(String(account?.refund_due_amount ?? 0));
+export function paymentSummary(
+  account: PaymentAccount | null | undefined,
+  financial?: PaymentFinancialSummary,
+) {
+  const billTotal = BigInt(financial?.billTotal ?? String(account?.charge_total ?? 0));
+  const collectedTotal = BigInt(financial?.recordedAmount ?? String(account?.paid_total ?? 0));
+  const refundedTotal = BigInt(financial?.refundedAmount ?? String(account?.refunded_total ?? 0));
+  const outstanding = BigInt(
+    financial?.outstandingAmount ?? String(account?.outstanding_amount ?? 0),
+  );
+  const refundDue = BigInt(financial?.refundDueAmount ?? String(account?.refund_due_amount ?? 0));
   return {
     billTotal,
     collectedTotal,
     refundedTotal,
     netPaid: collectedTotal - refundedTotal,
-    appliedTotal: account?.outstanding_amount === undefined ? 0n : billTotal - outstanding,
-    unappliedHeld: refundDue,
+    appliedTotal: financial
+      ? BigInt(financial.appliedAmount)
+      : account?.outstanding_amount === undefined
+        ? 0n
+        : billTotal - outstanding,
+    unappliedHeld: financial ? BigInt(financial.unallocatedAmount) : refundDue,
     outstanding,
     refundDue,
   };
@@ -38,8 +48,9 @@ function recordedMoney(value: unknown): bigint | undefined {
 export function paymentFlowSummary(
   account: PaymentAccount | null | undefined,
   payments: readonly PaymentTransaction[] = [],
+  financial?: PaymentFinancialSummary,
 ) {
-  const totals = paymentSummary(account);
+  const totals = paymentSummary(account, financial);
   let cashTendered = 0n;
   let nonCashReceived = 0n;
   let bankReceived = 0n;

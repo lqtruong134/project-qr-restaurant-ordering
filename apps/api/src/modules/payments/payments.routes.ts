@@ -114,6 +114,40 @@ export function registerFinance(
     { config: { permission: 'admin.workspace' } },
     (r) => payos.resolve(idParam(r), r.identity!.id, object(r.body)),
   );
+  app.post(
+    '/core/admin/payment-reconciliation/:id/refresh',
+    { config: { permission: 'admin.workspace' } },
+    (r, reply) => providerAction(r, reply, () => payos.refreshForAdmin(idParam(r), r.identity!.id)),
+  );
+  app.post(
+    '/core/admin/payment-reconciliation/:id/acknowledge',
+    { config: { permission: 'admin.workspace' } },
+    (r) =>
+      transaction(db, async (c) => {
+        const intent = await one(
+          c,
+          'SELECT p.id,p.session_id FROM payment_intent p JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE p.id=$1 AND t.restaurant_id=$2',
+          [idParam(r), restaurant],
+        );
+        await session(c, intent.session_id, restaurant, false);
+        const q = await one(
+          c,
+          'SELECT * FROM payos_payment_request WHERE payment_intent_id=$1 FOR UPDATE',
+          [intent.id],
+        );
+        if (q.reconciliation_status !== 'OPEN') reject('Hồ sơ không còn trong hàng đợi cần xử lý.');
+        const existing = await c.query(
+          "SELECT id FROM business_audit_event WHERE resource_id=$1 AND action='PAYOS_RECONCILIATION_ACKNOWLEDGED' AND created_at>=COALESCE((SELECT max(created_at) FROM business_audit_event WHERE resource_id=$1 AND action='PAYOS_RECONCILIATION_REQUIRED'),'-infinity'::timestamptz)",
+          [intent.id],
+        );
+        if (existing.rowCount) return { status: 'ok', alreadyProcessed: true };
+        await c.query(
+          "INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason,details,actor_type) VALUES($1,$2,'PAYOS_RECONCILIATION_ACKNOWLEDGED','PAYMENT_INTENT',$3,'Đã tiếp nhận ngoại lệ; chưa xác nhận thu hoặc hoàn tiền',$4,'USER')",
+          [restaurant, r.identity!.id, intent.id, JSON.stringify({ sessionId: intent.session_id })],
+        );
+        return { status: 'ok', acknowledged: true };
+      }),
+  );
   app.post('/core/payments/:id/confirm', { config: staff }, (r) =>
     transaction(db, (c) =>
       confirmPayment(c, idParam(r), restaurant, r.identity!.id, object(r.body)),

@@ -1,5 +1,11 @@
 # Học và làm chủ hệ thống gọi món QR
 
+## Review toàn bộ trải nghiệm payOS — 19/10/2026
+
+Nhánh **`fix/payos-payment-experience`** chuẩn hóa một nguồn số dư từ backend, tự phục hồi giao dịch có đủ bằng chứng, tách ngoại lệ thật cho ADMIN và đơn giản hóa STAFF/GUEST. QR chờ 5.000đ trên hóa đơn 69.000đ chỉ giữ chỗ: còn nợ 69.000đ, còn được lập khoản mới 64.000đ. Sau xác minh và phân bổ 5.000đ mới còn nợ 64.000đ. Không báo thành công chỉ từ nhãn PAID hoặc số ngân hàng báo.
+
+Đợt này **không truy cập production hoặc giao dịch thật**; lỗi mất bằng chứng tài khoản ảo và trạng thái đối soát kẹt được tái hiện trong môi trường giả, chưa kết luận nguyên nhân cụ thể của khoản thật ở phiên #FFC78214. Không có migration mới, không merge main/deploy. Đọc [thiết kế và hướng dẫn chẩn đoán chỉ đọc](06-thanh-toan.md), [thao tác theo vai trò](25-thu-tien-tai-ban.md), [hồ sơ kiểm chứng](15-doi-chieu.md) và [API](17-api.md).
+
 ## Review tiền chuyển dư theo từng khoản thu — 18/10/2026
 
 Hóa đơn 20.000đ, nhân viên lập khoản 10.000đ, ngân hàng nhận 12.000đ: **còn thu 10.000đ và cần hoàn 2.000đ**, không lấy khoản dư tự trả sang phần chưa được nhân viên lập. Sổ tiền, nguồn hoàn, đối soát và hiển thị STAFF/GUEST cùng dùng phân bổ thực tế. Admin chỉ đóng đối soát sau khi tiền dư đã hoàn thành công; phiếu được duyệt chưa phải bằng chứng đã trả. Bản bổ sung nằm trên nhánh review `fix/payos-payment-flow`, chưa merge/deploy và không có migration mới. Đọc [bài 06](06-thanh-toan.md), [bài 25](25-thu-tien-tai-ban.md) và [kết quả kiểm tra](15-doi-chieu.md).

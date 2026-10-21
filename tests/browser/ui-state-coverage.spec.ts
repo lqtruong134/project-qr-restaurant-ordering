@@ -349,7 +349,15 @@ test('kitchen real empty lanes, all preparation stages and long notes retain ico
     scale: 'css',
   });
   rows = orders();
-  await page.getByRole('button', { name: 'Tải lại', exact: true }).click();
+  const refreshed = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/core/kitchen' && response.status() === 200,
+  );
+  await page
+    .locator('.service-tools')
+    .getByRole('button', { name: 'Làm mới', exact: true })
+    .click();
+  await refreshed;
   await expect(page.locator('.order-card')).toHaveCount(4);
   for (const width of widths(info.project.use.isMobile)) {
     await page.setViewportSize({ width, height: 900 });
@@ -435,7 +443,15 @@ test('staff empty floor and jobs, dense table signals, serving and long dialog t
     status: 'NEW',
     created_at: now,
   }));
-  await page.getByRole('button', { name: 'Tải lại', exact: true }).click();
+  const refreshed = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/core/tables' && response.status() === 200,
+  );
+  await page
+    .locator('.service-tools')
+    .getByRole('button', { name: 'Làm mới', exact: true })
+    .click();
+  await refreshed;
   await expect(page.locator('.queue-table-card')).toHaveCount(2);
   for (const width of widths(info.project.use.isMobile)) {
     await page.setViewportSize({ width, height: 900 });

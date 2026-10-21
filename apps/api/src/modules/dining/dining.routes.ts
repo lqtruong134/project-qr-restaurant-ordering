@@ -91,7 +91,9 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
       db.pool
         .query(
           `SELECT a.*,COALESCE(report.action IN ('KITCHEN_ISSUE_REPORTED','KITCHEN_UNAVAILABLE_REPORTED'),false)
+    OR EXISTS(SELECT 1 FROM payos_payment_request pq WHERE pq.alert_id=a.id)
     OR (a.alert_type='REFUND_REQUIRED' AND least(COALESCE(account.refund_due_amount,0),COALESCE(refund_work.approved_amount,0))<=0) AS requires_admin,
+  EXISTS(SELECT 1 FROM payos_payment_request pq WHERE pq.alert_id=a.id) AS payment_reconciliation,
   report.action='KITCHEN_UNAVAILABLE_REPORTED' AS stock_inspection,report.resource_id AS item_id,report.details->>'productId' AS product_id,
   report.action='KITCHEN_ISSUE_GUEST_NOTICE' AS guest_notice,
   item.product_name_snapshot AS item_name,item.quantity AS item_quantity,
@@ -124,13 +126,19 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
         .then((v) => v.rows),
   );
   app.post('/core/alerts/:id/acknowledge', { config }, async (r) =>
-    transaction(db, (c) =>
-      one(
+    transaction(db, async (c) => {
+      const payment = await c.query(
+        'SELECT q.id FROM payos_payment_request q JOIN operational_alert a ON a.id=q.alert_id JOIN dining_table t ON t.id=a.table_id WHERE a.id=$1 AND t.restaurant_id=$2',
+        [idParam(r), restaurant],
+      );
+      if (payment.rowCount)
+        reject('Ngoại lệ online do quản trị xử lý trong Trung tâm ngoại lệ thanh toán.', 403);
+      return one(
         c,
         "UPDATE operational_alert a SET status='ACKNOWLEDGED',acknowledged_by=$3 WHERE id=$1 AND status IN ('NEW','ESCALATED') AND table_id IN (SELECT id FROM dining_table WHERE restaurant_id=$2) RETURNING *",
         [idParam(r), restaurant, r.identity!.id],
-      ),
-    ),
+      );
+    }),
   );
   app.post('/core/alerts/:id/resolve', { config }, async (r) =>
     transaction(db, async (c) => {
@@ -139,6 +147,14 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
         'SELECT a.* FROM operational_alert a JOIN dining_table t ON t.id=a.table_id WHERE a.id=$1 AND t.restaurant_id=$2',
         [idParam(r), restaurant],
       );
+      const payment = await c.query('SELECT id FROM payos_payment_request WHERE alert_id=$1', [
+        a.id,
+      ]);
+      if (payment.rowCount)
+        reject(
+          'Không đóng cảnh báo thanh toán qua việc tại bàn. Quản trị cần xử lý đúng tiền trong Trung tâm ngoại lệ.',
+          403,
+        );
       const notice = await c.query(
         "SELECT id FROM business_audit_event WHERE action='KITCHEN_ISSUE_GUEST_NOTICE' AND details->>'alertId'=$1",
         [a.id],

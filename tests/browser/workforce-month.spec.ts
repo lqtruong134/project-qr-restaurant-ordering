@@ -1,10 +1,31 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { selectAdmin } from './admin-navigation';
 import { createDatabase } from '../../packages/database/src/index.js';
 import { restaurantId } from '../../packages/database/src/seed.js';
 import { generateWorkforceHistory } from '../../scripts/restaurant-workforce-history.js';
 
+async function selectTimesheetMonth(page: Page, month: string) {
+  const picker = page.getByLabel('Tháng chấm công', { exact: true });
+  const timesheet = page.locator('.wf-timesheets');
+  await expect(timesheet).toHaveAttribute('aria-busy', 'false');
+  if ((await picker.inputValue()) !== month) {
+    const loaded = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return (
+        url.pathname === '/api/core/workforce' &&
+        url.searchParams.get('from') === month + '-01' &&
+        response.ok()
+      );
+    });
+    await picker.fill(month);
+    await loaded;
+  }
+  await expect(picker).toHaveValue(month);
+  await expect(timesheet).toHaveAttribute('aria-busy', 'false');
+}
+
 let reviewDay: string;
+let reviewShiftName: string;
 let reviewAssignmentId: string;
 test.beforeAll(async ({ browserName }, info) => {
   void browserName;
@@ -27,6 +48,7 @@ test.beforeAll(async ({ browserName }, info) => {
         string
       >
     )[info.project.name]!;
+    reviewShiftName = 'Ca đối chiếu giờ nghỉ - ' + info.project.name;
     const admin = await db.prisma.app_user.findFirstOrThrow({
       where: { username: 'quyettruong05' },
     });
@@ -40,11 +62,11 @@ test.beforeAll(async ({ browserName }, info) => {
           code: 'CA-KIEM-TRA-' + info.project.name,
         },
       },
-      update: {},
+      update: { name: reviewShiftName },
       create: {
         restaurant_id: restaurantId,
         code: 'CA-KIEM-TRA-' + info.project.name,
-        name: 'Ca đối chiếu giờ nghỉ',
+        name: reviewShiftName,
         starts_at: start,
         ends_at: end,
         break_minutes: 60,
@@ -83,17 +105,18 @@ test.beforeAll(async ({ browserName }, info) => {
 test('a ca with a scheduled break requires explicit break times and is approved with classified personal pay', async ({
   page,
 }) => {
+  // Include month-table rendering, approval and persisted payroll checks in the scenario budget.
+  test.setTimeout(60000);
+  await page.bringToFront();
   await page.goto('/login');
   await page.getByLabel('Tên đăng nhập', { exact: true }).fill('quyettruong05');
   await page.getByLabel('Mật khẩu', { exact: true }).fill(process.env.SEED_PASSWORD!);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await expect(page).toHaveURL(/workspace\/admin/);
   await selectAdmin(page, 'Ca làm & lương', 'Chấm công & duyệt');
-  await page.getByLabel('Tháng chấm công', { exact: true }).fill('2026-10');
+  await selectTimesheetMonth(page, '2026-10');
   await page.getByRole('button', { name: /^Cần duyệt/ }).click();
-  const row = page
-    .locator('.wf-review-queue .wf-queue-row')
-    .filter({ hasText: 'Ca đối chiếu giờ nghỉ' });
+  const row = page.locator('.wf-review-queue .wf-queue-row').filter({ hasText: reviewShiftName });
   await expect(row).toBeVisible();
   await expect(row.getByRole('checkbox')).toHaveCount(0);
   await row.getByRole('button', { name: 'Kiểm tra ca này', exact: true }).click();
@@ -145,13 +168,14 @@ test('monthly attendance and paid salaries remain searchable and exportable with
   page,
 }, info) => {
   test.setTimeout(120000);
+  await page.bringToFront();
   await page.goto('/login');
   await page.getByLabel('Tên đăng nhập', { exact: true }).fill('quyettruong05');
   await page.getByLabel('Mật khẩu', { exact: true }).fill(process.env.SEED_PASSWORD!);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await expect(page).toHaveURL(/workspace\/admin/);
   await selectAdmin(page, 'Ca làm & lương', 'Chấm công & duyệt');
-  await page.getByLabel('Tháng chấm công', { exact: true }).fill('2026-09');
+  await selectTimesheetMonth(page, '2026-09');
   await expect(page.locator('.wf-metrics')).toContainText('14 người');
   await expect(page.locator('.wf-metrics')).toContainText('Không còn ca đã kết thúc chờ duyệt');
   expect(

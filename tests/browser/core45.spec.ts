@@ -2,6 +2,7 @@ import { browserTableCode } from './table-code-fixture';
 import { selectAdmin } from './admin-navigation';
 import { test, expect, type Page } from '@playwright/test';
 async function login(page: Page, username: string, workspace: string) {
+  await page.bringToFront();
   await page.goto('/login');
   await page.locator('#username').fill(username);
   await page.locator('#password').fill(process.env.SEED_PASSWORD!);
@@ -74,6 +75,10 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
     await expect(admin!.locator('.core-qr img')).toBeVisible();
     await expect(link).toBeHidden();
     await admin!.emulateMedia({ media: 'screen' });
+    const qrDialog = admin!.getByRole('dialog', { name: 'QR - ' + code, exact: true });
+    await qrDialog.getByRole('button', { name: 'Đóng', exact: true }).click();
+    await expect(qrDialog).toHaveCount(0);
+    await guest!.bringToFront();
     await guest!.goto(url!);
     await guest!
       .getByLabel('Mã vào bàn', { exact: true })
@@ -112,7 +117,33 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
       path: info.outputPath('guest-menu.png'),
       fullPage: false,
     });
-    await dish.getByRole('button', { name: 'Chọn Cơm tấm sườn nướng' }).click();
+    // Mobile WebKit can still be scrolling while a lazy photo switches to its fallback.
+    // Dismiss the search keyboard and wait for the visible card before the single real click.
+    await guest!.getByRole('textbox', { name: 'Tìm món bạn yêu thích…', exact: true }).blur();
+    await dish.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() =>
+        dish.locator('.dish-media img').evaluate((image) => {
+          const photo = image as HTMLImageElement;
+          return photo.complete && photo.naturalWidth > 0;
+        }),
+      )
+      .toBe(true);
+    const chooseDish = dish.getByRole('button', { name: 'Chọn Cơm tấm sườn nướng', exact: true });
+    await chooseDish.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() =>
+        chooseDish.evaluate(async (button) => {
+          const before = button.getBoundingClientRect();
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          );
+          const after = button.getBoundingClientRect();
+          return Math.abs(before.top - after.top) < 1 && Math.abs(before.left - after.left) < 1;
+        }),
+      )
+      .toBe(true);
+    await chooseDish.click();
     await expect(guest!.getByRole('dialog')).toBeVisible();
     expect(await guest!.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
@@ -174,11 +205,14 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
         name: new RegExp('^Bàn ' + code + ' · Phiên #[A-F0-9]{8} - 1 món chờ mang$'),
       }),
     });
+    await staff!.bringToFront();
     await readyGroup.getByLabel('Chọn tất cả món đang chờ').check();
     await readyGroup.getByRole('button', { name: 'Đã phục vụ 1 món', exact: true }).click();
+    // Guest reads pause in a background tab. Resume its real 5s poll before observing service.
+    await guest!.bringToFront();
     await expect(
       guest!.locator('.guest-content .status-pill[data-status="SERVED"]').first(),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15000 });
     await guest!
       .getByRole('navigation', { name: 'Điều hướng khách' })
       .getByRole('button', { name: 'Thanh toán', exact: true })
@@ -188,6 +222,7 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
     await expect(
       guest!.getByText('Bạn đã báo nhân viên hỗ trợ thanh toán', { exact: true }),
     ).toBeVisible();
+    await staff!.bringToFront();
     await staff!
       .getByRole('navigation', { name: 'Phục vụ' })
       .getByRole('button', { name: /Sơ đồ bàn/ })
@@ -205,6 +240,9 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
       .getByRole('button', { name: 'Nhận việc & đến bàn', exact: true })
       .click();
     await staff!.getByLabel('Tiền mặt khách đưa (đồng)', { exact: true }).fill('100000');
+    await expect(staff!.getByLabel('Tiền mặt khách đưa (đồng)', { exact: true })).toHaveValue(
+      '100.000',
+    );
     await expect(staff!.locator('.cash-preview')).toContainText('21.000');
     // A polling refresh or preferred request update must not overwrite the tender entered.
     await staff!.waitForTimeout(3200);
@@ -241,6 +279,7 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
     await expect(
       staff!.getByRole('button', { name: 'Đóng phiên sau khi hoàn tất', exact: true }),
     ).toBeEnabled();
+    await guest!.bringToFront();
     await guest!.screenshot({
       caret: 'initial',
       scale: 'css',
@@ -250,6 +289,7 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
     expect(await guest!.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
+    await staff!.bringToFront();
     await staff!.getByRole('button', { name: 'Đóng phiên sau khi hoàn tất' }).click();
     await staff!.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
     await expect(staff!.locator('.receipt-sheet')).toBeVisible();
@@ -272,7 +312,11 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
       .getByRole('dialog', { name: 'Xác nhận thao tác' })
       .getByRole('button', { name: 'Đã dọn xong', exact: true })
       .click();
-    await expect(guest!.getByRole('heading', { name: 'Quét QR tại bàn để bắt đầu' })).toBeVisible();
+    await guest!.bringToFront();
+    await expect(guest!.getByRole('heading', { name: 'Quét QR tại bàn để bắt đầu' })).toBeVisible({
+      timeout: 15000,
+    });
+    await staff!.bringToFront();
     await staff!.getByRole('button', { name: 'Phiếu đã chốt', exact: true }).click();
     await staff!
       .locator('.task-card')
@@ -291,7 +335,9 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
         true,
       );
     }
-    await admin!.goto('/workspace/admin');
+    await admin!.bringToFront();
+    // The admin is still on its workspace: use the actual sidebar navigation, not a redundant reload.
+    await expect(admin!).toHaveURL(/\/workspace\/admin$/);
     await selectAdmin(admin!, 'Báo cáo', 'Đối soát phiên');
     await admin!
       .getByRole('row')

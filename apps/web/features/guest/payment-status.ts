@@ -108,13 +108,33 @@ export function guestOnlinePaymentStatus(payment: GuestOnlinePayment): PaymentSt
         '. Phần cần hoàn chưa tự bù vào các món còn nợ; vui lòng trao đổi với nhân viên.',
     };
   switch (payment.status) {
-    case 'PAID':
+    case 'PAID': {
+      const applied = /^\d+$/.test(payment.appliedAmount ?? '')
+        ? money(payment.appliedAmount)
+        : undefined;
+      const recorded = money(payment.paidAmount);
+      const refunded = money(payment.refundedAmount);
+      if (applied !== undefined && applied === 0n && refunded > 0n && recorded === refunded)
+        return {
+          kind: 'refunded',
+          title: 'Khoản thanh toán đã được hoàn lại',
+          detail:
+            'Nhà hàng đã hoàn tiền cho khoản này. Xem số dư cả bàn trước khi thanh toán khoản mới.',
+        };
+      if (applied === undefined || applied <= 0n || recorded < applied + refunded)
+        return {
+          kind: 'pending',
+          title: 'Nhà hàng đang xác nhận thanh toán',
+          detail:
+            'Ngân hàng đã báo kết quả nhưng nhà hàng chưa ghi nhận tiền vào món. Vui lòng chờ và không chuyển lại cùng khoản tiền.',
+        };
       return {
         kind: 'paid',
         title: 'Thanh toán thành công',
         detail:
           'Nhà hàng đã xác nhận tiền qua ngân hàng. Xem số dư của cả bàn bên trên; khoản này không cần chuyển thêm.',
       };
+    }
     case 'UNDERPAID':
       return {
         kind: 'pending',

@@ -1,3 +1,5 @@
+import { readPaymentPosition } from './payment-position.service.js';
+import { supportSelect } from '../support/support.service.js';
 import { readPaymentIntents } from './payos.service.js';
 import { payosCapabilities } from './payos-adapter.js';
 import { readBillingSummary, consumePromotion } from '../finance/pricing.service.js';
@@ -26,6 +28,7 @@ export async function readBill(c: Connection, s: Record<string, unknown>, restau
   return {
     session: s,
     account,
+    ...(await readPaymentPosition(c, String(s.id), account)),
     billing: await readBillingSummary(c, String(s.id)),
     completion: await completionStatus(c, String(s.id)),
     refundContext: await readRefundContext(c, String(s.id)),
@@ -75,8 +78,8 @@ export async function readBill(c: Connection, s: Record<string, unknown>, restau
     ).rows,
     paymentRequests: (
       await c.query(
-        "SELECT x.*,p.display_name,u.display_name AS acknowledged_by_name FROM support_request x LEFT JOIN session_participant p ON p.id=x.participant_id LEFT JOIN app_user u ON u.id=x.acknowledged_by WHERE x.session_id=$1 AND x.request_type='BILL' AND x.status IN ('NEW','ACKNOWLEDGED') ORDER BY x.created_at DESC,x.id",
-        [s.id],
+        `${supportSelect} WHERE t.restaurant_id=$1 AND x.session_id=$3 AND x.request_type='BILL' AND x.status IN ('NEW','ACKNOWLEDGED') ORDER BY x.created_at DESC,x.id`,
+        [restaurant, null, s.id],
       )
     ).rows,
     intents: await readPaymentIntents(c, String(s.id)),

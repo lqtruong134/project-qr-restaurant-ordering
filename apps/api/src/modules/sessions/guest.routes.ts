@@ -1,3 +1,4 @@
+import { readPaymentPosition } from '../payments/payment-position.service.js';
 import { readGuestOnlinePayments } from './guest-payment-view.js';
 import { readPromotionView } from '../finance/pricing.service.js';
 import { recalculate } from '../finance/ledger.service.js';
@@ -177,8 +178,9 @@ export function registerGuest(
       const { access_code_ciphertext: _ciphertext, ...publicSession } = currentSession;
       void _ciphertext;
       const pricing = await readPromotionView(c, p.session_id, restaurant);
-      await recalculate(c, p.session_id);
+      const account = await recalculate(c, p.session_id);
       return {
+        ...(await readPaymentPosition(c, p.session_id, account, p.id)),
         billing: pricing.billing,
         discountPrograms: pricing.programs,
         participant: {

@@ -420,7 +420,7 @@ test('VAT uses standard rates, distinguishes exempt from zero, and appends sched
   expect(state.unexpected).toEqual([]);
 });
 
-test('admin incident preview uses the saved discounted item amount when estimating a refund', async ({
+test('admin incident preview uses the saved discounted item amount without estimating refunds from the table balance', async ({
   page,
 }) => {
   const state = await fixture(page);
@@ -511,9 +511,12 @@ test('admin incident preview uses the saved discounted item amount when estimati
   const dialog = page.getByRole('dialog', { name: 'Món & kho cần xử lý - Bàn A11', exact: true });
   const preview = dialog.getByText('Nếu xác nhận lỗi nhà hàng:', { exact: false });
   await expect(preview).toContainText('bỏ tính tiền 44.100 đ');
-  await expect(preview).toContainText('cả bàn sau quyết định là 44.100 đ');
+  await expect(preview).toContainText('đối chiếu tiền đã phân bổ theo từng giao dịch');
+  await expect(preview).toContainText('Khoản cần hoàn và tiền món còn thiếu được xử lý riêng');
+  await expect(preview).toContainText('khách chỉ nhận lại tiền khi có xác nhận hoàn thực tế');
   await expect(preview).not.toContainText('49.000 đ');
-  await expect(dialog.getByText('Tổng thanh toán', { exact: false }).first()).toBeVisible();
+  await expect(dialog.locator('.billing-payable dd')).toHaveText('44.100 đ');
+  await expect(dialog.locator('.billing-discount dd')).toHaveText('−4.900 đ');
   expect(state.writes).toHaveLength(0);
   expect(state.unexpected).toEqual([]);
 });

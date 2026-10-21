@@ -90,7 +90,10 @@ export default function Guest() {
       };
       lastCartVersion.current = next.cart.cart_version;
       const received = new Map(
-        (next.onlinePayments ?? []).map((payment) => [payment.id, BigInt(payment.paidAmount)]),
+        (next.onlinePayments ?? []).map((payment) => [
+          payment.id,
+          BigInt(payment.appliedAmount ?? '0'),
+        ]),
       );
       if (lastOnlineReceived.current?.sessionId === next.session.id) {
         const previous = lastOnlineReceived.current.amounts;
@@ -99,10 +102,25 @@ export default function Guest() {
             sum + (amount > (previous.get(id) ?? 0n) ? amount - (previous.get(id) ?? 0n) : 0n),
           0n,
         );
-        if (increase > 0n)
-          notifySuccess(
-            'Đã nhận ' + vnd(increase) + ' thanh toán online. Số dư của bàn đã tự cập nhật.',
-          );
+        if (increase > 0n) {
+          const reviewing =
+            next.financialSummary?.reviewRequired ??
+            next.onlinePayments?.some((payment) => payment.status === 'REQUIRES_RECONCILIATION');
+          if (reviewing)
+            notifyInfo(
+              'Nhà hàng đã tính ' +
+                vnd(increase) +
+                ' vào tiền món. Khoản chuyển còn cần kiểm tra; bạn không cần chuyển lại cùng khoản tiền.',
+            );
+          else
+            notifySuccess(
+              'Thanh toán thành công — Nhà hàng đã nhận ' +
+                vnd(increase) +
+                ' và tính vào tiền món. Còn phải thanh toán ' +
+                vnd(next.financialSummary?.outstandingAmount ?? next.account?.outstanding_amount) +
+                '.',
+            );
+        }
       }
       lastOnlineReceived.current = { sessionId: next.session.id, amounts: received };
       liveDishFeed.current = advanceDishNotices(liveDishFeed.current, {
@@ -684,6 +702,7 @@ export default function Guest() {
               <div className="core-card">
                 <GuestPaymentSummary
                   account={state.account}
+                  financialSummary={state.financialSummary}
                   billing={state.billing}
                   payments={state.payments}
                   requests={state.support}
@@ -702,10 +721,16 @@ export default function Guest() {
                   account={state.account}
                   transactions={state.refundTransactions}
                 />
-                {BigInt(String(state.account?.outstanding_amount ?? 0)) > 0n && (
+                {BigInt(
+                  String(
+                    state.financialSummary?.outstandingAmount ??
+                      state.account?.outstanding_amount ??
+                      0,
+                  ),
+                ) > 0n && (
                   <p>
-                    Bạn có thể thanh toán toàn bộ hoặc chia thành nhiều lần. Nhân viên sẽ kiểm tra
-                    và xác nhận sau khi nhận tiền.
+                    Bạn có thể thanh toán toàn bộ hoặc chia thành nhiều lần. Thanh toán online tự
+                    cập nhật sau khi được nhà hàng xác minh; nhân viên hỗ trợ khi cần.
                   </p>
                 )}
                 <GuestScope value={paymentScope} change={setPaymentScope} />
@@ -739,15 +764,29 @@ export default function Guest() {
                     mine={paymentScope === 'mine'}
                   />
                 )}
-                {BigInt(String(state.account?.outstanding_amount ?? 0)) > 0n && (
-                  <PolicyNotice>{restaurantPolicy.notices.payment}</PolicyNotice>
-                )}
-                {(BigInt(String(state.account?.outstanding_amount ?? 0)) > 0n ||
+                {BigInt(
+                  String(
+                    state.financialSummary?.outstandingAmount ??
+                      state.account?.outstanding_amount ??
+                      0,
+                  ),
+                ) > 0n && <PolicyNotice>{restaurantPolicy.notices.payment}</PolicyNotice>}
+                {(BigInt(
+                  String(
+                    state.financialSummary?.outstandingAmount ??
+                      state.account?.outstanding_amount ??
+                      0,
+                  ),
+                ) > 0n ||
                   (BigInt(String(state.account?.refunded_total ?? 0)) === 0n &&
                     BigInt(String(state.account?.refund_due_amount ?? 0)) === 0n)) && (
                   <PaymentForm
                     done={refresh}
-                    available={String(state.account?.outstanding_amount ?? '0')}
+                    available={String(
+                      state.financialSummary?.outstandingAmount ??
+                        state.account?.outstanding_amount ??
+                        '0',
+                    )}
                     requests={state.support}
                     onlinePayments={state.onlinePayments}
                     paymentStatus={guestPaymentStatus(

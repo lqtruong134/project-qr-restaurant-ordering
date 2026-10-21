@@ -223,6 +223,8 @@ export function registerCatalog(
  (SELECT max(cs.closed_at) FROM table_session cs WHERE cs.table_id=t.id) AS last_closed_at,
  GREATEST((SELECT max(cs.closed_at) FROM table_session cs WHERE cs.table_id=t.id),(SELECT max(h.transferred_at) FROM table_transfer_history h WHERE h.from_table_id=t.id)) AS cleaning_since,
  (SELECT count(*)::int FROM payment_intent pi WHERE pi.session_id=s.id AND pi.status IN ('CREATED','PENDING') AND pi.expires_at>now()) AS pending_payments,
+ (SELECT count(*)::int FROM payment_intent pi WHERE pi.session_id=s.id AND pi.method<>'ONLINE' AND pi.status IN ('CREATED','PENDING') AND pi.expires_at>now()) AS pending_manual_payments,
+ (SELECT count(*)::int FROM payment_intent pi JOIN payos_payment_request pq ON pq.payment_intent_id=pi.id WHERE pi.session_id=s.id AND (pq.status IN ('CREATE_PENDING','PENDING','PROCESSING','UNDERPAID','CANCEL_PENDING','ERROR') OR pq.reconciliation_status='OPEN')) AS pending_online_payments,
  (SELECT COALESCE(sum(amount-discount_amount),0)::text FROM financial_charge f WHERE f.session_id=s.id AND f.status='ACTIVE') AS charge_total,
  (SELECT outstanding_amount::text FROM session_financial_account f WHERE f.session_id=s.id) AS outstanding_amount
  FROM dining_table t JOIN dining_area a ON a.id=t.area_id LEFT JOIN table_session s ON s.table_id=t.id AND s.session_status='ACTIVE' WHERE t.restaurant_id=$1 ORDER BY a.sort_order,t.code`,

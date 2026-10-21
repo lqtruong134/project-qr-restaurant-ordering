@@ -1,3 +1,4 @@
+import { payosBankReportedJoin } from '../payments/payment-reported-funds.js';
 import type { GuestOnlinePayment, PayosStatus } from '@thesis/contracts';
 import { digest, type Connection } from '../shared/core-persistence.js';
 import { payosIntentFundsJoin } from '../payments/refund-budget.service.js';
@@ -56,7 +57,7 @@ export async function readGuestOnlinePayments(
       COALESCE(funds.original_allocated_amount,0)::text AS original_allocated_amount,
       COALESCE(funds.refunded_amount,0)::text AS refunded_amount,
       COALESCE(funds.unapplied_amount,0)::text AS unapplied_amount,
-      q.paid_amount::text AS bank_confirmed_amount,p.expires_at,p.created_at,
+      GREATEST(q.paid_amount,COALESCE(reported.amount,0))::text AS bank_confirmed_amount,p.expires_at,p.created_at,
       own_request.id AS support_request_id
      FROM payment_intent p JOIN payos_payment_request q ON q.payment_intent_id=p.id
      JOIN table_session s ON s.id=p.session_id
@@ -64,6 +65,7 @@ export async function readGuestOnlinePayments(
      LEFT JOIN support_request own_request ON own_request.id=p.support_request_id
        AND own_request.session_id=p.session_id AND own_request.participant_id=$2
      ${payosIntentFundsJoin}
+     ${payosBankReportedJoin}
      WHERE p.session_id=$1 AND t.restaurant_id=$3 AND p.method='ONLINE' AND p.provider='PAYOS'
        AND (p.collection_scope='TABLE'
          OR (p.collection_scope='PARTICIPANT' AND p.payer_participant_id=$2))

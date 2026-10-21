@@ -2,6 +2,7 @@ import { browserTableCode } from './table-code-fixture';
 import { test, expect, type Page, type Browser, type TestInfo } from '@playwright/test';
 
 async function login(p: Page, user: string, workspace: string) {
+  await p.bringToFront();
   await p.goto('/login');
   await p.locator('#username').fill(user);
   await p.locator('#password').fill(process.env.SEED_PASSWORD!);
@@ -52,6 +53,7 @@ async function setup(browser: Browser, baseURL: string | undefined, info: TestIn
     small = await make('A02', 2),
     other = await make('V01', 4, b.id);
   const qr = await post(admin!, '/core/tables/' + source.id + '/qr', {});
+  await guest!.bringToFront();
   await guest!.goto(qr.joinPath);
   await guest!
     .getByLabel('Mã vào bàn', { exact: true })
@@ -69,7 +71,12 @@ async function setup(browser: Browser, baseURL: string | undefined, info: TestIn
       async () => (await (await guest!.request.get('/api/guest/state')).json()).session?.table_id,
     )
     .toBe(source.id);
-  await staff!.getByRole('button', { name: 'Tải lại', exact: true }).click();
+  // STAFF must stay visible so its 3 s polling observes transfers by another employee.
+  await staff!.bringToFront();
+  await staff!
+    .locator('.service-tools')
+    .getByRole('button', { name: 'Làm mới', exact: true })
+    .click();
   await staff!.getByRole('textbox', { name: 'Tìm tên hoặc mã bàn…' }).fill(prefix);
   await staff!
     .locator('.table-tile')
@@ -197,21 +204,44 @@ test('picker filters and capacity, keyboard confirmation, same guest cart, immed
     const moved = staff.getByRole('dialog', { name: 'Chi tiết - A06' });
     await expect(moved).toContainText('Đã chuyển P01 → A06.');
     await expect(moved.getByRole('button', { name: 'Chuyển bàn', exact: true })).toBeFocused();
-    await expect(guest.locator('main')).toContainText('Bàn của bạn đã được chuyển sang A06.');
+    await guest.bringToFront();
+    await expect(guest.locator('.operation-notice-region').getByRole('status')).toContainText(
+      'Bàn của bạn đã được chuyển sang A06. Giỏ, món và thanh toán được giữ nguyên.',
+      { timeout: 15000 }, // Guest polls every 5s; allow its current read to complete.
+    );
     const after = await (await guest.request.get('/api/guest/state')).json();
     expect(after.session.id).toBe(state.session.id);
     expect(after.participant.id).toBe(state.participant.id);
     expect(after.items.find((i: { id: string }) => i.id === line.id).quantity).toBe(2);
+    await staff.bringToFront();
     await moved.getByRole('button', { name: 'Lịch sử chuyển bàn', exact: true }).click();
     await expect(history.locator('.transfer-timeline li')).toHaveCount(1);
     await expect(history).toContainText('P01');
     await expect(history).toContainText('A06');
     await expect(history).toContainText('pv005');
     await expect(history).toContainText('Khách muốn ngồi rộng hơn');
-    await history.screenshot({ path: info.outputPath('transfer-history.png') });
+    await expect(history).toBeVisible();
+    const historyBox = await history.boundingBox();
+    expect(historyBox).not.toBeNull();
+    expect(historyBox!.width).toBeGreaterThan(0);
+    expect(historyBox!.height).toBeGreaterThan(0);
+    // WebKit can suspend locator screenshot's RAF stability check after a background tab.
+    // Capture the same visible dialog region without changing the history or focus assertions.
+    await staff.screenshot({
+      path: info.outputPath('transfer-history.png'),
+      clip: historyBox!,
+      animations: 'disabled',
+    });
     await staff.keyboard.press('Escape');
+    await expect(history).toHaveCount(0);
     await expect(moved).toBeVisible();
-    await moved.getByRole('button', { name: 'Đóng', exact: true }).click();
+    const closeDetail = moved.getByRole('button', { name: 'Đóng', exact: true });
+    await expect(closeDetail).toBeVisible();
+    await expect(closeDetail).toBeEnabled();
+    // Use the parent dialog's native cancel action after its child history is removed.
+    // This avoids competing with history's queued focus restoration or WebKit's RAF click checks.
+    await staff.keyboard.press('Escape');
+    await expect(moved).toHaveCount(0);
     await expect(
       staff
         .locator('.table-tile')
@@ -222,7 +252,14 @@ test('picker filters and capacity, keyboard confirmation, same guest cart, immed
         .locator('.table-tile')
         .filter({ has: staff.getByRole('heading', { name: 'A06', exact: true }) }),
     ).toHaveAttribute('data-status', 'OCCUPIED');
-    await guest.screenshot({ path: info.outputPath('transfer-guest.png'), fullPage: true });
+    await guest.bringToFront();
+    // The seeded menu is taller than WebKit's image limit at mobile DPR.
+    // Keep a diagnostic of the visible guest view; cart/session assertions above cover continuity.
+    await guest.screenshot({
+      path: info.outputPath('transfer-guest.png'),
+      fullPage: false,
+      scale: 'css',
+    });
     expect(errors).toEqual([]);
   } finally {
     await Promise.all(f.contexts.map((c) => c.close()));

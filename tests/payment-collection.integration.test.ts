@@ -331,6 +331,47 @@ it('handoff transfers payment confirmation, proof upload and cancellation rights
   await dish(p.guests[0]!.cookie);
   const x = await ok('/guest/payment-requests', p.guests[0]!.cookie, { method: 'BANK_TRANSFER' });
   await ok('/core/support/' + x.id + '/claim', 'pv001', {});
+  const sender = await db.prisma.app_user.findFirstOrThrow({
+    where: { restaurant_id: restaurantId, username: 'pv001' },
+  });
+  const area = await db.prisma.dining_area.findUniqueOrThrow({ where: { id: p.table.area_id } });
+  const initialBill = await ok('/core/sessions/' + p.sid + '/bill', 'pv002');
+  expect(initialBill.paymentRequests).toHaveLength(1);
+  expect(initialBill.paymentRequests[0]).toMatchObject({
+    id: x.id,
+    session_id: p.sid,
+    participant_id: p.guests[0]!.id,
+    table_id: p.table.id,
+    table_code: p.table.code,
+    area_name: area.name,
+    display_name: 'Lan',
+    status: 'ACKNOWLEDGED',
+    acknowledged_by: sender.id,
+    acknowledged_by_name: sender.display_name,
+    pending_handoff_id: null,
+    pending_to_staff_id: null,
+  });
+  const foreignRestaurant = await db.prisma.restaurant.create({
+    data: { name: 'Nhà hàng ngoài phạm vi yêu cầu thanh toán' },
+  });
+  const foreignArea = await db.prisma.dining_area.create({
+    data: { restaurant_id: foreignRestaurant.id, code: 'OTHER', name: 'Khu riêng' },
+  });
+  const foreignTable = await db.prisma.dining_table.create({
+    data: {
+      restaurant_id: foreignRestaurant.id,
+      area_id: foreignArea.id,
+      code: p.table.code,
+      name: 'Bàn cùng mã khác nhà hàng',
+      capacity: 4,
+    },
+  });
+  const foreignSession = await db.prisma.table_session.create({
+    data: { table_id: foreignTable.id },
+  });
+  expect((await req('/core/sessions/' + foreignSession.id + '/bill', 'pv002')).statusCode).toBe(
+    404,
+  );
   const i = await intent(p.sid, '40000', { supportRequestId: x.id, method: 'BANK_TRANSFER' });
   expect((await req('/core/payments/' + i.id + '/proof', 'pv002', { data: png })).statusCode).toBe(
     403,
@@ -346,6 +387,27 @@ it('handoff transfers payment confirmation, proof upload and cancellation rights
     userId: target.id,
     reason: 'Hết ca',
   });
+  const pendingBill = await ok('/core/sessions/' + p.sid + '/bill', 'pv002');
+  expect(pendingBill.paymentRequests).toHaveLength(1);
+  expect(pendingBill.paymentRequests[0]).toMatchObject({
+    id: x.id,
+    session_id: p.sid,
+    participant_id: p.guests[0]!.id,
+    table_id: p.table.id,
+    table_code: p.table.code,
+    area_name: area.name,
+    acknowledged_by: sender.id,
+    acknowledged_by_name: sender.display_name,
+    pending_handoff_id: h.id,
+    pending_to_staff_id: target.id,
+    pending_to_name: target.display_name,
+    pending_reason: 'Hết ca',
+    pending_requested_at: expect.any(String),
+    latest_handoff_status: 'PENDING',
+  });
+  expect(
+    (await req('/core/support/' + x.id + '/handoffs/' + h.id + '/accept', 'pv001', {})).statusCode,
+  ).toBe(403);
   expect(
     (
       await req('/core/payments/' + i.id + '/confirm', 'pv002', {
@@ -355,6 +417,21 @@ it('handoff transfers payment confirmation, proof upload and cancellation rights
     ).statusCode,
   ).toBe(403);
   await ok('/core/support/' + x.id + '/handoffs/' + h.id + '/accept', 'pv002', {});
+  const acceptedBill = await ok('/core/sessions/' + p.sid + '/bill', 'pv001');
+  expect(acceptedBill.paymentRequests).toHaveLength(1);
+  expect(acceptedBill.paymentRequests[0]).toMatchObject({
+    id: x.id,
+    participant_id: p.guests[0]!.id,
+    table_id: p.table.id,
+    table_code: p.table.code,
+    area_name: area.name,
+    acknowledged_by: target.id,
+    acknowledged_by_name: target.display_name,
+    pending_handoff_id: null,
+    pending_to_staff_id: null,
+    pending_reason: null,
+    latest_handoff_status: 'ACCEPTED',
+  });
   expect(
     (
       await req('/core/payments/' + i.id + '/confirm', 'pv001', {

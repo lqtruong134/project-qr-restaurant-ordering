@@ -85,7 +85,7 @@ export async function cancelPending(
       reason,
     );
 }
-export const supportSelect = `SELECT x.id,x.session_id,COALESCE(s.table_id,x.table_id) AS table_id,x.request_type,x.payment_method,x.content,x.status,x.acknowledged_by,x.resolved_by,x.created_at,x.updated_at,x.acknowledged_at,x.resolved_at,x.replaces_request_id,t.code AS table_code,a.name AS area_name,
+export const supportSelect = `SELECT x.id,x.session_id,x.participant_id,COALESCE(s.table_id,x.table_id) AS table_id,x.request_type,x.payment_method,x.content,x.status,x.acknowledged_by,x.resolved_by,x.created_at,x.updated_at,x.acknowledged_at,x.resolved_at,x.replaces_request_id,t.code AS table_code,a.name AS area_name,
   COALESCE(p.display_name,x.visitor_name) AS display_name,u.display_name AS acknowledged_by_name,
   h.id AS pending_handoff_id,h.to_staff_id AS pending_to_staff_id,
   h.reason AS pending_reason,h.requested_at AS pending_requested_at,

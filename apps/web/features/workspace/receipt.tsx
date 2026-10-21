@@ -1,4 +1,8 @@
-import type { BillingSummary } from '@thesis/contracts';
+import type {
+  BillingSummary,
+  CollectionAvailability,
+  PaymentFinancialSummary,
+} from '@thesis/contracts';
 import {
   paymentMethodLabel,
   type PaymentCapabilities,
@@ -24,6 +28,8 @@ export type CloseReadiness = {
   }[];
 };
 export type Bill = {
+  financialSummary?: PaymentFinancialSummary;
+  collectionAvailability?: CollectionAvailability;
   billing?: BillingSummary;
   closure?: CloseReadiness;
   completion?: {
@@ -70,7 +76,7 @@ export default function Receipt({
 }) {
   const closed = bill.session.session_status === 'CLOSED',
     zone = String(bill.store.timezone ?? 'Asia/Ho_Chi_Minh');
-  const totals = paymentSummary(bill.account);
+  const totals = paymentSummary(bill.account, bill.financialSummary);
   const receipts = bill.payments.filter((p) => p.status === 'SUCCEEDED');
   const lines = receiptLines(bill);
   const owners =

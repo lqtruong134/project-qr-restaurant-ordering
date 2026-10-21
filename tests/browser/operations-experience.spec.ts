@@ -68,16 +68,19 @@ test('four compact role layouts, precise paid-but-unserved blockers, shared clea
       for (const width of [320, 390, 768, 1440]) {
         await p.setViewportSize({ width, height: 900 });
         await fits(p);
-        if (role === 'guest' && width <= 800)
+        if (role === 'guest')
           expect(
             await p
-              .locator('.dish-card')
+              .locator('.dish-card:not(.combo-card)')
               .first()
-              .evaluate((card) => {
+              .evaluate((card, narrow) => {
                 const image = card.querySelector('.dish-visual')!.getBoundingClientRect(),
                   content = card.querySelector('.dish-content')!.getBoundingClientRect();
-                return image.right <= content.left + 1 && image.width > 0 && content.width > 0;
-              }),
+                const separated = narrow
+                  ? image.right <= content.left + 1
+                  : image.bottom <= content.top + 1;
+                return separated && image.width > 0 && image.height > 0 && content.width > 0;
+              }, width < 380),
           ).toBe(true);
       }
       await p.setViewportSize(info.project.use.viewport!);

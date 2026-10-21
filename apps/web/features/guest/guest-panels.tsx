@@ -1,6 +1,8 @@
 'use client';
 import type {
   BillingSummary,
+  CollectionAvailability,
+  PaymentFinancialSummary,
   DiscountOffer,
   GuestOnlinePayment,
   MenuPromotion,
@@ -13,6 +15,8 @@ import { isOnlinePaymentPending } from '../shared/online-payment';
 import type { PaymentStatus } from './payment-status';
 export type GuestParticipant = { id: string; display_name: string | null; joined_at?: string };
 export type GuestState = {
+  financialSummary?: PaymentFinancialSummary;
+  collectionAvailability?: CollectionAvailability;
   participant: { id: string; displayName: string };
   participants?: GuestParticipant[];
   session: Row;

@@ -186,23 +186,38 @@ test('ADMIN operating scope, contextual guides, keyboard close and module deep l
   await menu(page, 'Tổng quan');
   await page.getByRole('button', { name: 'Kiểm tra hàng nhập', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Phiếu nhập hàng', exact: true })).toBeVisible();
-  const topics: [string, string, string][] = [
+  const topics: [string, string, string, number][] = [
     [
       'Kho & công thức',
       'Nhập hàng & điều chỉnh kho',
       'Các thay đổi đã ghi nhận không được xóa lịch sử.',
+      4,
     ],
-    ['Nhân viên', 'Quản lý quyền truy cập', 'Các phiên đăng nhập cũ'],
-    ['Ca làm & lương', 'Chốt công & lương', 'Bảng lương nháp là kết quả tính thử.'],
-    ['Kiểm soát gọi món', 'Thay đổi quy tắc vận hành', 'Thay đổi áp dụng cho nghiệp vụ tiếp theo.'],
+    ['Nhân viên', 'Quản lý quyền truy cập', 'Các phiên đăng nhập cũ', 4],
+    [
+      'Ca làm & lương',
+      'Chốt công & lương',
+      'Bảng lương nháp dùng công đã duyệt và mức lương đã lưu.',
+      7,
+    ],
+    [
+      'Kiểm soát gọi món',
+      'Thay đổi quy tắc vận hành',
+      'Thay đổi áp dụng cho nghiệp vụ tiếp theo.',
+      3,
+    ],
   ];
-  for (const [section, title, text] of topics) {
+  for (const [section, title, text, steps] of topics) {
     if (section === 'Ca làm & lương') await selectAdmin(page, section, 'Bảng lương');
     else await menu(page, section);
     await page.getByRole('button', { name: title, exact: true }).first().click();
     const dialog = page.getByRole('dialog', { name: title });
     await expect(dialog).toContainText(text, { ignoreCase: true });
-    await expect(dialog.locator('li')).toHaveCount(section === 'Kiểm soát gọi món' ? 3 : 4);
+    await expect(dialog.locator('li')).toHaveCount(steps);
+    if (section === 'Ca làm & lương') {
+      await expect(dialog).toContainText('Kỳ chỉ đã chi đủ khi mọi phiếu cần trả đều có xác nhận.');
+      await expect(dialog).toContainText('Bảng lương nháp chưa hiển thị cho nhân viên.');
+    }
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
   }
@@ -329,7 +344,11 @@ test('decision inbox sorts real age, separates refunds and shows clear state-con
     .getByRole('button', { name: 'Kiểm tra & quyết định', exact: true })
     .click();
   const detail = page.getByRole('dialog', { name: 'Món & kho cần xử lý - Bàn UX-OLD' });
-  await expect(detail).toContainText('Số cần hoàn của cả bàn sau quyết định là 120.000');
+  await expect(detail).toContainText('Nếu xác nhận lỗi nhà hàng: bỏ tính tiền 120.000 đ.');
+  await expect(detail).toContainText(
+    'Hệ thống sẽ đối chiếu tiền đã phân bổ theo từng giao dịch sau quyết định.',
+  );
+  await expect(detail).toContainText('khách chỉ nhận lại tiền khi có xác nhận hoàn thực tế.');
   await detail.getByRole('button', { name: 'Cách xử lý món lỗi', exact: true }).click();
   const help = page.getByRole('dialog', { name: 'Cách xử lý món lỗi' });
   await expect(help).toContainText('Bếp dừng món nhưng chưa quyết định tiền.');

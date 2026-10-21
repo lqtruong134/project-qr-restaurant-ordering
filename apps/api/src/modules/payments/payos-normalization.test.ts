@@ -7,6 +7,7 @@ import {
   normalizePayosLink,
   payosErrorCategory,
   recipientMatches,
+  recipientMatchesWithEvidence,
   sameRecipient,
 } from './payos-normalization.js';
 
@@ -208,4 +209,66 @@ describe('payOS confirmation boundary', () => {
       expect(query).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('payOS order-specific recipient evidence', () => {
+  it('does not accept a conflicting explicit VA through the same primary account', () => {
+    expect(
+      sameRecipient(
+        { accountNumber: 'merchant', virtualAccountNumber: 'VA-ONE' },
+        { accountNumber: 'merchant', virtualAccountNumber: 'VA-TWO' },
+      ),
+    ).toBe(false);
+    expect(
+      recipientMatches('merchant', { accountNumber: 'merchant', virtualAccountNumber: 'VA-TWO' }),
+    ).toBe(false);
+  });
+  it('requires a matching verified VA plus matching primary for a GET missing its VA', () => {
+    const bank = { accountNumber: 'merchant-primary', virtualAccountNumber: null };
+    expect(recipientMatchesWithEvidence('000123', bank)).toBe(false);
+    expect(
+      recipientMatchesWithEvidence('000123', bank, {
+        accountNumber: 'merchant-primary',
+        virtualAccountNumber: '000123',
+      }),
+    ).toBe(true);
+  });
+  it.each([
+    { accountNumber: 'other-primary', virtualAccountNumber: '000123' },
+    { accountNumber: 'merchant-primary', virtualAccountNumber: '999999' },
+    { accountNumber: 'merchant-primary', virtualAccountNumber: null },
+    { accountNumber: 123, virtualAccountNumber: '000123' },
+  ])('refuses a primary-only GET bridged by unrelated evidence %j', (proof) => {
+    expect(
+      recipientMatchesWithEvidence('000123', { accountNumber: 'merchant-primary' }, proof),
+    ).toBe(false);
+  });
+  it('does not replace an explicit wrong GET VA with a correct webhook', () => {
+    expect(
+      recipientMatchesWithEvidence(
+        '000123',
+        { accountNumber: 'merchant', virtualAccountNumber: '999999' },
+        { accountNumber: 'merchant', virtualAccountNumber: '000123' },
+      ),
+    ).toBe(false);
+  });
+  it('does not ignore a contradictory webhook when the GET matches directly', () => {
+    expect(
+      recipientMatchesWithEvidence(
+        '000123',
+        { accountNumber: 'merchant', virtualAccountNumber: '000123' },
+        { accountNumber: 'merchant', virtualAccountNumber: '999999' },
+      ),
+    ).toBe(false);
+  });
+});
+
+it('does not hide an explicitly different webhook VA behind a GET account matching the expected alias', () => {
+  expect(
+    recipientMatchesWithEvidence(
+      'VA-ONE',
+      { accountNumber: 'VA-ONE', virtualAccountNumber: null },
+      { accountNumber: 'VA-ONE', virtualAccountNumber: 'VA-TWO' },
+    ),
+  ).toBe(false);
 });

@@ -54,6 +54,7 @@ export function tableWork(table: Row, orders: Order[], support: Row[], alerts: R
   for (const a of alerts.filter(
     (a) =>
       !a.requires_admin &&
+      !a.payment_reconciliation &&
       ((sid && a.session_id === sid) || (a.session_id === null && a.table_id === table.id)),
   ))
     jobs.push({
@@ -94,14 +95,15 @@ export function tableWork(table: Row, orders: Order[], support: Row[], alerts: R
       });
   }
   if (
-    Number(table.pending_payments) > 0 &&
+    Number(table.pending_manual_payments ?? table.pending_payments) > 0 &&
     !support.some((s) => s.session_id === sid && s.request_type === 'BILL')
   )
     jobs.push({
       id: 'legacy-payment',
       kind: 'payment',
       title: 'Khoản thu chờ xác nhận',
-      detail: Number(table.pending_payments) + ' khoản cần kiểm tra',
+      detail:
+        Number(table.pending_manual_payments ?? table.pending_payments) + ' khoản cần kiểm tra',
       time: String(table.latest_payment_at ?? table.opened_at ?? ''),
       tab: 'payments',
       icon: 'receipt',

@@ -1,5 +1,4 @@
 import type { GuestOnlinePayment } from '@thesis/contracts';
-import { isOnlinePaymentPending } from '../shared/online-payment';
 import { vnd } from '../shared/components';
 import { guestOnlinePaymentStatus } from './payment-status';
 
@@ -26,9 +25,13 @@ export function GuestOnlinePayments({ payments }: { payments: GuestOnlinePayment
               <p>
                 Số tiền khoản thu<strong>{vnd(payment.amount)}</strong>
               </p>
-              <p>
-                Đã nhận (ghi nhận giao dịch)<strong>{vnd(payment.paidAmount)}</strong>
-              </p>
+              {(payment.appliedAmount === undefined ||
+                BigInt(payment.paidAmount) !== BigInt(payment.appliedAmount) ||
+                BigInt(payment.refundedAmount ?? '0') > 0n) && (
+                <p>
+                  Nhà hàng đã nhận<strong>{vnd(payment.paidAmount)}</strong>
+                </p>
+              )}
               {payment.appliedAmount !== undefined && (
                 <p>
                   Đã tính vào tiền món<strong>{vnd(payment.appliedAmount)}</strong>
@@ -44,16 +47,18 @@ export function GuestOnlinePayments({ payments }: { payments: GuestOnlinePayment
                   Cần hoàn lại khách<strong>{vnd(payment.refundableAmount)}</strong>
                 </p>
               )}
-              {isOnlinePaymentPending(payment.status) && (
-                <p>
-                  Còn thiếu cho khoản thu này<strong>{vnd(payment.remainingAmount)}</strong>
-                </p>
-              )}
+              {['PENDING', 'UNDERPAID'].includes(payment.status) &&
+                BigInt(payment.bankConfirmedAmount) <= BigInt(payment.paidAmount) && (
+                  <p>
+                    Còn thiếu cho khoản thu này<strong>{vnd(payment.remainingAmount)}</strong>
+                  </p>
+                )}
             </div>
             {BigInt(payment.bankConfirmedAmount) > BigInt(payment.paidAmount) && (
               <p role="status">
-                Ngân hàng đã xác nhận {vnd(payment.bankConfirmedAmount)}. Nhà hàng đang đối soát
-                phần chưa ghi nhận vào thanh toán; bạn chưa cần chuyển lại.
+                Ngân hàng đã ghi nhận giao dịch {vnd(payment.bankConfirmedAmount)}; nhà hàng đang
+                đối chiếu. Phần này chưa được tính là đã thanh toán; vui lòng không chuyển lại cùng
+                khoản tiền.
               </p>
             )}
           </article>

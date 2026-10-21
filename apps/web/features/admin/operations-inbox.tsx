@@ -2,6 +2,8 @@
 import { SessionReference } from '../shared/session-reference';
 import { HistoryList } from '../shared/history-filters';
 import { useEffect, useState } from 'react';
+import type { PaymentReconciliationCase } from '@thesis/contracts';
+import styles from './payment-exceptions.module.css';
 import { reasonLabel } from '@thesis/contracts';
 import { Action, ApiError, api, EntryForm, label, vnd, type Row } from '../shared/components';
 import { Empty, Icon, Modal, Search, matches } from '../shared/primitives';
@@ -21,6 +23,8 @@ export type UrgentWork = {
   issues: Row[];
   refunds: Row[];
   outstanding: Row[];
+  paymentCases?: PaymentReconciliationCase[];
+  paymentError?: string;
   error: string;
   updatedAt?: string;
   refresh: () => Promise<void>;
@@ -58,13 +62,15 @@ export function WorkSummary({
   choose,
 }: {
   work: UrgentWork;
-  choose: (kind: WorkKind) => void;
+  choose: (kind: WorkKind | 'payment') => void;
 }) {
   const counts = {
     incident: work.issues.length,
     refund: work.refunds.length,
     shortfall: openShortfalls(work.outstanding).length,
+    payment: work.paymentCases?.length ?? 0,
   };
+  const summaryKinds = { ...kinds, payment: 'Ngoại lệ thanh toán' };
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   return (
     <section
@@ -80,18 +86,23 @@ export function WorkSummary({
       </strong>
       {total > 0 && (
         <div>
-          {(Object.keys(kinds) as (keyof typeof kinds)[]).map(
+          {(Object.keys(summaryKinds) as (keyof typeof summaryKinds)[]).map(
             (kind) =>
               counts[kind] > 0 && (
                 <button key={kind} className="secondary-button" onClick={() => choose(kind)}>
                   <span className={'inbox-badge ' + kind}>
-                    {counts[kind]} {kinds[kind].toLowerCase()}
+                    {counts[kind]} {summaryKinds[kind].toLowerCase()}
                   </span>
                   <Icon name="arrow" size={16} />
                 </button>
               ),
           )}
         </div>
+      )}
+      {work.paymentError && (
+        <p role="status" className="small-note">
+          {work.paymentError}
+        </p>
       )}
       {work.error && (
         <p role="alert" className="form-error">
@@ -381,6 +392,10 @@ export default function OperationsInbox({
       <WorkSummary
         work={work}
         choose={(kind) => {
+          if (kind === 'payment') {
+            open('exceptions', 'payment');
+            return;
+          }
           setKind(kind);
           onNavigate?.(kind);
         }}
@@ -403,7 +418,20 @@ export default function OperationsInbox({
         và trả tiền cho khách là hai bước riêng.
       </p>
       {notice && <p role="status">{notice}</p>}
-      {work.updatedAt && !visible.length && (
+      {kind === 'all' && (work.paymentCases?.length ?? 0) > 0 && (
+        <button
+          className={'core-card ' + styles.inboxLink}
+          onClick={() => open('exceptions', 'payment')}
+        >
+          <Icon name="warning" size={22} />
+          <span>
+            <strong>{work.paymentCases!.length} ngoại lệ thanh toán đang chờ</strong>
+            <small>Xem số tiền ngân hàng báo, tiền đã ghi sổ và bước xử lý hợp lệ.</small>
+          </span>
+          <Icon name="arrow" size={18} />
+        </button>
+      )}
+      {work.updatedAt && !visible.length && !(kind === 'all' && work.paymentCases?.length) && (
         <Empty
           title={
             search

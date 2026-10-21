@@ -1,3 +1,5 @@
+import type { OnlineIntentFunds } from './online-funds';
+export { onlineViewFunds, type OnlineIntentFunds } from './online-funds';
 import type { Row } from './components';
 import type { PaymentIntent } from './online-payment';
 
@@ -43,12 +45,6 @@ export function onlineReceivedIncrease(previous: Row[], next: Row[]) {
   }, 0n);
 }
 
-export type OnlineIntentFunds = {
-  recorded: bigint;
-  applied: bigint;
-  refunded: bigint;
-  refundable: bigint;
-};
 /** Sum the source budgets already computed by the server; do not spend unallocated money on other items. */
 export function onlineIntentFunds(
   intentId: string,
@@ -75,4 +71,22 @@ export function onlineIntentFunds(
     }),
     { recorded: 0n, applied: 0n, refunded: 0n, refundable: 0n },
   );
+}
+
+/** Announce only money the server has committed to active bill charges, never bank-reported or merely received funds. */
+export function onlineAppliedIncrease(previous: Row[], next: Row[]) {
+  const amount = (payment: Row) =>
+    /^\d+$/.test(String(payment.allocated_amount ?? ''))
+      ? BigInt(String(payment.allocated_amount))
+      : 0n;
+  const before = new Map(
+    previous
+      .filter((payment) => payment.method === 'ONLINE' && payment.status === 'SUCCEEDED')
+      .map((payment) => [payment.id, amount(payment)]),
+  );
+  return next.reduce((sum, payment) => {
+    if (payment.method !== 'ONLINE' || payment.status !== 'SUCCEEDED') return sum;
+    const increase = amount(payment) - (before.get(payment.id) ?? 0n);
+    return sum + (increase > 0n ? increase : 0n);
+  }, 0n);
 }

@@ -219,3 +219,108 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Payment language separates committed bill coverage from pending collection capacity. */
+.collection-availability {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #cddfd4;
+  border-radius: 12px;
+  background: #f5f9f6;
+}
+.collection-availability p {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.collection-availability span {
+  color: #536b5d;
+  font-size: 0.85rem;
+}
+.collection-availability strong {
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.collection-availability small {
+  grid-column: 1 / -1;
+  line-height: 1.6;
+}
+.payment-reservation-note {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fff8e8;
+  border: 1px solid #e7d7b6;
+  color: #755527;
+}
+.online-payment-provider {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.online-payment-requested {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.online-payment-requested small {
+  font-size: 0.8rem;
+  color: #58715f;
+}
+.online-payment-confirmation {
+  padding: 14px;
+  border-radius: 10px;
+  background: #dfefe4;
+  color: #215a36;
+  font-weight: 600;
+}
+.online-payment-next-step {
+  padding: 12px;
+  background: #fff1d8;
+  border-radius: 10px;
+  color: #765327;
+}
+.payment-recovery {
+  border-top: 1px solid #dbe5df;
+  padding-top: 12px;
+}
+.payment-recovery summary {
+  cursor: pointer;
+  color: #526b5b;
+  font-size: 0.9rem;
+}
+.payment-recovery[open] {
+  display: grid;
+  gap: 12px;
+}
+@media (max-width: 600px) {
+  .collection-availability {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .online-payment-requested {
+    text-align: left;
+  }
+}
+
+.payment-verification {
+  margin: 14px 0;
+}
+.payment-verification > summary {
+  cursor: pointer;
+  color: #4f695b;
+  font-weight: 600;
+}
+.payment-verification[open] > .payment-flow-facts {
+  margin-top: 14px;
+}
+
+.payment-paid-label-note {
+  display: block;
+  margin-top: 3px;
+  line-height: 1.5;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: #687c70;
+}

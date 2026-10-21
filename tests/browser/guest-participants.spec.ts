@@ -24,6 +24,7 @@ async function setup(browser: Browser, baseURL: string | undefined, info: TestIn
     ),
   );
   const [admin, a, b, c] = await Promise.all(contexts.map((context) => context.newPage()));
+  await admin!.bringToFront();
   await admin!.goto('/login');
   await admin!.getByLabel('Tên đăng nhập', { exact: true }).fill('quyettruong05');
   await admin!.getByLabel('Mật khẩu', { exact: true }).fill(process.env.SEED_PASSWORD!);
@@ -42,6 +43,7 @@ async function setup(browser: Browser, baseURL: string | undefined, info: TestIn
   return { contexts, a: a!, b: b!, c: c!, joinPath: qr.joinPath as string };
 }
 async function fillJoin(page: Page, joinPath: string, name: string) {
+  await page.bringToFront();
   await page.goto(joinPath);
   await page.getByLabel('Mã vào bàn', { exact: true }).fill(codes.get(joinPath)!);
   await page.getByLabel('Tên của bạn', { exact: true }).fill(name);
@@ -71,12 +73,14 @@ test('unique names, named header previews, overflow and accessible session roste
     );
     await expect(f.b.getByLabel('Tên của bạn', { exact: true })).toHaveValue('trường');
     await fillJoin(f.b, f.joinPath, 'Lữ Trường');
+    await f.a.bringToFront();
     await expect(peopleButton(f.a)).toHaveAccessibleName('Người cùng bàn, 2 người');
     await expect(peopleButton(f.a)).toContainText('Trường');
     await expect(peopleButton(f.a)).toContainText('Lữ Trường');
     await expect(f.a.locator('.guest-participants-extra')).toHaveCount(0);
     const longName = 'Nguyễn Thị Minh Anh cùng bàn với Trường';
     await fillJoin(f.c, f.joinPath, longName);
+    await f.a.bringToFront();
     await expect(peopleButton(f.a)).toHaveAccessibleName('Người cùng bàn, 3 người');
     await expect(f.a.locator('.guest-participants-extra')).toHaveText('+1');
     await f.a.screenshot({ path: info.outputPath('participants-header.png') });
@@ -97,6 +101,7 @@ test('unique names, named header previews, overflow and accessible session roste
     expect(after.participant.id).toBe(before.participant.id);
     expect(after.participants).toHaveLength(3);
     for (const width of [768, 390, 320]) {
+      await f.a.bringToFront();
       await f.a.setViewportSize({ width, height: 844 });
       await expect
         .poll(() =>
@@ -111,12 +116,14 @@ test('unique names, named header previews, overflow and accessible session roste
           ),
         )
         .toEqual([]);
+      await f.c.bringToFront();
       await f.c.setViewportSize({ width, height: 844 });
       await expect
         .poll(() => f.c.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
         .toBe(true);
       await expect(peopleButton(f.c)).toBeVisible();
     }
+    await f.a.bringToFront();
     await f.a.screenshot({ path: info.outputPath('participants-header-320.png') });
     expect(errors).toEqual([]);
   } finally {
@@ -133,8 +140,10 @@ test('renaming and leaving update the open roster while duplicate names stay una
   try {
     await fillJoin(f.a, f.joinPath, 'Trường');
     await fillJoin(f.b, f.joinPath, 'Lan');
+    await f.a.bringToFront();
     await peopleButton(f.a).click();
     await expect(dialog(f.a).getByRole('listitem')).toHaveCount(2);
+    await f.b.bringToFront();
     await peopleButton(f.b).click();
     await dialog(f.b).getByRole('button', { name: 'Tên của bạn và rời bàn', exact: true }).click();
     const profile = f.b.getByRole('dialog', { name: 'Tên của bạn và rời bàn', exact: true });
@@ -143,17 +152,21 @@ test('renaming and leaving update the open roster while duplicate names stay una
     await expect(profile.getByRole('alert')).toContainText('Tên này đã được dùng');
     await profile.getByLabel('Tên của bạn', { exact: true }).fill('Lữ Trường');
     await profile.getByRole('button', { name: 'Cập nhật tên', exact: true }).click();
+    await f.a.bringToFront();
     await expect(dialog(f.a)).toContainText('Lữ Trường');
+    await f.b.bringToFront();
     await profile.getByRole('button', { name: 'Rời bàn', exact: true }).click();
     const confirm = f.b.getByRole('dialog', { name: 'Rời bàn trên thiết bị này?', exact: true });
     await confirm.getByRole('button', { name: 'Xác nhận rời bàn', exact: true }).click();
     await expect(f.b.getByRole('heading', { name: 'Quét QR tại bàn để bắt đầu' })).toBeVisible();
+    await f.a.bringToFront();
     await expect(dialog(f.a).getByRole('listitem')).toHaveCount(1);
     await expect(dialog(f.a)).not.toContainText('Lữ Trường');
     await fillJoin(f.b, f.joinPath, 'lữ trường');
     await expect(f.b.locator('.guest-join-form').getByRole('alert')).toContainText(
       'Tên này đã được dùng',
     );
+    await f.a.bringToFront();
     await f.a.keyboard.press('Escape');
     await expect(peopleButton(f.a)).toHaveAccessibleName('Người cùng bàn, 1 người');
   } finally {

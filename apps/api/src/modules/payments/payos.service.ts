@@ -1,6 +1,14 @@
+import { payosBankReportedJoin } from './payment-reported-funds.js';
+import { payosResolutionReadiness } from './payos-resolution.js';
 import type { Database } from '@thesis/database';
 import type { FastifyBaseLogger } from 'fastify';
-import { payosErrorCategory, recipientMatches, sameRecipient } from './payos-normalization.js';
+import {
+  payosErrorCategory,
+  normalizePayosAccount,
+  recipientMatchesWithEvidence,
+  sameRecipient,
+  type PayosRecipient,
+} from './payos-normalization.js';
 import type { OnlinePaymentView } from '@thesis/contracts';
 import type {
   CreatePaymentLinkRequest,
@@ -41,11 +49,29 @@ type PayosRow = {
   qr_code: string | null;
   last_error: string | null;
   alert_id: string | null;
+  bank_reported_amount?: string;
+  recorded_amount?: string;
+  allocated_amount?: string;
+  refunded_amount?: string;
+  unapplied_amount?: string;
+  reconciliation_status?: string | null;
+  reconciliation_reason?: string | null;
 };
 type IntentRow = { id: string; session_id: string };
 const safeError =
   'Chưa đối chiếu được với payOS. Khoản thu vẫn được giữ chỗ; hãy kiểm tra lại trước khi thu bằng cách khác.';
 const terminal = ['PAID', 'CANCELLED', 'EXPIRED', 'FAILED'];
+// These cases may recover only after every current identity/history/allocation
+// check passes. Overpaid, invalidated, closed-session or unallocated funds still
+// force reconciliation independently of the old text.
+const recoverableReasons = [
+  'Tài khoản nhận tiền payOS không khớp kênh đã tạo.',
+  'Chưa có bằng chứng tài khoản nhận từ lúc tạo link payOS.',
+  'Thông báo payOS chưa khớp giao dịch ngân hàng.',
+  'Thông tin link payOS không khớp khoản thu.',
+  'Lịch sử payOS không khớp giao dịch đã ghi nhận.',
+  'Tiền payOS cần đối soát hoặc hoàn phần vượt.',
+];
 const num = (value: unknown) => {
   if (
     typeof value !== 'number' ||
@@ -84,13 +110,28 @@ export function onlineView(row: PayosRow, expiresAt: unknown): OnlinePaymentView
     expiresAt: new Date(String(expiresAt)).toISOString(),
     lastError: row.last_error ?? null,
     paidAmount: paid.toString(),
+    bankReportedAmount: String(row.bank_reported_amount ?? row.paid_amount ?? '0'),
+    recordedAmount: String(row.recorded_amount ?? '0'),
+    appliedAmount: String(row.allocated_amount ?? '0'),
+    refundedAmount: String(row.refunded_amount ?? '0'),
+    unallocatedAmount: String(row.unapplied_amount ?? '0'),
     remainingAmount: (amount > paid ? amount - paid : 0n).toString(),
   };
 }
 export async function readPaymentIntents(c: Connection, sid: string) {
   const rows = (
     await c.query(
-      `SELECT p.*,to_jsonb(q) AS online_data FROM payment_intent p LEFT JOIN payos_payment_request q ON q.payment_intent_id=p.id WHERE p.session_id=$1 ORDER BY p.created_at DESC,p.id`,
+      `SELECT p.*,CASE WHEN q.id IS NULL THEN NULL ELSE to_jsonb(q) || jsonb_build_object(
+          'bank_reported_amount',GREATEST(q.paid_amount,COALESCE(reported.amount,0))::text,
+          'recorded_amount',COALESCE(funds.recorded_amount,0)::text,
+          'allocated_amount',COALESCE(funds.allocated_amount,0)::text,
+          'refunded_amount',COALESCE(funds.refunded_amount,0)::text,
+          'unapplied_amount',COALESCE(funds.unapplied_amount,0)::text
+        ) END AS online_data
+        FROM payment_intent p LEFT JOIN payos_payment_request q ON q.payment_intent_id=p.id
+        ${payosIntentFundsJoin}
+        ${payosBankReportedJoin}
+        WHERE p.session_id=$1 ORDER BY p.created_at DESC,p.id`,
       [sid],
     )
   ).rows;
@@ -122,6 +163,12 @@ async function reconciliation(
 ) {
   const table = await one(c, 'SELECT table_id FROM table_session WHERE id=$1', [pi.session_id]);
   let alert = q.alert_id;
+  if (alert) {
+    const previous = (await c.query('SELECT status FROM operational_alert WHERE id=$1', [alert]))
+      .rows[0];
+    // A later distinct money exception gets a new alert; retain the resolved one as history.
+    if (previous?.status === 'RESOLVED') alert = null;
+  }
   if (!alert)
     alert = (
       await one(
@@ -131,16 +178,24 @@ async function reconciliation(
       )
     ).id;
   await c.query(
-    `UPDATE payos_payment_request SET status='REQUIRES_RECONCILIATION',reconciliation_status='OPEN',reconciliation_reason=$2,alert_id=$3,last_error=$2 WHERE id=$1`,
+    `UPDATE payos_payment_request SET status='REQUIRES_RECONCILIATION',reconciliation_status='OPEN',reconciliation_reason=$2,alert_id=$3,last_error=$2,resolved_by=NULL,resolved_at=NULL WHERE id=$1`,
     [q.id, reason, alert],
   );
   await c.query(
-    `UPDATE payment_intent SET status='REQUIRES_RECONCILIATION',version=version+1 WHERE id=$1`,
+    `UPDATE payment_intent SET status='REQUIRES_RECONCILIATION',version=version+1
+      WHERE id=$1 AND status<>'REQUIRES_RECONCILIATION'`,
     [pi.id],
   );
+  if (alert)
+    await c.query('UPDATE operational_alert SET outstanding_amount=$2 WHERE id=$1', [
+      alert,
+      q.paid_amount ?? 0,
+    ]);
+  if (q.reconciliation_status === 'OPEN' && q.reconciliation_reason === reason) return;
   await audit(c, restaurant, null, pi.id, 'PAYOS_RECONCILIATION_REQUIRED', reason, {
     sessionId: pi.session_id,
     orderCode: String(q.order_code),
+    alertId: alert,
   });
 }
 
@@ -262,6 +317,28 @@ export class PayosService {
       reject('payOS đang cập nhật giao dịch. Hệ thống sẽ tự kiểm tra lại.', 503);
     return this.view(id);
   }
+  async refreshForAdmin(id: string, actor: string) {
+    this.requireProvider();
+    await transaction(this.db, async (c) => {
+      const ref = await one(c, 'SELECT session_id FROM payment_intent WHERE id=$1', [id]);
+      await session(c, ref.session_id, this.restaurant, false);
+      await one(c, "SELECT id FROM payment_intent WHERE id=$1 AND provider='PAYOS'", [id]);
+      await audit(
+        c,
+        this.restaurant,
+        actor,
+        id,
+        'PAYOS_ADMIN_REFRESH_REQUESTED',
+        'Quản trị yêu cầu đối chiếu lại bằng chứng payOS',
+        { sessionId: ref.session_id },
+      );
+    });
+    const result = await this.process(id, true, false);
+    if (result === 'BUSY')
+      reject('Khoản thanh toán đang được hệ thống kiểm tra. Vui lòng chờ ít giây.');
+    if (result === 'FAILED' || result === 'WAITING') reject(safeError, 503);
+    return this.view(id);
+  }
   async cancel(id: string, actor: string) {
     this.requireProvider();
     await transaction(this.db, async (c) => {
@@ -343,7 +420,7 @@ export class PayosService {
             code(created.orderCode) !== Number(q.order_code) ||
             num(created.amount) !== Number(q.amount) ||
             created.currency !== 'VND' ||
-            !created.accountNumber ||
+            !normalizePayosAccount(created.accountNumber) ||
             !created.qrCode
           )
             throw Error('PAYOS_METADATA_MISMATCH');
@@ -357,6 +434,12 @@ export class PayosService {
             );
             // A webhook may have confirmed money while create was still in flight.
             if (attached.payment_link_id && attached.payment_link_id !== created!.paymentLinkId)
+              throw Error('PAYOS_METADATA_MISMATCH');
+            const storedRecipient = normalizePayosAccount(attached.account_number);
+            if (
+              storedRecipient &&
+              storedRecipient !== normalizePayosAccount(created!.accountNumber)
+            )
               throw Error('PAYOS_METADATA_MISMATCH');
             await c.query(
               `UPDATE payos_payment_request SET payment_link_id=$2,account_number=$3,checkout_url=$4,qr_code=$5,provider_status=COALESCE(provider_status,$6),status=CASE WHEN provider_status IS NULL THEN 'PENDING' ELSE status END,last_error=CASE WHEN reconciliation_status='OPEN' THEN last_error ELSE NULL END WHERE id=$1`,
@@ -587,19 +670,6 @@ export class PayosService {
         BigInt(q.paid_amount) === actual
       )
         return { status: 'STALE_IGNORED' };
-      if (
-        q.account_number &&
-        link.transactions.some((bank) => !recipientMatches(q.account_number, bank))
-      ) {
-        await reconciliation(
-          c,
-          this.restaurant,
-          pi,
-          q,
-          'Tài khoản nhận tiền payOS không khớp kênh đã tạo.',
-        );
-        return { status: 'REQUIRES_RECONCILIATION' };
-      }
       if (link.status === 'PAID' && actual === 0n) {
         // A status label alone cannot settle a bill. Wait for signed bank facts
         // without releasing the reservation or claiming that money was received.
@@ -611,12 +681,114 @@ export class PayosService {
         );
         return { status: 'AWAITING_PROVIDER' };
       }
+      await c.query(
+        `UPDATE payos_payment_request SET payment_link_id=$2,checkout_url=COALESCE(checkout_url,$3),
+          provider_status=$4,paid_amount=$5,next_poll_at=now()+interval '30 seconds' WHERE id=$1`,
+        [q.id, link.id, checkout(link.id), link.status, actual.toString()],
+      );
+      await audit(
+        c,
+        this.restaurant,
+        null,
+        id,
+        'PAYOS_PROVIDER_REPORTED',
+        'payOS đã báo dữ liệu giao dịch có chữ ký hợp lệ',
+        {
+          orderCode: String(q.order_code),
+          paymentLinkId: link.id,
+          bankReportedAmount: actual.toString(),
+          providerStatus: link.status,
+          references: link.transactions.map((bank) => bank.reference),
+        },
+      );
+      const expectedRecipient = normalizePayosAccount(q.account_number);
+      if (actual > 0n && !expectedRecipient) {
+        // GET/webhook transaction recipients cannot establish their own expected
+        // destination. A separately verified create response must anchor it.
+        await reconciliation(
+          c,
+          this.restaurant,
+          pi,
+          { ...q, paid_amount: actual.toString() },
+          'Chưa có bằng chứng tài khoản nhận từ lúc tạo link payOS.',
+        );
+        return { status: 'REQUIRES_RECONCILIATION' };
+      }
+      const corroboration = new Map<string, PayosRecipient>();
+      if (link.transactions.length) {
+        const proofs = (
+          await c.query(
+            `SELECT provider_event_id,payload_snapshot FROM payment_webhook_event
+            WHERE provider='PAYOS' AND signature_valid AND provider_event_id=ANY($1::text[])
+              AND payload_snapshot->>'restaurantId'=$2 AND payload_snapshot->>'orderCode'=$3
+              AND payload_snapshot->>'paymentLinkId'=$4 AND payload_snapshot->>'currency'='VND'
+              AND payload_snapshot->>'code'='00' AND payload_snapshot->>'recipientEvidenceVersion'='2'`,
+            [
+              link.transactions.map((bank) => bank.reference),
+              this.restaurant,
+              String(q.order_code),
+              link.id,
+            ],
+          )
+        ).rows;
+        for (const proof of proofs) {
+          const bank = link.transactions.find(
+            (entry) => entry.reference === proof.provider_event_id,
+          );
+          if (bank && String(bank.amount) === String(proof.payload_snapshot.amount))
+            corroboration.set(bank.reference, {
+              accountNumber: proof.payload_snapshot.recipientAccountNumber,
+              virtualAccountNumber: proof.payload_snapshot.recipientVirtualAccountNumber,
+            });
+        }
+      }
+      if (webhook && webhookBank) corroboration.set(webhook.reference, webhook);
+      if (
+        expectedRecipient &&
+        link.transactions.some(
+          (bank) =>
+            !recipientMatchesWithEvidence(
+              expectedRecipient,
+              bank,
+              corroboration.get(bank.reference),
+            ),
+        )
+      ) {
+        await reconciliation(
+          c,
+          this.restaurant,
+          pi,
+          { ...q, paid_amount: actual.toString() },
+          'Tài khoản nhận tiền payOS không khớp kênh đã tạo.',
+        );
+        return { status: 'REQUIRES_RECONCILIATION' };
+      }
+      await audit(
+        c,
+        this.restaurant,
+        null,
+        id,
+        'PAYOS_PROVIDER_VERIFIED',
+        'Đã kiểm tra dữ liệu giao dịch do payOS ký',
+        {
+          orderCode: String(q.order_code),
+          paymentLinkId: link.id,
+          bankReportedAmount: actual.toString(),
+          providerStatus: link.status,
+          references: link.transactions.map((bank) => bank.reference),
+        },
+      );
       const quoteInvalidatedAtReceipt =
         q.cancel_requested ||
         ['CANCELLED', 'EXPIRED'].includes(pi.status) ||
         new Date(pi.expires_at).getTime() <= Date.now();
+      const recoverableIdentityCase =
+        q.reconciliation_status === 'OPEN' &&
+        recoverableReasons.includes(q.reconciliation_reason) &&
+        oldQuarantine.length === 0;
       const late =
-        !['CREATED', 'PENDING', 'SUCCEEDED'].includes(pi.status) || quoteInvalidatedAtReceipt;
+        (!['CREATED', 'PENDING', 'SUCCEEDED'].includes(pi.status) && !recoverableIdentityCase) ||
+        quoteInvalidatedAtReceipt;
       const hasNewMoney = link.transactions.some(
         (bank) =>
           ![...prior, ...oldQuarantine].some(
@@ -631,7 +803,7 @@ export class PayosService {
         [q.id, link.id, checkout(link.id), link.status, actual.toString()],
       );
       let anomaly =
-        q.reconciliation_status === 'OPEN' ||
+        (q.reconciliation_status === 'OPEN' && !recoverableIdentityCase) ||
         (late && hasNewMoney && actual > 0n) ||
         actual > BigInt(pi.amount);
       const quarantine = Array.isArray(q.quarantined_transactions)
@@ -756,6 +928,28 @@ export class PayosService {
         q.id,
         JSON.stringify(quarantine),
       ]);
+      if (recoverableIdentityCase && !anomaly) {
+        const sources = await readRefundSourceBudgets(c, pi.session_id, null, null, id);
+        const recorded = sources.reduce((sum, source) => sum + BigInt(source.amount), 0n);
+        const applied = sources.reduce((sum, source) => sum + BigInt(source.allocated_amount), 0n);
+        const returned = sources.reduce((sum, source) => sum + BigInt(source.refunded_amount), 0n);
+        const originalApplied = sources.reduce(
+          (sum, source) => sum + BigInt(source.original_allocated_amount),
+          0n,
+        );
+        const currentAccount =
+          s.session_status === 'ACTIVE' ? await recalculate(c, pi.session_id) : null;
+        // Old receipts skip the insert/allocation loop. Revalidate their current
+        // source budgets before clearing any former identity or generic exception.
+        if (
+          recorded !== actual ||
+          recorded - returned !== applied ||
+          sources.some((source) => BigInt(source.refundable_amount) > 0n) ||
+          BigInt(currentAccount?.refund_due_amount ?? '0') > 0n ||
+          (link.status === 'PAID' && originalApplied < BigInt(pi.amount))
+        )
+          anomaly = true;
+      }
       if (anomaly) {
         await reconciliation(
           c,
@@ -818,6 +1012,34 @@ export class PayosService {
           }
         }
       }
+      if (!anomaly && recoverableIdentityCase) {
+        await c.query(
+          `UPDATE payos_payment_request SET reconciliation_status=NULL,resolved_by=NULL,
+            resolved_at=now(),last_error=NULL WHERE id=$1`,
+          [q.id],
+        );
+        if (q.alert_id)
+          await c.query(
+            `UPDATE operational_alert SET status='RESOLVED',resolved_by=NULL,resolved_at=now(),
+            resolution_note='Hệ thống đã xác minh lại đầy đủ bằng chứng payOS và ghi nhận đúng khoản thu.'
+            WHERE id=$1`,
+            [q.alert_id],
+          );
+        await audit(
+          c,
+          this.restaurant,
+          null,
+          id,
+          'PAYOS_VERIFICATION_RECOVERED',
+          'Tự động khôi phục khoản thu sau khi xác minh đầy đủ bằng chứng payOS',
+          {
+            sessionId: pi.session_id,
+            previousReason: q.reconciliation_reason,
+            bankReportedAmount: actual.toString(),
+            references: link.transactions.map((bank) => bank.reference),
+          },
+        );
+      }
       if (terminal.includes(link.status))
         await c.query(
           "UPDATE session_promotion SET expires_at=now() WHERE session_id=$1 AND status='RESERVED'",
@@ -862,7 +1084,9 @@ export class PayosService {
   ) {
     await c.query(
       `UPDATE payment_webhook_event SET processing_status='PROCESSED',processed_at=now(),payment_transaction_id=$1
-       WHERE provider='PAYOS' AND provider_event_id=$2 AND processing_status IN ('RECEIVED','UNMATCHED')
+       WHERE provider='PAYOS' AND provider_event_id=$2 AND signature_valid
+       AND processing_status IN ('RECEIVED','UNMATCHED','REJECTED')
+       AND payload_snapshot->>'currency'='VND' AND payload_snapshot->>'code'='00'
        AND payload_snapshot->>'orderCode'=$3 AND payload_snapshot->>'paymentLinkId'=$4 AND payload_snapshot->>'amount'=$5`,
       [paymentId, bank.reference, orderCode, linkId, String(bank.amount)],
     );
@@ -892,7 +1116,13 @@ export class PayosService {
       currency: data.currency,
       code: data.code,
     };
-    const hash = digest(JSON.stringify(minimal));
+    const recipientProof = {
+      recipientEvidenceVersion: 2,
+      recipientAccountNumber: normalizePayosAccount(data.accountNumber),
+      recipientVirtualAccountNumber: normalizePayosAccount(data.virtualAccountNumber),
+    };
+    const hash = digest(JSON.stringify({ ...minimal, ...recipientProof }));
+    const legacyHash = digest(JSON.stringify(minimal));
     const event = await transaction(this.db, async (c) => {
       await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
         'PAYOS:' + data.reference,
@@ -904,13 +1134,49 @@ export class PayosService {
         )
       ).rows[0];
       if (old) {
-        if (old.payload_hash !== hash) reject('Tham chiếu payOS có dữ liệu không khớp.');
+        if (old.payload_hash !== hash) {
+          // Old snapshots omitted recipients. Only a newly signature-verified
+          // replay with identical original bank facts may upgrade that evidence.
+          if (
+            old.payload_hash !== legacyHash ||
+            !old.signature_valid ||
+            old.payload_snapshot?.restaurantId !== this.restaurant
+          )
+            reject('Tham chiếu payOS có dữ liệu không khớp.');
+          await c.query(
+            `INSERT INTO business_audit_event(restaurant_id,action,resource_type,resource_id,reason,details,actor_type)
+             VALUES($1,'PAYOS_WEBHOOK_EVIDENCE_UPGRADED','PAYMENT_WEBHOOK_EVENT',$2,
+               'Bổ sung tài khoản nhận từ lần gửi lại đã xác minh chữ ký',$3,'SYSTEM')`,
+            [
+              this.restaurant,
+              old.id,
+              JSON.stringify({
+                previousPayloadHash: old.payload_hash,
+                previousSnapshot: old.payload_snapshot,
+                verifiedPayloadHash: hash,
+              }),
+            ],
+          );
+          return one(
+            c,
+            'UPDATE payment_webhook_event SET payload_hash=$2,payload_snapshot=$3 WHERE id=$1 RETURNING *',
+            [
+              old.id,
+              hash,
+              JSON.stringify({ ...minimal, ...recipientProof, restaurantId: this.restaurant }),
+            ],
+          );
+        }
         return old;
       }
       return one(
         c,
         `INSERT INTO payment_webhook_event(provider,provider_event_id,provider_transaction_id,payload_hash,payload_snapshot,signature_valid) VALUES('PAYOS',$1,$1,$2,$3,true) RETURNING *`,
-        [data.reference, hash, JSON.stringify({ ...minimal, restaurantId: this.restaurant })],
+        [
+          data.reference,
+          hash,
+          JSON.stringify({ ...minimal, ...recipientProof, restaurantId: this.restaurant }),
+        ],
       );
     });
     if (event.processing_status === 'PROCESSED') {
@@ -1012,34 +1278,139 @@ export class PayosService {
     if (!this.provider || !this.capabilities.online) return;
     const rows = (
       await this.db.pool.query(
-        `SELECT p.id FROM payos_payment_request q JOIN payment_intent p ON p.id=q.payment_intent_id JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND q.next_poll_at<=now() AND (q.status IN ('CREATE_PENDING','PENDING','PROCESSING','UNDERPAID','CANCEL_PENDING') OR (q.status='ERROR' AND COALESCE(q.provider_status,'') NOT IN ('PAID','CANCELLED','EXPIRED','FAILED')) OR (q.reconciliation_status='OPEN' AND COALESCE(q.provider_status,'') NOT IN ('PAID','CANCELLED','EXPIRED','FAILED'))) ORDER BY q.next_poll_at LIMIT 10`,
-        [this.restaurant],
+        `SELECT p.id FROM payos_payment_request q JOIN payment_intent p ON p.id=q.payment_intent_id JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND q.next_poll_at<=now() AND (q.status IN ('CREATE_PENDING','PENDING','PROCESSING','UNDERPAID','CANCEL_PENDING') OR (q.status='ERROR' AND COALESCE(q.provider_status,'') NOT IN ('PAID','CANCELLED','EXPIRED','FAILED')) OR (q.reconciliation_status='OPEN' AND (
+            COALESCE(q.provider_status,'') NOT IN ('PAID','CANCELLED','EXPIRED','FAILED') OR
+            (q.reconciliation_reason=ANY($2::text[]) AND q.paid_amount<=p.amount
+              AND jsonb_array_length(q.quarantined_transactions)=0)
+          ))) ORDER BY q.next_poll_at LIMIT 10`,
+        [this.restaurant, recoverableReasons],
       )
     ).rows;
     for (const row of rows) await this.process(row.id, false);
   }
   async cases() {
-    return (
+    const rows = (
       await this.db.pool.query(
-        `SELECT p.id,p.session_id,t.code AS table_code,s.session_status,p.amount::text,q.paid_amount::text,
-          COALESCE(funds.recorded_amount,0)::text AS recorded_amount,
-          COALESCE(funds.allocated_amount,0)::text AS allocated_amount,
-          COALESCE(funds.refunded_amount,0)::text AS refunded_amount,
-          COALESCE(funds.unapplied_amount,0)::text AS unapplied_amount,
-          COALESCE((SELECT sum((x->>'amount')::bigint) FROM jsonb_array_elements(q.quarantined_transactions) x),0)::text AS quarantined_amount,
-          COALESCE(q.provider_status,q.status) AS provider_status,q.last_error,q.updated_at,
-          q.reconciliation_reason AS reason,q.reconciliation_status AS status
-         FROM payos_payment_request q JOIN payment_intent p ON p.id=q.payment_intent_id
-         JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id
-         ${payosIntentFundsJoin}
-         WHERE t.restaurant_id=$1 AND q.reconciliation_status IS NOT NULL
-         ORDER BY q.updated_at DESC LIMIT 100`,
+        `WITH recent_history AS (
+         SELECT history_q.id
+         FROM payos_payment_request history_q
+         JOIN payment_intent history_p ON history_p.id=history_q.payment_intent_id
+         JOIN table_session history_s ON history_s.id=history_p.session_id
+         JOIN dining_table history_t ON history_t.id=history_s.table_id
+         WHERE history_t.restaurant_id=$1 AND
+           (history_q.reconciliation_status='RESOLVED' OR
+             (history_q.reconciliation_status IS NULL AND history_q.resolved_at IS NOT NULL))
+         ORDER BY history_q.updated_at DESC,history_q.id DESC LIMIT 100
+       )
+       SELECT p.id,p.id AS payment_intent_id,p.session_id,t.code AS table_code,s.session_status,
+        p.amount::text,q.paid_amount::text,
+        COALESCE(funds.recorded_amount,0)::text AS recorded_amount,
+        COALESCE(funds.allocated_amount,0)::text AS allocated_amount,
+        COALESCE(funds.original_allocated_amount,0)::text AS original_allocated_amount,
+        COALESCE(funds.refunded_amount,0)::text AS refunded_amount,
+        COALESCE(funds.unapplied_amount,0)::text AS unapplied_amount,
+        COALESCE(fa.refund_due_amount,0)::text AS refund_due_amount,
+        COALESCE((SELECT sum((x->>'amount')::bigint)
+          FROM jsonb_array_elements(q.quarantined_transactions) x),0)::text AS quarantined_amount,
+        COALESCE(q.provider_status,q.status) AS provider_status,q.last_error,q.updated_at,
+        q.reconciliation_reason AS reason,COALESCE(q.reconciliation_status,'RESOLVED') AS status,
+        q.reconciliation_status AS active_reconciliation_status,q.resolved_at,
+        verified.created_at AS verified_at,
+        COALESCE(reported.details->'references',verified.details->'references','[]'::jsonb) AS provider_references,
+        acknowledged.created_at AS acknowledged_at,acknowledged.display_name AS acknowledged_by_name,
+        CASE WHEN q.resolved_at IS NOT NULL THEN COALESCE(recovered.reason,q.reconciliation_reason)
+          ELSE NULL END AS resolution_note,
+        (q.cancel_requested OR p.status IN ('CANCELLED','EXPIRED') OR EXISTS(
+          SELECT 1 FROM payment_transaction receipt WHERE receipt.payment_intent_id=p.id
+          AND receipt.status='SUCCEEDED' AND receipt.metadata->>'quoteInvalidatedAtReceipt'='true'
+        )) AS quote_invalidated_at_receipt
+       FROM payos_payment_request q JOIN payment_intent p ON p.id=q.payment_intent_id
+       JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id
+       LEFT JOIN session_financial_account fa ON fa.session_id=p.session_id
+       ${payosIntentFundsJoin}
+       LEFT JOIN LATERAL (
+         SELECT e.created_at,e.details FROM business_audit_event e
+         WHERE e.restaurant_id=$1 AND e.resource_id=p.id AND e.action='PAYOS_PROVIDER_VERIFIED'
+           AND e.created_at>=COALESCE((SELECT max(opened.created_at) FROM business_audit_event opened
+             WHERE opened.resource_id=p.id AND opened.restaurant_id=$1
+               AND opened.action='PAYOS_RECONCILIATION_REQUIRED'),p.created_at)
+         ORDER BY e.created_at DESC,e.id DESC LIMIT 1
+       ) verified ON true
+       LEFT JOIN LATERAL (
+         SELECT e.created_at,e.details FROM business_audit_event e
+         WHERE e.restaurant_id=$1 AND e.resource_id=p.id
+           AND e.action IN ('PAYOS_PROVIDER_REPORTED','PAYOS_PROVIDER_VERIFIED')
+         ORDER BY e.created_at DESC,e.id DESC LIMIT 1
+       ) reported ON true
+       LEFT JOIN LATERAL (
+         SELECT e.created_at,u.display_name FROM business_audit_event e
+         LEFT JOIN app_user u ON u.id=e.actor_id AND u.restaurant_id=e.restaurant_id
+         WHERE e.restaurant_id=$1 AND e.resource_id=p.id
+           AND e.action='PAYOS_RECONCILIATION_ACKNOWLEDGED'
+           AND e.created_at>=COALESCE((SELECT max(opened.created_at) FROM business_audit_event opened
+             WHERE opened.resource_id=p.id AND opened.restaurant_id=$1
+               AND opened.action='PAYOS_RECONCILIATION_REQUIRED'),p.created_at)
+         ORDER BY e.created_at DESC,e.id DESC LIMIT 1
+       ) acknowledged ON true
+       LEFT JOIN LATERAL (
+         SELECT e.reason FROM business_audit_event e
+         WHERE e.restaurant_id=$1 AND e.resource_id=p.id AND e.action='PAYOS_VERIFICATION_RECOVERED'
+           AND e.created_at>=q.resolved_at
+         ORDER BY e.created_at DESC,e.id DESC LIMIT 1
+       ) recovered ON true
+       WHERE t.restaurant_id=$1 AND
+         (q.reconciliation_status='OPEN' OR q.id IN (SELECT id FROM recent_history))
+       ORDER BY (q.reconciliation_status='OPEN') DESC NULLS LAST,q.updated_at DESC,q.id DESC`,
         [this.restaurant],
       )
     ).rows;
+    return rows.map((row) => {
+      const readiness = payosResolutionReadiness({
+        sessionStatus: row.session_status,
+        providerStatus: row.provider_status,
+        requestedAmount: row.amount,
+        bankReportedAmount: row.paid_amount,
+        quarantinedAmount: row.quarantined_amount,
+        recordedAmount: row.recorded_amount,
+        allocatedAmount: row.allocated_amount,
+        originalAllocatedAmount: row.original_allocated_amount,
+        refundedAmount: row.refunded_amount,
+        unappliedAmount: row.unapplied_amount,
+        sessionRefundDue: row.refund_due_amount,
+        quoteInvalidatedAtReceipt: row.quote_invalidated_at_receipt === true,
+        verified: row.verified_at !== null,
+        open: row.active_reconciliation_status === 'OPEN',
+      });
+      const {
+        active_reconciliation_status: _active,
+        original_allocated_amount: _original,
+        quote_invalidated_at_receipt: _invalidated,
+        ...view
+      } = row;
+      void _active;
+      void _original;
+      void _invalidated;
+      return {
+        ...view,
+        verified_at: row.verified_at ? new Date(row.verified_at).toISOString() : null,
+        acknowledged_at: row.acknowledged_at ? new Date(row.acknowledged_at).toISOString() : null,
+        resolved_at: row.resolved_at ? new Date(row.resolved_at).toISOString() : null,
+        provider_references: Array.isArray(row.provider_references) ? row.provider_references : [],
+        can_resolve: readiness.canResolve,
+        resolution_blockers: readiness.blockers,
+        can_return_externally: false,
+      };
+    });
   }
   async resolve(id: string, actor: string, b: Record<string, unknown>) {
-    const reason = text(b.reason, 300);
+    if (b.resolution === 'RETURNED_EXTERNALLY')
+      reject(
+        'Chưa có bằng chứng hoàn tiền đã xác minh từ ngân hàng. Mã giao dịch nhập tay không đủ để đóng hồ sơ.',
+      );
+    const reason =
+      b.reason == null || b.reason === ''
+        ? 'Hoàn tất đối soát theo bằng chứng payOS và số liệu tài chính đã xác minh.'
+        : text(b.reason, 300);
     return transaction(this.db, async (c) => {
       const ref = await one(c, 'SELECT session_id FROM payment_intent WHERE id=$1', [id]);
       const s = await session(c, ref.session_id, this.restaurant, false);
@@ -1052,7 +1423,9 @@ export class PayosService {
       if (q.reconciliation_status === 'RESOLVED') return { status: 'ok', alreadyProcessed: true };
       if (q.reconciliation_status !== 'OPEN') reject('Khoản này không có hồ sơ đối soát đang mở.');
       if (!terminal.includes(q.provider_status))
-        reject('Đối chiếu trạng thái payOS kết thúc trước khi đóng đối soát.');
+        reject(
+          'payOS chưa xác nhận khoản thanh toán đã kết thúc. Hãy kiểm tra lại; khoản đang chờ không thể đóng hồ sơ.',
+        );
       const quarantine = q.quarantined_transactions.reduce(
         (sum: bigint, x: { amount: string }) => sum + BigInt(x.amount),
         0n,
@@ -1070,6 +1443,51 @@ export class PayosService {
         (source) => source.provider === 'PAYOS',
       );
       const sourceDue = sources.reduce((sum, source) => sum + BigInt(source.refundable_amount), 0n);
+      const readinessAccount =
+        s.session_status === 'ACTIVE'
+          ? await recalculate(c, pi.session_id)
+          : (
+              await c.query(
+                'SELECT refund_due_amount::text FROM session_financial_account WHERE session_id=$1',
+                [pi.session_id],
+              )
+            ).rows[0];
+      const checked = await one(
+        c,
+        `SELECT
+        EXISTS(SELECT 1 FROM business_audit_event e WHERE e.restaurant_id=$2 AND e.resource_id=$1
+          AND e.action='PAYOS_PROVIDER_VERIFIED'
+          AND e.created_at>=COALESCE((SELECT max(opened.created_at) FROM business_audit_event opened
+            WHERE opened.resource_id=$1 AND opened.restaurant_id=$2
+              AND opened.action='PAYOS_RECONCILIATION_REQUIRED'),'epoch'::timestamptz)) AS verified,
+        EXISTS(SELECT 1 FROM payment_transaction receipt WHERE receipt.payment_intent_id=$1
+          AND receipt.status='SUCCEEDED' AND receipt.metadata->>'quoteInvalidatedAtReceipt'='true') AS invalidated`,
+        [id, this.restaurant],
+      );
+      const readiness = payosResolutionReadiness({
+        sessionStatus: s.session_status,
+        providerStatus: q.provider_status,
+        requestedAmount: String(pi.amount),
+        bankReportedAmount: String(q.paid_amount),
+        quarantinedAmount: quarantine.toString(),
+        recordedAmount: captured.toString(),
+        allocatedAmount: sources
+          .reduce((sum, source) => sum + BigInt(source.allocated_amount), 0n)
+          .toString(),
+        originalAllocatedAmount: sources
+          .reduce((sum, source) => sum + BigInt(source.original_allocated_amount), 0n)
+          .toString(),
+        refundedAmount: sources
+          .reduce((sum, source) => sum + BigInt(source.refunded_amount), 0n)
+          .toString(),
+        unappliedAmount: sourceDue.toString(),
+        sessionRefundDue: String(readinessAccount?.refund_due_amount ?? '0'),
+        quoteInvalidatedAtReceipt:
+          checked.invalidated || q.cancel_requested || ['CANCELLED', 'EXPIRED'].includes(pi.status),
+        verified: checked.verified === true,
+        open: q.reconciliation_status === 'OPEN',
+      });
+      if (!readiness.canResolve) reject(readiness.blockers.join(' '));
       if (sourceDue > 0n)
         reject(
           'Hoàn thực tế phần tiền chưa phân bổ của đúng giao dịch payOS trước khi đóng đối soát.',

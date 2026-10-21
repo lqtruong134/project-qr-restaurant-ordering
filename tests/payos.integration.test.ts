@@ -1025,20 +1025,24 @@ it('closed receipt stays frozen and extra late money is quarantined outside the 
       )
     ).statusCode,
   ).toBe(409);
-  await ok(
+  const unsupported = await request(
     '/core/admin/payment-reconciliation/' + i.id + '/resolve',
     {
       resolution: 'RETURNED_EXTERNALLY',
       reference: 'RETURN-' + randomUUID(),
-      reason: 'Đã hoàn khoản đến muộn ngoài phiếu chốt',
+      reason: 'Chỉ gõ mã không có bằng chứng hoàn ngân hàng',
     },
     'quyettruong05',
   );
+  expect(unsupported.statusCode).toBe(409);
   expect(await storedOnline(i.id)).toMatchObject({
-    status: 'PAID',
+    status: 'REQUIRES_RECONCILIATION',
     provider_status: 'PAID',
-    reconciliation_status: 'RESOLVED',
+    reconciliation_status: 'OPEN',
   });
+  expect(
+    await db.prisma.refund_transaction.count({ where: { refund_case: { session_id: p.sid } } }),
+  ).toBe(0);
   expect(await bankLedger(i.id)).toEqual({ count: 1, amount: '10000' });
   expect(
     (await db.pool.query('SELECT receipt_snapshot FROM table_session WHERE id=$1', [p.sid])).rows[0]
@@ -1046,33 +1050,38 @@ it('closed receipt stays frozen and extra late money is quarantined outside the 
   ).toEqual(before);
 });
 
-it('a signed bank payment arriving during create remains PAID when the create follow-up times out', async () => {
+it('a signed bank payment verified after create remains PAID when the earlier follow-up GET times out', async () => {
   const p = await party('10000');
-  const originalCreate = provider.create.bind(provider);
-  let release!: () => void, reached!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const ready = new Promise<void>((resolve) => {
-    reached = resolve;
-  });
-  provider.create = async (body) => {
-    const response = await originalCreate(body);
-    reached();
-    await gate;
-    return response;
+  const originalGet = provider.get;
+  const gate = deferred(),
+    reached = deferred();
+  let blocked = false;
+  provider.get = async (target) => {
+    if (provider.links.has(target) && !blocked) {
+      blocked = true;
+      reached.release();
+      await gate.promise;
+    }
+    return originalGet.call(provider, target);
   };
   const pending = create(p.sid, '10000');
   try {
-    await ready;
+    await reached.promise;
     const target = (
-      await db.pool.query('SELECT id FROM payment_intent WHERE session_id=$1', [p.sid])
+      await db.pool.query(
+        `SELECT p.id,q.account_number FROM payment_intent p
+         JOIN payos_payment_request q ON q.payment_intent_id=p.id WHERE p.session_id=$1`,
+        [p.sid],
+      )
     ).rows[0];
+    // The independently returned create response must anchor recipient verification first.
+    expect(target.account_number).toBe('12345678');
     const intent = await service.view(target.id);
     const event = await webhook(intent, 10000);
     expect((await deliver(event)).statusCode).toBe(200);
+    expect(await bankLedger(target.id)).toEqual({ count: 1, amount: '10000' });
     provider.failGet = true;
-    release();
+    gate.release();
     const created = await pending;
     expect(created.online.status).toBe('PAID');
     expect(created.online.lastError).toBeNull();
@@ -1083,9 +1092,9 @@ it('a signed bank payment arriving during create remains PAID when the create fo
       (await request('/core/payments/' + created.id + '/confirm', { amount: '10000' })).statusCode,
     ).toBe(403);
   } finally {
-    release();
+    gate.release();
     provider.failGet = false;
-    provider.create = originalCreate;
+    provider.get = originalGet;
     await pending;
   }
 });
@@ -1581,7 +1590,7 @@ it('a paid linked scope resolves only its support request and preserves collecto
   expect((await bill(p.sid)).account.outstanding_amount).toBe('5000');
 });
 
-it('an old missing-order response cannot erase funds received while cancellation recovery is in flight', async () => {
+it('an old missing-order response preserves reported funds without crediting an unanchored create', async () => {
   const p = await party('5000');
   provider.loseCreateResponse = true;
   const intent = await create(p.sid, '5000');
@@ -1628,7 +1637,23 @@ it('an old missing-order response cannot erase funds received while cancellation
     expect(response.json().online.status).toBe('REQUIRES_RECONCILIATION');
     expect((await storedOnline(intent.id)).provider_status).toBe('PAID');
     expect((await storedOnline(intent.id)).lease_until).toBeNull();
-    expect(await bankLedger(intent.id)).toEqual({ count: 1, amount: '5000' });
+    // Losing create also loses the independent expected recipient: the bank's
+    // own payload cannot authorize itself, even while preserving its reported amount.
+    expect(
+      (
+        await db.pool.query(
+          'SELECT account_number,paid_amount::text FROM payos_payment_request WHERE payment_intent_id=$1',
+          [intent.id],
+        )
+      ).rows[0],
+    ).toEqual({ account_number: null, paid_amount: '5000' });
+    expect(await bankLedger(intent.id)).toEqual({ count: 0, amount: '0' });
+    expect(response.json().online).toMatchObject({
+      bankReportedAmount: '5000',
+      recordedAmount: '0',
+      appliedAmount: '0',
+    });
+    expect((await bill(p.sid)).account.outstanding_amount).toBe('5000');
   } finally {
     gate.release();
     provider.get = originalGet;

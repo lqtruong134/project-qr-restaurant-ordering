@@ -1,8 +1,85 @@
+import { randomUUID } from 'node:crypto';
 import { selectAdmin } from './admin-navigation';
-import { test, expect, type Page } from '@playwright/test';
+import {
+  test as base,
+  expect,
+  type Page,
+  type APIRequestContext,
+  type Route,
+  type Request,
+} from '@playwright/test';
+type PayrollEmployee = { id: string; username: string; display_name: string };
+const test = base.extend<{
+  payrollEmployees: { create: (page: Page, suffix: string) => Promise<PayrollEmployee> };
+}>({
+  payrollEmployees: [
+    async ({ playwright, baseURL }, use, info) => {
+      const database = new URL(process.env.DATABASE_URL!);
+      if (!/^\/thesis_browser_[a-f0-9]+$/.test(database.pathname))
+        throw Error('Payroll fixtures require the isolated browser database.');
+      const headers = { origin: new URL(baseURL!).origin, 'x-csrf-protection': '1' };
+      const created: PayrollEmployee[] = [];
+      let client: APIRequestContext | undefined;
+      try {
+        await use({
+          create: async (page, suffix) => {
+            // Capture the ADMIN session after its UI login. A second login would
+            // increment auth_version and revoke the browser's existing session.
+            client ??= await playwright.request.newContext({
+              baseURL,
+              storageState: await page.context().storageState(),
+            });
+            const response = await client.post('/api/core/users', {
+              headers,
+              data: {
+                username: 'wf-' + info.project.name + '-' + suffix + '-' + randomUUID().slice(0, 8),
+                name: 'Nhân viên bảng lương ' + suffix + ' ' + info.project.name,
+                role: 'STAFF',
+                password: process.env.SEED_PASSWORD!,
+              },
+            });
+            expect(response.ok(), await response.text()).toBe(true);
+            const employee = (await response.json()) as PayrollEmployee;
+            created.push(employee);
+            return employee;
+          },
+        });
+      } finally {
+        // This copied session uses an independent HTTP context, so teardown needs
+        // neither a live browser nor another login. Preserve all payroll history.
+        const cleanup = client;
+        if (cleanup) {
+          try {
+            const retired = await Promise.allSettled(
+              created.map(async (employee) => {
+                const response = await cleanup.patch('/api/core/users/' + employee.id, {
+                  headers,
+                  timeout: 5000,
+                  data: {
+                    name: employee.display_name,
+                    role: 'STAFF',
+                    status: 'INACTIVE',
+                    reason: 'Kết thúc tài khoản nhân viên của browser test riêng.',
+                  },
+                });
+                expect(response.ok(), await response.text()).toBe(true);
+              }),
+            );
+            expect(retired.filter((result) => result.status === 'rejected')).toEqual([]);
+          } finally {
+            await cleanup.dispose();
+          }
+        }
+      }
+    },
+    { timeout: 30000 },
+  ],
+});
+
 test.use({ actionTimeout: 15000 });
 
 async function login(page: Page, user: string, role: string) {
+  await page.bringToFront();
   await page.goto('/login');
   await page.getByLabel('Tên đăng nhập', { exact: true }).fill(user);
   await page.getByLabel('Mật khẩu', { exact: true }).fill(process.env.SEED_PASSWORD!);
@@ -19,6 +96,7 @@ async function noPageOverflow(page: Page) {
 test('manager schedules, reviews attendance and closes a readable payroll; employees see only their own finalized slip', async ({
   browser,
   baseURL,
+  payrollEmployees,
 }, info) => {
   test.setTimeout(120000);
   const context = await browser.newContext({ baseURL, ...info.project.use });
@@ -106,29 +184,142 @@ test('manager schedules, reviews attendance and closes a readable payroll; emplo
     await expect(page.getByTestId('day-people')).toHaveText('0 người');
     await page.getByLabel('Ngày xem lịch', { exact: true }).fill(selectedDate);
     await noPageOverflow(page);
-    const usersResponse = await page.request.get('/api/core/users');
-    expect(usersResponse.ok()).toBe(true);
-    const users = (await usersResponse.json()) as {
-      id: string;
-      username: string;
-      display_name: string;
-    }[];
-    const employee = users.find((u) => u.username === 'pv001')!;
+    const headers = { origin: new URL(page.url()).origin, 'x-csrf-protection': '1' };
+    const post = async (path: string, data: unknown) => {
+      const result = await page.request.post('/api/core/' + path, { headers, data });
+      expect(result.ok(), await result.text()).toBe(true);
+      return result.json();
+    };
+    // Other browser scenarios import approved historical work for seeded employees.
+    // New employees keep this payroll's rates and attendance independent of that history.
+    const employee = await payrollEmployees.create(page, 'first');
+    const secondEmployee = await payrollEmployees.create(page, 'second');
+    // A background admin GET must be cancelled before the existing full reload tears it down.
+    const abortMarker = '__playwright_urgent_read_cleanup__';
+    await page.evaluate((marker) => {
+      sessionStorage.setItem(marker, '{}');
+      sessionStorage.removeItem(marker + '_pagehide');
+      window.addEventListener('pagehide', () =>
+        sessionStorage.setItem(marker + '_pagehide', 'left'),
+      );
+      let readSequence = 0;
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = (input, init) => {
+        const url = new URL(
+          typeof input === 'string' ? input : input instanceof URL ? input.href : input.url,
+          location.href,
+        );
+        const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
+        const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
+        if (
+          url.pathname === '/api/core/admin/payment-reconciliation' &&
+          method.toUpperCase() === 'GET' &&
+          signal
+        ) {
+          const id = String(++readSequence);
+          const record = (state: 'started' | 'aborted' | 'fulfilled' | `rejected:${string}`) => {
+            const reads = JSON.parse(sessionStorage.getItem(marker) ?? '{}') as Record<
+              string,
+              string
+            >;
+            reads[id] = state;
+            sessionStorage.setItem(marker, JSON.stringify(reads));
+          };
+          record(signal.aborted ? 'aborted' : 'started');
+          signal.addEventListener('abort', () => record('aborted'), { once: true });
+          const headers = new Headers(
+            init?.headers ?? (input instanceof Request ? input.headers : undefined),
+          );
+          // Correlate the held network request with its own real application signal.
+          headers.set('x-playwright-read-id', id);
+          return originalFetch(input, { ...init, headers }).then(
+            (response) => {
+              record('fulfilled');
+              return response;
+            },
+            (error: Error) => {
+              // Native navigation can reject before pagehide; the transport then retires this signal.
+              record(`rejected:${error.name}`);
+              throw error;
+            },
+          );
+        }
+        return originalFetch(input, init);
+      };
+    }, abortMarker);
+    let heldRead: Request | undefined;
+    let releaseRead!: () => void;
+    const readGate = new Promise<void>((resolve) => {
+      releaseRead = resolve;
+    });
+    const holdRead = async (route: Route) => {
+      if (
+        route.request().method() !== 'GET' ||
+        !route.request().headers()['x-playwright-read-id'] ||
+        heldRead
+      )
+        return route.continue();
+      heldRead = route.request();
+      await readGate;
+      // Once its document has navigated, a cancelled request may no longer be continued.
+      await route.continue().catch(() => undefined);
+    };
+    await page.route('**/api/core/admin/payment-reconciliation', holdRead);
+    try {
+      await expect.poll(() => Boolean(heldRead), { timeout: 10000 }).toBe(true);
+      const heldId = heldRead!.headers()['x-playwright-read-id']!;
+      expect(heldId).toBeTruthy();
+      const heldState = () =>
+        page.evaluate(
+          ({ marker, id }) =>
+            (JSON.parse(sessionStorage.getItem(marker) ?? '{}') as Record<string, string>)[id],
+          { marker: abortMarker, id: heldId },
+        );
+      await expect.poll(heldState).toBe('started');
+      await page.reload();
+      releaseRead();
+      // The held read must terminate without a response. Chromium can retire its signal
+      // after native cancellation but before pagehide; WebKit may abort the signal first.
+      await expect.poll(heldState).toMatch(/^(?:aborted|rejected:(?:AbortError|TypeError))$/);
+      await expect
+        .poll(() =>
+          page.evaluate((marker) => sessionStorage.getItem(marker + '_pagehide'), abortMarker),
+        )
+        .toBe('left');
+    } finally {
+      releaseRead();
+      await page.unroute('**/api/core/admin/payment-reconciliation', holdRead);
+      await page.evaluate((marker) => {
+        sessionStorage.removeItem(marker);
+        sessionStorage.removeItem(marker + '_pagehide');
+      }, abortMarker);
+    }
     const month =
       info.project.name === 'desktop' ? '01' : info.project.name === 'mobile' ? '02' : '03';
     const nextMonth = String(Number(month) + 1).padStart(2, '0');
     await selectAdmin(page, 'Ca làm & lương', 'Đơn giá & chính sách');
     await page.getByRole('button', { name: 'Thêm đơn giá', exact: true }).click();
-    const rateDialog = page.getByRole('dialog');
+    const rateDialog = page.getByRole('dialog', { name: 'Thêm đơn giá cơ bản', exact: true });
     await rateDialog.locator('select[name="userId"]').selectOption(employee.id);
     await rateDialog.getByLabel('Đơn giá một giờ (đồng)').fill('35000');
     await rateDialog.getByLabel('Có hiệu lực từ').fill(`2026-${month}-01T00:00`);
     await rateDialog.getByLabel('Lý do / thỏa thuận').fill('Đơn giá của dữ liệu kiểm thử riêng');
     await rateDialog.getByRole('button', { name: 'Lưu đơn giá', exact: true }).click();
+    const savedRate = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/core/workforce/pay-rates' &&
+        response.request().method() === 'POST',
+    );
     await page
       .getByRole('dialog', { name: 'Kiểm tra trước khi xác nhận' })
       .getByRole('button', { name: 'Xác nhận', exact: true })
       .click();
+    const rateResponse = await savedRate;
+    expect(rateResponse.ok(), await rateResponse.text()).toBe(true);
+    expect(await rateResponse.json()).toMatchObject({
+      user_id: employee.id,
+      hourly_rate: '35000',
+    });
     await expect(rateDialog).toHaveCount(0);
     await selectAdmin(page, 'Ca làm & lương', 'Lịch phân ca');
     await selectAdmin(page, 'Ca làm & lương', 'Quản lý ca làm');
@@ -172,9 +363,29 @@ test('manager schedules, reviews attendance and closes a readable payroll; emplo
     ).toBeVisible();
     await expect(page.getByTestId('day-people')).toHaveText('1 người');
     await selectAdmin(page, 'Ca làm & lương', 'Chấm công & duyệt');
-    await page.getByLabel('Tháng chấm công', { exact: true }).fill('2026-' + month);
+    await page.bringToFront();
+    // Show this employee's review queue before changing the period, rather than
+    // editing a native month control while the complete historical grid is loading.
     await page.getByRole('button', { name: /^Cần duyệt/ }).click();
-    await page.getByRole('textbox', { name: 'Tìm tên hoặc mã nhân viên…' }).fill('pv001');
+    await page.getByRole('textbox', { name: 'Tìm tên hoặc mã nhân viên…' }).fill(employee.username);
+    const timesheet = page.locator('.wf-timesheets');
+    await expect(timesheet).toHaveAttribute('aria-busy', 'false');
+    const monthPicker = page.getByLabel('Tháng chấm công', { exact: true });
+    const targetMonth = '2026-' + month;
+    if ((await monthPicker.inputValue()) !== targetMonth) {
+      const loaded = page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return (
+          url.pathname === '/api/core/workforce' &&
+          url.searchParams.get('from') === targetMonth + '-01' &&
+          response.ok()
+        );
+      });
+      await monthPicker.fill(targetMonth);
+      await loaded;
+    }
+    await expect(monthPicker).toHaveValue(targetMonth);
+    await expect(timesheet).toHaveAttribute('aria-busy', 'false');
     await noPageOverflow(page);
     const reviewButton = page.getByRole('button', { name: 'Kiểm tra ca này', exact: true });
     if (info.project.use.isMobile) {
@@ -207,13 +418,6 @@ test('manager schedules, reviews attendance and closes a readable payroll; emplo
       fullPage: !info.project.use.isMobile,
     });
     // A second employee is needed to verify that paying one slip does not mark the whole run paid.
-    const secondEmployee = users.find((u) => u.username === 'pv002')!;
-    const headers = { origin: new URL(page.url()).origin, 'x-csrf-protection': '1' };
-    const post = async (path: string, data: unknown) => {
-      const result = await page.request.post('/api/core/' + path, { headers, data });
-      expect(result.ok(), await result.text()).toBe(true);
-      return result.json();
-    };
     await post('workforce/pay-rates', {
       userId: secondEmployee.id,
       effectiveFrom: `2026-${month}-01T00:00:00+07:00`,
@@ -252,23 +456,24 @@ test('manager schedules, reviews attendance and closes a readable payroll; emplo
         exact: true,
       }),
     ).toBeVisible();
-    await login(staff, 'pv001', 'staff');
+    await login(staff, employee.username, 'staff');
     await staff.getByRole('button', { name: 'Lịch làm & lương của tôi', exact: true }).click();
     await staff.getByRole('button', { name: 'Phiếu lương', exact: true }).click();
     const personalPay = await staff.request.get('/api/core/payroll/me');
     const before = (await personalPay.json()) as { runs: { id: string; status: string }[] };
     expect(before.runs.every((r) => r.status !== 'DRAFT')).toBe(true);
+    await page.bringToFront();
     await page.getByRole('button', { name: 'Thưởng / khấu trừ', exact: true }).click();
     dialog = page.getByRole('dialog');
     await dialog.locator('select[name="slipId"]').selectOption({
-      label: users.find((u) => u.username === 'pv001')!.display_name + ' - pv001',
+      label: employee.display_name + ' - ' + employee.username,
     });
     await dialog.getByLabel('Số tiền (đồng, nhập lớn hơn 0)').fill('7500');
     await dialog.getByLabel('Nội dung và lý do').fill('Thưởng kiểm thử giao diện');
     await dialog.getByRole('button', { name: 'Thêm khoản', exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect(
-      page.locator('.wf-salary-table tbody tr').filter({ hasText: 'pv001' }),
+      page.locator('.wf-salary-table tbody tr').filter({ hasText: employee.username }),
     ).toContainText('200.000 đ');
     await page.getByRole('button', { name: 'Chốt bảng lương', exact: true }).click();
     const finalizeDialog = page.getByRole('dialog', { name: 'Chốt bảng lương chính thức?' });
@@ -280,7 +485,7 @@ test('manager schedules, reviews attendance and closes a readable payroll; emplo
       path: info.outputPath('payroll-finalized.png'),
       fullPage: !info.project.use.isMobile,
     });
-    await page.getByRole('button', { name: 'Xem phiếu pv001', exact: true }).click();
+    await page.getByRole('button', { name: 'Xem phiếu ' + employee.username, exact: true }).click();
     await page
       .getByRole('button', { name: 'Ghi nhận đã chi cho nhân viên này', exact: true })
       .click();
@@ -297,13 +502,15 @@ test('manager schedules, reviews attendance and closes a readable payroll; emplo
     await expect(page.getByText('1 / 2 phiếu đã chi', { exact: true })).toBeVisible();
     await expect(page.getByText('Đã ghi nhận chi đủ', { exact: true })).toHaveCount(0);
     await expect(
-      page.locator('.wf-salary-table tbody tr').filter({ hasText: 'pv001' }),
+      page.locator('.wf-salary-table tbody tr').filter({ hasText: employee.username }),
     ).toContainText('Đã chi');
     await page.screenshot({
       path: info.outputPath('payroll-partially-paid.png'),
       fullPage: !info.project.use.isMobile,
     });
-    await page.getByRole('button', { name: 'Xem phiếu pv002', exact: true }).click();
+    await page
+      .getByRole('button', { name: 'Xem phiếu ' + secondEmployee.username, exact: true })
+      .click();
     await expect(page.locator('.wf-slip-payment')).toContainText('Đã chốt - Chưa chi');
     await page
       .getByRole('button', { name: 'Ghi nhận đã chi cho nhân viên này', exact: true })
@@ -321,6 +528,7 @@ test('manager schedules, reviews attendance and closes a readable payroll; emplo
       .click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(page.getByText('Đã ghi nhận chi đủ', { exact: true })).toBeVisible();
+    await staff.bringToFront();
     await staff.getByRole('button', { name: 'Làm mới', exact: true }).click();
     await expect(staff.getByRole('button', { name: 'Xem phiếu lương' }).last()).toBeVisible();
     await staff.getByRole('button', { name: 'Xem phiếu lương' }).last().click();
@@ -441,7 +649,16 @@ for (const [user, role] of [
     await expect(clockedHistory).toHaveCount(1);
     await expect(clockedHistory.getByText('Đã ra ca - chờ duyệt', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Phiếu lương', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Phiếu lương đã chốt', exact: true }),
+    ).toBeVisible();
+    // Historical-data scenarios can legitimately provide this employee with finalized slips.
+    // Exercise an empty search result instead of assuming their payroll history is absent.
+    await page
+      .getByRole('textbox', { name: 'Tìm kỳ lương…', exact: true })
+      .fill('KHONG-CO-KY-LUONG-UI');
     await expect(page.getByRole('heading', { name: 'Chưa có phiếu lương phù hợp' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Xem phiếu lương', exact: true })).toHaveCount(0);
     await noPageOverflow(page);
   });
 }

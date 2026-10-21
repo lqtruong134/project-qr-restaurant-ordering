@@ -2,6 +2,7 @@ import { browserTableCode } from './table-code-fixture';
 import { selectAdmin } from './admin-navigation';
 import { test, expect, type Page } from '@playwright/test';
 async function login(p: Page, user: string, workspace: string) {
+  await p.bringToFront();
   await p.goto('/login');
   await p.locator('#username').fill(user);
   await p.locator('#password').fill(process.env.SEED_PASSWORD!);
@@ -19,12 +20,14 @@ async function post(p: Page, path: string, data: unknown) {
 const card = (p: Page, id: string) => p.locator(`[data-support-id="${id}"]`);
 const preview = (p: Page, id: string) => p.locator('[data-queue-request-id="' + id + '"]');
 async function openQueueTable(p: Page, id: string) {
+  await p.bringToFront();
   const tile = p.locator('.queue-table-card').filter({ has: preview(p, id) });
   await expect(tile).toHaveCount(1);
   await expect(tile.getByRole('button')).toHaveCount(1);
   await tile.getByRole('button', { name: 'Chi tiết bàn', exact: true }).click();
 }
 async function closeTable(p: Page) {
+  await p.bringToFront();
   await p.getByRole('dialog').getByRole('button', { name: 'Đóng', exact: true }).click();
 }
 
@@ -61,6 +64,7 @@ test('guest support, duplicate notice, owner-only actions, recipient acceptance/
       capacity: 4,
     });
     const qr = await post(admin!, '/core/tables/' + table.id + '/qr', {});
+    await guest!.bringToFront();
     await guest!.goto(qr.joinPath);
     await guest!
       .getByLabel('Mã vào bàn', { exact: true })
@@ -78,17 +82,18 @@ test('guest support, duplicate notice, owner-only actions, recipient acceptance/
     await expect(guest!.getByLabel('Nội dung yêu cầu (bắt buộc)')).toHaveAttribute('required', '');
     await guest!.getByLabel('Bạn cần gì?').selectOption('WATER');
     await guest!.getByLabel('Nội dung thêm (không bắt buộc)').fill('Thêm 2 ly nước lọc');
-    await guest!.getByRole('button', { name: 'Gửi hỗ trợ', exact: true }).click();
+    await guest!.getByRole('button', { name: 'Gửi yêu cầu', exact: true }).click();
     await expect(guest!.locator('.support-feedback')).toContainText('Đã gửi yêu cầu.');
     const state = await (await guest!.request.get('/api/guest/state')).json(),
       id = state.support[0].id;
     await expect(card(guest!, id)).toContainText('Đã gửi yêu cầu');
     await expect(card(guest!, id)).toContainText('Đã gửi lúc');
-    await guest!.getByRole('button', { name: 'Gửi hỗ trợ', exact: true }).click();
+    await guest!.getByRole('button', { name: 'Gửi yêu cầu', exact: true }).click();
     await expect(guest!.locator('.support-feedback')).toContainText(
       'Yêu cầu này đã được gửi và đang được xử lý.',
     );
     expect((await (await guest!.request.get('/api/guest/state')).json()).support).toHaveLength(1);
+    await staff!.bringToFront();
     await staff!
       .getByRole('navigation', { name: 'Phục vụ' })
       .getByRole('button', { name: /Việc cần làm/ })
@@ -102,7 +107,10 @@ test('guest support, duplicate notice, owner-only actions, recipient acceptance/
           row.created_at = new Date(Date.now() - 6 * 60000).toISOString();
       await route.fulfill({ response, json: rows });
     });
-    await staff!.getByRole('button', { name: 'Tải lại', exact: true }).click();
+    await staff!
+      .locator('.service-tools')
+      .getByRole('button', { name: 'Làm mới', exact: true })
+      .click();
     await expect(preview(staff!, id)).toContainText('Chưa có người nhận');
     const supportRows = await (await staff!.request.get('/api/core/support')).json();
     const newCount = supportRows.filter((row: { status: string }) => row.status === 'NEW').length;
@@ -121,7 +129,9 @@ test('guest support, duplicate notice, owner-only actions, recipient acceptance/
     await card(staff!, id).getByRole('button', { name: 'Nhận xử lý', exact: true }).focus();
     await staff!.keyboard.press('Enter');
     await expect(card(staff!, id)).toContainText('Bạn đang phụ trách');
-    await expect(card(guest!, id)).toContainText('Nhân viên đang xử lý');
+    await guest!.bringToFront();
+    await expect(card(guest!, id)).toContainText('Nhân viên đã tiếp nhận');
+    await target!.bringToFront();
     await target!
       .getByRole('navigation', { name: 'Phục vụ' })
       .getByRole('button', { name: /Việc cần làm/ })
@@ -139,6 +149,7 @@ test('guest support, duplicate notice, owner-only actions, recipient acceptance/
       await staff!.request.get('/api/core/support-assignees?requestId=' + id)
     ).json();
     const to = people.find((x: { username: string }) => x.username === 'pv006');
+    await staff!.bringToFront();
     await card(staff!, id).getByRole('button', { name: 'Bàn giao', exact: true }).click();
     let dialog = staff!.getByRole('dialog', { name: 'Đề nghị bàn giao hỗ trợ' });
     await expect(dialog).toBeVisible();
@@ -173,6 +184,7 @@ test('guest support, duplicate notice, owner-only actions, recipient acceptance/
     await dialog.getByLabel('Lý do từ chối').fill('Đang phục vụ bàn khác');
     await dialog.getByRole('button', { name: 'Xác nhận từ chối' }).click();
     await expect(dialog).toHaveCount(0);
+    await staff!.bringToFront();
     await expect(card(staff!, id)).toContainText('Đồng nghiệp đã từ chối');
     await expect(card(staff!, id)).toContainText('Bạn đang phụ trách');
     await card(staff!, id).getByRole('button', { name: 'Bàn giao', exact: true }).click();
@@ -180,6 +192,7 @@ test('guest support, duplicate notice, owner-only actions, recipient acceptance/
     await dialog.getByLabel('Người nhận').selectOption(to.id);
     await dialog.getByLabel('Lý do bàn giao').fill('Đồng nghiệp đã xong việc, nhờ nhận');
     await dialog.getByRole('button', { name: 'Gửi đề nghị bàn giao' }).click();
+    await target!.bringToFront();
     await expect(
       card(target!, id).getByRole('button', { name: 'Nhận bàn giao', exact: true }),
     ).toBeVisible();
@@ -195,8 +208,10 @@ test('guest support, duplicate notice, owner-only actions, recipient acceptance/
     await expect(
       card(staff!, id).getByRole('button', { name: 'Đã xử lý', exact: true }),
     ).toHaveCount(0);
-    await expect(card(guest!, id)).toContainText('Nhân viên đang xử lý');
+    await guest!.bringToFront();
+    await expect(card(guest!, id)).toContainText('Nhân viên đã tiếp nhận');
     await expect(card(guest!, id)).not.toContainText('bàn giao');
+    await target!.bringToFront();
     await card(target!, id).getByRole('button', { name: 'Lịch sử hỗ trợ', exact: true }).click();
     dialog = target!.getByRole('dialog', { name: 'Lịch sử hỗ trợ tại bàn' });
     await expect(dialog).toContainText('Đã từ chối');
@@ -209,7 +224,8 @@ test('guest support, duplicate notice, owner-only actions, recipient acceptance/
     ).toBeFocused();
     await card(target!, id).getByRole('button', { name: 'Đã xử lý', exact: true }).click();
     await expect(card(target!, id)).toHaveCount(0);
-    await expect(card(guest!, id)).toContainText('Đã xử lý');
+    await guest!.bringToFront();
+    await expect(card(guest!, id)).toContainText('Đã xử lý', { timeout: 15000 });
     for (const width of [320, 768, 1440]) {
       await guest!.setViewportSize({ width, height: 900 });
       expect(await guest!.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
@@ -218,6 +234,7 @@ test('guest support, duplicate notice, owner-only actions, recipient acceptance/
     }
     await guest!.setViewportSize(info.project.use.viewport!);
     await guest!.screenshot({ path: info.outputPath('support-guest.png'), fullPage: true });
+    await admin!.bringToFront();
     const adminNav = admin!.getByRole('navigation', { name: 'Quản trị', exact: true });
     const expand = adminNav.getByRole('button', { name: 'Mở thanh điều hướng', exact: true });
     if (await expand.count()) await expand.click();

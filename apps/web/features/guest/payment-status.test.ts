@@ -150,9 +150,37 @@ describe('guest online confirmation uses safe server states', () => {
         ...online,
         status: 'PAID',
         paidAmount: '100000',
+        appliedAmount: '100000',
+        refundedAmount: '0',
         remainingAmount: '0',
       }).title,
     ).toBe('Thanh toán thành công');
+  });
+  it('never treats PAID with bank or gross-only money as committed invoice payment', () => {
+    for (const paidAmount of ['0', '100000'])
+      expect(
+        guestOnlinePaymentStatus({
+          ...online,
+          status: 'PAID',
+          paidAmount,
+          bankConfirmedAmount: '100000',
+          remainingAmount: '0',
+        }),
+      ).toMatchObject({ kind: 'pending' });
+  });
+  it('describes a fully refunded source without claiming current invoice payment', () => {
+    expect(
+      guestOnlinePaymentStatus({
+        ...online,
+        status: 'PAID',
+        paidAmount: '100000',
+        bankConfirmedAmount: '100000',
+        appliedAmount: '0',
+        refundedAmount: '100000',
+        refundableAmount: '0',
+        remainingAmount: '0',
+      }),
+    ).toMatchObject({ kind: 'refunded' });
   });
   it('does not call gross booked funds invoice payment when some money is unallocated', () => {
     const state = guestOnlinePaymentStatus({
@@ -181,4 +209,23 @@ describe('guest online confirmation uses safe server states', () => {
       expect(state.detail).toMatch(/trước khi|Chưa cần chuyển thêm/);
     },
   );
+});
+
+it('keeps a bank-reported success waiting while the guest projection has no committed bill payment', () => {
+  expect(
+    guestOnlinePaymentStatus({
+      id: 'opaque',
+      scope: 'TABLE',
+      status: 'PAID',
+      amount: '5000',
+      paidAmount: '0',
+      bankConfirmedAmount: '5000',
+      appliedAmount: '0',
+      refundedAmount: '0',
+      refundableAmount: '0',
+      remainingAmount: '5000',
+      createdAt: '2026-10-19T00:00:00Z',
+      expiresAt: '2026-10-19T01:00:00Z',
+    }),
+  ).toMatchObject({ kind: 'pending', title: 'Nhà hàng đang xác nhận thanh toán' });
 });

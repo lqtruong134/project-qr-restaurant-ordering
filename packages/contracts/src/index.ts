@@ -43,3 +43,5 @@ export type {
 } from './payments-online';
 
 export * from './menu-assistant';
+
+export type { CollectionAvailability, PaymentFinancialSummary } from './payments-online';
