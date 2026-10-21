@@ -134,7 +134,7 @@ export function proofChecks(event, row, bank, link, restaurant) {
     amountMatches: String(p.amount) === String(bank.amount),
   };
 }
-export async function diagnose({ pool, get, normalization }, target, restaurant) {
+export async function diagnose({ pool, get, normalization, compareAccount }, target, restaurant) {
   const client = await pool.connect();
   let started = false;
   try {
@@ -154,8 +154,8 @@ export async function diagnose({ pool, get, normalization }, target, restaurant)
     const rows = (
       await client.query(
         `SELECT q.order_code::text,q.payment_link_id,q.account_number,q.qr_code,
-         q.status,q.provider_status,q.paid_amount::text,q.reconciliation_status,
-         p.amount::text,p.status AS intent_status,
+         q.status,q.provider_status,q.paid_amount::text,q.reconciliation_status,q.cancel_requested,
+         p.amount::text,p.status AS intent_status,p.expires_at,
          COALESCE((SELECT sum(t.amount) FROM payment_transaction t
            WHERE t.payment_intent_id=p.id AND t.provider='PAYOS' AND t.status='SUCCEEDED'),0)::text AS recorded,
          COALESCE((SELECT sum(a.allocated_amount-a.reversed_amount) FROM payment_allocation a
@@ -231,6 +231,14 @@ export async function diagnose({ pool, get, normalization }, target, restaurant)
           amount: money(bank.amount),
           recipient: recipientReport(row.account_number, bank, proof, normalization),
           webhookCandidates: candidates,
+          ...(compareAccount
+            ? {
+                privateAccountMatches: {
+                  get: compareAccount(bank.accountNumber),
+                  webhook: proof ? compareAccount(proof.accountNumber) : null,
+                },
+              }
+            : {}),
         };
       });
       const amounts = link.transactions.map((bank) => money(bank.amount));
@@ -250,6 +258,10 @@ export async function diagnose({ pool, get, normalization }, target, restaurant)
           recorded: money(row.recorded),
           applied: money(row.applied),
           reconciliation: state(row.reconciliation_status),
+          cancelRequested: row.cancel_requested === true,
+          quoteExpiredNow: Number.isFinite(new Date(row.expires_at).getTime())
+            ? new Date(row.expires_at).getTime() <= Date.now()
+            : null,
         },
         createAccount: field(row.account_number, normalize),
         qr: {

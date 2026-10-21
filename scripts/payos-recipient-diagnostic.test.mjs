@@ -367,3 +367,55 @@ test('streamed stdin entry rejects invalid targets without loading runtime or en
   assert.equal(result.stdout, '');
   assert.equal(JSON.parse(result.stderr).error, 'INVALID_TARGET');
 });
+
+test('real-case shape: CREATE/QR 13 digits and equal GET/webhook 10 digits without VA remain blocked', async () => {
+  const request = row();
+  request.account_number = '1000000000001';
+  request.expires_at = '2020-01-01T00:00:00Z';
+  request.cancel_requested = false;
+  const snapshot = event();
+  snapshot.payload_snapshot.recipientAccountNumber = '2000000002';
+  snapshot.payload_snapshot.recipientVirtualAccountNumber = null;
+  const response = link();
+  response.transactions[0].accountNumber = '2000000002';
+  const matches = [];
+  const runtime = lab({ rows: [request], events: [snapshot], get: async () => response });
+  runtime.compareAccount = (value) => {
+    matches.push(value);
+    const normalized = normalization.normalizePayosAccount(value);
+    return normalized === null ? null : normalized === '2000000002';
+  };
+  const result = await diagnose(runtime, target, restaurant);
+  const recipient = result.requests[0].transactions[0];
+  assert.equal(recipient.recipient.getAccount.normalizedLength, 10);
+  assert.equal(result.requests[0].createAccount.normalizedLength, 13);
+  assert.equal(result.requests[0].stored.quoteExpiredNow, true);
+  assert.equal(result.requests[0].stored.cancelRequested, false);
+  assert.equal(recipient.recipient.decision, 'WEBHOOK_DOES_NOT_BRIDGE_TO_CREATE');
+  assert.equal(recipient.recipient.matched, false);
+  assert.deepEqual(recipient.privateAccountMatches, { get: true, webhook: true });
+  assert.deepEqual(matches, ['2000000002', '2000000002']);
+  for (const actual of ['1000000000001', '2000000002'])
+    assert.equal(JSON.stringify(result).includes(actual), false);
+  // An independently supplied DIFFERENT account of the SAME length must fail.
+  runtime.compareAccount = (value) => normalization.normalizePayosAccount(value) === '3000000003';
+  const mismatch = await diagnose(runtime, target, restaurant);
+  assert.deepEqual(mismatch.requests[0].transactions[0].privateAccountMatches, {
+    get: false,
+    webhook: false,
+  });
+});
+test('legacy diagnostic success entry still works without a private comparison callback', async () => {
+  const runtime = lab(),
+    output = [];
+  const code = await runDiagnostic(
+    ['--table', 'A10', '--session', '48A135F3'],
+    async () => runtime,
+    { log: (value) => output.push(value), error: () => assert.fail() },
+  );
+  assert.equal(code, 0);
+  assert.equal(runtime.closed(), true);
+  assert.equal(runtime.released(), true);
+  const transaction = JSON.parse(output[0]).requests[0].transactions[0];
+  assert.equal(transaction.privateAccountMatches, undefined);
+});

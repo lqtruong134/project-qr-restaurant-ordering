@@ -1,5 +1,35 @@
 # 06. Hiểu tiền, hóa đơn và điều kiện đóng bàn
 
+## Đối chiếu bằng chứng MB của phiên A10 — 21/10/2026
+
+**Đã chứng minh chính xác nhánh từ chối; chưa chứng minh mapping của hai tài khoản.** Chủ dự án đã tự chạy diagnostic trên production và báo: CREATE/QR cùng tài khoản 13 số; GET có chữ ký hợp lệ, PAID 10.000đ và mọi kiểm tra order/link/amount đều khớp; webhook v2 đủ điều kiện; GET/webhook cùng tài khoản 10 số, cả hai VA đều null. Helper dừng ở `WEBHOOK_DOES_NOT_BRIDGE_TO_CREATE`: primary khớp nhau nhưng `recipientMatches(CREATE.accountNumber, webhook)` vẫn false.
+
+Độ dài 10 số và ngân hàng MB **không chứng minh đúng tài khoản nhận**. [FAQ chính thức payOS, câu 6](https://payos.vn/docs/cau-hoi-thuong-gap/) xác nhận link qua VietQR Pro có thể dùng tài khoản ảo theo đơn/số tiền; [mô tả tài khoản ảo](https://payos.vn/tai-khoan-ao/) giải thích VA liên kết với tài khoản chính. Đây là cơ sở cho khả năng khác ngữ nghĩa, không phải xác nhận merchant này đang dùng loại liên kết đó hay hai giá trị cụ thể có mapping. SDK 2.0.5 chỉ khai báo `accountNumber`/`virtualAccountNumber`, không cung cấp API read-only xác nhận mapping của kênh trong phần paymentRequests. Không gọi POST confirm-webhook để lấy tài khoản vì thao tác đó có thể thay cấu hình webhook.
+
+### Bước tiếp theo duy nhất: so sánh riêng tư với tài khoản MB của đúng kênh
+
+Tại thư mục gốc repository trong terminal WSL/bash tương tác, với tệp mới từ PR #2:
+
+```bash
+node scripts/payos-recipient-compare.mjs --table A10 --session 48A135F3
+```
+
+Mở **đúng kênh payOS đang cấu hình**, xem tài khoản MB chính đã liên kết và đối chiếu với app MB. Nhập tài khoản đó tại lời nhắc terminal; ký tự không hiển thị, không ghi lịch sử nhập. Không dán số tài khoản vào lệnh, chat, PR, ảnh chụp hoặc log. Công cụ kiểm tra định dạng 10 chữ số theo thông tin chủ dự án đã cung cấp, nhưng kết quả so sánh dùng **toàn bộ chuỗi chính xác**, không dùng độ dài, hậu tố hoặc tiền tố.
+
+Account chỉ đi qua bộ nhớ và stdin của tiến trình chẩn đoán, không qua argv, biến môi trường, shell expansion hoặc tệp tạm. Tool tái sử dụng signed GET và transaction READ ONLY/ROLLBACK của diagnostic, không chạy server, refresh, worker hoặc đăng ký webhook. Node code truyền vào Docker là mã tĩnh; dữ liệu riêng nằm riêng trong stdin. Lỗi container/SDK/DB thô bị giữ kín; output được lọc lại chỉ còn boolean và trạng thái cho phép. Không cần build/deploy/restart và người chuẩn bị công cụ không chạy lệnh này trên production.
+
+Gửi lại JSON gồm `getMatchesEnteredMb`, `eligibleWebhookMatchesEnteredMb`, `getChecksAllMatch`, `createMatchesQrAccount` và các cờ khác. `true` chỉ có nghĩa dữ liệu provider khớp **tài khoản do người vận hành nhập từ nguồn độc lập**, không phải API tự xác minh cấu hình kênh; công cụ không tạo allowlist, không lưu mapping hoặc xác nhận tiền. Tài khoản nhập sai cùng độ dài phải trả false; thiếu dữ liệu trả null. Nếu không tìm được thông tin tài khoản của đúng kênh, dừng thay vì nhập giá trị đoán từ giao dịch.
+
+### Vì sao nút đối chiếu từng báo lỗi chung?
+
+Theo code, recipient mismatch trả `REQUIRES_RECONCILIATION`, rồi `process` trả `UPDATED`; `refreshForAdmin` trả view, không tự ném lỗi 503. Thông báo chung xuất hiện khi `process` gặp exception và trả `FAILED`, hoặc snapshot chưa đủ trả `WAITING`. Vì vậy chưa thể kết luận lỗi chung trước đây chỉ do recipient. Diagnostic GET thành công hiện tại không chứng minh lần refresh trước không gặp lỗi mạng/chữ ký/xử lý; chưa có log thời điểm tương ứng để kết luận. Không thay thông báo hoặc bắt/bỏ lỗi để che một nguyên nhân chưa được chứng minh.
+
+### Giới hạn phục hồi khoản cũ và kiểm thử
+
+Chưa có bản sửa chấp nhận thanh toán để deploy/nghiệm thu ADMIN. Sau khi có mapping đủ chứng cứ mới sửa và kiểm thử ghi sổ/phân bổ/idempotency. Hiện scheduler/ADMIN refresh có đường retry identity case, nhưng vẫn chặn phiên đã chốt, quote đã hủy/hết hạn, tiền dư hoặc dữ liệu mâu thuẫn. Đáng chú ý, `quoteInvalidatedAtReceipt` hiện so expires_at với thời điểm retry, chưa dựa trên thời điểm ngân hàng nhận. Công cụ bổ sung `quoteExpiredNow` và `cancelRequested` để biết liệu khoản 10.000đ cũ còn vướng guard này; không tự sửa expiry hay số dư để phục hồi.
+
+Kiểm thử tập trung đạt: **18 bài diagnostic, 8 bài private comparison, 29 unit normalization**. Có ca 13/10 số thiếu VA tái hiện đúng nhánh chặn, tài khoản khác cùng độ dài, nhập ẩn/Ctrl+C, không lộ dữ liệu qua argv/env/output/lỗi, bootstrap thực thi Node với module DB/provider giả, READ ONLY/ROLLBACK và signed GET giả chống sửa payload. Đây là kiểm thử công cụ và guard hiện hữu; chưa phải regression ghi sổ thành công/duplicate webhook của một bản sửa payment mới. Không chạy E2E, không đọc DB/payOS production, không đổi logic nghiệp vụ, secrets, migration hoặc workflow Quality gate.
+
 ## Chẩn đoán recipient A10 / #48A135F3 — 21/10/2026
 
 **Chưa chứng minh được nguyên nhân gốc của giao dịch thật 10.000đ.** Bản này chỉ bổ sung công cụ đọc bằng chứng, không sửa `payos.service.ts`, `payos-normalization.ts`, trạng thái tiền, allocation hoặc quy tắc bảo mật. Báo nhận 10.000đ / ghi sổ 0đ / phân bổ 0đ phù hợp với nhánh recipient bị chặn, nhưng chưa cho biết trường tài khoản nào gây chặn.
