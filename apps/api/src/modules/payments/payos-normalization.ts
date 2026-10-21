@@ -37,11 +37,13 @@ export function sameRecipient(left: PayosRecipient, right: PayosRecipient) {
  * order/link/reference/amount/currency by the caller. A webhook may carry the VA
  * omitted by a GET transaction, while both identify the same primary account.
  * A conflicting explicit VA can never be repaired by another message.
+ * trustedPrimary must come from a scoped backend channel binding, not from either input.
  */
 export function recipientMatchesWithEvidence(
   expected: string,
   bank: PayosRecipient,
   corroboration?: PayosRecipient,
+  trustedPrimary?: string,
 ) {
   if (
     corroboration &&
@@ -52,12 +54,53 @@ export function recipientMatchesWithEvidence(
   if (recipientMatches(expected, bank)) return !corroboration || sameRecipient(bank, corroboration);
   if (normalizePayosAccount(bank.virtualAccountNumber) !== null || !corroboration) return false;
   const primary = normalizePayosAccount(bank.accountNumber);
+  const absentVirtual = (value: unknown) =>
+    value == null || (typeof value === 'string' && normalizePayosAccount(value) === null);
   return (
     primary !== null &&
     primary === normalizePayosAccount(corroboration.accountNumber) &&
-    recipientMatches(expected, corroboration)
+    (recipientMatches(expected, corroboration) ||
+      (normalizePayosAccount(expected) !== null &&
+        absentVirtual(bank.virtualAccountNumber) &&
+        absentVirtual(corroboration.virtualAccountNumber) &&
+        primary === normalizePayosAccount(trustedPrimary)))
   );
 }
+
+/** Read the domestic VietQR recipient from the persisted signed CREATE response.
+ * Structural consistency only; this never establishes a merchant account mapping.
+ */
+export function readPayosQrRecipient(
+  qr: unknown,
+): { bankBin: string; accountNumber: string } | null {
+  if (typeof qr !== 'string' || Buffer.byteLength(qr, 'utf8') > 4096) return null;
+  function tags(value: Buffer | undefined) {
+    if (!value) return null;
+    const result = new Map<string, Buffer>();
+    for (let offset = 0; offset < value.length;) {
+      const header = value.subarray(offset, offset + 4).toString('ascii');
+      if (!/^[0-9]{4}$/.test(header)) return null;
+      const id = header.slice(0, 2),
+        end = offset + 4 + Number(header.slice(2));
+      if (end > value.length || result.has(id)) return null;
+      result.set(id, value.subarray(offset + 4, end));
+      offset = end;
+    }
+    return result;
+  }
+  const merchant = tags(tags(Buffer.from(qr, 'utf8'))?.get('38'));
+  if (merchant?.get('00')?.toString('ascii') !== 'A000000727') return null;
+  const recipient = tags(merchant.get('01'));
+  const bankBin = recipient?.get('00')?.toString('ascii');
+  const accountNumber = recipient?.get('01')?.toString('ascii');
+  return bankBin &&
+    /^[0-9]{6}$/.test(bankBin) &&
+    accountNumber &&
+    /^[0-9]{6,34}$/.test(accountNumber)
+    ? { bankBin, accountNumber }
+    : null;
+}
+
 export function normalizePayosLink(link: PaymentLink): PaymentLink {
   // The provider documents an empty object for an unpaid transaction list. Do not
   // infer transactions or accept malformed lists once any money has been received.
