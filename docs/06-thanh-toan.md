@@ -1,5 +1,36 @@
 # 06. Hiểu tiền, hóa đơn và điều kiện đóng bàn
 
+## Hotfix MB: tài khoản QR khác tài khoản ngân hàng chính — 22/10/2026
+
+**Đã sửa trên PR #2, chưa triển khai production.** Chủ dự án xác nhận công cụ riêng tư so khớp chính xác primary 10 số với tài khoản MB của đúng kênh. Bằng chứng trước đó: CREATE/QR cùng tài khoản 13 số; signed GET PAID 10.000đ và webhook v2 hợp lệ cùng primary 10 số, cả hai VA null. Nguyên nhân guard: code chỉ biết anchor CREATE/VA nên không nối được hai biểu diễn tài khoản. [FAQ chính thức payOS](https://payos.vn/docs/cau-hoi-thuong-gap/) giải thích VietQR Pro dùng tài khoản ảo theo đơn; **hotfix vẫn không lấy lời xác nhận hoặc output chẩn đoán làm quyền ghi sổ**.
+
+### Quy tắc xác minh mới, mặc định vẫn chặn
+
+Nhánh primary bridge chỉ mở khi backend có binding độc lập do người vận hành cấu hình, khóa đúng **Client ID hiện tại + restaurant ID + BIN MB 970422 + tài khoản chính chính xác**. Link đã lưu phải tồn tại và khớp GET được payOS ký bằng khóa của kênh; QR lưu từ CREATE đã ký phải có BIN MB và tài khoản bằng anchor CREATE. GET và webhook v2 cùng primary bằng binding, cả hai thiếu VA hợp lệ về kiểu dữ liệu; webhook vẫn phải khớp chữ ký đã xác minh, tenant/order/link/reference/amount/VND/code. Bất kỳ VA rõ ràng nào mâu thuẫn vẫn chặn.
+
+Không so theo độ dài/tiền tố/hậu tố. Không dùng GET hoặc webhook tự khai báo tài khoản kỳ vọng. Thiếu/sai binding, thiếu CREATE/QR/link, thiếu webhook hoặc sai chữ ký/định danh/số tiền thì không đi qua bridge. Quy tắc khớp trực tiếp/exact VA hiện có giữ nguyên. Đây là binding backend tin cậy, **không phải một API tự lấy cấu hình tài khoản kênh từ payOS**; signed GET đúng link ràng buộc response với credential/kênh đã cấu hình.
+
+### Cấu hình riêng trước khi chủ dự án deploy
+
+Template thêm đúng một biến tùy chọn `PAYOS_RECIPIENT_BINDING`; compose truyền biến này vào API. Người vận hành tự nhập vào cấu hình production riêng đang được bảo vệ; không đổi/rotate Client ID, API key, checksum key hay AUTH_SECRET. Cấu trúc minh họa bên dưới chỉ có placeholder, không phải lệnh để chạy hoặc dữ liệu để commit:
+
+```dotenv
+PAYOS_RECIPIENT_BINDING='{"clientId":"CURRENT_PAYOS_CLIENT_ID","restaurantId":"CURRENT_RESTAURANT_ID","bankBin":"970422","accountNumber":"EXACT_LINKED_MB_PRIMARY_ACCOUNT"}'
+```
+
+Thay placeholder bằng giá trị chính xác của **đúng kênh và nhà hàng** sau đối chiếu riêng tư. Không đưa số tài khoản thực vào chat/PR/log. Nếu để trống, fallback mới bị tắt và giao dịch 13→10 vẫn chặn. Nếu JSON/kiểu dữ liệu sai, startup báo lỗi cấu hình chung, không in nội dung binding. Bản vá không sửa tệp env thật, không chứa tài khoản thật, không thêm dependency/schema/migration và không thay compose dev hoặc Quality gate.
+
+### Khoản A10 cũ và thao tác ADMIN
+
+Ngoài recipient, khoản cũ phải còn phiên ACTIVE, không bị hủy và không có tiền cách ly/ngoại lệ khác. Nếu hạn chỉ đã qua trong lúc chờ sửa identity, backend chỉ bỏ kiểm tra expiry theo thời điểm retry khi có **audit PAYOS_PROVIDER_REPORTED đã tồn tại trong khoảng created_at ≤ thời điểm quan sát < expires_at**. Audit phải gắn đúng intent/tenant/order/link/số tiền và toàn bộ references hiện tại; số tiền 0đ của lúc tạo QR không đủ. Không diễn giải timestamp ngân hàng thiếu múi giờ và không sửa thời hạn/DB để làm khoản thu hợp lệ.
+
+Nhánh bridge mới dừng trước ledger/allocation khi hết hạn/hủy hoặc phiên đã đóng mà không đủ bằng chứng nhận đúng hạn. Không ép SUCCEEDED, không sửa phiếu đã chốt. Webhook/refresh lặp dùng khóa và unique reference hiện có nên không tạo giao dịch/phân bổ lần hai.
+
+Sau khi chủ dự án tự review/deploy mã và cấu hình binding: vào **ADMIN → Việc cần xử lý → Ngoại lệ thanh toán payOS**, mở A10 / #48A135F3 rồi chọn **Đối chiếu lại với payOS**. Nếu đủ bằng chứng, hệ thống tự ghi sổ 10.000đ và áp 10.000đ vào đúng phạm vi hóa đơn, tự kết thúc ngoại lệ; không cần ADMIN bấm xác nhận thu thủ công. STAFF/GUEST nhận số dư từ backend như cũ. Bấm đối chiếu lại lần nữa phải giữ số tiền không đổi. Nếu thiếu audit đúng hạn, đã hủy/đóng phiên hoặc có bằng chứng mâu thuẫn, hồ sơ tiếp tục OPEN; không sửa DB để vượt chặn.
+
+Kiểm chứng hotfix: **45 unit** (16 bài binding mới + 29 normalization hiện có), **13 integration được chọn** (8 regression MB mới + 5 ca VA/idempotency/late hiện có), **27 bài công cụ chẩn đoán** đều đạt. API và tools typecheck, lint các file thay đổi, format, secret check và compose config với biến giả đạt. Integration chỉ dùng PostgreSQL tmpfs riêng, localhost và credential giả; fixture tự tạo/migrate/xóa DB thử nghiệm có tên ngẫu nhiên. Audit append-only giữ nguyên; lịch sử fixture được tạo bằng INSERT, không tắt trigger hoặc UPDATE audit. Không chạy toàn Playwright/E2E, không thay Quality gate và không đọc/sửa production DB/env/secrets. CI hiện hữu vẫn chạy độc lập khi push; kết quả local không thay thế trạng thái GitHub.
+Các phần chẩn đoán bên dưới ghi lịch sử điều tra trước hotfix. Chỉ output chẩn đoán không chứng minh sổ đã cập nhật; lấy số ghi sổ/phân bổ và trạng thái backend làm kết quả nghiệm thu.
+
 ## Đối chiếu bằng chứng MB của phiên A10 — 21/10/2026
 
 **Đã chứng minh chính xác nhánh từ chối; chưa chứng minh mapping của hai tài khoản.** Chủ dự án đã tự chạy diagnostic trên production và báo: CREATE/QR cùng tài khoản 13 số; GET có chữ ký hợp lệ, PAID 10.000đ và mọi kiểm tra order/link/amount đều khớp; webhook v2 đủ điều kiện; GET/webhook cùng tài khoản 10 số, cả hai VA đều null. Helper dừng ở `WEBHOOK_DOES_NOT_BRIDGE_TO_CREATE`: primary khớp nhau nhưng `recipientMatches(CREATE.accountNumber, webhook)` vẫn false.

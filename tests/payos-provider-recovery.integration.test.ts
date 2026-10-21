@@ -11,6 +11,7 @@ import { registerAuth } from '../apps/api/src/auth.js';
 import { registerModules } from '../apps/api/src/modules/index.js';
 import { PayosService } from '../apps/api/src/modules/payments/payos.service.js';
 import type {
+  PayosConfig,
   CreatePaymentLinkRequest,
   WebhookData,
 } from '../apps/api/src/modules/payments/payos-adapter.js';
@@ -23,11 +24,14 @@ const previousSecret = process.env.AUTH_SECRET;
 const password = randomBytes(24).toString('hex');
 class RecoveryProvider extends FakeProvider {
   nextAccount: string | undefined;
+  nextQr: string | undefined;
   override async create(request: CreatePaymentLinkRequest) {
     const result = await super.create(request);
     const accountNumber = this.nextAccount ?? result.accountNumber;
+    const qrCode = this.nextQr ?? result.qrCode;
     this.nextAccount = undefined;
-    return { ...result, accountNumber };
+    this.nextQr = undefined;
+    return { ...result, accountNumber, qrCode };
   }
 }
 const provider = new RecoveryProvider();
@@ -1052,5 +1056,258 @@ it('executes the sanitized operator diagnostic in a read-only transaction on the
   } finally {
     await connection.query('ROLLBACK');
     connection.release();
+  }
+});
+
+const mbQrAccount = '1000000000001';
+const mbPrimaryAccount = '2000000002';
+function mbQr(account = mbQrAccount, bin = '970422') {
+  const field = (tag: string, value: string) => tag + String(value.length).padStart(2, '0') + value;
+  const payload =
+    field('00', '01') +
+    field('01', '12') +
+    field(
+      '38',
+      field('00', 'A000000727') +
+        field('01', field('00', bin) + field('01', account)) +
+        field('02', 'QRIBFTTA'),
+    ) +
+    field('53', '704') +
+    field('54', '10000') +
+    field('58', 'VN') +
+    '6304';
+  let crc = 0xffff;
+  for (const byte of Buffer.from(payload)) {
+    crc ^= byte << 8;
+    for (let bit = 0; bit < 8; bit++) crc = ((crc << 1) ^ (crc & 0x8000 ? 0x1021 : 0)) & 0xffff;
+  }
+  return payload + crc.toString(16).toUpperCase().padStart(4, '0');
+}
+const mbBinding = () => ({
+  clientId: config.clientId!,
+  restaurantId,
+  bankBin: '970422',
+  accountNumber: mbPrimaryAccount,
+});
+async function withMbBinding(binding: PayosConfig['recipientBinding'], run: () => Promise<void>) {
+  const previous = config.recipientBinding;
+  config.recipientBinding = binding;
+  try {
+    await run();
+  } finally {
+    config.recipientBinding = previous;
+  }
+}
+async function mbFixture(options: { qr?: string; guest?: boolean; primary?: string } = {}) {
+  provider.nextAccount = mbQrAccount;
+  provider.nextQr = options.qr ?? mbQr();
+  const f = await fixture('20000', '10000', false, false, options.guest);
+  const bank = provider.add(f.code, 10000);
+  bank.accountNumber = options.primary ?? mbPrimaryAccount;
+  bank.virtualAccountNumber = null;
+  bank.transactionDateTime = new Date().toISOString();
+  return { ...f, bank };
+}
+
+it('MB recipient hotfix records a scoped primary-account bridge and updates STAFF/GUEST balances', async () => {
+  await withMbBinding(mbBinding(), async () => {
+    const f = await mbFixture({ guest: true });
+    await service.webhook(event(f, f.bank));
+    expect(await ledger(f)).toEqual({ count: 1, received: '10000', allocated: '10000' });
+    expect(await stored(f)).toMatchObject({ status: 'PAID', reconciliation_status: null });
+    const staff = await api('/core/sessions/' + f.sid + '/bill');
+    expect(staff.financialSummary).toMatchObject({
+      bankReportedAmount: '10000',
+      recordedAmount: '10000',
+      appliedAmount: '10000',
+      outstandingAmount: '10000',
+      reviewRequired: false,
+    });
+    expect((await api('/guest/state', undefined, 'projection_guest')).financialSummary).toEqual(
+      staff.financialSummary,
+    );
+  });
+});
+it('MB recipient hotfix requires independent binding for the current client, tenant and bank', async () => {
+  for (const binding of [
+    undefined,
+    { ...mbBinding(), clientId: 'another-synthetic-channel' },
+    { ...mbBinding(), restaurantId: randomUUID() },
+    { ...mbBinding(), bankBin: '970436' },
+    { ...mbBinding(), accountNumber: '3000000003' },
+  ]) {
+    await withMbBinding(binding, async () => {
+      const f = await mbFixture();
+      await service.webhook(event(f, f.bank));
+      expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
+      expect((await stored(f)).status).toBe('REQUIRES_RECONCILIATION');
+    });
+  }
+});
+it('MB recipient hotfix rejects another real recipient, unbound QR or missing webhook despite equal account lengths', async () => {
+  await withMbBinding(mbBinding(), async () => {
+    for (const options of [
+      { primary: '3000000003' },
+      { qr: mbQr(mbQrAccount, '970436') },
+      { qr: mbQr('1000000000002') },
+      { qr: 'UNVERIFIABLE_QR' },
+    ]) {
+      const f = await mbFixture(options);
+      await service.webhook(event(f, f.bank));
+      expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
+      expect((await stored(f)).reconciliation_status).toBe('OPEN');
+    }
+    const f = await mbFixture();
+    await service.process(f.id, true, false);
+    expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
+  });
+});
+it('MB recipient hotfix never repairs a conflicting explicit GET or webhook VA through a trusted primary', async () => {
+  await withMbBinding(mbBinding(), async () => {
+    for (const source of ['get', 'webhook'] as const) {
+      const f = await mbFixture();
+      if (source === 'get') f.bank.virtualAccountNumber = '9999999999999';
+      const fields = source === 'webhook' ? { virtualAccountNumber: '9999999999999' } : {};
+      await service.webhook(event(f, f.bank, fields));
+      expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
+      expect((await stored(f)).reconciliation_status).toBe('OPEN');
+    }
+  });
+});
+it('MB recipient hotfix blocks bad signatures and wrong order, link, reference, amount or currency', async () => {
+  await withMbBinding(mbBinding(), async () => {
+    for (const mismatch of [
+      'signature',
+      'orderCode',
+      'paymentLinkId',
+      'reference',
+      'amount',
+      'currency',
+    ] as const) {
+      const f = await mbFixture();
+      const fields: Partial<WebhookData> = {};
+      if (mismatch === 'orderCode') fields.orderCode = f.code + 100000;
+      if (mismatch === 'paymentLinkId') fields.paymentLinkId = 'another-synthetic-link';
+      if (mismatch === 'reference') fields.reference = randomUUID();
+      if (mismatch === 'amount') fields.amount = 9999;
+      if (mismatch === 'currency') fields.currency = 'USD';
+      const payload = event(f, f.bank, fields);
+      if (mismatch === 'signature') payload.signature = '0'.repeat(64);
+      await service.webhook(payload).catch(() => undefined);
+      await service.process(f.id, true, false);
+      expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
+    }
+    for (const field of ['orderCode', 'amount'] as const) {
+      const f = await mbFixture();
+      provider.links.get(f.code)![field]++;
+      await service.webhook(event(f, f.bank)).catch(() => undefined);
+      expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
+    }
+  });
+});
+it('MB recipient hotfix makes repeated webhooks and ADMIN refresh idempotent', async () => {
+  await withMbBinding(mbBinding(), async () => {
+    const f = await mbFixture();
+    const payload = event(f, f.bank);
+    await Promise.all([
+      service.webhook(payload),
+      service.webhook(payload),
+      service.refreshForAdmin(f.id, adminId),
+    ]);
+    await service.refreshForAdmin(f.id, adminId);
+    await service.webhook(payload);
+    expect(await ledger(f)).toEqual({ count: 1, received: '10000', allocated: '10000' });
+    expect(
+      await db.prisma.payment_webhook_event.count({
+        where: { provider: 'PAYOS', provider_event_id: f.bank.reference },
+      }),
+    ).toBe(1);
+    expect(await stored(f)).toMatchObject({ status: 'PAID', reconciliation_status: null });
+  });
+});
+it('MB recipient hotfix lets ADMIN recover a previously reported timely receipt after retry-time expiry exactly once', async () => {
+  await withMbBinding(undefined, async () => {
+    const f = await mbFixture();
+    f.bank.transactionDateTime = new Date(Date.now() - 150000).toISOString();
+    const payload = event(f, f.bank);
+    await service.webhook(payload);
+    expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
+    expect((await stored(f)).reconciliation_reason).toBe(
+      'Tài khoản nhận tiền payOS không khớp kênh đã tạo.',
+    );
+    // All mutations here target only this suite's randomly named disposable DB.
+    // The server observed this exact signed transfer inside the original quote.
+    await db.pool.query(
+      "UPDATE payment_intent SET created_at=now()-interval '3 minutes',expires_at=now()-interval '1 minute' WHERE id=$1",
+      [f.id],
+    );
+    await db.pool.query(
+      `INSERT INTO business_audit_event(restaurant_id,resource_id,resource_type,action,reason,details,actor_type,created_at)
+         SELECT restaurant_id,resource_id,resource_type,action,reason,details,actor_type,now()-interval '2 minutes'
+         FROM business_audit_event WHERE resource_id=$1 AND action='PAYOS_PROVIDER_REPORTED'
+           AND details->>'bankReportedAmount'='10000'
+         ORDER BY created_at,id LIMIT 1`,
+      [f.id],
+    );
+    await withMbBinding(mbBinding(), async () => {
+      await api('/core/admin/payment-reconciliation/' + f.id + '/refresh', {}, 'quyettruong05');
+      const checked = await stored(f);
+      expect({ status: checked.status, reason: checked.reconciliation_reason }).toEqual({
+        status: 'PAID',
+        reason: 'Tài khoản nhận tiền payOS không khớp kênh đã tạo.',
+      });
+      expect(await ledger(f)).toEqual({ count: 1, received: '10000', allocated: '10000' });
+      expect(await stored(f)).toMatchObject({ status: 'PAID', reconciliation_status: null });
+      expect((await finance(f)).outstanding_amount).toBe('10000');
+      await service.refreshForAdmin(f.id, adminId);
+      await service.webhook(payload);
+      expect(await ledger(f)).toEqual({ count: 1, received: '10000', allocated: '10000' });
+      expect(
+        await db.prisma.business_audit_event.count({
+          where: { resource_id: f.id, action: 'PAYOS_VERIFICATION_RECOVERED' },
+        }),
+      ).toBe(1);
+    });
+  });
+});
+it('MB recipient hotfix keeps expiry without timely audit and explicit cancellation in reconciliation', async () => {
+  for (const cancelled of [false, true]) {
+    await withMbBinding(undefined, async () => {
+      const f = await mbFixture();
+      f.bank.transactionDateTime = new Date(Date.now() - 150000).toISOString();
+      await service.webhook(event(f, f.bank));
+      await db.pool.query(
+        "UPDATE payment_intent SET created_at=now()-interval '3 minutes',expires_at=now()-interval '1 minute' WHERE id=$1",
+        [f.id],
+      );
+      if (cancelled) {
+        await db.pool.query(
+          'UPDATE payos_payment_request SET cancel_requested=true WHERE payment_intent_id=$1',
+          [f.id],
+        );
+        await db.pool.query(
+          `INSERT INTO business_audit_event(restaurant_id,resource_id,resource_type,action,reason,details,actor_type,created_at)
+         SELECT restaurant_id,resource_id,resource_type,action,reason,details,actor_type,now()-interval '2 minutes'
+         FROM business_audit_event WHERE resource_id=$1 AND action='PAYOS_PROVIDER_REPORTED'
+           AND details->>'bankReportedAmount'='10000'
+         ORDER BY created_at,id LIMIT 1`,
+          [f.id],
+        );
+      }
+      await withMbBinding(mbBinding(), async () => {
+        await service.refreshForAdmin(f.id, adminId);
+        expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
+        expect(await stored(f)).toMatchObject({
+          status: 'REQUIRES_RECONCILIATION',
+          reconciliation_status: 'OPEN',
+          resolved_at: null,
+        });
+        expect(
+          await db.prisma.business_audit_event.count({
+            where: { resource_id: f.id, action: 'PAYOS_VERIFICATION_RECOVERED' },
+          }),
+        ).toBe(0);
+      });
+    });
   }
 });

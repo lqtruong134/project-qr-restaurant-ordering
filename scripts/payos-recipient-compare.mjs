@@ -71,6 +71,18 @@ export async function containerComparison() {
         pool: db.pool,
         get: (order) => provider.get(order),
         normalization,
+        trustedPrimaryForRequest:
+          typeof adapter.trustedPayosPrimary === 'function'
+            ? (row, link, restaurant) =>
+                adapter.trustedPayosPrimary(
+                  config,
+                  restaurant,
+                  row.account_number,
+                  row.qr_code,
+                  row.payment_link_id,
+                  link.id,
+                )
+            : undefined,
         compareAccount: (value) => {
           const normalized = normalization.normalizePayosAccount(value);
           return normalized === null ? null : normalized === data.account;
@@ -181,6 +193,7 @@ export async function runPrivateComparison(
     const decisions = [
       'MATCH',
       'MATCH_VIA_VERIFIED_WEBHOOK',
+      'MATCH_VIA_BACKEND_BINDING',
       'MISSING_CREATE_ANCHOR',
       'WEBHOOK_EXPLICIT_VA_DIFFERS_FROM_CREATE',
       'GET_WEBHOOK_RECIPIENTS_DIFFER',

@@ -34,6 +34,7 @@ import {
   officialPayosProvider,
   payosCapabilities,
   readPayosConfig,
+  trustedPayosPrimary,
   type PayosOptions,
   type PayosProvider,
 } from './payos-adapter.js';
@@ -743,6 +744,16 @@ export class PayosService {
         }
       }
       if (webhook && webhookBank) corroboration.set(webhook.reference, webhook);
+      const trustedPrimary = expectedRecipient
+        ? trustedPayosPrimary(
+            this.config,
+            this.restaurant,
+            expectedRecipient,
+            q.qr_code,
+            q.payment_link_id,
+            link.id,
+          )
+        : undefined;
       if (
         expectedRecipient &&
         link.transactions.some(
@@ -751,6 +762,7 @@ export class PayosService {
               expectedRecipient,
               bank,
               corroboration.get(bank.reference),
+              trustedPrimary,
             ),
         )
       ) {
@@ -760,6 +772,88 @@ export class PayosService {
           pi,
           { ...q, paid_amount: actual.toString() },
           'Tài khoản nhận tiền payOS không khớp kênh đã tạo.',
+        );
+        return { status: 'REQUIRES_RECONCILIATION' };
+      }
+      // A delayed identity recovery must not mistake retry time for receipt time.
+      // Only a pre-existing signed-GET audit observed before expiry can bridge
+      // this one guard; never infer a timezone from provider display timestamps.
+      const recoverableIdentityCase =
+        q.reconciliation_status === 'OPEN' &&
+        recoverableReasons.includes(q.reconciliation_reason) &&
+        oldQuarantine.length === 0;
+      let timelyIdentityReceipt = false;
+      if (
+        q.reconciliation_reason === 'Tài khoản nhận tiền payOS không khớp kênh đã tạo.' &&
+        recoverableIdentityCase &&
+        pi.status === 'REQUIRES_RECONCILIATION' &&
+        s.session_status === 'ACTIVE' &&
+        !q.cancel_requested &&
+        prior.length === 0 &&
+        actual > 0n &&
+        actual <= BigInt(pi.amount) &&
+        new Date(pi.expires_at).getTime() <= Date.now()
+      ) {
+        const evidence = await c.query(
+          `SELECT 1 FROM business_audit_event e
+           WHERE e.restaurant_id=$1 AND e.resource_id=$2 AND e.resource_type='PAYMENT_INTENT'
+             AND e.action='PAYOS_PROVIDER_REPORTED'
+             AND e.created_at >= $3::timestamptz AND e.created_at < $4::timestamptz
+             AND e.details->>'orderCode'=$5 AND e.details->>'paymentLinkId'=$6
+             AND e.details->>'bankReportedAmount'=$7
+             AND e.details->'references' @> $8::jsonb AND e.details->'references' <@ $8::jsonb
+           LIMIT 1`,
+          [
+            this.restaurant,
+            id,
+            pi.created_at,
+            pi.expires_at,
+            String(q.order_code),
+            link.id,
+            actual.toString(),
+            JSON.stringify([...seen]),
+          ],
+        );
+        timelyIdentityReceipt = evidence.rows.length === 1;
+      }
+      const quoteInvalidatedAtReceipt =
+        q.cancel_requested ||
+        ['CANCELLED', 'EXPIRED'].includes(pi.status) ||
+        (new Date(pi.expires_at).getTime() <= Date.now() && !timelyIdentityReceipt);
+
+      const late =
+        (!['CREATED', 'PENDING', 'SUCCEEDED'].includes(pi.status) && !recoverableIdentityCase) ||
+        quoteInvalidatedAtReceipt;
+      const hasNewMoney = link.transactions.some(
+        (bank) =>
+          ![...prior, ...oldQuarantine].some(
+            (previous: Record<string, unknown>) => previous.reference === bank.reference,
+          ),
+      );
+      const usesPrimaryBridge =
+        expectedRecipient &&
+        trustedPrimary &&
+        link.transactions.some(
+          (bank) =>
+            !recipientMatchesWithEvidence(
+              expectedRecipient,
+              bank,
+              corroboration.get(bank.reference),
+            ),
+        );
+      if (
+        usesPrimaryBridge &&
+        hasNewMoney &&
+        (quoteInvalidatedAtReceipt || s.session_status !== 'ACTIVE')
+      ) {
+        await reconciliation(
+          c,
+          this.restaurant,
+          pi,
+          { ...q, paid_amount: actual.toString() },
+          s.session_status !== 'ACTIVE'
+            ? 'Tiền payOS đến sau khi phiên đã đóng; cần hoàn ngoài phiếu đã chốt.'
+            : 'Tiền payOS đến khi khoản thu đã hủy hoặc hết hạn.',
         );
         return { status: 'REQUIRES_RECONCILIATION' };
       }
@@ -778,23 +872,7 @@ export class PayosService {
           references: link.transactions.map((bank) => bank.reference),
         },
       );
-      const quoteInvalidatedAtReceipt =
-        q.cancel_requested ||
-        ['CANCELLED', 'EXPIRED'].includes(pi.status) ||
-        new Date(pi.expires_at).getTime() <= Date.now();
-      const recoverableIdentityCase =
-        q.reconciliation_status === 'OPEN' &&
-        recoverableReasons.includes(q.reconciliation_reason) &&
-        oldQuarantine.length === 0;
-      const late =
-        (!['CREATED', 'PENDING', 'SUCCEEDED'].includes(pi.status) && !recoverableIdentityCase) ||
-        quoteInvalidatedAtReceipt;
-      const hasNewMoney = link.transactions.some(
-        (bank) =>
-          ![...prior, ...oldQuarantine].some(
-            (previous: Record<string, unknown>) => previous.reference === bank.reference,
-          ),
-      );
+
       // A signed replay still reports the original gross bank receipt after an
       // actual refund. It must not reopen an admin-resolved overpayment forever.
       if (q.reconciliation_status === 'RESOLVED' && !hasNewMoney) return { status: 'PROCESSED' };

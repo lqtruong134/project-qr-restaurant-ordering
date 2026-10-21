@@ -4,7 +4,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { PayOS } from '../apps/api/node_modules/@payos/node/lib/index.js';
-import { officialPayosProvider } from '../apps/api/src/modules/payments/payos-adapter.ts';
+import {
+  officialPayosProvider,
+  trustedPayosPrimary,
+} from '../apps/api/src/modules/payments/payos-adapter.ts';
 import * as normalization from '../apps/api/src/modules/payments/payos-normalization.ts';
 import {
   parseTarget,
@@ -418,4 +421,52 @@ test('legacy diagnostic success entry still works without a private comparison c
   assert.equal(runtime.released(), true);
   const transaction = JSON.parse(output[0]).requests[0].transactions[0];
   assert.equal(transaction.privateAccountMatches, undefined);
+});
+
+test('diagnostic uses only an optional runtime-scoped binding and never exposes its account', async () => {
+  const request = row();
+  request.account_number = '1000000000001';
+  const tlv = (tag, value) => tag + String(value.length).padStart(2, '0') + value;
+  request.qr_code = tlv(
+    '38',
+    tlv('00', 'A000000727') + tlv('01', tlv('00', '970422') + tlv('01', request.account_number)),
+  );
+  const snapshot = event();
+  snapshot.payload_snapshot.recipientAccountNumber = '2000000002';
+  snapshot.payload_snapshot.recipientVirtualAccountNumber = null;
+  const response = link();
+  response.transactions[0].accountNumber = '2000000002';
+  const runtime = lab({ rows: [request], events: [snapshot], get: async () => response });
+  const config = {
+    enabled: true,
+    clientId: 'synthetic-binding-client',
+    recipientBinding: {
+      clientId: 'synthetic-binding-client',
+      restaurantId: restaurant,
+      bankBin: '970422',
+      accountNumber: '2000000002',
+    },
+  };
+  runtime.trustedPrimaryForRequest = (stored, verified, currentRestaurant) =>
+    trustedPayosPrimary(
+      config,
+      currentRestaurant,
+      stored.account_number,
+      stored.qr_code,
+      stored.payment_link_id,
+      verified.id,
+    );
+  const output = [];
+  assert.equal(
+    await runDiagnostic(['--table', 'A10', '--session', '48A135F3'], async () => runtime, {
+      log: (value) => output.push(value),
+      error: () => assert.fail(),
+    }),
+    0,
+  );
+  const recipient = JSON.parse(output[0]).requests[0].transactions[0].recipient;
+  assert.equal(recipient.matched, true);
+  assert.equal(recipient.decision, 'MATCH_VIA_BACKEND_BINDING');
+  for (const privateValue of ['1000000000001', '2000000002', 'synthetic-binding-client'])
+    assert.equal(output.join('').includes(privateValue), false);
 });

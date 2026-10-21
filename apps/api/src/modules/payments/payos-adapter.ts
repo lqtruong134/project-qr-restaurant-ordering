@@ -8,7 +8,11 @@ import {
   type WebhookData,
 } from '@payos/node';
 import { timingSafeEqual } from 'node:crypto';
-import { normalizePayosLink } from './payos-normalization.js';
+import {
+  normalizePayosLink,
+  normalizePayosAccount,
+  readPayosQrRecipient,
+} from './payos-normalization.js';
 import type { PaymentCapabilities } from '@thesis/contracts';
 
 export type PayosConfig = {
@@ -19,6 +23,12 @@ export type PayosConfig = {
   returnUrl?: string;
   cancelUrl?: string;
   webhookUrl?: string;
+  recipientBinding?: {
+    clientId: string;
+    restaurantId: string;
+    bankBin: string;
+    accountNumber: string;
+  };
 };
 export interface PayosProvider {
   create(body: CreatePaymentLinkRequest): Promise<CreatePaymentLinkResponse>;
@@ -38,6 +48,7 @@ export function readPayosConfig(env: NodeJS.ProcessEnv = process.env): PayosConf
     returnUrl: env.PAYOS_RETURN_URL,
     cancelUrl: env.PAYOS_CANCEL_URL,
     webhookUrl: env.PAYOS_WEBHOOK_URL,
+    recipientBinding: recipientBinding(env.PAYOS_RECIPIENT_BINDING),
   };
   if (!enabled) return result;
   for (const key of ['returnUrl', 'cancelUrl'] as const) {
@@ -63,6 +74,65 @@ export function readPayosConfig(env: NodeJS.ProcessEnv = process.env): PayosConf
   }
   return result;
 }
+
+/** Operator-maintained backend trust, never derived from GET/webhook/diagnostics. */
+function recipientBinding(value: string | undefined): PayosConfig['recipientBinding'] {
+  if (!value?.trim()) return undefined;
+  try {
+    const binding = JSON.parse(value);
+    if (
+      !binding ||
+      typeof binding !== 'object' ||
+      Array.isArray(binding) ||
+      typeof binding.clientId !== 'string' ||
+      !binding.clientId.trim() ||
+      binding.clientId.length > 200 ||
+      typeof binding.restaurantId !== 'string' ||
+      !binding.restaurantId.trim() ||
+      binding.restaurantId.length > 100 ||
+      binding.bankBin !== '970422' ||
+      typeof binding.accountNumber !== 'string' ||
+      !/^[0-9]{6,34}$/.test(binding.accountNumber)
+    )
+      throw Error();
+    return {
+      clientId: binding.clientId,
+      restaurantId: binding.restaurantId,
+      bankBin: binding.bankBin,
+      accountNumber: binding.accountNumber,
+    };
+  } catch {
+    throw Error('Invalid PAYOS_RECIPIENT_BINDING; configure the linked MB account privately.');
+  }
+}
+export function trustedPayosPrimary(
+  config: PayosConfig,
+  restaurantId: string,
+  expected: string,
+  qrCode: unknown,
+  storedLinkId: unknown,
+  verifiedLinkId: string,
+): string | undefined {
+  const binding = config.recipientBinding;
+  if (
+    !config.enabled ||
+    !binding ||
+    !config.clientId ||
+    binding.clientId !== config.clientId ||
+    binding.restaurantId !== restaurantId ||
+    binding.bankBin !== '970422' ||
+    !/^[0-9]{6,34}$/.test(binding.accountNumber) ||
+    typeof storedLinkId !== 'string' ||
+    !storedLinkId ||
+    storedLinkId !== verifiedLinkId
+  )
+    return undefined;
+  const qr = readPayosQrRecipient(qrCode);
+  return qr?.bankBin === binding.bankBin && qr.accountNumber === normalizePayosAccount(expected)
+    ? binding.accountNumber
+    : undefined;
+}
+
 export function payosCapabilities(config = readPayosConfig()): PaymentCapabilities {
   const online =
     config.enabled &&

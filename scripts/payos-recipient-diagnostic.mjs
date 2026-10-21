@@ -78,14 +78,14 @@ export function qrAccount(qr) {
   }
   return tag(tag(tag(qr, '38'), '01'), '01');
 }
-export function recipientReport(expected, bank, proof, normalization) {
+export function recipientReport(expected, bank, proof, normalization, trustedPrimary) {
   const {
     normalizePayosAccount: normalize,
     recipientMatches,
     sameRecipient,
     recipientMatchesWithEvidence,
   } = normalization;
-  const matched = recipientMatchesWithEvidence(expected, bank, proof);
+  const matched = recipientMatchesWithEvidence(expected, bank, proof, trustedPrimary);
   let decision = 'MATCH';
   if (!normalize(expected)) decision = 'MISSING_CREATE_ANCHOR';
   else if (proof && normalize(proof.virtualAccountNumber) && !recipientMatches(expected, proof))
@@ -99,6 +99,8 @@ export function recipientReport(expected, bank, proof, normalization) {
     decision = 'GET_WEBHOOK_PRIMARY_ACCOUNTS_DIFFER';
   else if (!recipientMatches(expected, proof)) decision = 'WEBHOOK_DOES_NOT_BRIDGE_TO_CREATE';
   else decision = 'MATCH_VIA_VERIFIED_WEBHOOK';
+  if (matched && !recipientMatchesWithEvidence(expected, bank, proof))
+    decision = 'MATCH_VIA_BACKEND_BINDING';
   return {
     matched,
     decision,
@@ -134,7 +136,11 @@ export function proofChecks(event, row, bank, link, restaurant) {
     amountMatches: String(p.amount) === String(bank.amount),
   };
 }
-export async function diagnose({ pool, get, normalization, compareAccount }, target, restaurant) {
+export async function diagnose(
+  { pool, get, normalization, compareAccount, trustedPrimaryForRequest },
+  target,
+  restaurant,
+) {
   const client = await pool.connect();
   let started = false;
   try {
@@ -191,6 +197,7 @@ export async function diagnose({ pool, get, normalization, compareAccount }, tar
       if (events.length > 100) throw new DiagnosticFailure('WEBHOOK_COUNT_OUT_OF_BOUNDS');
       const normalize = normalization.normalizePayosAccount;
       const qr = qrAccount(row.qr_code);
+      const trustedPrimary = trustedPrimaryForRequest?.(row, link, restaurant);
       const transactions = link.transactions.map((bank, index) => {
         const candidates = events.map((event, i) => {
           const checks = proofChecks(event, row, bank, link, restaurant);
@@ -229,7 +236,13 @@ export async function diagnose({ pool, get, normalization, compareAccount }, tar
         return {
           transaction: index + 1,
           amount: money(bank.amount),
-          recipient: recipientReport(row.account_number, bank, proof, normalization),
+          recipient: recipientReport(
+            row.account_number,
+            bank,
+            proof,
+            normalization,
+            trustedPrimary,
+          ),
           webhookCandidates: candidates,
           ...(compareAccount
             ? {
@@ -319,10 +332,19 @@ export async function diagnose({ pool, get, normalization, compareAccount }, tar
 export async function runDiagnostic(args, runtime, output) {
   try {
     const target = parseTarget(args);
-    const { pool, get, normalization, restaurant, close } = await runtime();
+    const { pool, get, normalization, restaurant, close, trustedPrimaryForRequest } =
+      await runtime();
     try {
       output.log(
-        JSON.stringify(await diagnose({ pool, get, normalization }, target, restaurant), null, 2),
+        JSON.stringify(
+          await diagnose(
+            { pool, get, normalization, trustedPrimaryForRequest },
+            target,
+            restaurant,
+          ),
+          null,
+          2,
+        ),
       );
     } finally {
       await close();
@@ -382,6 +404,18 @@ if (
         pool: db.pool,
         get: (order) => provider.get(order),
         normalization,
+        trustedPrimaryForRequest:
+          typeof adapter.trustedPayosPrimary === 'function'
+            ? (row, link, restaurant) =>
+                adapter.trustedPayosPrimary(
+                  config,
+                  restaurant,
+                  row.account_number,
+                  row.qr_code,
+                  row.payment_link_id,
+                  link.id,
+                )
+            : undefined,
         restaurant: process.env.RESTAURANT_ID,
         close: () => db.close(),
       };
