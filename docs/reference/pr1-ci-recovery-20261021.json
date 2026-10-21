@@ -953,5 +953,87 @@
     "tests/browser/workforce-month.spec.ts",
     "tests/browser/workforce.spec.ts",
     "tests/payment-collection.integration.test.ts"
-  ]
+  ],
+  "followUpAudit": {
+    "firstRepairCommit": "e6ef98b7ac3d6d574a6c9891e8f6a23f19131d97",
+    "failedRun": 39584381113,
+    "failedStep": "pnpm audit --audit-level=high",
+    "browserTestRegression": false,
+    "advisory": "https://github.com/advisories/GHSA-587h-7wmj-h5pm",
+    "package": "vite",
+    "dependencyPath": "vitest > vite",
+    "before": "8.2.2",
+    "after": "8.2.4",
+    "override": "vite@8.2",
+    "packageManagerChanged": false,
+    "supplyChainPolicyChanged": false,
+    "allowBuildsChanged": false,
+    "integrityVerificationDisabled": false,
+    "advisoryIgnored": false,
+    "auditThresholdChanged": false,
+    "otherPackageVersionsChanged": false,
+    "unit": 323,
+    "integrationTests": 542,
+    "phases": [
+      {
+        "phase": "install",
+        "code": 0,
+        "seconds": 2,
+        "log": "/home/quyettruong05/.cache/codex-pr1-quality-gate/security-install.log"
+      },
+      {
+        "phase": "audit",
+        "code": 0,
+        "seconds": 1,
+        "log": "/home/quyettruong05/.cache/codex-pr1-quality-gate/security-audit.log"
+      },
+      {
+        "phase": "secrets",
+        "code": 0,
+        "seconds": 1,
+        "log": "/home/quyettruong05/.cache/codex-pr1-quality-gate/security-secrets.log"
+      },
+      {
+        "phase": "quality",
+        "code": 0,
+        "seconds": 23,
+        "log": "/home/quyettruong05/.cache/codex-pr1-quality-gate/security-quality.log"
+      },
+      {
+        "phase": "deployment-tests",
+        "code": 0,
+        "seconds": 0,
+        "log": "/home/quyettruong05/.cache/codex-pr1-quality-gate/security-deployment-tests.log"
+      },
+      {
+        "phase": "coverage",
+        "code": 0,
+        "seconds": 115,
+        "log": "/home/quyettruong05/.cache/codex-pr1-quality-gate/security-coverage.log"
+      },
+      {
+        "phase": "build",
+        "code": 0,
+        "seconds": 6,
+        "log": "/home/quyettruong05/.cache/codex-pr1-quality-gate/security-build.log"
+      }
+    ],
+    "fullBrowserReexecutedLocallyAfterDevToolPatch": false,
+    "previousFullBrowser": {
+      "passed": 473,
+      "failed": 0,
+      "skipped": 1,
+      "applicationSourceUnchanged": true,
+      "browserTestsUnchanged": true
+    },
+    "freshGitHubRun": "See latest PR checks after the security follow-up is pushed",
+    "files": [
+      "pnpm-workspace.yaml",
+      "pnpm-lock.yaml",
+      "docs/15-doi-chieu.md",
+      "docs/15-doi-chieu.html",
+      "docs/assets/search-data.js",
+      "docs/reference/pr1-ci-recovery-20261021.json"
+    ]
+  }
 }

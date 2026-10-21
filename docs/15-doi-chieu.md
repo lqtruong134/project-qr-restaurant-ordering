@@ -2,6 +2,14 @@
 
 ## PR #1 — Phục hồi Quality gate toàn hệ thống — 21/10/2026
 
+### Bổ sung sau lượt GitHub đầu của bản sửa
+
+Commit `e6ef98b` đã đạt E2E cục bộ **473 passed / 0 failed / 1 skipped** và rehearsal. [Run GitHub 39584381113](https://github.com/lqtruong134/project-qr-restaurant-ordering/actions/runs/39584381113) sau đó dừng trước test tại audit do [GHSA-587h-7wmj-h5pm](https://github.com/advisories/GHSA-587h-7wmj-h5pm) ảnh hưởng Vite 8.2.2 qua Vitest. Đây là điểm chặn dependency được audit hiện hành phát hiện, không phải lỗi E2E mới.
+
+Thêm override hẹp `vite@8.2 → 8.2.4` và cập nhật integrity trong lockfile bằng pnpm; không nâng package khác, không tắt audit hoặc thêm ngoại lệ advisory. Giữ pnpm 12.3.4, allowBuilds và supply-chain policy. Frozen install, audit mức high, secret check, format/lint/typecheck, **323 unit**, deployment tests, **542 integration/coverage** và build đã chạy lại đạt sau patch. Audit hiện trả **No known vulnerabilities found**; ngưỡng high của gate giữ nguyên.
+
+Không chạy lại E2E cục bộ chỉ vì patch công cụ Vitest; mã ứng dụng và browser tests giữ nguyên so với lượt 473/0/1. GitHub Actions sẽ chạy lại toàn bộ pipeline với lockfile mới sau push; chỉ kết luận PASS từ kết quả run mới. Không sửa production, không merge main hay deploy.
+
 Đợt này tiếp tục nhánh **`fix/payos-payment-experience`**, nền `d6c9bb9d8f6e2cab138f959aa15271f197f0728a`. [Quality gate gốc](https://github.com/lqtruong134/project-qr-restaurant-ordering/actions/runs/39294876107) đạt các bước trước E2E nhưng có **383 passed / 90 failed / 1 skipped**. 90 lỗi tương ứng 30 kịch bản lặp trên desktop, Android Chromium và Safari WebKit; không phải 90 nguyên nhân riêng.
 
 ### Log, trace và nguyên nhân

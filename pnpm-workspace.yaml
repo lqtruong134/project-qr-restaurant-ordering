@@ -9,6 +9,7 @@ allowBuilds:
   prisma: true
   argon2: true
 overrides:
+  'vite@8.2': '8.2.4'
   deepmerge-ts: 8.0.0
   mysql2: 3.23.1
   'brace-expansion@1': '1.1.21'
