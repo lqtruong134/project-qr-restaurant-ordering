@@ -1,36 +1,36 @@
 import { test, expect } from '@playwright/test';
 
-test('restaurant entry has working photographs, readable sections and real navigation at small widths', async ({
+test('internal entry has a real photograph, readable controls and a keyboard skip link at small widths', async ({
   page,
 }, info) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Món Việt quen thuộc');
-  for (const image of await page.locator('.landing-visual img, .landing-dishes img').all()) {
-    await image.scrollIntoViewIfNeeded();
-    await expect
-      .poll(() => image.evaluate((node) => (node as HTMLImageElement).naturalWidth))
-      .toBeGreaterThan(0);
-    await expect(image).not.toHaveAttribute('src', /placeholders|\.svg$/);
-  }
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Đăng nhập nội bộ');
+  const photograph = page.locator('.internal-login-background img');
+  await expect(photograph).toHaveCount(1);
+  await expect
+    .poll(() => photograph.evaluate((node) => (node as HTMLImageElement).naturalWidth))
+    .toBeGreaterThan(0);
+  await expect(photograph).not.toHaveAttribute('src', /placeholders|\.svg$/);
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
       .toBe(true);
-    await page.getByRole('link', { name: 'Cách gọi món tại bàn', exact: true }).click();
-    await expect(page).toHaveURL(/#tai-ban$/);
-    await expect(
-      page.getByRole('heading', { name: 'Ngồi thoải mái, chọn món trên điện thoại' }),
-    ).toBeInViewport();
-    await page.getByRole('link', { name: 'Khám phá món Việt', exact: true }).click();
-    await expect(page).toHaveURL(/#mon-viet$/);
-    await expect(
-      page.getByRole('heading', { name: 'Một vài món cho bữa ăn của bạn' }),
-    ).toBeInViewport();
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: info.outputPath('landing-' + width + '.png'), fullPage: true });
+    const skip = page.getByRole('link', { name: 'Đến biểu mẫu đăng nhập', exact: true });
+    await skip.focus();
+    await expect(skip).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/#login-form$/);
+    await expect(page.locator('#login-form')).toBeFocused();
+    await expect(page.getByLabel('Tên đăng nhập', { exact: true })).toBeInViewport();
+    await expect(page.getByLabel('Mật khẩu', { exact: true })).toBeInViewport();
+    await expect(page.getByRole('button', { name: 'Đăng nhập', exact: true })).toBeInViewport();
+    await page.screenshot({
+      path: info.outputPath('internal-entry-' + width + '.png'),
+      fullPage: true,
+    });
   }
   expect(errors).toEqual([]);
 });
@@ -48,7 +48,7 @@ test('internal login keeps its fields visible over the photograph and reports a 
     }),
   );
   await page.goto('/login');
-  const photograph = page.locator('.auth-story-photo');
+  const photograph = page.locator('.internal-login-background img');
   await expect
     .poll(() => photograph.evaluate((node) => (node as HTMLImageElement).naturalWidth))
     .toBeGreaterThan(0);

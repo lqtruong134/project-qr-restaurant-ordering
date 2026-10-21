@@ -1,0 +1,957 @@
+{
+  "date": "2026-10-21",
+  "pullRequest": 1,
+  "branch": "fix/payos-payment-experience",
+  "baseCommit": "d6c9bb9d8f6e2cab138f959aa15271f197f0728a",
+  "originalRun": 39294876107,
+  "original": {
+    "passed": 383,
+    "failed": 90,
+    "skipped": 1,
+    "uniqueScenarios": 30,
+    "artifacts": 0,
+    "originalTracesRetrievable": false
+  },
+  "local": {
+    "unit": 323,
+    "coverageTests": 542,
+    "coverageFiles": 41,
+    "lineCoverage": 92.05,
+    "firstFullBrowser": {
+      "passed": 465,
+      "failed": 8,
+      "skipped": 1
+    },
+    "fullBeforeFinalWebkitFixes": {
+      "passed": 471,
+      "failed": 2,
+      "skipped": 1
+    },
+    "fullBeforeAttendanceBudget": {
+      "passed": 470,
+      "failed": 3,
+      "skipped": 1,
+      "rootCause": "First case exhausted global30s; pending same-name rows cascaded strict locator failures across projects"
+    },
+    "interruptedSecondFull": {
+      "lastObservedPassed": 324,
+      "lastObservedFailed": 1,
+      "finalResultUnavailable": true,
+      "reason": "Temporary lab and terminal disappeared; not counted as PASS"
+    },
+    "stoppedTransferAttempt": {
+      "passed": 301,
+      "failed": 1,
+      "interrupted": 1,
+      "skipped": 1,
+      "didNotRun": 170,
+      "reason": "Staff polling paused in background after guest setup; cancelled only the owned runner, not counted as PASS"
+    },
+    "foregroundTargeted": {
+      "passed": 24,
+      "total": 24,
+      "failed": 0
+    },
+    "firstFinalWebkitTargeted": {
+      "passed": 14,
+      "failed": 1,
+      "reason": "New cleanup focus assertion raced the history opener focus callback; no business assertion removed"
+    },
+    "stoppedCollectionAttempt": {
+      "passed": 111,
+      "failed": 1,
+      "interrupted": 1,
+      "didNotRun": 361,
+      "reason": "Controlled field clear had not settled before native typing; amount remained5; no payment submitted; only owned runner interrupted"
+    },
+    "collectionTargeted": {
+      "passed": 9,
+      "total": 9,
+      "failed": 0
+    },
+    "fullBeforeCommonReadTransport": {
+      "passed": 471,
+      "failed": 2,
+      "skipped": 1,
+      "durationMinutes": 44.2,
+      "causes": [
+        "Core tender draft absent at confirmation; reachable first-ACK asynchronous draft clear corroborated by timing, exact setter not proven by trace",
+        "Operations WebKit core/orders GET torn down during reload/navigation"
+      ]
+    },
+    "transportUnitRegression": {
+      "passed": 20,
+      "failed": 0,
+      "previousCases": 8,
+      "addedCases": 12,
+      "total": 20
+    },
+    "transportBrowserRegression": {
+      "passed": 9,
+      "total": 9,
+      "failed": 0
+    },
+    "cashDraftRepeat": {
+      "passed": 3,
+      "failed": 0
+    },
+    "firstCashDraftRepeat": {
+      "passed": 2,
+      "failed": 1,
+      "priorTransportUnitPassed": 20,
+      "priorTransportBrowserPassed": 9,
+      "reason": "Redundant same-workspace admin.goto began provisional navigation immediately after foreground focus started reads; native WebKit JS-console error was surfaced as pageerror before pagehide",
+      "unhandledPromiseProven": false,
+      "bodyCloneErrorProven": false,
+      "sourceFix": "Assert the admin remains at workspace/admin and use the existing sidebar selectAdmin route; remove only the redundant full navigation",
+      "errorFilterAdded": false,
+      "receiptAndMoneyAssertionsPreserved": true,
+      "heldGetReloadRegressionsPreserved": true
+    },
+    "stoppedFirstSpaNavigationRepeat": {
+      "passed": 0,
+      "failed": 1,
+      "interrupted": 1,
+      "didNotRun": 1,
+      "reason": "The QR preview stayed open; the old redundant full navigation had implicitly closed it. Its dialog heading intercepted the sidebar click and the case exhausted its existing120s budget",
+      "runtimeNavigationBugProven": false,
+      "interruptedOnlyVerifiedLabRunner": true,
+      "testSkipAdded": false
+    },
+    "coreQrDialogCleanup": {
+      "dialogNamePattern": "QR - <table code>",
+      "normalCloseButton": true,
+      "assertDialogRemoved": true,
+      "closedAfterQrChecksBeforeGuestFlow": true,
+      "sidebarNavigationRetained": true,
+      "originalAssertionsPreserved": true
+    },
+    "stoppedHeldReadIdentityAttempt": {
+      "passed": 159,
+      "failed": 2,
+      "interrupted": 1,
+      "didNotRun": 312,
+      "approxDurationMinutes": 12,
+      "failedScenarios": [
+        "desktop table-queue held promotion read",
+        "desktop workforce held admin reconciliation read"
+      ],
+      "interruptedScenario": "mobile admin scenario; no independent failure inferred",
+      "reason": "Instrumentation observed the first GET before the route hold was installed, while the route could hold a later GET; completed per-read signals correctly no longer abort on document exit",
+      "runtimeAbortBugProven": false,
+      "lifecycleUnitsStillPassed": true,
+      "interruptedOnlyVerifiedLabRunner": true,
+      "testSkipAdded": false
+    },
+    "firstExactIdentityTargeted": {
+      "passed": 3,
+      "failed": 6,
+      "runtimeAbortBugProven": false,
+      "reason": "Exact native child signal can retire after native navigation rejects fetch before pagehide; failed signal must not be retained just to satisfy an assertion"
+    },
+    "nativeSettlementDiagnostic": {
+      "isolatedLabOnly": true,
+      "repositoryUntouched": true,
+      "labFileRestoredByteForByte": true,
+      "expectedAssertionFailureNotCountedAsPass": true,
+      "chromiumObservedOrder": [
+        "held GET started",
+        "same GET native fetch rejected with TypeError",
+        "pagehide"
+      ],
+      "chromiumPlaywrightRequestFailureMetadata": null
+    },
+    "heldReadIdentityRegression": {
+      "passed": 12,
+      "total": 12,
+      "failed": 0,
+      "uniqueTestHeaderMatchesHeldRequest": true,
+      "existingHeadersPreserved": true,
+      "urlAndResponsePreserved": true,
+      "nativeFetchTerminalStateObserved": true,
+      "pagehideObserved": true,
+      "applicationAbortVerifiedSeparatelyByUnitTests": 20,
+      "failedChildSignalMayAlreadyBeRetired": true,
+      "fakeAbortOrResponseAdded": false
+    },
+    "commonReadLifecycle": {
+      "methods": ["GET", "HEAD"],
+      "abortOnPagehide": true,
+      "blockNewReadsWhileLeaving": true,
+      "resumeOnPageshow": true,
+      "tracksBodyUntilEof": true,
+      "preservesOriginalResponse": true,
+      "discardsWatchedChunks": true,
+      "callerAbortReasonPreserved": true,
+      "realNetworkAndBodyErrorsRemainObservable": true,
+      "perReadResourcesReleased": true,
+      "documentListenersPerWindow": 2,
+      "provisionalNavigationBeforePagehideFullyPrevented": false,
+      "nativeWebkitConsoleCanSurfaceAsPageerror": true,
+      "mutationsAbortedOnPagehide": false,
+      "authReplayRulesChanged": false
+    },
+    "firstAckDraftGuard": {
+      "sourceReachableRace": true,
+      "traceTimingCorroboratesRace": true,
+      "exactSetterNotProvenByTrace": true,
+      "initialEmptyRequestToAckPreserves": ["received", "reference", "image"],
+      "nonEmptyRequestSwitchStillClears": true,
+      "methodAndParticipantBindingUnchanged": true,
+      "invoiceAmountLogicUnchanged": true,
+      "verifiedBankLogicUnchanged": true
+    },
+    "attendanceBudgetRegression": {
+      "globalBudgetBeforeMs": 30000,
+      "globalBudgetAfterMs": 60000,
+      "remainingAtClickMs": 43,
+      "nativeMonthFillSeconds": 19.96,
+      "assertionTimeoutChanged": false,
+      "actionTimeoutChanged": false,
+      "projectSpecificShiftFixture": true,
+      "targetedPassed": 6
+    },
+    "finalWebkitTargeted": {
+      "passed": 15,
+      "total": 15,
+      "failed": 0,
+      "transferRepeatPassed": 3
+    },
+    "stoppedCoreAttempt": {
+      "passed": 42,
+      "failed": 1,
+      "interrupted": 1,
+      "didNotRun": 430,
+      "reason": "Guest state remained READY in a background tab; cancelled only the owned lab runner, not counted as PASS"
+    },
+    "legacyReportTrace": {
+      "requestsPerBrowser": 8,
+      "browsers": 3,
+      "unusedConsumer": true,
+      "oldLoaderFailureNotReproducedOnFreshSeededDatabase": true
+    },
+    "targetedRounds": [
+      {
+        "passed": 55,
+        "failed": 6
+      },
+      {
+        "passed": 7,
+        "failed": 3
+      },
+      {
+        "passed": 5,
+        "failed": 0
+      },
+      {
+        "passed": 27,
+        "failed": 6
+      },
+      {
+        "passed": 26,
+        "failed": 1
+      },
+      {
+        "passed": 14,
+        "failed": 1
+      },
+      {
+        "passed": 5,
+        "failed": 1
+      },
+      {
+        "passed": 6,
+        "failed": 0
+      },
+      {
+        "passed": 15,
+        "failed": 0
+      },
+      {
+        "passed": 6,
+        "failed": 0
+      }
+    ],
+    "browser": {
+      "passed": 473,
+      "failed": 0,
+      "skipped": 1,
+      "total": 474
+    },
+    "handoffIntegration": 33,
+    "phases": [
+      {
+        "phase": "quality",
+        "code": 0,
+        "seconds": 26,
+        "log": "/home/quyettruong05/.cache/codex-pr1-quality-gate/full-quality.log"
+      },
+      {
+        "phase": "coverage",
+        "code": 0,
+        "seconds": 119,
+        "log": "/home/quyettruong05/.cache/codex-pr1-quality-gate/full-coverage.log"
+      },
+      {
+        "phase": "build",
+        "code": 0,
+        "seconds": 5,
+        "log": "/home/quyettruong05/.cache/codex-pr1-quality-gate/full-build.log"
+      },
+      {
+        "phase": "e2e",
+        "code": 0,
+        "seconds": 2798,
+        "log": "/home/quyettruong05/.cache/codex-pr1-quality-gate/full-e2e.log"
+      },
+      {
+        "phase": "rehearsal",
+        "code": 0,
+        "seconds": 16,
+        "log": "/home/quyettruong05/.cache/codex-pr1-quality-gate/full-rehearsal.log"
+      }
+    ]
+  },
+  "freshGitHubStatus": "See PR checks for this commit after push; not claimed before execution",
+  "productionTouched": false,
+  "migrationAdded": false,
+  "realPayosCalls": false,
+  "testDeleted": false,
+  "testSkipAdded": false,
+  "classifications": [
+    {
+      "file": "tests/browser/admin-operations.spec.ts",
+      "title": "ADMIN operating scope, contextual guides, keyboard close and module deep links",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "Guide dialog existed, but its payroll explanation no longer contained the old sentence “Bảng lương nháp là kết quả tính thử.”"
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Assert the current employee-rate, attendance, draft/finalization and per-slip payment guidance, including its actual list length; retain module deep links and keyboard focus checks."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/admin-operations.spec.ts",
+      "title": "decision inbox sorts real age, separates refunds and shows clear state-conflict recovery",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "Preview expected a guaranteed whole-table refund of120000; the displayed contract instead removed120000 in charges and required transaction allocation/evidence checks."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Assert charge reversal and allocation-based refund explanation; do not turn a waived charge into a claim that cash has already been returned."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/foundation.spec.ts",
+      "title": "public landing renders restaurant entry while API is ready",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "GET / rendered the internal entry, so the old marketing heading “Món ngon trên bàn” did not exist."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Verify the minimal internal login at / and the QR guest entry at /guest, while keeping API readiness and overflow assertions."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/guest-live-notice.spec.ts",
+      "title": "guest photograph loads and keeps the menu usable at desktop and small widths",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The old fixed hero image named “Món Việt dùng tại bàn” was absent from the current guest menu."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Supply a valid dish and promotion fixture using the image manifest, then verify the visible carousel slide image loads and the menu remains usable at all original widths."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/guest-live-notice.spec.ts",
+      "title": "a missing photograph leaves a clean text hero and does not block ordering",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The old .guest-photo-hero/is-without-photo structure was absent; current promotion images are driven by menu data."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Return a404 for the actual promotion/dish image and verify text, dish placeholder, enabled dish selection and menu/order navigation remain usable."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/guest-participants.spec.ts",
+      "title": "unique names, named header previews, overflow and accessible session roster",
+      "primaryCategory": "FUNCTIONAL_BUG",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The original log measured “Lữ Trường” needing68px while its equal-share chip supplied57px."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Change participant chips to natural flex sizing and retain measured no-clipping checks, overflow, long-name preview and roster accessibility."
+      },
+      "laterLocalOrPreventiveFindings": [
+        {
+          "basis": "SOURCE_PREVENTION",
+          "finding": "Explicitly foreground the guest observing another guest join/rename/leave because smart refresh pauses hidden documents; these additional observation boundaries were not separately proven to have failed in the original run."
+        }
+      ],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/operations-experience.spec.ts",
+      "title": "four compact role layouts, precise paid-but-unserved blockers, shared cleaning and cross-tab renewal",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The old geometry assertion required the first dish card image to be left of text at every width<=800, but the menu now includes combo cards and uses a380px ordinary-card layout breakpoint."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Select an ordinary dish card and assert horizontal separation below380px, vertical separation otherwise, preserving nonzero image/content dimensions and role overflow checks."
+      },
+      "laterLocalOrPreventiveFindings": [
+        {
+          "basis": "LOCAL_REPLAY",
+          "finding": "A later WebKit run reached native GET/core/orders console diagnostics during full navigation; addressed separately by common GET/HEAD lifecycle handling, not classified as the original geometry failure."
+        }
+      ],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/payment-collection.spec.ts",
+      "title": "guest calls staff without amount; cash partial/full collection clearly separates tender, change and invoice credit",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "openPayment waited for the removed exact label “Tải lại”, timing out before collection assertions."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Use the current “Làm mới” control and detailed receipt wording; retain40000/50000/90000 invoice credits,500000 tender and460000 change checks."
+      },
+      "laterLocalOrPreventiveFindings": [
+        {
+          "basis": "LOCAL_REPLAY",
+          "finding": "Later runs exposed controlled-input clear/typing scheduling and hidden guest/staff observation boundaries; wait for the empty field and foreground the observed role without changing money assertions."
+        }
+      ],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/payment-collection.spec.ts",
+      "title": "one work queue shares ownership across two staff accounts, table map and payment; accepted handoff transfers rights",
+      "primaryCategory": "FUNCTIONAL_BUG",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The pending handoff card showed undefined table/area and the sender owner, but lacked “Người gửi vẫn phụ trách” and recipient metadata."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Reuse tenant/session-filtered supportSelect for bill paymentRequests and project participant_id; integration verifies pending/accepted handoff metadata and sender/recipient/foreign-tenant permissions."
+      },
+      "laterLocalOrPreventiveFindings": [
+        {
+          "basis": "LOCAL_REPLAY",
+          "finding": "After acceptance, the former owner tab must resume its real bill polling before asserting that the old collection form disappears; the backend403 rights checks remain mandatory."
+        }
+      ],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/payment-collection.spec.ts",
+      "title": "bank screenshot or reference supports own-dish collection, without allocating to the earlier guest",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The shared openPayment helper timed out on the removed exact label “Tải lại”."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Use “Làm mới” and retain evidence upload/reference handling, own-dish participant selection and assertions that no credit is allocated to the earlier guest."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/payos-ui.spec.ts",
+      "title": "guest automatically shows partial and successful online receipts and clears settled assistance wording",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The broad .core-stats paid-money locator matched two450000 summaries and Playwright rejected it as strict-mode ambiguous."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Scope to the whole-table financial summary, without .first(), keeping450000 applied, zero outstanding, settled assistance cleanup and no extra writes."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/payos-ui.spec.ts",
+      "title": "guest expiry, cancellation and reconciliation never claim money was posted or invite using an old QR",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The assertion expected “Ngân hàng đã xác nhận150000”; the UI correctly distinguished a bank-reported150000 transaction from zero received/posted money."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Assert the bank-reported wording alongside received/applied0, outstanding450000, no success state, no old QR/link and no mutation."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/policy.spec.ts",
+      "title": "policy validation, keyboard/mobile reading, cart review, payment/leave confirmations and kitchen-admin fault decision",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The test required the consent checkbox to start checked, but the rendered consent was unchecked."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Assert explicit consent, invalid name/consent causes no join POST, stored policy version/date and same-session resume without another join; preserve cart, order, cancellation and15000-to-zero financial checks."
+      },
+      "laterLocalOrPreventiveFindings": [
+        {
+          "basis": "LOCAL_REPLAY",
+          "finding": "Wait for the actual successful join/order response before reading subsequent state and target current table+session headings and named confirmation dialogs."
+        }
+      ],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/pricing-admin.spec.ts",
+      "title": "admin incident preview uses the saved discounted item amount when estimating a refund",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The preview retained discounted charge44100 but no longer promised a whole-table refund44100 before transaction reconciliation."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Verify44100 payable and-4900 discount, the allocation-based refund explanation, no substitution with49000 and no write triggered by preview."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/public-refresh.spec.ts",
+      "title": "internal entry has one background and a login form without restaurant promotions",
+      "primaryCategory": "CI_ENVIRONMENT",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "Screenshot ENOENT targeted an absolute /mnt/c/Users/Admin/.../restaurant-v4 directory that does not exist on the GitHub runner."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Write the screenshot through testInfo.outputPath, preserving the existing single-background and login/QR entry assertions."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/public-refresh.spec.ts",
+      "title": "internal login keeps password controls and useful error feedback",
+      "primaryCategory": "CI_ENVIRONMENT",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "Screenshot ENOENT targeted the developer-only absolute /mnt/c/.../restaurant-v4/internal-login path."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Use testInfo.outputPath per browser project, retaining password visibility controls, validation and useful login-error checks."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/public-restaurant.spec.ts",
+      "title": "restaurant entry has working photographs, readable sections and real navigation at small widths",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The expected marketing H1 “Món Việt quen thuộc” differed from the actual “Đăng nhập nội bộ” page at /."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Assert the current internal entry, real single background image, working keyboard skip link and visible form controls across the original widths."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/public-restaurant.spec.ts",
+      "title": "internal login keeps its fields visible over the photograph and reports a failed login clearly",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The old .auth-story-photo locator never reached a positive naturalWidth within the original poll."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Target the actual .internal-login-background img and still require a loaded real photograph plus visible fields, password controls and failed-login feedback."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/support.spec.ts",
+      "title": "guest support, duplicate notice, owner-only actions, recipient acceptance/decline, history and responsive keyboard UI",
+      "primaryCategory": "INCONCLUSIVE_ORIGINAL_TIMEOUT",
+      "originalCauseConclusive": false,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The retained desktop block reports the120s whole-test timeout and a context-disposal error during teardown; it does not identify the exact earlier blocking action."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Source/local replay showed old “Gửi hỗ trợ”/“Tải lại”/ACK text expectations; use “Gửi yêu cầu”, scoped “Làm mới” and “Nhân viên đã tiếp nhận”, preserving duplicate, owner-only, handoff/history and resolution checks."
+      },
+      "laterLocalOrPreventiveFindings": [
+        {
+          "basis": "SOURCE_PREVENTION",
+          "finding": "Foreground the actual guest/staff/recipient actor and observer at cross-page boundaries; observe resolved state through real polling rather than weakening owner or history assertions."
+        }
+      ],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/table-access.spec.ts",
+      "title": "guest requests code, staff claims and issues it at table, members share code and ordinary orders reach kitchen",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The initial consent assertion expected checked while the guest join form correctly rendered unchecked."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Require explicit consent before joining; preserve staff claim/at-table issue, code sharing, roster accessibility and ordinary order submission."
+      },
+      "laterLocalOrPreventiveFindings": [
+        {
+          "basis": "SOURCE_PREVENTION",
+          "finding": "Foreground the first guest before observing the second guest in its polled roster; do not claim this later precaution was the original consent failure."
+        }
+      ],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/table-access.spec.ts",
+      "title": "staff calls multiple dishes, shows customer review and follows the normal live order statuses",
+      "primaryCategory": "INCONCLUSIVE_ORIGINAL_TIMEOUT",
+      "originalCauseConclusive": false,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The desktop log ends with a120s test timeout and Target.disposeBrowserContext teardown error, without a conclusive earlier action stack."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Source/local replay identified the obsolete refresh label in this flow; use scoped “Làm mới” while preserving multi-dish quantities/notes, customer review, kitchen submission and zero guest participants."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/table-access.spec.ts",
+      "title": "a later guest receives the existing verified table code after staff claims support and the request stays open until read to the guest",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The original action stack waits for exact “Tải lại” in firstStaff setup, timing out after15000ms."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Use “Làm mới” and explicit consent, keep the original verified table code, assert no extra access-code issuance and preserve pending/resolved request history."
+      },
+      "laterLocalOrPreventiveFindings": [
+        {
+          "basis": "LOCAL_REPLAY",
+          "finding": "After the later guest joins, wait for a successful /guest/state response with two participants while the first guest is foregrounded before checking the roster."
+        }
+      ],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/table-transfer.spec.ts",
+      "title": "picker filters and capacity, keyboard confirmation, same guest cart, immediate tables and history on all viewport sizes",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "Setup timed out waiting for the removed exact “Tải lại” button before exercising the transfer picker."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Use “Làm mới” and preserve destination filtering/capacity, keyboard confirmation, same guest/cart/session and transfer-history assertions."
+      },
+      "laterLocalOrPreventiveFindings": [
+        {
+          "basis": "LOCAL_REPLAY",
+          "finding": "Further replay exposed hidden-tab polling, oversized WebKit fullpage capture and dialog/RAF cleanup; foreground roles, capture bounded visible content and close native dialogs explicitly without force clicks."
+        }
+      ],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/table-transfer.spec.ts",
+      "title": "empty filter, occupied destination error with refreshed selection, and externally moved source",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The same setup helper timed out on the removed exact “Tải lại” label."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Use “Làm mới” while retaining empty-filter presentation, occupied destination409 recovery and externally moved source checks."
+      },
+      "laterLocalOrPreventiveFindings": [
+        {
+          "basis": "LOCAL_REPLAY",
+          "finding": "Foreground STAFF after guest setup so externally moved table state can refresh through the real hidden-paused scheduler."
+        }
+      ],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/ui-audit.spec.ts",
+      "title": "role-specific guidance opens at its title and returns keyboard focus to the caller",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The service guide contained five topic sections but the test expected four."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Assert the five named current topics and retain modal title focus, keyboard return focus, payment/change guidance and layout checks."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/ui-state-coverage.spec.ts",
+      "title": "kitchen real empty lanes, all preparation stages and long notes retain icons and actions",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The kitchen fixture refresh action waited for exact “Tải lại” until the whole90000ms test budget expired."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Click the scoped current “Làm mới” button and await the actual orders response before asserting four preparation stages, icons, notes and actions."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/ui-state-coverage.spec.ts",
+      "title": "staff empty floor and jobs, dense table signals, serving and long dialog titles stay contained",
+      "primaryCategory": "OUTDATED_TEST",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The staff fixture refresh action waited for exact “Tải lại” until the whole90000ms budget expired."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Use scoped “Làm mới” and wait for the real tables response, preserving empty jobs, dense table signals, serving and contained long dialog titles."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/workforce.spec.ts",
+      "title": "manager schedules, reviews attendance and closes a readable payroll; employees see only their own finalized slip",
+      "primaryCategory": "TEST_DATA",
+      "originalCauseConclusive": false,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The rate dialog remained open after confirmation; the original log alone does not contain its validation message."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Source/local replay confirmed shared seeded employees had approved historical attendance/payroll from workforce-month, invalidating retroactive rate edits. Create two isolated employees and retain exact rate, attendance, bonus, partial/final salary payment and privacy assertions."
+      },
+      "laterLocalOrPreventiveFindings": [
+        {
+          "basis": "LOCAL_REPLAY",
+          "finding": "An independent HTTP fixture context reuses the UI login cookie; a second ADMIN login would revoke the first through auth_version. The regression also checks real admin GET cancellation across the existing reload."
+        }
+      ],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/workforce.spec.ts",
+      "title": "staff has a clear personal shift, weekly schedule, history and empty payslip view",
+      "primaryCategory": "TEST_DATA",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The test expected an empty payslip heading for a seeded employee that already had imported finalized payroll history."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Search for a deliberately nonmatching period/query to exercise the genuine empty state without deleting valid history; keep personal shift, clock-in/out, weekly schedule and pending approval checks."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    },
+    {
+      "file": "tests/browser/workforce.spec.ts",
+      "title": "kitchen has a clear personal shift, weekly schedule, history and empty payslip view",
+      "primaryCategory": "TEST_DATA",
+      "originalCauseConclusive": true,
+      "originalEvidence": {
+        "basis": "ORIGINAL_GITHUB_JOB_LOG",
+        "representativeBrowser": "desktop",
+        "traceAvailable": false,
+        "finding": "The same empty-payslip assumption was invalid for the seeded kitchen employee after shared historical payroll import."
+      },
+      "resolutionEvidence": {
+        "basis": "SOURCE_DIFF_AND_LOCAL_REPLAY",
+        "finding": "Select a nonmatching salary search to verify the empty state while retaining historical payslips and all kitchen employee schedule/timeclock assertions."
+      },
+      "laterLocalOrPreventiveFindings": [],
+      "mainFullRuntimeBaselineExecuted": false
+    }
+  ],
+  "files": [
+    ".github/workflows/ci.yml",
+    "apps/api/src/modules/payments/receipt.service.ts",
+    "apps/api/src/modules/support/support.service.ts",
+    "apps/web/features/admin/admin-types.ts",
+    "apps/web/features/admin/admin.tsx",
+    "apps/web/features/admin/reports-panel.tsx",
+    "apps/web/features/admin/urgent-work.tsx",
+    "apps/web/features/shared/promotion-selection.tsx",
+    "apps/web/features/workspace/payment-collection.tsx",
+    "apps/web/lib/api-client.test.ts",
+    "apps/web/lib/api-client.ts",
+    "apps/web/styles/guest-participants.css",
+    "docs/15-doi-chieu.html",
+    "docs/15-doi-chieu.md",
+    "docs/assets/search-data.js",
+    "docs/reference/pr1-ci-recovery-20261021.json",
+    "tests/browser/admin-operations.spec.ts",
+    "tests/browser/core45.spec.ts",
+    "tests/browser/foundation.spec.ts",
+    "tests/browser/guest-live-notice.spec.ts",
+    "tests/browser/guest-participants.spec.ts",
+    "tests/browser/operations-experience.spec.ts",
+    "tests/browser/payment-collection.spec.ts",
+    "tests/browser/payos-ui.spec.ts",
+    "tests/browser/policy.spec.ts",
+    "tests/browser/pricing-admin.spec.ts",
+    "tests/browser/public-refresh.spec.ts",
+    "tests/browser/public-restaurant.spec.ts",
+    "tests/browser/support.spec.ts",
+    "tests/browser/table-access.spec.ts",
+    "tests/browser/table-queue.spec.ts",
+    "tests/browser/table-transfer.spec.ts",
+    "tests/browser/ui-audit.spec.ts",
+    "tests/browser/ui-state-coverage.spec.ts",
+    "tests/browser/workforce-month.spec.ts",
+    "tests/browser/workforce.spec.ts",
+    "tests/payment-collection.integration.test.ts"
+  ]
+}

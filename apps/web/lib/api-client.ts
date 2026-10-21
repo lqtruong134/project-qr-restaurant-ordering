@@ -41,7 +41,7 @@ async function renew(): Promise<Response> {
   const attempt = async () => {
     if (failure) return blocked();
     // Another tab may already have renewed the shared HttpOnly cookies.
-    const current = await fetch('/api/auth/me', { credentials: 'same-origin' });
+    const current = await sendApi('/auth/me', {});
     if (current.ok) return current;
     const data = await inspect(current);
     if (current.status !== 401 || data.errorCode !== 'ACCESS_EXPIRED') return current;
@@ -62,10 +62,76 @@ async function renew(): Promise<Response> {
   });
   return renewing;
 }
+type ReadLifecycle = { leaving: boolean; controllers: Set<AbortController> };
+const readLifecycles = new WeakMap<Window, ReadLifecycle>();
+function readLifecycle() {
+  if (typeof window === 'undefined') return;
+  let lifecycle = readLifecycles.get(window);
+  if (!lifecycle) {
+    lifecycle = { leaving: false, controllers: new Set() };
+    const state = lifecycle;
+    // One pair per document, rather than one navigation listener per request.
+    window.addEventListener('pagehide', () => {
+      state.leaving = true;
+      for (const controller of state.controllers)
+        controller.abort(new DOMException('The document is leaving.', 'AbortError'));
+    });
+    window.addEventListener('pageshow', () => {
+      state.leaving = false;
+    });
+    readLifecycles.set(window, lifecycle);
+  }
+  return lifecycle;
+}
+async function drainReadBody(body: ReadableStream<Uint8Array>) {
+  const reader = body.getReader();
+  try {
+    let chunk = await reader.read();
+    while (!chunk.done) chunk = await reader.read();
+  } finally {
+    reader.releaseLock();
+  }
+}
+async function sendApi(path: string, init: RequestInit): Promise<Response> {
+  const method = (init.method ?? 'GET').toUpperCase();
+  const lifecycle = method === 'GET' || method === 'HEAD' ? readLifecycle() : undefined;
+  if (!lifecycle) return fetch('/api' + path, { ...init, credentials: 'same-origin' });
+  if (lifecycle.leaving) throw new DOMException('The document is leaving.', 'AbortError');
+  const controller = new AbortController();
+  const caller = init.signal;
+  const abort = () => controller.abort(caller?.reason);
+  if (caller?.aborted) abort();
+  else caller?.addEventListener('abort', abort, { once: true });
+  lifecycle.controllers.add(controller);
+  const cleanup = () => {
+    lifecycle.controllers.delete(controller);
+    caller?.removeEventListener('abort', abort);
+  };
+  let followingBody = false;
+  try {
+    controller.signal.throwIfAborted();
+    const response = await fetch('/api' + path, {
+      ...init,
+      credentials: 'same-origin',
+      signal: controller.signal,
+    });
+    controller.signal.throwIfAborted();
+    const body = response.clone().body;
+    if (body) {
+      followingBody = true;
+      // Keep cancellation through body download without consuming or replacing the caller's Response.
+      // Discard watched chunks; the original body still reports its own network/abort errors.
+      void drainReadBody(body).then(cleanup, cleanup);
+    }
+    return response;
+  } finally {
+    if (!followingBody) cleanup();
+  }
+}
 export async function requestApi(path: string, init: RequestInit = {}): Promise<Response> {
   if (failure) return blocked();
   const epoch = renewalEpoch;
-  const send = () => fetch('/api' + path, { ...init, credentials: 'same-origin' });
+  const send = () => sendApi(path, init);
   let response = await send();
   const employee =
     !path.startsWith('/guest/') && !['/auth/login', '/auth/logout', '/auth/refresh'].includes(path);

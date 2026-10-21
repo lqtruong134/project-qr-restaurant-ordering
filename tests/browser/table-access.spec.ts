@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 async function login(p: Page, user: string, role: string) {
+  await p.bringToFront();
   await p.goto('/login');
   await p.getByLabel('Tên đăng nhập', { exact: true }).fill(user);
   await p.getByLabel('Mật khẩu', { exact: true }).fill(process.env.SEED_PASSWORD!);
@@ -43,12 +44,13 @@ test('guest requests code, staff claims and issues it at table, members share co
       capacity: 4,
     });
     const qr = await post(admin, '/core/tables/' + table.id + '/qr', {});
+    await guest.bringToFront();
     await guest.goto(qr.joinPath);
     await guest.getByLabel('Tên của bạn', { exact: true }).fill('Trường');
     await expect(guest.getByText('Dùng tên dễ nhận biết', { exact: false })).toHaveCount(0);
     await expect(
       guest.getByRole('checkbox', { name: 'Tôi đồng ý với Quy định sử dụng dịch vụ tại bàn' }),
-    ).toBeChecked();
+    ).not.toBeChecked();
     await expect(guest.getByLabel('Mã vào bàn', { exact: true })).toHaveAttribute(
       'placeholder',
       'Nhập 4 số',
@@ -57,6 +59,7 @@ test('guest requests code, staff claims and issues it at table, members share co
     await expect(guest.locator('.access-request')).toContainText('Đã gửi yêu cầu cấp mã');
     await expect(guest.locator('.access-request button')).toBeDisabled();
     await guest.screenshot({ path: info.outputPath('guest-code-request.png'), fullPage: false });
+    await staff.bringToFront();
     await staff
       .getByRole('navigation', { name: 'Phục vụ' })
       .getByRole('button', { name: /Việc cần làm/ })
@@ -129,12 +132,14 @@ test('guest requests code, staff claims and issues it at table, members share co
     ).toHaveCount(0);
     await staff.screenshot({ path: info.outputPath('staff-code-quick-view.png'), scale: 'css' });
     await staff.getByRole('dialog').getByRole('button', { name: 'Đóng', exact: true }).click();
+    await guest.bringToFront();
     await guest.getByLabel('Mã vào bàn', { exact: true }).fill(pin);
     await guest
       .getByRole('checkbox', { name: 'Tôi đồng ý với Quy định sử dụng dịch vụ tại bàn' })
       .check();
     await guest.getByRole('button', { name: 'Xem thực đơn', exact: true }).click();
     await expect(guest.locator('.session-code strong')).toHaveText(pin);
+    await other.bringToFront();
     await other.goto(qr.joinPath);
     await other.getByLabel('Tên của bạn', { exact: true }).fill('Lữ Trường');
     await other.getByLabel('Mã vào bàn', { exact: true }).fill(pin);
@@ -142,6 +147,7 @@ test('guest requests code, staff claims and issues it at table, members share co
       .getByRole('checkbox', { name: 'Tôi đồng ý với Quy định sử dụng dịch vụ tại bàn' })
       .check();
     await other.getByRole('button', { name: 'Xem thực đơn', exact: true }).click();
+    await guest.bringToFront();
     await expect(guest.getByRole('button', { name: 'Người cùng bàn, 2 người' })).toBeVisible();
     await guest.getByRole('button', { name: 'Lưu ý khi chia sẻ mã vào bàn', exact: true }).focus();
     await guest.keyboard.press('Enter');
@@ -200,7 +206,10 @@ test('staff calls multiple dishes, shows customer review and follows the normal 
       capacity: 4,
     });
     await post(staff, '/core/tables/' + table.id + '/open', {});
-    await staff.getByRole('button', { name: 'Tải lại', exact: true }).click();
+    await staff
+      .locator('.service-tools')
+      .getByRole('button', { name: 'Làm mới', exact: true })
+      .click();
     await staff.getByRole('textbox', { name: 'Tìm tên hoặc mã bàn…' }).fill(code);
     const tile = staff
       .locator('article')
@@ -277,7 +286,11 @@ test('a later guest receives the existing verified table code after staff claims
     });
     const qr = await post(admin, '/core/tables/' + table.id + '/qr', {});
     await post(firstStaff, '/core/tables/' + table.id + '/open', {});
-    await firstStaff.getByRole('button', { name: 'Tải lại', exact: true }).click();
+    await firstStaff.bringToFront();
+    await firstStaff
+      .locator('.service-tools')
+      .getByRole('button', { name: 'Làm mới', exact: true })
+      .click();
     await firstStaff.getByRole('textbox', { name: 'Tìm tên hoặc mã bàn…' }).fill(code);
     const tile = firstStaff
       .locator('.table-tile')
@@ -294,16 +307,22 @@ test('a later guest receives the existing verified table code after staff claims
     const firstCode = await (
       await firstStaff.request.get('/api/core/tables/' + table.id + '/access-code')
     ).json();
+    await firstGuest.bringToFront();
     await firstGuest.goto(qr.joinPath);
     await firstGuest.getByLabel('Tên của bạn', { exact: true }).fill('Khách đầu tiên');
     await firstGuest.getByLabel('Mã vào bàn', { exact: true }).fill(pin);
+    await firstGuest
+      .getByRole('checkbox', { name: 'Tôi đồng ý với Quy định sử dụng dịch vụ tại bàn' })
+      .check();
     await firstGuest.getByRole('button', { name: 'Xem thực đơn', exact: true }).click();
     await expect(firstGuest.locator('.session-code strong')).toHaveText(pin);
 
+    await nextGuest.bringToFront();
     await nextGuest.goto(qr.joinPath);
     await nextGuest.getByLabel('Tên của bạn', { exact: true }).fill('Khách đến sau');
     await nextGuest.getByRole('button', { name: 'Yêu cầu nhân viên cấp mã', exact: true }).click();
     await expect(nextGuest.locator('.access-request')).toContainText('Đã gửi yêu cầu cấp mã');
+    await nextStaff.bringToFront();
     await nextStaff
       .getByRole('navigation', { name: 'Phục vụ' })
       .getByRole('button', { name: /Việc cần làm/ })
@@ -350,9 +369,20 @@ test('a later guest receives the existing verified table code after staff claims
     expect(currentCode).toEqual(firstCode);
     expect(issueWrites).toBe(0);
     nextStaff.off('request', writes);
+    await nextGuest.bringToFront();
     await nextGuest.getByLabel('Mã vào bàn', { exact: true }).fill(pin);
+    await nextGuest
+      .getByRole('checkbox', { name: 'Tôi đồng ý với Quy định sử dụng dịch vụ tại bàn' })
+      .check();
     await nextGuest.getByRole('button', { name: 'Xem thực đơn', exact: true }).click();
     await expect(nextGuest.locator('.session-code strong')).toHaveText(pin);
+    const refreshedRoster = firstGuest.waitForResponse(async (response) => {
+      if (new URL(response.url()).pathname !== '/api/guest/state' || !response.ok()) return false;
+      const snapshot = await response.json();
+      return snapshot.participants.length === 2;
+    });
+    await firstGuest.bringToFront();
+    await refreshedRoster;
     await expect(firstGuest.getByRole('button', { name: 'Người cùng bàn, 2 người' })).toBeVisible();
   } finally {
     await Promise.all(contexts.map((c) => c.close()));

@@ -27,10 +27,7 @@ test('internal entry has one background and a login form without restaurant prom
     .toBe(true);
   await fits(page);
   await page.screenshot({
-    path:
-      '/mnt/c/Users/Admin/.codex/.chatgpt-projects/g-p-6abb725d13508191b0b02a8845acc6cd/restaurant-v4/internal-home-' +
-      info.project.name +
-      '.png',
+    path: info.outputPath('internal-home.png'),
     fullPage: true,
   });
 });
@@ -65,10 +62,7 @@ test('internal login keeps password controls and useful error feedback', async (
   await expect(page.getByRole('button', { name: 'Đăng nhập', exact: true })).toBeEnabled();
   await fits(page);
   await page.screenshot({
-    path:
-      '/mnt/c/Users/Admin/.codex/.chatgpt-projects/g-p-6abb725d13508191b0b02a8845acc6cd/restaurant-v4/internal-login-' +
-      info.project.name +
-      '.png',
+    path: info.outputPath('internal-login.png'),
     fullPage: true,
   });
 });

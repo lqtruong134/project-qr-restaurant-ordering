@@ -3,6 +3,7 @@ import { test, expect, type Page, type Browser, type TestInfo } from '@playwrigh
 import { randomUUID } from 'node:crypto';
 test.use({ actionTimeout: 10000 });
 async function login(p: Page, user: string, role: string) {
+  await p.bringToFront();
   await p.goto('/login');
   await p.locator('#username').fill(user);
   await p.locator('#password').fill(process.env.SEED_PASSWORD!);
@@ -46,6 +47,7 @@ async function setup(browser: Browser, baseURL: string | undefined, info: TestIn
   const guestPages = pages.slice(3);
   for (let i = 0; i < guestPages.length; i++) {
     const p = guestPages[i]!;
+    await p.bringToFront();
     await p.goto(qr.joinPath);
     await p
       .getByLabel('Mã vào bàn', { exact: true })
@@ -98,6 +100,7 @@ async function serve(guest: Page, staff: Page, kitchen: Page, name: string, quan
   return item;
 }
 async function requestPayment(p: Page, method = 'Tiền mặt') {
+  await p.bringToFront();
   await p.reload();
   await p
     .getByRole('navigation', { name: 'Điều hướng khách' })
@@ -115,6 +118,7 @@ async function requestPayment(p: Page, method = 'Tiền mặt') {
 
 const preview = (p: Page, id: string) => p.locator('[data-queue-request-id="' + id + '"]');
 async function openQueueTable(p: Page, id: string) {
+  await p.bringToFront();
   const tile = p.locator('.queue-table-card').filter({ has: preview(p, id) });
   await expect(tile).toHaveCount(1);
   await expect(tile.getByRole('button')).toHaveCount(1);
@@ -122,7 +126,8 @@ async function openQueueTable(p: Page, id: string) {
 }
 
 async function openPayment(staff: Page, code: string) {
-  await staff.getByRole('button', { name: 'Tải lại', exact: true }).click();
+  await staff.bringToFront();
+  await staff.getByRole('button', { name: 'Làm mới', exact: true }).click();
   await staff
     .getByRole('navigation', { name: 'Phục vụ' })
     .getByRole('button', { name: /Việc cần làm/ })
@@ -190,6 +195,7 @@ test('guest calls staff without amount; cash partial/full collection clearly sep
     await expect(amountSuggestions).toContainText('50.000 đ');
     await expect(amountInput).toHaveValue('5');
     await amountInput.fill('');
+    await expect(amountInput).toHaveValue('');
     await amountInput.pressSequentially('40000');
     await expect(amountInput).toHaveValue('40.000');
     await form
@@ -253,9 +259,11 @@ test('guest calls staff without amount; cash partial/full collection clearly sep
     ).toHaveCount(0);
     await expect(dialog.locator('.receipt-sheet')).toContainText('460.000');
     await dialog.screenshot({ path: info.outputPath('payment-recorded.png'), scale: 'css' });
+    await guest.bringToFront();
     await expect(
       guest.getByRole('heading', { name: 'Bàn đã thanh toán đủ', exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15000 }); // Guest polls every 5s; allow its current read to finish.
+    await f.staff.bringToFront();
     await expect(
       dialog.getByRole('button', { name: 'Đóng phiên sau khi hoàn tất', exact: true }),
     ).toBeDisabled();
@@ -265,7 +273,10 @@ test('guest calls staff without amount; cash partial/full collection clearly sep
     await dialog
       .getByRole('button', { name: 'Phiếu chi tiết theo người gọi', exact: true })
       .click();
-    await expect(dialog.locator('.receipt-owner-group')).toContainText('Tổng tiền món nhóm này');
+    await expect(dialog.locator('.receipt-owner-group')).toContainText(
+      'Tiền nhóm này sau khuyến mãi',
+    );
+    await expect(dialog.locator('.receipt-owner-group > p strong')).toHaveText('90.000 đ');
     await dialog.screenshot({ path: info.outputPath('detailed-receipt.png'), scale: 'css' });
     await dialog.getByRole('button', { name: 'Đã in và giao phiếu', exact: true }).click();
     await f.staff.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
@@ -306,6 +317,7 @@ test('one work queue shares ownership across two staff accounts, table map and p
       id = state.support[0].id;
     const task = (p: Page) => p.locator(`[data-support-id="${id}"]`);
     for (const p of [f.staff, other]) {
+      await p.bringToFront();
       await p
         .getByRole('navigation', { name: 'Phục vụ' })
         .getByRole('button', { name: /Việc cần làm/ })
@@ -321,11 +333,14 @@ test('one work queue shares ownership across two staff accounts, table map and p
     }
     await openQueueTable(f.staff, id);
     await expect(task(f.staff)).toContainText('Chưa có người nhận');
+    await other.bringToFront();
     await expect(preview(other, id)).toContainText('Chưa có người nhận');
+    await f.staff.bringToFront();
     await task(f.staff).getByRole('button', { name: 'Nhận việc & đến bàn', exact: true }).click();
     await expect(f.staff.getByRole('dialog').locator('.latest-table-job')).toContainText(
       'Bạn đang phụ trách',
     );
+    await other.bringToFront();
     await expect(preview(other, id)).toHaveCount(0);
     await other
       .getByRole('navigation', { name: 'Người phụ trách công việc' })
@@ -378,6 +393,7 @@ test('one work queue shares ownership across two staff accounts, table map and p
       await f.staff.request.get('/api/core/support-assignees?requestId=' + id)
     ).json();
     const target = assignees.find((p: { username: string }) => p.username === 'pv002');
+    await f.staff.bringToFront();
     await f.staff
       .getByRole('dialog')
       .locator('[data-support-id="' + id + '"]')
@@ -387,12 +403,18 @@ test('one work queue shares ownership across two staff accounts, table map and p
     await handoff.getByLabel('Người nhận').selectOption(target.id);
     await handoff.getByLabel('Lý do bàn giao').fill('Nhờ thu tiền, tôi cần phục vụ bàn khác');
     await handoff.getByRole('button', { name: 'Gửi đề nghị bàn giao' }).click();
+    await other.bringToFront();
     await other.getByRole('button', { name: 'Xem bàn giao', exact: true }).click();
     await openQueueTable(other, id);
     await expect(task(other)).toContainText('Người gửi vẫn phụ trách');
     await task(other).getByRole('button', { name: 'Nhận bàn giao', exact: true }).click();
     await expect(task(other)).toContainText('Bạn đang phụ trách');
-    await expect(f.staff.getByRole('form', { name: 'Thu tiền tại bàn' })).toHaveCount(0);
+    // Bill reads pause in a background tab; foreground recovery must revoke the old owner's form.
+    await f.staff.bringToFront();
+    await expect(f.staff.getByRole('form', { name: 'Thu tiền tại bàn' })).toHaveCount(0, {
+      timeout: 15000,
+    });
+    await other.bringToFront();
     await task(other).getByRole('button', { name: 'Thu tiền tại bàn', exact: true }).click();
     const form = other.getByRole('form', { name: 'Thu tiền tại bàn' });
     await form.getByRole('button', { name: /Số tiền khác/ }).click();
@@ -401,7 +423,9 @@ test('one work queue shares ownership across two staff accounts, table map and p
     await expect(form.getByLabel('Lời gọi thu tiền')).not.toContainText('Thu trực tiếp');
     await form.getByRole('button', { name: 'Ghi nhận đã nhận tiền', exact: true }).click();
     await expect(other.getByRole('dialog').locator('.last-payment')).toContainText('460.000');
-    await expect(task(f.staff)).toHaveCount(0);
+    await f.staff.bringToFront();
+    await expect(task(f.staff)).toHaveCount(0, { timeout: 15000 });
+    await other.bringToFront();
     const bill = await (await other.request.get('/api/core/sessions/' + f.sid + '/bill')).json();
     expect(bill.paymentRequests).toHaveLength(0);
     expect(bill.payments).toHaveLength(1);

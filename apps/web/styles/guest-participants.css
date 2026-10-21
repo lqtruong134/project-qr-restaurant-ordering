@@ -179,7 +179,8 @@
   flex: 1;
 }
 .guest-experience .guest-participant-chip {
-  flex: 1 1 0;
+  /* Short names keep their natural width; long names can still shrink into the roster. */
+  flex: 0 1 auto;
   overflow: hidden;
 }
 .guest-experience .guest-participant-name {

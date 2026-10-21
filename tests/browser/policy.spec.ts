@@ -36,7 +36,13 @@ test('policy validation, keyboard/mobile reading, cart review, payment/leave con
   );
   const [admin, guest, kitchen, staff] = await Promise.all(contexts.map((c) => c.newPage()));
   const errors: string[] = [];
-  for (const p of [admin!, guest!, kitchen!]) p.on('pageerror', (e) => errors.push(e.message));
+  for (const p of [admin!, guest!, kitchen!, staff!])
+    p.on('pageerror', (e) => errors.push(e.message));
+  let joinRequests = 0;
+  guest!.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/guest/join' && request.method() === 'POST')
+      joinRequests++;
+  });
   try {
     await login(admin!, 'quyettruong05', 'admin');
     await login(staff!, 'pv007', 'staff');
@@ -60,17 +66,33 @@ test('policy validation, keyboard/mobile reading, cart review, payment/leave con
     const accept = guest!.getByRole('checkbox', {
       name: 'Tôi đồng ý với Quy định sử dụng dịch vụ tại bàn',
     });
-    await expect(accept).toBeChecked();
-    await accept.uncheck();
+    await expect(accept).not.toBeChecked();
     await guest!.getByRole('button', { name: 'Xem thực đơn', exact: true }).click();
-    await expect(guest!.locator('.guest-join-form').getByRole('alert')).toContainText('Nhập tên');
+    await expect(guest!.locator('.guest-join-form').getByRole('alert')).toHaveText(
+      'Vui lòng nhập tên của bạn (tối đa 80 ký tự).',
+    );
+    await expect(guest!.getByLabel('Tên của bạn', { exact: true })).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    expect(joinRequests).toBe(0);
     await guest!.getByLabel('Tên của bạn').fill('Khách kiểm tra chính sách');
     await guest!.getByRole('button', { name: 'Xem thực đơn', exact: true }).click();
-    await expect(guest!.locator('.guest-join-form').getByRole('alert')).toContainText('đồng ý');
+    await expect(guest!.locator('.guest-join-form').getByRole('alert')).toHaveText(
+      'Vui lòng đồng ý với quy định để vào bàn gọi món.',
+    );
+    expect(joinRequests).toBe(0);
     await guest!.getByRole('button', { name: 'Quy định & chính sách', exact: true }).focus();
     await guest!.keyboard.press('Enter');
     const dialog = guest!.getByRole('dialog', { name: restaurantPolicy.title });
-    await expect(dialog).toContainText(restaurantPolicy.version);
+    const policyDate = new Date(restaurantPolicy.updatedAt + 'T00:00:00Z').toLocaleDateString(
+      'vi-VN',
+      { timeZone: 'UTC' },
+    );
+    await expect(dialog.locator('.policy-date')).toHaveText('Cập nhật ' + policyDate);
+    await expect(dialog.locator('summary')).toHaveText(
+      restaurantPolicy.sections.map((section) => section.title),
+    );
     for (const width of [320, 390, 768, 1440]) {
       await guest!.setViewportSize({ width, height: 844 });
       await expect(dialog).toBeVisible();
@@ -91,19 +113,32 @@ test('policy validation, keyboard/mobile reading, cart review, payment/leave con
       guest!.getByRole('button', { name: 'Quy định & chính sách', exact: true }),
     ).toBeFocused();
     await accept.check();
+    const joined = guest!.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/guest/join' &&
+        response.request().method() === 'POST',
+    );
     await guest!.getByRole('button', { name: 'Xem thực đơn', exact: true }).click();
-    await expect(guest!.getByRole('heading', { name: 'Hôm nay bạn muốn dùng gì?' })).toBeVisible();
+    const joinedResponse = await joined;
+    expect(joinedResponse.ok(), await joinedResponse.text()).toBe(true);
+    expect(joinRequests).toBe(1);
+    await expect(
+      guest!.getByRole('heading', { name: 'Hôm nay bạn muốn dùng món gì?', exact: true }),
+    ).toBeVisible();
     const state = await (await guest!.request.get('/api/guest/state')).json();
     expect(state.participant.acceptedPolicyVersion).toBe(restaurantPolicy.version);
     expect(state.participant.acceptedPolicyAt).toBeTruthy();
     await guest!.reload();
     await expect(accept).toHaveCount(0);
     await guest!.goto(qr.joinPath);
-    await guest!
-      .getByLabel('Mã vào bàn', { exact: true })
-      .fill(await browserTableCode(admin!, qr.joinPath, staff!));
-    await expect(guest!.getByRole('heading', { name: 'Hôm nay bạn muốn dùng gì?' })).toBeVisible();
+    await expect(
+      guest!.getByRole('heading', { name: 'Hôm nay bạn muốn dùng món gì?', exact: true }),
+    ).toBeVisible();
     await expect(accept).toHaveCount(0);
+    expect((await (await guest!.request.get('/api/guest/state')).json()).participant.id).toBe(
+      state.participant.id,
+    );
+    expect(joinRequests).toBe(1);
     const otherTable = await post(admin!, '/core/tables', {
       areaId: tables[0].area_id,
       code: code + '-B',
@@ -113,13 +148,14 @@ test('policy validation, keyboard/mobile reading, cart review, payment/leave con
     const otherQr = await post(admin!, '/core/tables/' + otherTable.id + '/qr', {});
     await guest!.goto(otherQr.joinPath);
     await expect(accept).toBeVisible();
-    await expect(accept).toBeChecked();
+    await expect(accept).not.toBeChecked();
     await expect(guest!.getByRole('navigation', { name: 'Điều hướng khách' })).toHaveCount(0);
     await guest!.goto(qr.joinPath);
-    await guest!
-      .getByLabel('Mã vào bàn', { exact: true })
-      .fill(await browserTableCode(admin!, qr.joinPath, staff!));
-    await expect(guest!.getByRole('heading', { name: 'Hôm nay bạn muốn dùng gì?' })).toBeVisible();
+    await expect(
+      guest!.getByRole('heading', { name: 'Hôm nay bạn muốn dùng món gì?', exact: true }),
+    ).toBeVisible();
+    await expect(accept).toHaveCount(0);
+    expect(joinRequests).toBe(1);
     expect((await (await guest!.request.get('/api/guest/state')).json()).session.id).toBe(
       state.session.id,
     );
@@ -136,13 +172,23 @@ test('policy validation, keyboard/mobile reading, cart review, payment/leave con
       .click();
     const nav = guest!.getByRole('navigation', { name: 'Điều hướng khách' });
     await nav.getByRole('button', { name: /Giỏ món/ }).click();
-    await expect(guest!.locator('.submit-order-review')).toContainText('Lần gửi này: 1 phần');
+    await expect(guest!.locator('.submit-order-review')).toContainText(
+      'Lần gửi này: 1 món & combo',
+    );
     await expect(guest!.locator('.submit-order-review')).toContainText('15.000');
     await guest!.screenshot({ path: info.outputPath('guest-order-review.png'), fullPage: false });
+    const ordered = guest!.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/guest/orders' &&
+        response.request().method() === 'POST',
+    );
     await guest!.getByRole('button', { name: 'Gửi món đã chọn', exact: true }).click();
+    const orderResponse = await ordered;
+    expect(orderResponse.ok(), await orderResponse.text()).toBe(true);
     const submitted = await (await guest!.request.get('/api/guest/state')).json();
     const item = submitted.orders[0];
     const sid = submitted.session.id;
+    const tableHeading = 'Bàn ' + code + ' · Phiên #' + sid.slice(0, 8).toUpperCase();
     if (item.status === 'PENDING_REVIEW')
       await post(staff!, '/core/orders/' + item.id + '/review', { approve: true });
     await nav.getByRole('button', { name: 'Thanh toán', exact: true }).click();
@@ -163,11 +209,13 @@ test('policy validation, keyboard/mobile reading, cart review, payment/leave con
     ).toBeVisible();
     await login(kitchen!, 'bep001', 'kitchen');
     await kitchen!.getByRole('button', { name: 'Hướng dẫn bếp', exact: true }).click();
-    await expect(kitchen!.getByRole('dialog')).toContainText('Không tự miễn tiền');
+    const kitchenHelp = kitchen!.getByRole('dialog', { name: 'Hướng dẫn bếp', exact: true });
+    await kitchenHelp.getByText('Sự cố trong khi chế biến', { exact: true }).click();
+    await expect(kitchenHelp.getByText(/Không tự miễn tiền/)).toBeVisible();
     await kitchen!.getByRole('dialog').getByRole('button', { name: 'Đóng', exact: true }).click();
     const ticket = kitchen!
       .locator('article')
-      .filter({ has: kitchen!.getByRole('heading', { name: 'Bàn ' + code, exact: true }) });
+      .filter({ has: kitchen!.getByRole('heading', { name: tableHeading, exact: true }) });
     await ticket.getByRole('button', { name: 'Bếp nhận cả lượt', exact: true }).click();
     await ticket.getByRole('button', { name: 'Bắt đầu chế biến', exact: true }).click();
     await ticket.locator('summary').filter({ hasText: 'Báo sự cố và dừng món' }).click();
@@ -187,17 +235,21 @@ test('policy validation, keyboard/mobile reading, cart review, payment/leave con
     await selectAdmin(admin!, 'Việc cần xử lý');
     const incident = admin!
       .locator('.inbox-case')
-      .filter({ has: admin!.getByRole('heading', { name: 'Bàn ' + code, exact: true }) });
+      .filter({ has: admin!.getByRole('heading', { name: tableHeading, exact: true }) });
     await expect(incident).toContainText('Lỗi chế biến');
     await incident.getByRole('button', { name: 'Kiểm tra & quyết định', exact: true }).click();
     await admin!
       .getByRole('dialog')
       .getByRole('button', { name: 'Xác nhận lỗi nhà hàng', exact: true })
       .click();
-    await admin!
-      .getByRole('dialog', { name: 'Xác nhận lỗi nhà hàng?' })
-      .getByRole('button', { name: 'Xác nhận lỗi nhà hàng', exact: true })
-      .click();
+    const faultDecision = admin!.getByRole('dialog', {
+      name: 'Xác nhận lỗi nhà hàng?',
+      exact: true,
+    });
+    await expect(faultDecision).toContainText('Khách không phải trả 15.000 đ cho món này.');
+    await expect(faultDecision).toContainText('Nguyên liệu đã sử dụng vẫn tính là tiêu hao.');
+    await expect(faultDecision).toContainText('cần hoàn tiền thực tế và xác nhận giao dịch riêng.');
+    await faultDecision.getByRole('button', { name: 'Xác nhận lỗi nhà hàng', exact: true }).click();
     await expect
       .poll(
         async () =>
@@ -207,20 +259,22 @@ test('policy validation, keyboard/mobile reading, cart review, payment/leave con
       .toBe('0');
     await guest!.reload();
     await nav.getByRole('button', { name: 'Thanh toán', exact: true }).click();
-    await expect(guest!.locator('.guest-bill-lines')).toContainText('Không tính tiền');
-    await expect(guest!.locator('.guest-bill-lines')).toContainText('15.000');
+    const adjustedDish = guest!.locator('.guest-bill-item').filter({ hasText: 'Nước suối 500 ml' });
+    await expect(adjustedDish).toContainText('Nhà hàng hủy - Không tính tiền');
+    await expect(adjustedDish.locator('[data-label="Đơn giá"]')).toHaveText('15.000 đ');
+    await expect(adjustedDish.locator('[data-label="Thành tiền"]')).toHaveText('0 đ');
     await guest!.screenshot({ path: info.outputPath('guest-fault-bill.png'), fullPage: false });
     await guest!.getByRole('button', { name: /Người cùng bàn, \d+ người/ }).click();
     await guest!.getByRole('button', { name: 'Tên của bạn và rời bàn', exact: true }).click();
     await guest!.getByRole('button', { name: 'Rời bàn', exact: true }).click();
-    await expect(guest!.getByRole('dialog', { name: 'Xác nhận thao tác' })).toContainText(
-      'Giỏ chưa gửi',
-    );
-    await expect(guest!.getByRole('dialog', { name: 'Xác nhận thao tác' })).toContainText(
-      'Món đã gửi',
-    );
+    await expect(
+      guest!.getByRole('dialog', { name: 'Rời bàn trên thiết bị này?', exact: true }),
+    ).toContainText('Giỏ chưa gửi');
+    await expect(
+      guest!.getByRole('dialog', { name: 'Rời bàn trên thiết bị này?', exact: true }),
+    ).toContainText('Món đã gửi');
     await guest!
-      .getByRole('dialog', { name: 'Xác nhận thao tác' })
+      .getByRole('dialog', { name: 'Rời bàn trên thiết bị này?', exact: true })
       .getByRole('button', { name: 'Hủy', exact: true })
       .click();
     expect((await guest!.request.get('/api/guest/state')).ok()).toBe(true);

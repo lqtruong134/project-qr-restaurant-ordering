@@ -287,9 +287,13 @@ export function CollectionForm({
       if (next) {
         setMethod(String(next.payment_method ?? 'CASH'));
         setParticipant(String(next.participant_id));
-        setReceived('');
-        setReference('');
-        setImage('');
+        // The first claimed request can arrive after the collection fields become editable.
+        // Bind that request without erasing a tender/evidence draft already entered at the table.
+        if (request) {
+          setReceived('');
+          setReference('');
+          setImage('');
+        }
       }
     }
   }, [requests, preferredRequestId, request, busy]);

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-test('public landing renders restaurant entry while API is ready', async ({
+test('internal entry and QR guest entry render while the API is ready', async ({
   page,
   request,
 }, testInfo) => {
@@ -13,11 +13,14 @@ test('public landing renders restaurant entry while API is ready', async ({
     )
     .toBe(200);
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: /Món ngon trên bàn/ })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Đăng nhập nội bộ/ })).toHaveAttribute(
-    'href',
-    '/login',
-  );
+  await expect(page.getByRole('heading', { name: 'Đăng nhập nội bộ', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Tên đăng nhập', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Mật khẩu', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Đăng nhập', exact: true })).toBeEnabled();
+  await page.goto('/guest');
+  await expect(
+    page.getByRole('heading', { name: 'Quét QR tại bàn để bắt đầu', exact: true }),
+  ).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );

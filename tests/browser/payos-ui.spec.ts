@@ -843,10 +843,16 @@ test('guest automatically shows partial and successful online receipts and clear
     page.getByRole('heading', { name: 'Bàn đã thanh toán đủ', exact: true }),
   ).toBeVisible();
   await expect(
-    page.locator('.core-stats p').filter({ hasText: 'Đã tính vào tiền món' }).locator('strong'),
+    page
+      .locator('.guest-content > .core-card > .core-stats > p')
+      .filter({ hasText: 'Đã tính vào tiền món' })
+      .locator('strong'),
   ).toHaveText('450.000 đ');
   await expect(
-    page.locator('.core-stats p').filter({ hasText: 'Còn phải thanh toán' }).locator('strong'),
+    page
+      .locator('.guest-content > .core-card > .core-stats > p')
+      .filter({ hasText: 'Còn phải thanh toán' })
+      .locator('strong'),
   ).toHaveText('0 đ');
   await expect(page.locator('.guest-payment-sent')).toHaveCount(0);
   await expect(page.getByText('Nhân viên đang xử lý', { exact: true })).toHaveCount(0);
@@ -949,17 +955,26 @@ test('guest expiry, cancellation and reconciliation never claim money was posted
   f.online('REQUIRES_RECONCILIATION', '150000', '150000');
   await page.clock.runFor(5500);
   await expect(online).toContainText('Nhà hàng đang kiểm tra khoản chuyển tiền');
-  await expect(online).toContainText('Ngân hàng đã xác nhận 150.000 đ');
-  await expect(online).toContainText('chưa ghi nhận vào thanh toán');
-  await expect(online).toContainText('bạn chưa cần chuyển lại');
+  await expect(online).toContainText('Ngân hàng đã ghi nhận giao dịch 150.000 đ');
+  await expect(online).toContainText('Phần này chưa được tính là đã thanh toán');
+  await expect(online).toContainText('không chuyển lại cùng khoản tiền');
+  await expect(
+    online.locator('.core-stats p').filter({ hasText: 'Nhà hàng đã nhận' }).locator('strong'),
+  ).toHaveText('0 đ');
   await expect(online).not.toContainText('Thanh toán thành công');
   await expect(online.getByRole('img')).toHaveCount(0);
   await expect(online.getByRole('link')).toHaveCount(0);
   await expect(
-    page.locator('.core-stats p').filter({ hasText: 'Đã tính vào tiền món' }).locator('strong'),
+    page
+      .locator('.guest-content > .core-card > .core-stats > p')
+      .filter({ hasText: 'Đã tính vào tiền món' })
+      .locator('strong'),
   ).toHaveText('0 đ');
   await expect(
-    page.locator('.core-stats p').filter({ hasText: 'Còn phải thanh toán' }).locator('strong'),
+    page
+      .locator('.guest-content > .core-card > .core-stats > p')
+      .filter({ hasText: 'Còn phải thanh toán' })
+      .locator('strong'),
   ).toHaveText('450.000 đ');
   expect(f.writes).toEqual([]);
   expect(f.errors).toEqual([]);

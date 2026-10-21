@@ -57,18 +57,16 @@ export default function Admin() {
   }
   const refresh = useCallback(async () => {
     try {
-      const [catalog, tables, areas, inventory, users, reports, risk, outstanding] =
-        await Promise.all([
-          api<AdminData['catalog']>('/core/catalog'),
-          api<Row[]>('/core/admin/tables'),
-          api<Row[]>('/core/areas'),
-          api<Inventory>('/core/inventory'),
-          api<Row[]>('/core/users'),
-          api<AdminData['reports']>('/core/reports'),
-          api<AdminData['risk']>('/core/risk'),
-          api<Row[]>('/core/outstanding'),
-        ]);
-      setData({ catalog, tables, areas, inventory, users, reports, risk, outstanding });
+      const [catalog, tables, areas, inventory, users, risk, outstanding] = await Promise.all([
+        api<AdminData['catalog']>('/core/catalog'),
+        api<Row[]>('/core/admin/tables'),
+        api<Row[]>('/core/areas'),
+        api<Inventory>('/core/inventory'),
+        api<Row[]>('/core/users'),
+        api<AdminData['risk']>('/core/risk'),
+        api<Row[]>('/core/outstanding'),
+      ]);
+      setData({ catalog, tables, areas, inventory, users, risk, outstanding });
       setError('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không kết nối được máy chủ.');
@@ -250,13 +248,7 @@ export default function Admin() {
               <RiskPanel key={navigation} initial={section} data={data} save={save} />
             )}
             {tab === 'reports' && section !== 'online' && (
-              <ReportsPanel
-                key={navigation}
-                initial={section}
-                open={open}
-                data={data}
-                save={save}
-              />
+              <ReportsPanel key={navigation} initial={section} open={open} save={save} />
             )}
           </>
         ) : null}

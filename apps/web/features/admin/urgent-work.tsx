@@ -16,72 +16,102 @@ export function useUrgentWork() {
     [paymentError, setPaymentError] = useState(''),
     [error, setError] = useState(''),
     [updatedAt, setUpdatedAt] = useState<string>();
-  const loading = useRef(false);
+  const reads = useRef<AbortController | null>(null);
+  const loading = useRef<AbortSignal | null>(null);
   const refresh = useCallback(async () => {
-    if (loading.current) return;
-    loading.current = true;
+    const signal = reads.current?.signal;
+    if (!signal || signal.aborted || loading.current === signal) return;
+    loading.current = signal;
     try {
       const [items, alerts, cases] = await Promise.all([
-        api<Row[]>('/core/order-exceptions?pending=true'),
-        api<Row[]>('/core/alerts'),
-        api<Row[]>('/core/outstanding'),
+        api<Row[]>('/core/order-exceptions?pending=true', undefined, 'GET', false, signal),
+        api<Row[]>('/core/alerts', undefined, 'GET', false, signal),
+        api<Row[]>('/core/outstanding', undefined, 'GET', false, signal),
       ]);
-      setIssues([
-        ...items,
-        ...alerts
-          .filter((a) => a.stock_inspection === true)
-          .map((a) => ({
-            ...a,
-            stock_inspection: true,
-            product_name_snapshot: a.item_name ?? null,
-            quantity: a.item_quantity ?? null,
-            reported_at: a.created_at ?? null,
-            reported_reason_code: a.issue_reason_code ?? null,
-          })),
-      ]);
-      setOutstanding(openShortfalls(cases));
-      setUpdatedAt(new Date().toISOString());
-      setRefunds(
-        Array.from(
-          new Map(
-            alerts
-              .filter(
-                (a) =>
-                  a.alert_type === 'REFUND_REQUIRED' &&
-                  BigInt(String(a.refund_due_amount ?? 0)) > 0n,
-              )
-              .map((a) => [a.session_id, a]),
-          ).values(),
-        ),
-      );
-      setError('');
+      if (!signal.aborted) {
+        setIssues([
+          ...items,
+          ...alerts
+            .filter((a) => a.stock_inspection === true)
+            .map((a) => ({
+              ...a,
+              stock_inspection: true,
+              product_name_snapshot: a.item_name ?? null,
+              quantity: a.item_quantity ?? null,
+              reported_at: a.created_at ?? null,
+              reported_reason_code: a.issue_reason_code ?? null,
+            })),
+        ]);
+        setOutstanding(openShortfalls(cases));
+        setUpdatedAt(new Date().toISOString());
+        setRefunds(
+          Array.from(
+            new Map(
+              alerts
+                .filter(
+                  (a) =>
+                    a.alert_type === 'REFUND_REQUIRED' &&
+                    BigInt(String(a.refund_due_amount ?? 0)) > 0n,
+                )
+                .map((a) => [a.session_id, a]),
+            ).values(),
+          ),
+        );
+        setError('');
+      }
     } catch {
-      setError('Chưa tải được danh sách công việc. Chọn Tải lại dữ liệu để thử lại.');
+      if (!signal.aborted)
+        setError('Chưa tải được danh sách công việc. Chọn Tải lại dữ liệu để thử lại.');
     } finally {
       try {
-        const cases = await api<PaymentReconciliationCase[]>('/core/admin/payment-reconciliation');
-        setPaymentCases(cases.filter((item) => item.status === 'OPEN'));
-        setPaymentError('');
+        if (!signal.aborted) {
+          const cases = await api<PaymentReconciliationCase[]>(
+            '/core/admin/payment-reconciliation',
+            undefined,
+            'GET',
+            false,
+            signal,
+          );
+          if (!signal.aborted) {
+            setPaymentCases(cases.filter((item) => item.status === 'OPEN'));
+            setPaymentError('');
+          }
+        }
       } catch {
-        setPaymentError('Chưa cập nhật được ngoại lệ thanh toán. Dữ liệu gần nhất được giữ lại.');
+        if (!signal.aborted)
+          setPaymentError('Chưa cập nhật được ngoại lệ thanh toán. Dữ liệu gần nhất được giữ lại.');
+      } finally {
+        if (loading.current === signal) loading.current = null;
       }
-      loading.current = false;
     }
   }, []);
   useEffect(() => {
-    void refresh();
+    reads.current = new AbortController();
     const tick = () => {
       if (!document.hidden) void refresh();
     };
+    const stopReads = () => reads.current?.abort();
+    const resumeReads = () => {
+      if (reads.current?.signal.aborted) reads.current = new AbortController();
+      tick();
+    };
+    void refresh();
     const timer = setInterval(tick, 3000);
     window.addEventListener('focus', tick);
     window.addEventListener('online', tick);
     document.addEventListener('visibilitychange', tick);
+    // Full navigation does not unmount React before the browser tears down its fetches.
+    window.addEventListener('pagehide', stopReads);
+    window.addEventListener('pageshow', resumeReads);
     return () => {
+      stopReads();
+      reads.current = null;
       clearInterval(timer);
       window.removeEventListener('focus', tick);
       window.removeEventListener('online', tick);
       document.removeEventListener('visibilitychange', tick);
+      window.removeEventListener('pagehide', stopReads);
+      window.removeEventListener('pageshow', resumeReads);
     };
   }, [refresh]);
   return {

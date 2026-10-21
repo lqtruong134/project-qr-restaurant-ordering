@@ -36,23 +36,39 @@ export function PromotionSelection({
   const quoteGeneration = useRef(0);
   const codeId = useId();
   const path = guest ? '/guest/promotion' : `/core/sessions/${sessionId}/promotion`;
-  const refresh = useCallback(async () => {
-    const generation = ++quoteGeneration.current;
-    const result = await api<PromotionQuote>(path, undefined, 'GET', guest);
-    if (generation === quoteGeneration.current) setQuote(result);
-  }, [path, guest]);
+  const refresh = useCallback(
+    async (signal?: AbortSignal) => {
+      const generation = ++quoteGeneration.current;
+      const result = await api<PromotionQuote>(path, undefined, 'GET', guest, signal);
+      if (!signal?.aborted && generation === quoteGeneration.current) setQuote(result);
+    },
+    [path, guest],
+  );
   const revision = JSON.stringify(billing);
   useEffect(() => {
     let active = true;
+    let controller = new AbortController();
     const read = async () => {
       if (!active || inFlight.current || document.hidden) return;
+      const signal = controller.signal;
       try {
-        await refresh();
-        if (active) setLoadError('');
+        await refresh(signal);
+        if (active && !signal.aborted) setLoadError('');
       } catch (e) {
-        if (active) setLoadError(e instanceof Error ? e.message : 'Chưa tải được ưu đãi.');
+        if (active && !signal.aborted)
+          setLoadError(e instanceof Error ? e.message : 'Chưa tải được ưu đãi.');
       }
     };
+    const stopReads = () => controller.abort();
+    const resumeReads = () => {
+      if (controller.signal.aborted) {
+        controller = new AbortController();
+        void read();
+      }
+    };
+    // A document reload does not unmount React first. Abort before WebKit tears down fetches.
+    window.addEventListener('pagehide', stopReads);
+    window.addEventListener('pageshow', resumeReads);
     void read();
     const timer = setInterval(() => {
       void read();
@@ -60,7 +76,10 @@ export function PromotionSelection({
     return () => {
       active = false;
       quoteGeneration.current++;
+      stopReads();
       clearInterval(timer);
+      window.removeEventListener('pagehide', stopReads);
+      window.removeEventListener('pageshow', resumeReads);
     };
   }, [refresh, revision]);
   const selection = quote ? quote.billing.promotion : billing?.promotion;

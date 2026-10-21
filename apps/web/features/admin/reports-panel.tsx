@@ -10,7 +10,7 @@ import Receipt, { type Bill } from '../workspace/receipt';
 import { SupportHistory } from '../workspace/support-history';
 import { Empty, Modal } from '../shared/primitives';
 import { OrderExceptions } from './order-exceptions';
-import type { AdminData, SaveAdmin } from './admin-types';
+import type { SaveAdmin } from './admin-types';
 import { Action, api, EntryForm, vnd, label, type Row } from '../shared/components';
 import { restaurantDateTime } from '../shared/restaurant-time';
 import {
@@ -57,7 +57,6 @@ export default function ReportsPanel({
   initial = 'sales',
   open,
 }: {
-  data: Pick<AdminData, 'reports' | 'outstanding'>;
   save: SaveAdmin;
   initial?: string;
   open: AdminOpen;

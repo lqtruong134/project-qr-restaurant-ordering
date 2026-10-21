@@ -257,6 +257,11 @@ test('every admin destination has a usable heading, local controls and contained
 }, info) => {
   test.setTimeout(240000);
   const errors: string[] = [];
+  const legacyReportRequests: string[] = [];
+  page.on('request', (request) => {
+    if (request.method() === 'GET' && new URL(request.url()).pathname === '/api/core/reports')
+      legacyReportRequests.push(request.url());
+  });
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('response', (r) => {
     if (r.url().includes('/api/') && r.status() >= 500)
@@ -265,20 +270,26 @@ test('every admin destination has a usable heading, local controls and contained
   await login(page);
   for (const group of adminNavigation) {
     for (const child of group.children ?? [undefined]) {
-      await selectAdmin(page, group.label, child?.label);
-      await expect(page.locator('.admin-content > .section-heading h2')).toBeVisible();
-      if (child)
-        await expect(page.locator('.admin-content > .section-heading h2')).toHaveText(child.title);
-      await expect(page.getByText(/^Đang (lấy|tải)/)).toHaveCount(0);
-      await fits(page);
-      await page.screenshot({
-        path: info.outputPath(`admin-${group.id}-${child?.id ?? 'main'}.png`),
-        fullPage: !info.project.use.isMobile,
-        scale: 'css',
-        animations: 'disabled',
+      await test.step(group.label + (child ? ' / ' + child.label : ''), async () => {
+        await selectAdmin(page, group.label, child?.label);
+        await expect(page.locator('.admin-content > .section-heading h2')).toBeVisible();
+        if (child)
+          await expect(page.locator('.admin-content > .section-heading h2')).toHaveText(
+            child.title,
+          );
+        await expect(page.getByText(/^Đang (lấy|tải)/)).toHaveCount(0);
+        await expect(page.locator('.admin-content > .form-error')).toHaveCount(0);
+        await fits(page);
+        await page.screenshot({
+          path: info.outputPath(`admin-${group.id}-${child?.id ?? 'main'}.png`),
+          fullPage: !info.project.use.isMobile,
+          scale: 'css',
+          animations: 'disabled',
+        });
       });
     }
   }
+  expect(legacyReportRequests).toEqual([]);
   expect(errors).toEqual([]);
 });
 
@@ -292,9 +303,18 @@ test('role-specific guidance opens at its title and returns keyboard focus to th
   await expect(
     dialog.getByRole('heading', { name: 'Hướng dẫn phục vụ', exact: true }),
   ).toBeFocused();
-  await expect(dialog.locator('.procedure-topics details')).toHaveCount(4);
+  await expect(dialog.locator('.procedure-topics summary')).toHaveText([
+    'Đón khách và gọi món',
+    'Mang món và trao đổi với khách',
+    'Thu tiền, trả tiền thừa và phiếu',
+    'Hỗ trợ, bàn giao và kết thúc bàn',
+    'Ca làm, chấm công và lương của tôi',
+  ]);
   await dialog.getByText('Thu tiền, trả tiền thừa và phiếu', { exact: true }).click();
   await expect(dialog).toContainText('xác nhận đã trả');
+  await dialog.getByText('Ca làm, chấm công và lương của tôi', { exact: true }).click();
+  await expect(dialog).toContainText('chấm ra muộn không tự tăng tiền công.');
+  await expect(dialog).toContainText('Phiếu lương chỉ hiển thị sau khi quản trị chốt');
   await fits(page);
   await page.screenshot({
     path: info.outputPath('staff-contextual-help.png'),

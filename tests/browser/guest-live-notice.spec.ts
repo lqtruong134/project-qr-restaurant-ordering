@@ -1,4 +1,50 @@
+import { readFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
+
+const imageManifest = JSON.parse(
+  readFileSync(
+    new URL('../../packages/database/resources/menu-images/manifest.json', import.meta.url),
+    'utf8',
+  ),
+) as { products: Record<string, string> };
+const menuPhotograph = '/api/menu-images/' + imageManifest.products['KHAI-01'];
+function photographedMenu() {
+  return {
+    ...state([item('READY')]),
+    products: [
+      {
+        id: 'rolls',
+        code: 'KHAI-01',
+        name: 'Gỏi cuốn tôm thịt',
+        base_price: '45000',
+        description: 'Tôm, thịt và rau tươi cuốn bánh tráng.',
+        category_name: 'Khai vị',
+        image_url: menuPhotograph,
+        product_kind: 'DISH',
+        is_active: true,
+        availability_status: 'AVAILABLE',
+        version: 1,
+      },
+    ],
+    promotions: [
+      {
+        id: 'rolls-photo',
+        product_id: 'rolls',
+        image_url: menuPhotograph,
+        image_width: 640,
+        image_height: 480,
+        presentation: 'PHOTO',
+        eyebrow: 'Gợi ý từ bếp',
+        image_note: null,
+        expected_price: '45000',
+        expected_components: [],
+        sort_order: 0,
+        is_active: true,
+        version: 1,
+      },
+    ],
+  };
+}
 
 type Dish = { [key: string]: string | number | boolean | null; id: string };
 const item = (status = 'SUBMITTED', id = 'one', owner = 'person-a'): Dish => ({
@@ -185,11 +231,11 @@ test('reduced motion keeps the full message still and leaves updates readable', 
 test('guest photograph loads and keeps the menu usable at desktop and small widths', async ({
   page,
 }, info) => {
-  await page.route('**/api/guest/state', (route) =>
-    route.fulfill({ json: state([item('READY')]) }),
-  );
+  await page.route('**/api/guest/state', (route) => route.fulfill({ json: photographedMenu() }));
   await page.goto('/guest');
-  const photograph = page.getByRole('img', { name: 'Món Việt dùng tại bàn', exact: true });
+  const photograph = page.locator(
+    '.guest-menu-promotions .marketing-slide[aria-hidden="false"] img',
+  );
   await expect(photograph).toBeVisible();
   await expect
     .poll(() =>
@@ -218,16 +264,19 @@ test('guest photograph loads and keeps the menu usable at desktop and small widt
   }
 });
 
-test('a missing photograph leaves a clean text hero and does not block ordering', async ({
+test('a missing promotion photograph keeps its text, menu fallback and dish selection usable', async ({
   page,
 }, info) => {
-  await page.route('**/api/guest/state', (route) => route.fulfill({ json: state() }));
-  await page.route('**/images/banners/guest.webp', (route) =>
-    route.fulfill({ status: 404, body: '' }),
-  );
+  await page.route('**/api/guest/state', (route) => route.fulfill({ json: photographedMenu() }));
+  await page.route('**' + menuPhotograph, (route) => route.fulfill({ status: 404, body: '' }));
   await page.goto('/guest');
-  await expect(page.locator('.guest-photo-hero')).toHaveClass(/is-without-photo/);
-  await expect(page.locator('.guest-hero-photo')).toHaveCount(0);
+  const promotion = page.locator('.guest-menu-promotions .marketing-slide[aria-hidden="false"]');
+  await expect(promotion.locator('img')).toHaveCount(0);
+  await expect(
+    promotion.getByRole('heading', { name: 'Gỏi cuốn tôm thịt', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('.dish-card .dish-media')).toHaveAttribute('data-placeholder', 'true');
+  await expect(page.locator('.dish-card')).toContainText('Ảnh đang cập nhật');
   await expect(
     page.getByRole('heading', { name: 'Hôm nay bạn muốn dùng món gì?', exact: true }),
   ).toBeVisible();
@@ -236,6 +285,12 @@ test('a missing photograph leaves a clean text hero and does not block ordering'
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
       .toBe(true);
+    await promotion.getByRole('button', { name: 'Chọn món này', exact: true }).click();
+    const picker = page.getByRole('dialog');
+    await expect(picker).toContainText('Gỏi cuốn tôm thịt');
+    await expect(picker.getByRole('button', { name: /Thêm vào giỏ/ })).toBeEnabled();
+    await page.keyboard.press('Escape');
+    await expect(picker).toHaveCount(0);
     await strip(page).getByRole('button', { name: 'Món đã gọi', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Món đã gọi', exact: true })).toBeVisible();
     await page
