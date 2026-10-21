@@ -1,5 +1,37 @@
 # 06. Hiểu tiền, hóa đơn và điều kiện đóng bàn
 
+## Chẩn đoán recipient A10 / #48A135F3 — 21/10/2026
+
+**Chưa chứng minh được nguyên nhân gốc của giao dịch thật 10.000đ.** Bản này chỉ bổ sung công cụ đọc bằng chứng, không sửa `payos.service.ts`, `payos-normalization.ts`, trạng thái tiền, allocation hoặc quy tắc bảo mật. Báo nhận 10.000đ / ghi sổ 0đ / phân bổ 0đ phù hợp với nhánh recipient bị chặn, nhưng chưa cho biết trường tài khoản nào gây chặn.
+
+Code hiện lưu `CREATE.accountNumber` làm tài khoản kỳ vọng. Khi GET hoặc webhook có `virtualAccountNumber` rõ ràng, helper ưu tiên VA và yêu cầu VA khớp tài khoản kỳ vọng. Nếu GET thiếu VA và primary khác tài khoản kỳ vọng, cần webhook đã xác minh khớp primary và chứng minh VA đúng. Webhook chỉ được dùng khi khớp chữ ký đã xác minh, nhà hàng, orderCode, paymentLinkId, reference, amount, VND, code 00 và recipientEvidenceVersion 2. Bấm đối chiếu dùng lại cùng điều kiện, không vượt qua guard.
+
+[API chính thức](https://payos.vn/docs/api/) mô tả CREATE trả `accountNumber` và QR. [Webhook chính thức](https://payos.vn/docs/du-lieu-tra-ve/webhook/) có cả `accountNumber` và `virtualAccountNumber`; SDK đang khóa ở `@payos/node 2.0.5` cũng khai báo hai trường trên transaction GET. Các tài liệu này không chứng minh tài khoản chính và VA của giao dịch đang bị chặn có quan hệ gì; không dùng chúng để tự nới guard.
+
+### Một lệnh để chủ dự án chạy trên production
+
+Chạy từ thư mục gốc repository trong **WSL/bash**, khi đã có tệp [scripts/payos-recipient-diagnostic.mjs](../scripts/payos-recipient-diagnostic.mjs) từ nhánh `fix/payos-recipient-diagnostic`. Container API hiện tại phải đang chạy. Lệnh truyền công cụ qua stdin vào container hiện có; **không cần build image, deploy, chuyển mã đang chạy, migration, restart hoặc nạp lại secrets**. Người chuẩn bị bản này chưa chạy lệnh trên production.
+
+```bash
+docker compose --env-file deploy/.env.production -f compose.production.yaml exec -T api node --import tsx --input-type=module - --table A10 --session 48A135F3 < scripts/payos-recipient-diagnostic.mjs
+```
+
+Công cụ dùng môi trường sẵn có trong container, không đọc/in tệp env. Chỉ import adapter và normalization hiện đang chạy; không khởi động API/worker, không gọi refresh, tạo/hủy link, ghi sổ hay phân bổ. DB mở transaction `REPEATABLE READ READ ONLY`, timeout truy vấn 5 giây, kết thúc bằng `ROLLBACK`. Đích phải khớp đúng một phiên trong nhà hàng cấu hình; tối đa 10 khoản payOS, mỗi khoản một GET (adapter giới hạn 8 giây, không retry), mỗi khoản tối đa 100 giao dịch/webhook. Không có đích hoặc vượt giới hạn thì dừng, không mở rộng truy vấn toàn dữ liệu.
+
+Kết quả chỉ có số thứ tự khoản/giao dịch, trạng thái, số tiền, kiểu/độ dài trường và boolean so sánh. Không in bất kỳ chữ số nào của tài khoản, QR, link ID, reference, tên khách, mô tả, chữ ký, khóa hoặc lỗi SDK/DB thô. `signaturePreviouslyVerified` là cờ lịch sử lưu trong DB, không phải xác minh lại chữ ký gốc từ snapshot. GET được xác minh chữ ký mới bằng adapter hiện có. Tài khoản đọc từ QR chỉ để so tính nhất quán, **không kiểm chứng CRC/chữ ký QR và không trở thành bằng chứng để chấp nhận thanh toán**.
+
+### Đọc kết quả
+
+- `get.checks`: order/link/amount, tổng transaction, số còn lại, amount dương và reference duy nhất phải khớp.
+- `createAccount` và `qr.createMatchesQrAccount`: kiểm tra tài khoản lưu lúc tạo so với tài khoản trong QR; chỉ hiện trạng thái/độ dài/boolean.
+- `webhookCandidates[].checks`: chỉ rõ vì sao một snapshot không được chọn làm bằng chứng, kể cả bản cũ thiếu version 2, sai order/link/amount/tenant hoặc chưa xác minh chữ ký.
+- `transactions[].recipient.equals`: phân biệt tài khoản kỳ vọng, primary/VA trong GET và webhook; giá trị `null` nghĩa là không có đủ hai chuỗi hợp lệ để so.
+- `recipient.decision`: `GET_EXPLICIT_VA_DIFFERS_FROM_CREATE`, `WEBHOOK_EXPLICIT_VA_DIFFERS_FROM_CREATE`, `GET_PRIMARY_DIFFERS_NO_ELIGIBLE_WEBHOOK`, hoặc nhánh cụ thể khác. `matched` gọi nguyên helper đang chạy; kết quả chỉ là recipient, không xác nhận giao dịch đã qua mọi lớp kiểm tra hoặc đã vào sổ.
+
+Gửi lại **JSON đã che dữ liệu do lệnh xuất ra**. Nếu có lỗi, chỉ gửi mã lỗi công cụ; không gửi env, raw response, logs chứa khóa hoặc số tài khoản. Chưa có kết quả thì dừng điều tra tại đây, không đổi luật recipient, không ép PAID/SUCCEEDED và không xác nhận thủ công tiền đã ghi sổ. Sau khi chứng minh được nguyên nhân mới chuẩn bị bản sửa tối thiểu và kiểm thử tương ứng.
+
+Kiểm thử bản chẩn đoán: 16 bài Node cho công cụ/stream stdin/chống lộ dữ liệu/GET HMAC giả và 29 unit normalization đạt; lint và syntax của hai tệp mới đạt. Không truy cập DB hoặc payOS production, không kiểm thử giao dịch thật, không chạy Playwright/E2E. Workflow Quality gate giữ nguyên; CI tự chạy theo cấu hình repository khi push/PR. Công cụ mới có lệnh test riêng `node --import tsx --test scripts/payos-recipient-diagnostic.test.mjs`; không thay lệnh hay ngưỡng Quality gate hiện hành.
+
 ## Audit và mô hình thanh toán hiện hành — 19/10/2026
 
 Phần này mô tả nhánh **`fix/payos-payment-experience`** và thay cho các hướng dẫn cũ bên dưới về yêu cầu đối soát thủ công cho mọi khoản online hoặc nhập mã để xác nhận `RETURNED_EXTERNALLY`. Đây là thay đổi mã nguồn và kiểm thử bằng dữ liệu giả. **Đợt 19/10 không đọc production DB, không gọi payOS thật, không xác nhận merchant/tài khoản nhận thật và chưa chứng minh giao dịch 5.000đ được chủ dự án phản ánh đã được ghi sổ hoặc phân bổ.** Dashboard, ảnh QR biến mất và ảnh giao diện không đủ để kết luận khoản đó đã trả vào hóa đơn. Biên bản các ngày trước là bằng chứng lịch sử của chính đợt đó; không chuyển kết luận của chúng thành kết quả kiểm tra mới.
