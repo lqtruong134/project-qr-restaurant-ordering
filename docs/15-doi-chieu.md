@@ -1,5 +1,37 @@
 # 15. Hồ sơ đối chiếu và giới hạn xác minh
 
+## Nền tảng payOS M1 — chốt 23/10/2026
+
+Nhánh mới **`feat/payos-payment-platform`**, tạo từ `main` tại `6c45a0156d049027dcc160ccd8efa9a4ee9e9bc6`. Đây là milestone nền tảng của yêu cầu xây dựng lại, **chưa hoàn tất luồng ADMIN xác minh ngân hàng hoặc UI mới, chưa sẵn sàng deploy/cutover**. [Thiết kế thống nhất và giới hạn bằng chứng](reference/payos-platform-design.md), [reset chỉ đọc/backup/archive/rollback](reference/payos-demo-reset-runbook.md), [nghiệp vụ](06-thanh-toan.md), [cấu hình và công cụ maintenance](26-trien-khai-qtruongres.md).
+
+### Phần đã hoàn thành của milestone
+
+- Thay `nextval` trong đường tạo QR bằng allocator SQLite ngoài vòng đời DB vận hành: khóa ghi nguyên tử, high-water theo hash kênh, `max(previous+1, nowMs, databaseFloor+1)`, reserve trước gọi provider; rollback PostgreSQL không tái sử dụng mã. Sequence/schema SQL cũ không bị sửa. Thiếu namespace/store, file hỏng/quyền không phù hợp hoặc hết miền số nguyên an toàn đều chặn tạo khoản mới, không tự bootstrap merchant.
+- CLI khởi tạo riêng chỉ đọc max DB trong transaction READ ONLY rồi đóng kết nối, yêu cầu watermark lịch sử do operator kiểm chứng và xác nhận tường minh; không tự suy ra toàn bộ lịch sử từ DB hiện tại. Production Compose dùng `/data/payos-state/order-codes.sqlite` trong volume runtime, UID 10001; service maintenance mặc định chỉ `--help`.
+- Runtime backup/restore nhận đúng state file có checksum, quyền 700/600; chặn sidecar, symlink/hardlink và tool state chạy đồng thời. Đây là cold copy sau khi đã fence mọi writer. **Một snapshot hợp lệ nhưng cũ vẫn có thể làm counter lùi**; phải kiểm chứng upper bound độc lập trước khi bật payOS sau restore. Không có cơ chế tự chứng minh archive/provider history mới nhất.
+- Công cụ reset chỉ inventory trong READ ONLY/ROLLBACK, xuất counts/boolean/hash review đã khử dữ liệu riêng. Bao gồm hóa đơn đã chốt, lượt gọi món/món, chứng từ, cảnh báo và trường hợp đã ghi sổ một phần nhưng tiền báo nhận vẫn lớn hơn ledger. Mọi payOS/ONLINE/external attempt là PROTECTED/UNKNOWN; bản ghi khác giữ lại, auto-delete bằng 0. Không có executor reset hoặc quyền phê duyệt từ planHash.
+
+### Kiểm tra thực chạy
+
+| Kiểm tra | Kết quả và phạm vi |
+| --- | --- |
+| `pnpm check` trong môi trường sạch, không nạp env thật | Format, lint, typecheck toàn workspace/tools đạt; **360 unit tests / 44 files đạt** |
+| Ba suite `payos.integration`, `payos-provider-recovery.integration`, `payos-protocol.integration` | **122/122 đạt** trên PostgreSQL tmpfs, cổng localhost riêng, credential tổng hợp; SDK/provider giả không gọi merchant thật |
+| Node reset/deployment tests, bật smoke image API riêng | **39/39 đạt, 0 skip**; gồm archive roundtrip SQLite, hash/quyền/sidecar/corruption, guards, dữ liệu đầu ra an toàn |
+| Build API runtime và maintenance bằng Dockerfile production, tag riêng | Đạt; không tag đè image production hoặc chạy stack live |
+| API image smoke | UID/GID 10001, root filesystem read-only, network none; đọc 3210 file/797 thư mục, import dependencies/native addon và health giả đạt; allocator giữ mã với DB floor quay về 0, chặn kênh chưa khởi tạo |
+| Maintenance image smoke | UID 10001, filesystem read-only/network none; initializer `--help` và đọc đủ **37 migration SQL** đạt; không chạy Prisma/migration hoặc kết nối DB |
+| Production Compose syntax | `config --quiet` với `/dev/null` và env tổng hợp đạt; compose dev không đổi |
+| Secret check và diff whitespace | Đạt; đây là kiểm tra cơ bản, không thay thế toàn bộ security audit; không đưa env thật/khóa/chứng từ/SQLite runtime/backup vào commit |
+
+Lần integration đầu thiếu AUTH_SECRET tổng hợp cho fixture mở bàn, gây lỗi trước đường payment; chạy lại với cấu hình test riêng đã đạt. Test PostgreSQL thật của inventory phát hiện SELECT thiếu FROM và tham số webhook so sánh UUID/text; đã sửa truy vấn và chạy lại toàn bộ ba suite đạt 122/122. Không nới guard hay assertion để bỏ qua lỗi. Các test chọn theo tên chỉ phục vụ chẩn đoán; số 122 là lượt đầy đủ cuối của ba suite.
+
+### Phần chưa thực hiện
+
+M2 còn phải xây protected bank evidence, ADMIN preview/confirm, receipt identity chung xuyên phương thức, khóa/dedup giữa ADMIN và webhook, provenance PAYOS_VERIFIED/BANK_ADMIN_VERIFIED và test cạnh tranh. M3 còn UI ba vai trò, E2E sâu, deployment/cutover/rollback rehearsal toàn nền tảng và nghiệm thu thật. Không coi các endpoint đề xuất trong hồ sơ thiết kế là chức năng hiện có.
+
+Chưa chạy E2E hoặc kiểm chứng production của nền tảng mới. Không xác minh merchant/webhook/Cloudflare live; không thực hiện giao dịch, hoàn tiền, reset/archive, chạy migration hoặc truy cập DB production. Không đổi secrets, merge hoặc deploy; Quality gate GitHub giữ nguyên và kết quả CI của PR mới phải đọc riêng sau push. Không kết luận giao dịch A10/A06 thật đã được ghi sổ hoặc đã hoàn.
+
 ## PR #1 — Phục hồi Quality gate toàn hệ thống — 21/10/2026
 
 ### Bổ sung sau lượt GitHub đầu của bản sửa

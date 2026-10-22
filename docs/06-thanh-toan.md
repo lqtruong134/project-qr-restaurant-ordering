@@ -1,5 +1,19 @@
 # 06. Hiểu tiền, hóa đơn và điều kiện đóng bàn
 
+## Nền tảng thanh toán M1 — 22/10/2026
+
+Nhánh `feat/payos-payment-platform` bàn giao **M1: allocator orderCode bền vững ngoài DB ứng dụng, kiểm kê làm mới dữ liệu chỉ đọc và hồ sơ thiết kế**. M1 chưa có nghiệp vụ ADMIN bank-evidence preview/confirm hoặc UI mới; **M2/M3 chưa triển khai và toàn bộ nền tảng mới chưa sẵn sàng deploy**. Xem [thiết kế và các mốc còn thiếu](reference/payos-platform-design.md), [runbook DB mới/archive chỉ đọc](reference/payos-demo-reset-runbook.md), [triển khai và khởi tạo state](26-trien-khai-qtruongres.md), [kết quả kiểm chứng](15-doi-chieu.md).
+
+Khi lập khoản payOS mới, service dùng allocator SQLite theo namespace Client ID, giữ high-water qua restart hoặc thay DB. Reservation được ghi bền vững trước khi request tạo link; transaction ứng dụng rollback có thể để khoảng trống mã nhưng không được cấp lại mã đó. Sequence PostgreSQL cũ vẫn giữ nguyên để tương thích schema/lịch sử; **M1 không thêm migration và không reset sequence**.
+
+Production cố định `PAYOS_ORDER_CODE_STORE=/data/payos-state/order-codes.sqlite` trong volume `runtime_data`, tách khỏi volume PostgreSQL. Dev mặc định là `var/payos-state/order-codes.sqlite` ở gốc repo, suy ra từ `import.meta.url`, không đổi theo working directory của tiến trình. Store/channel chưa khởi tạo hợp lệ hoặc hỏng phải dừng cấp mã; không tự lấy max trong DB mới hay giờ hiện tại làm lịch sử merchant.
+
+Có CLI khởi tạo **tường minh** ở `scripts/payos-order-code-store.ts`, chạy bằng maintenance service `payos-state` với UID 10001. Lệnh mặc định chỉ in `--help`; không mở DB, ghi state hoặc gọi payOS. Initialize cần watermark do operator đã kiểm chứng với **mọi DB/archive/provider và durable state cũ**, cùng `--confirm-channel-history`; CLI chỉ kiểm tra thêm READ ONLY rằng watermark không thấp hơn max trong DB đang trỏ tới. Cờ này là cam kết người vận hành, không phải xác minh lịch sử provider tự động. Không đưa watermark đoán hoặc giá trị 0 vào kênh đang có giao dịch; DB sạch không chứng minh kênh mới. Chỉ thực hiện bootstrap sau đợt review/cutover được chấp thuận, mọi writer cũ đã được fence và backup/restore đã kiểm chứng.
+
+Bank evidence dự kiến giữ nguồn riêng `BANK_ADMIN_VERIFIED`, không đổi thành “payOS đã xác minh” chỉ vì ADMIN nhập chứng từ. Shared posting, chống ghi trùng xuyên PAYOS/BANK_TRANSFER, nối webhook đến muộn và hiển thị provenance sẽ được triển khai/kiểm thử ở M2/M3. Không dùng các endpoint đề xuất trong hồ sơ thiết kế như API hiện hữu.
+
+Các mục bên dưới là lịch sử hotfix/điều tra của các nhánh trước; chúng không chứng minh bank-evidence workflow hoặc cutover M1 đã chạy trên production.
+
 ## Hotfix MB: tài khoản QR khác tài khoản ngân hàng chính — 22/10/2026
 
 **Đã sửa trên PR #2, chưa triển khai production.** Chủ dự án xác nhận công cụ riêng tư so khớp chính xác primary 10 số với tài khoản MB của đúng kênh. Bằng chứng trước đó: CREATE/QR cùng tài khoản 13 số; signed GET PAID 10.000đ và webhook v2 hợp lệ cùng primary 10 số, cả hai VA null. Nguyên nhân guard: code chỉ biết anchor CREATE/VA nên không nối được hai biểu diễn tài khoản. [FAQ chính thức payOS](https://payos.vn/docs/cau-hoi-thuong-gap/) giải thích VietQR Pro dùng tài khoản ảo theo đơn; **hotfix vẫn không lấy lời xác nhận hoặc output chẩn đoán làm quyền ghi sổ**.

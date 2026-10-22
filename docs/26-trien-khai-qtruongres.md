@@ -1,5 +1,43 @@
 # 26. Triển khai qtruongres trên laptop và chuyển sang VPS
 
+## Nền tảng payOS M1 và điều kiện dừng trước triển khai — 22/10/2026
+
+Nhánh `feat/payos-payment-platform` hiện chỉ bàn giao M1: durable order allocator, inventory/dry-run và thiết kế. **M2 bank evidence/shared posting và M3 UI/E2E sâu/cutover chưa triển khai; M1 không phải bản hoàn tất nền tảng mới để deploy production.** Không tự nâng cấp dịch vụ, bootstrap state, đổi webhook hoặc làm mới DB trong đợt chuẩn bị này. Đọc [thiết kế](reference/payos-platform-design.md), [runbook DB mới/archive](reference/payos-demo-reset-runbook.md), [nghiệp vụ](06-thanh-toan.md) và [biên bản test hiện hành](15-doi-chieu.md).
+
+### Store orderCode và service maintenance riêng
+
+Production cố định `PAYOS_ORDER_CODE_STORE=/data/payos-state/order-codes.sqlite` trên `runtime_data`; không nằm trong DB PostgreSQL, image layer hoặc `/tmp`. Dev dùng mặc định ổn định `var/payos-state/order-codes.sqlite` ở repo root qua `import.meta.url`. Sequence PostgreSQL cũ được giữ lại nhưng service payOS M1 cấp mã qua SQLite. **Không có migration mới cho M1**, không chạy migration/reset/seed chỉ để đưa allocator vào dùng.
+
+Maintenance service `payos-state` dùng maintenance image, user `10001:10001`, root filesystem read-only, dropped capabilities và volume `runtime_data:/data`. Command mặc định là `--help`; service không tự start cùng stack hoặc tự initialize khi API thiếu store. Trong repository/image đã được chuẩn bị, operator có thể xem trợ giúp bằng:
+
+```bash
+docker compose --env-file deploy/.env.production -f compose.production.yaml --profile maintenance run --rm --no-deps payos-state
+```
+
+Lệnh chỉ chạy container maintenance ngắn để in hướng dẫn, không mở application DB, không ghi allocator và không gọi payOS; `--no-deps` không khởi động PostgreSQL phụ thuộc. Đây không phải lệnh deploy/start API hoặc phê duyệt initialization.
+
+### Bootstrap tương lai: cần lịch sử đầy đủ và mọi writer đã dừng
+
+Trước khi initialize cho một đợt đã được duyệt, phải fence **tất cả** API/worker/webhook/polling/CLI cũ và mới của kênh, kể cả checkout hoặc máy khác. READ ONLY max query không khóa các writer đang chạy và không kiểm chứng lịch sử bên ngoài DB. Thu thập watermark đã xác minh từ durable state, mọi DB/archive và merchant/provider, gồm mã đã reserve, CREATE thất bại hoặc kết quả mạng chưa rõ. Không lấy giờ hiện tại, DB mới trống, số đếm dry-run hoặc sequence mới làm giá trị thay thế.
+
+Mẫu dưới đây cố ý chứa `VERIFIED_MAX_EVER_USED`, **không phải số hợp lệ và không được chạy nguyên văn**. Không điền 0 hoặc một số ví dụ vào kênh hiện đang có tiền thật. Chỉ người vận hành thay bằng watermark số nguyên an toàn đã kiểm chứng, sau review/backup/restore và phê duyệt cutover riêng:
+
+```bash
+docker compose --env-file deploy/.env.production -f compose.production.yaml --profile maintenance run --rm --no-deps payos-state node --import tsx scripts/payos-order-code-store.ts initialize --high-water=VERIFIED_MAX_EVER_USED --confirm-channel-history
+```
+
+CLI yêu cầu DATABASE_URL/Client ID/store path từ môi trường riêng có sẵn, không nạp `.env` dev hoặc nhận credential qua argv. Nó dùng SELECT max trong transaction READ ONLY, rollback/đóng kết nối rồi mới gọi initializer. Watermark thấp hơn max DB bị từ chối; namespace đã tồn tại không bao giờ bị hạ xuống. `--confirm-channel-history` là attestation của operator, không có request provider hoặc quyền reset DB. Kênh thực sự chưa từng dùng mới có thể được đánh giá riêng với watermark ban đầu phù hợp; điều đó không áp dụng mặc định cho merchant hiện tại.
+
+### Backup lạnh, restore và counter không được quay lùi
+
+Runtime archive nay nhận thêm **đúng một đường dẫn** `payos-state/order-codes.sqlite` bên cạnh hai kho ảnh/chứng từ. Đây là cold copy: tất cả allocator/application writers phải đã dừng và giữ dừng trong khi copy. Không phải SQLite online backup API. File WAL/SHM/journal hoặc bất kỳ entry lạ nào phải làm backup dừng; không xóa sidecar hay bỏ qua file để làm gói backup trông hợp lệ.
+
+CLI backup từ chối khi có `migrate` hoặc `payos-state` đang chạy; nó không chứng minh không còn writer ở checkout/máy khác. Operator phải kiểm tra/fence các writer ngoài phạm vi quản lý của CLI. State có thư mục riêng quyền 700/file 600, không chuyển API sang root hoặc chmod 777 để vượt lỗi.
+
+**Restore gói cũ có thể đưa high-water về quá khứ.** Gói legacy không có allocator vẫn đọc được nhưng không tự tạo/khởi tạo state. Gói có allocator cũ cũng chưa chứng minh mã chưa được dùng sau thời điểm backup. Trước khi bật lại payOS, phải đối chiếu upper bound độc lập từ state mới hơn còn giữ, mọi DB/archive và provider, rồi đảm bảo store đích không thấp hơn giới hạn đã chứng minh. Thiếu bằng chứng thì giữ writer/payOS dừng, không initialize lại từ max của DB vừa restore và không start để thử. Không restore đè một store đang hoạt động hoặc rewind allocator theo rollback application DB.
+
+Runbook bên dưới về deploy/restore của các phiên bản trước là tham khảo lịch sử. Với nền tảng M1, các guard mới ở đầu bài và phần backup/restore áp dụng trước; không hiểu chuỗi lệnh cũ là quyền bỏ qua kiểm chứng allocator hoặc triển khai M2/M3 còn thiếu.
+
 ## Review chuyển dư có giới hạn phạm vi — 18/10/2026
 
 Nhánh `fix/payos-payment-flow` bổ sung sửa số dư theo allocation và ngân sách hoàn từng giao dịch. Trước triển khai phải review trường hợp hóa đơn 20.000đ, quote 10.000đ, thực nhận 12.000đ: còn thu 10.000đ, cần hoàn 2.000đ; admin chưa được đóng đối soát khi chưa có hoàn thật. Không tự chuyển 2.000đ vào món còn thiếu. Tiền đã nhận trước đây vẫn đọc từ sổ giao dịch; số dư phiên đang mở được tổng hợp lại, phiếu đã đóng giữ snapshot. Đợt bổ sung **không thêm migration** ngoài `202610170001_payment_system_resolution` đã có trên nhánh. [Nghiệp vụ](06-thanh-toan.md), [kiểm thử và giới hạn](15-doi-chieu.md).
@@ -260,7 +298,7 @@ node scripts/deploy.mjs migrate
 node scripts/deploy.mjs start
 ```
 
-Restore tự khởi động riêng PostgreSQL production nếu cần, kiểm tra database chưa có user object và hai store trống. Nó nạp `_prisma_migrations` cùng dữ liệu nguồn; sau đó migrate deploy chỉ áp migration mới còn thiếu. Không migrate trước rồi restore vào database đã có bảng.
+Restore tự khởi động riêng PostgreSQL production nếu cần, kiểm tra database chưa có user object và các runtime store đích đều trống, kể cả allocator state nếu có. Nó nạp `_prisma_migrations` cùng dữ liệu nguồn; sau đó migrate deploy chỉ áp migration mới còn thiếu. Không migrate trước rồi restore vào database đã có bảng. Với M1, kiểm tra cả allocator state theo guard đầu bài trước khi bật lại payOS; DB restore thành công không xác nhận high-water còn an toàn.
 
 Nếu đã có production vận hành thì dùng quy trình update, không restore đè. Nếu cần một nhà hàng hoàn toàn mới, task này chưa cung cấp service seed production tự động; cần kế hoạch bootstrap được duyệt riêng. Không chạy seed thông qua service migrate hiện tại vì service đó không gắn volume file runtime. Không dùng seed để thay thế dữ liệu cũ.
 
@@ -408,21 +446,26 @@ node scripts/deploy.mjs backup
 node scripts/deploy.mjs backup --backup-dir /duong-dan/luu-rieng
 ```
 
-Mỗi lần tạo thư mục timestamp/ngẫu nhiên mới, quyền 700, payload/manifest quyền 600. CLI từ chối nếu migration đang chạy, dừng app writers đang hoạt động rồi dump PostgreSQL và hai store; sau backup nó khởi động lại đúng các writer trước đó, kể cả khi backup lỗi mà dữ liệu nguồn không đổi. Nếu restore/update lỗi thì giữ writers dừng. Backup có thể gây gián đoạn ngắn, cần chọn thời điểm ít thao tác.
+Mỗi lần tạo thư mục timestamp/ngẫu nhiên mới, quyền 700, payload/manifest quyền 600. CLI từ chối nếu migration hoặc service payos-state đang chạy, dừng app writers đang hoạt động rồi dump PostgreSQL và runtime archive gồm menu-images, payment-proofs cùng state allocator cố định nếu có; sau backup nó khởi động lại đúng các writer trước đó, kể cả khi backup lỗi mà dữ liệu nguồn không đổi. Mọi writer khác của cùng kênh, ngoài phạm vi CLI, phải được operator fence trước; helper chỉ cold-copy SQLite khi không còn writer. Nếu restore/update lỗi thì giữ writers dừng. Backup có thể gây gián đoạn ngắn, cần chọn thời điểm ít thao tác.
 
 | Payload | Nội dung |
 | --- | --- |
 | `database.dump` | Custom-format dump của database ứng dụng, không xuất role/global password; restore bỏ owner/ACL cũ |
-| `runtime-files.jsonl` | Header phiên bản và từng file `{path,size,sha256,data:base64}` của menu-images/payment-proofs |
+| `runtime-files.jsonl` | Header phiên bản và từng file `{path,size,sha256,data:base64}` của menu-images/payment-proofs; M1 còn nhận đúng `payos-state/order-codes.sqlite` |
 | `manifest.json` | Phiên bản format, project logic qtruongres, sourceProject, commit, thời gian, size/checksum payload |
 
-Giới hạn archive file hiện hành: 2MiB/file, tối đa 10.000 file và 1GiB toàn gói JSONL. Base64 tăng kích thước khoảng một phần ba. Tên chỉ chấp nhận UUID `.png/.jpg/.webp` trong đúng hai thư mục; từ chối traversal, symlink, dòng trùng, checksum sai. File không hợp lệ làm backup thất bại thay vì bỏ qua âm thầm. Gói lỗi không có manifest hoàn tất; giữ riêng để chẩn đoán, không restore như gói tốt.
+Giới hạn archive file hiện hành: 2MiB/file, tối đa 10.000 file và 1GiB toàn gói JSONL. Base64 tăng kích thước khoảng một phần ba. Ảnh chỉ chấp nhận UUID `.png/.jpg/.webp` trong đúng hai thư mục; allocator chỉ chấp nhận đúng `payos-state/order-codes.sqlite`. WAL/SHM/journal, tên state khác, traversal, symlink, dòng trùng hoặc checksum sai đều bị từ chối. Không bỏ qua hay xóa sidecar để lấy bản cold copy khi writer chưa dừng. File không hợp lệ làm backup thất bại thay vì bỏ qua âm thầm. Gói lỗi không có manifest hoàn tất; giữ riêng để chẩn đoán, không restore như gói tốt.
 
 Khôi phục khi thực sự cần, trên project đích có volume mới/trống:
 
 ```bash
 node scripts/deploy.mjs stop
 node scripts/deploy.mjs restore --from /duong-dan/goi-backup
+```
+
+Giữ writers dừng tại đây. Kiểm chứng DB/tệp cùng allocator watermark bằng lịch sử độc lập theo guard M1 ở đầu bài; gói cũ/thiếu state không được tự initialize lại. M1 không thêm migration; chỉ áp migration thực sự cần theo schema/version của đợt đã được duyệt. Sau khi mọi điều kiện bảo toàn mã và cutover đạt mới tiếp tục các thao tác vận hành riêng:
+
+```bash
 node scripts/deploy.mjs migrate
 node scripts/deploy.mjs start
 node scripts/deploy.mjs health
@@ -434,7 +477,7 @@ Host kiểm tra manifest, hash và toàn archive trước khi nạp. PostgreSQL 
 
 **DB và filesystem không có transaction chung.** Nếu DB restore xong nhưng file thất bại, database có thể đã có dữ liệu; writers vẫn dừng. Không retry ghi đè hoặc bật web ngay. Giữ backup gốc, đọc thông báo/log riêng và khôi phục lại vào đích mới trống sau khi sửa dung lượng/quyền/phiên bản. Checksum phát hiện thay đổi/hỏng, không chứng minh backup đến từ nguồn đáng tin: chỉ restore gói do mình quản lý, vì dump có thể chứa SQL thực thi.
 
-Volume `postgres_data` giữ database, `runtime_data` giữ upload và chứng từ; tên Docker đầy đủ gắn project thực tế. `/tmp`, Next cache và log luân chuyển không phải nguồn backup nghiệp vụ. `.env`, token tunnel và khóa merchant được giữ/tái lập riêng; mất AUTH_SECRET nguồn có thể làm hỏng giải mã QR dù dump còn nguyên.
+Volume `postgres_data` giữ database, `runtime_data` giữ upload, chứng từ và `/data/payos-state/order-codes.sqlite`; tên Docker đầy đủ gắn project thực tế. `/tmp`, Next cache và log luân chuyển không phải nguồn backup nghiệp vụ. `.env`, token tunnel và khóa merchant được giữ/tái lập riêng; mất AUTH_SECRET nguồn có thể làm hỏng giải mã QR dù dump còn nguyên.
 
 ## 13. Chuyển sang VPS/Ubuntu VM
 

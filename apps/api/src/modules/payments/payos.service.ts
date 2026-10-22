@@ -1,3 +1,4 @@
+import { allocatePayosOrderCode, PayosOrderCodeError } from './payos-order-code.js';
 import { payosBankReportedJoin } from './payment-reported-funds.js';
 import { payosResolutionReadiness } from './payos-resolution.js';
 import type { Database } from '@thesis/database';
@@ -258,7 +259,26 @@ export class PayosService {
       ).rows[0];
       if (old) return String(pi.id);
       await c.query("UPDATE payment_intent SET provider='PAYOS' WHERE id=$1", [pi.id]);
-      const order = (await one(c, "SELECT nextval('payos_order_code_seq')::text AS code")).code;
+      // Reserve outside this PostgreSQL transaction: rollback/provider failure may
+      // leave a gap, but a fresh operational DB must never reuse a channel order.
+      if (!this.config.orderCodeStore || !this.config.clientId)
+        reject('Chưa khởi tạo kho mã payOS an toàn. Liên hệ quản trị để kiểm tra cấu hình.', 503);
+      const floor = await one(
+        c,
+        'SELECT COALESCE(MAX(order_code),0)::text AS code FROM payos_payment_request',
+      );
+      let order: number;
+      try {
+        order = allocatePayosOrderCode({
+          storePath: this.config.orderCodeStore,
+          channelId: this.config.clientId,
+          databaseFloor: BigInt(floor.code),
+        });
+      } catch (error) {
+        if (!(error instanceof PayosOrderCodeError)) throw error;
+        this.observe('ORDER_CODE_STORE_UNAVAILABLE', { reason: error.code }, true);
+        reject('Chưa thể cấp mã payOS an toàn. Liên hệ quản trị; không tạo lại lịch sử mã.', 503);
+      }
       const request: CreatePaymentLinkRequest = {
         orderCode: Number(order),
         amount: Number(current.amount),

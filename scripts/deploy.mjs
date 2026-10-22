@@ -276,6 +276,8 @@ export function validateDockerExecutable(value) {
 }
 export function requireNoMigration(running) {
   if (running.includes('migrate')) throw Error('Wait for the active migration job before backup.');
+  if (running.includes('payos-state'))
+    throw Error('Wait for the active payOS state tool before backup.');
 }
 export const emptyDatabaseQuery = `SELECT count(*) FROM (
   SELECT c.oid FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
@@ -292,7 +294,11 @@ export const emptyDatabaseQuery = `SELECT count(*) FROM (
 ) AS existing_objects`;
 
 export function requireStopped(running) {
-  if (writers.some((service) => running.includes(service)) || running.includes('migrate'))
+  if (
+    writers.some((service) => running.includes(service)) ||
+    running.includes('migrate') ||
+    running.includes('payos-state')
+  )
     throw Error('Stop api/web/caddy and migration jobs before restore or migration.');
 }
 function redact(text, env) {

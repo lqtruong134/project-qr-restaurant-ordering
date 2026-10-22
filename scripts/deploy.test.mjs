@@ -4,7 +4,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { chmod, mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  link,
+  lstat,
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { once } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -26,6 +37,7 @@ import {
 import {
   restoreRuntimeStream,
   FILE_ARCHIVE_FORMAT,
+  MAX_FILE_BYTES,
   backupRuntimeFiles,
   validateRuntimeArchive,
   restoreRuntimeFiles,
@@ -79,6 +91,9 @@ async function fileBackup(root, destination) {
     output.end();
     await once(output, 'finish');
   } catch (error) {
+    // Cleanup can fail an already queued header write after the backup itself rejected.
+    // Consume only the cleanup error; preserve the original rejection for assertions.
+    output.on('error', () => {});
     output.destroy();
     throw error;
   }
@@ -131,7 +146,7 @@ test('env loader refuses development .env and symlinks without reading their con
   }));
 test('restore requires stopped application writers and controlled migration jobs', () => {
   requireStopped(['postgres', 'cloudflared']);
-  for (const service of ['api', 'web', 'caddy', 'migrate'])
+  for (const service of ['api', 'web', 'caddy', 'migrate', 'payos-state'])
     assert.throws(() => requireStopped(['postgres', service]));
 });
 test('archive path allowlist excludes secrets, traversal, absolute paths and nested stores', () => {
@@ -268,6 +283,7 @@ test('validated production values override inherited settings and remove all amb
 test('backup guard refuses an active one-shot migration', () => {
   requireNoMigration(['postgres', 'api']);
   assert.throws(() => requireNoMigration(['postgres', 'migrate']), /migration/);
+  assert.throws(() => requireNoMigration(['postgres', 'payos-state']), /payOS state/);
 });
 test('stream restore uses private data-root scratch and cleans it on successful or malformed input', async () =>
   temporary(async (root) => {
@@ -492,6 +508,8 @@ test('maintenance migrations gain read/traverse access in the build stage withou
     .split('FROM source AS maintenance\n')[1]
     ?.split('FROM source AS production-dependencies')[0];
   assert.match(maintenance, /USER 10001:10001/);
+  assert.match(maintenance, /chown -R 0:10001 \/workspace/);
+  assert.match(maintenance, /chmod -R u=rwX,g=rX,o= \/workspace/);
 });
 
 test('API runtime code is group-readable and root-owned after every artifact copy', async () => {
@@ -617,3 +635,149 @@ test(
     console.log('API runtime permissions smoke: ' + JSON.stringify(summary));
   },
 );
+
+test('payOS allocator archive allowlist admits only the fixed main SQLite path', () => {
+  assert.equal(
+    validateRuntimePath('payos-state/order-codes.sqlite'),
+    'payos-state/order-codes.sqlite',
+  );
+  for (const path of [
+    'payos-state/other.sqlite',
+    'payos-state/order-codes.sqlite-wal',
+    'payos-state/order-codes.sqlite-shm',
+    'payos-state/order-codes.sqlite-journal',
+    'payos-state/nested/order-codes.sqlite',
+    'payos-state/../order-codes.sqlite',
+    '/data/payos-state/order-codes.sqlite',
+    'payos-state\\order-codes.sqlite',
+  ])
+    assert.throws(() => validateRuntimePath(path));
+});
+test('payOS allocator cold archive roundtrips SQLite state, checksum and private permissions', async () =>
+  temporary(async (root) => {
+    const { DatabaseSync } = await import('node:sqlite');
+    const source = join(root, 'source'),
+      target = join(root, 'target');
+    await mkdir(join(source, 'payos-state'), { recursive: true, mode: 0o700 });
+    await mkdir(join(target, 'payos-state'), { recursive: true, mode: 0o755 });
+    const original = join(source, 'payos-state', 'order-codes.sqlite');
+    const sqlite = new DatabaseSync(original);
+    try {
+      sqlite.exec(
+        'PRAGMA journal_mode=DELETE; CREATE TABLE channel_high_water(channel_hash TEXT PRIMARY KEY,last_code INTEGER NOT NULL);',
+      );
+      sqlite.prepare('INSERT INTO channel_high_water VALUES(?,?)').run('a'.repeat(64), 123456789);
+    } finally {
+      sqlite.close();
+    }
+    await chmod(original, 0o600);
+    await assert.rejects(assertRuntimeEmpty(source), /empty/);
+    const file = join(root, 'allocator-runtime.jsonl');
+    await fileBackup(source, file);
+    assert.deepEqual(await validateRuntimeArchive(file), { files: 1 });
+    assert.deepEqual(await restoreRuntimeFiles(target, file), { files: 1 });
+    const restored = join(target, 'payos-state', 'order-codes.sqlite');
+    assert.deepEqual(await hashFile(original), await hashFile(restored));
+    assert.equal((await lstat(join(target, 'payos-state'))).mode & 0o777, 0o700);
+    assert.equal((await lstat(restored)).mode & 0o777, 0o600);
+    const copy = new DatabaseSync(restored, { readOnly: true });
+    try {
+      assert.equal(
+        copy.prepare('SELECT last_code FROM channel_high_water').get().last_code,
+        123456789,
+      );
+    } finally {
+      copy.close();
+    }
+    await assert.rejects(assertRuntimeEmpty(target), /empty/);
+    await assert.rejects(restoreRuntimeFiles(target, file), /empty/);
+  }));
+test('payOS allocator backup and restore enforce the existing two MiB bound', async () =>
+  temporary(async (root) => {
+    const source = join(root, 'source'),
+      target = join(root, 'target');
+    await mkdir(join(source, 'payos-state'), { recursive: true });
+    await mkdir(target);
+    const bytes = Buffer.alloc(MAX_FILE_BYTES + 1, 1);
+    await writeFile(join(source, 'payos-state', 'order-codes.sqlite'), bytes);
+    await assert.rejects(fileBackup(source, join(root, 'oversized-backup.jsonl')));
+    const file = join(root, 'oversized-archive.jsonl');
+    await archive(file, [entry('payos-state/order-codes.sqlite', bytes)]);
+    await assert.rejects(restoreRuntimeFiles(target, file));
+    assert.deepEqual(await readdir(target), []);
+  }));
+test('payOS allocator cold backup refuses WAL, SHM, rollback journals and unrelated files', async () =>
+  temporary(async (root) => {
+    const source = join(root, 'source'),
+      state = join(source, 'payos-state');
+    await mkdir(state, { recursive: true });
+    await writeFile(join(state, 'order-codes.sqlite'), 'closed fixture state');
+    for (const sidecar of [
+      'order-codes.sqlite-wal',
+      'order-codes.sqlite-shm',
+      'order-codes.sqlite-journal',
+      'different.sqlite',
+    ]) {
+      await writeFile(join(state, sidecar), 'must never be silently omitted');
+      await assert.rejects(fileBackup(source, join(root, sidecar + '.jsonl')));
+      await rm(join(state, sidecar));
+    }
+  }));
+test('payOS allocator backup and restore never follow symlink state directories or files', async () =>
+  temporary(async (root) => {
+    const source = join(root, 'source'),
+      outside = join(root, 'outside'),
+      target = join(root, 'target');
+    await mkdir(source);
+    await mkdir(outside);
+    await mkdir(target);
+    await writeFile(join(outside, 'order-codes.sqlite'), 'private external state');
+    await symlink(outside, join(source, 'payos-state'));
+    await assert.rejects(assertRuntimeEmpty(source));
+    await assert.rejects(fileBackup(source, join(root, 'symlink-directory.jsonl')));
+    await rm(join(source, 'payos-state'));
+    await mkdir(join(source, 'payos-state'));
+    await symlink(
+      join(outside, 'order-codes.sqlite'),
+      join(source, 'payos-state', 'order-codes.sqlite'),
+    );
+    await assert.rejects(fileBackup(source, join(root, 'symlink-file.jsonl')));
+    const file = join(root, 'allocator.jsonl');
+    await archive(file, [entry('payos-state/order-codes.sqlite')]);
+    await symlink(outside, join(target, 'payos-state'));
+    await assert.rejects(restoreRuntimeFiles(target, file));
+    assert.equal(
+      await readFile(join(outside, 'order-codes.sqlite'), 'utf8'),
+      'private external state',
+    );
+  }));
+test('payOS allocator backup rejects a hardlinked state file', async () =>
+  temporary(async (root) => {
+    const source = join(root, 'source'),
+      outside = join(root, 'outside.sqlite');
+    await mkdir(join(source, 'payos-state'), { recursive: true });
+    await writeFile(outside, 'private external state');
+    await link(outside, join(source, 'payos-state', 'order-codes.sqlite'));
+    await assert.rejects(fileBackup(source, join(root, 'hardlink.jsonl')));
+  }));
+test('payOS allocator extension retains legacy v1 compatibility without initializing absent state', async () =>
+  temporary(async (root) => {
+    const target = join(root, 'target'),
+      file = join(root, 'legacy.jsonl');
+    await mkdir(target);
+    await archive(file, []);
+    assert.deepEqual(await validateRuntimeArchive(file), { files: 0 });
+    assert.deepEqual(await restoreRuntimeFiles(target, file), { files: 0 });
+    assert.deepEqual((await readdir(target)).sort(), ['menu-images', 'payment-proofs']);
+    await assertRuntimeEmpty(target);
+    await assert.rejects(lstat(join(target, 'payos-state')), { code: 'ENOENT' });
+  }));
+test('payOS allocator checksum corruption is rejected before creating any state directory', async () =>
+  temporary(async (root) => {
+    const target = join(root, 'target'),
+      file = join(root, 'bad-checksum.jsonl');
+    await mkdir(target);
+    await archive(file, [{ ...entry('payos-state/order-codes.sqlite'), sha256: '0'.repeat(64) }]);
+    await assert.rejects(restoreRuntimeFiles(target, file), /checksum/);
+    assert.deepEqual(await readdir(target), []);
+  }));

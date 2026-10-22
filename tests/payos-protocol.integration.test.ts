@@ -1,3 +1,4 @@
+import { initializePayosOrderCodeStore } from '../apps/api/src/modules/payments/payos-order-code.js';
 import { onlinePaymentState } from '../apps/web/features/shared/online-payment.js';
 import type {
   PaymentLink,
@@ -12,8 +13,20 @@ import {
 
 // Deliberately synthetic, isolated credentials. Never use a merchant channel in regression tests.
 const checksum = 'protocol-regression-checksum-with-no-merchant-access';
+const orderCodeDirectory = mkdtempSync(join(tmpdir(), 'thesis-payos-protocol-order-codes-'));
+const orderCodeStore = join(orderCodeDirectory, 'order-codes.sqlite');
+initializePayosOrderCodeStore({
+  storePath: orderCodeStore,
+  channelId: 'protocol-test-client',
+  highWaterMark: 0n,
+});
+afterAll(() => {
+  // This file owns this freshly generated private directory; no runtime store is used.
+  rmSync(orderCodeDirectory, { recursive: true, force: true });
+});
 const config: PayosConfig = {
   enabled: true,
+  orderCodeStore,
   clientId: 'protocol-test-client',
   apiKey: 'protocol-test-api-key',
   checksumKey: checksum,
