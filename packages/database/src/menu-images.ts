@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { link, mkdir, open, readFile, unlink, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -64,13 +64,26 @@ export async function storeMenuImage(bytes: Uint8Array, options: { root?: string
   const name = menuImageName(bytes);
   const root = options.root ?? menuImageRoot();
   await mkdir(root, { recursive: true });
+  const temporary = join(root, '.menu-image-' + randomUUID() + '.tmp');
+  const handle = await open(temporary, 'wx', 0o600);
   try {
-    await writeFile(join(root, name), bytes, { flag: 'wx' });
-  } catch (error) {
-    if (!(error instanceof Error) || !('code' in error) || error.code !== 'EEXIST') throw error;
-    const current = await readFile(join(root, name));
-    if (!current.equals(Buffer.from(bytes)))
-      throw new MenuImageError('Tên ảnh đã tồn tại với nội dung khác.');
+    try {
+      await writeFile(handle, bytes);
+    } finally {
+      await handle.close();
+    }
+    // Publish the completed inode atomically without replacing an immutable URL.
+    // A concurrent writer can only observe a complete final file, never a partial write.
+    try {
+      await link(temporary, join(root, name));
+    } catch (error) {
+      if (!(error instanceof Error) || !('code' in error) || error.code !== 'EEXIST') throw error;
+      const current = await readFile(join(root, name));
+      if (!current.equals(Buffer.from(bytes)))
+        throw new MenuImageError('Tên ảnh đã tồn tại với nội dung khác.');
+    }
+  } finally {
+    await unlink(temporary);
   }
   return { ...info, ...dimensions, name, imageUrl: menuImageUrl(name), byteLength: bytes.length };
 }

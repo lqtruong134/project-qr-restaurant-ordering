@@ -15,10 +15,10 @@ Nhánh mới **`feat/payos-payment-platform`**, tạo từ `main` tại `6c45a01
 
 | Kiểm tra | Kết quả và phạm vi |
 | --- | --- |
-| `pnpm check` trong môi trường sạch, không nạp env thật | Format, lint, typecheck toàn workspace/tools đạt; **360 unit tests / 44 files đạt** |
+| `pnpm check` trong môi trường sạch, không nạp env thật | Format, lint, typecheck toàn workspace/tools đạt; **364 unit tests / 44 files đạt** |
 | Ba suite `payos.integration`, `payos-provider-recovery.integration`, `payos-protocol.integration` | **122/122 đạt** trên PostgreSQL tmpfs, cổng localhost riêng, credential tổng hợp; SDK/provider giả không gọi merchant thật |
 | Node reset/deployment tests, bật smoke image API riêng | **39/39 đạt, 0 skip**; gồm archive roundtrip SQLite, hash/quyền/sidecar/corruption, guards, dữ liệu đầu ra an toàn |
-| Build API runtime và maintenance bằng Dockerfile production, tag riêng | Đạt; không tag đè image production hoặc chạy stack live |
+| Build API runtime và maintenance bằng Dockerfile production, tag riêng | Mốc nền tảng `aa1768e` đạt; không tag đè image production hoặc chạy stack live |
 | API image smoke | UID/GID 10001, root filesystem read-only, network none; đọc 3210 file/797 thư mục, import dependencies/native addon và health giả đạt; allocator giữ mã với DB floor quay về 0, chặn kênh chưa khởi tạo |
 | Maintenance image smoke | UID 10001, filesystem read-only/network none; initializer `--help` và đọc đủ **37 migration SQL** đạt; không chạy Prisma/migration hoặc kết nối DB |
 | Production Compose syntax | `config --quiet` với `/dev/null` và env tổng hợp đạt; compose dev không đổi |
@@ -31,6 +31,16 @@ Lần integration đầu thiếu AUTH_SECRET tổng hợp cho fixture mở bàn,
 M2 còn phải xây protected bank evidence, ADMIN preview/confirm, receipt identity chung xuyên phương thức, khóa/dedup giữa ADMIN và webhook, provenance PAYOS_VERIFIED/BANK_ADMIN_VERIFIED và test cạnh tranh. M3 còn UI ba vai trò, E2E sâu, deployment/cutover/rollback rehearsal toàn nền tảng và nghiệm thu thật. Không coi các endpoint đề xuất trong hồ sơ thiết kế là chức năng hiện có.
 
 Chưa chạy E2E hoặc kiểm chứng production của nền tảng mới. Không xác minh merchant/webhook/Cloudflare live; không thực hiện giao dịch, hoàn tiền, reset/archive, chạy migration hoặc truy cập DB production. Không đổi secrets, merge hoặc deploy; Quality gate GitHub giữ nguyên và kết quả CI của PR mới phải đọc riêng sau push. Không kết luận giao dịch A10/A06 thật đã được ghi sổ hoặc đã hoàn.
+
+### Bổ sung sau CI đầu của PR #3
+
+[Run 39823834886](https://github.com/lqtruong134/project-qr-restaurant-ordering/actions/runs/39823834886) dừng tại audit trước mọi test: Next.js 16.3.8 thuộc phạm vi của [GHSA-2464-fhr4-w9xw](https://github.com/advisories/GHSA-2464-fhr4-w9xw) (critical) và [GHSA-p3m5-59mp-jv5r](https://github.com/advisories/GHSA-p3m5-59mp-jv5r) (high). Manifest/lock Next không bị M1 thay đổi trước lượt này; đây là dependency nền bị audit hiện hành chặn.
+
+Commit `23b65a3` nâng riêng Next, @next/env và tám gói SWC tương ứng lên **16.4.1**, là bản sửa được hai advisory chỉ rõ. Giữ nguyên pnpm 12.3.4, React 19.2.8, sharp 0.35.5, integrity, allowBuilds, overrides và ngưỡng audit. Frozen install đạt; audit mức high đạt với **0 high/critical**, vẫn còn **2 moderate của dev dependency @vitest/mocker**. Build web 7 route bằng Next 16.4.1 đạt với output riêng và API endpoint tổng hợp không thể gọi production. Không coi đó là full Docker/web cutover rehearsal; build/smoke Docker M1 trong bảng là mốc trước bản vá CI này.
+
+Khi chạy lại unit, test nhập cùng ảnh song song lộ race có sẵn ở main: writeFile với wx công bố tên tệp khi mới ghi một phần; importer khác gặp EEXIST rồi đọc 34/68 byte và báo nhầm xung đột. Hai regression deterministic tái hiện thất bại trên nguyên bản source cũ, không dùng sleep. Sửa riêng kho ảnh: ghi vào tệp riêng quyền 600, đóng tệp hoàn chỉnh rồi hardlink không ghi đè và dọn staging trong finally. Giữ URL theo nội dung và từ chối nội dung khác dưới tên đã tồn tại. Không đổi ảnh/dữ liệu/URL hiện có hoặc nghiệp vụ tài chính.
+
+Bốn test mới bao phủ không công bố ảnh dở, nhập đồng thời cùng nội dung, dọn staging khi ghi lỗi và khi publish lỗi. Bộ ảnh đạt **12/12**, hai regression song song đạt thêm 5 lượt liên tiếp; toàn repo format/lint/typecheck và **364 unit** đạt. Không xóa/skip/nới assertion để che lỗi. Kết quả GitHub của commit bổ sung cần đọc riêng sau push, chưa được kết luận PASS từ kết quả cục bộ.
 
 ## PR #1 — Phục hồi Quality gate toàn hệ thống — 21/10/2026
 
