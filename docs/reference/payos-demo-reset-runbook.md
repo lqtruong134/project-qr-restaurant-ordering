@@ -12,7 +12,7 @@ Tài liệu này là **runbook chuẩn bị và các điều kiện dừng**, kh
 - Mọi receipt/refund/allocation và tài khoản tài chính phiên đều phải được lưu cùng lịch sử. Nhãn SUCCEEDED trong DB không tự chứng minh ngân hàng đã chuyển/hoàn tiền; đây vẫn là hồ sơ cần bảo toàn.
 - Dữ liệu còn lại chưa có chứng cứ nguồn gốc được giữ dưới trạng thái **UNKNOWN / RETAIN**. Không suy luận demo từ tên nhân viên, mã bàn, giá nhỏ, thời điểm seed hoặc tài khoản do người phát triển tạo.
 - Công cụ luôn trả `automaticDemoDeleteEligibleCount=0`, `executionSupported=false`, `destructiveResetAuthorized=false`. Không có chế độ `--execute` hoặc `--approve`.
-- Mặc định ưu tiên tạo **database vận hành mới**, giữ nguyên database cũ và bản sao lưu đã kiểm chứng. Không “dọn” từng bảng tài chính trong database đang dùng.
+- Mặc định ưu tiên **giữ database vận hành hiện tại** và lịch sử tài chính, chỉ migrate cộng thêm sau backup/restore đã kiểm chứng. Database mới chỉ được xem xét theo kế hoạch archive/routing được duyệt riêng; không “dọn” từng bảng tài chính trong database đang dùng.
 
 ## 2. Inventory chỉ đọc
 
