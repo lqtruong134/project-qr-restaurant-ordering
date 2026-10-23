@@ -242,6 +242,10 @@ test('picker filters and capacity, keyboard confirmation, same guest cart, immed
     // This avoids competing with history's queued focus restoration or WebKit's RAF click checks.
     await staff.keyboard.press('Escape');
     await expect(moved).toHaveCount(0);
+    // Names repeat across earlier scenarios; identify this fixture by its unique table codes.
+    const tableSearch = staff.getByRole('textbox', { name: 'Tìm tên hoặc mã bàn…' });
+    await tableSearch.fill(f.prefix);
+    await expect(tableSearch).toHaveValue(f.prefix);
     await expect(
       staff
         .locator('.table-tile')
