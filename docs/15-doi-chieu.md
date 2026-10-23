@@ -28,6 +28,14 @@ Bill 20.000đ/quote10.000đ/nhận12.000đ giữ nợ10.000đ và hoàn2.000đ, 
 
 Test PostgreSQL dùng container tmpfs có nhãn riêng, loopback, credentials tổng hợp; mỗi integration tạo DB ngẫu nhiên rồi dọn đúng DB đó. E2E chạy trong clone riêng với `.env` tổng hợp, không nạp `.env`/production compose của checkout thật. Giao dịch/hoàn trong tests là fixture; không gọi merchant/bank thật. Chẩn đoán browser chỉ ở thư mục lab, không commit scratch hoặc giảm assertion để bỏ lỗi.
 
+### Đối chiếu lỗi browser trước lượt CI cuối
+
+Lượt full local đầu tiên đạt 492/501, lỗi 8 và bỏ qua 1 bài Swagger có sẵn. Cùng commit `8c3d216`, [GitHub run 39928076414](https://github.com/lqtruong134/project-qr-restaurant-ordering/actions/runs/39928076414) đạt 499, lỗi 1 Safari và bỏ qua 1; mọi bước trước E2E đều đạt. Không tính hai lượt này là PASS. Tám tình huống local đã được chạy lại đúng spec/project và đạt **8/8**, giữ nguyên timeout và assertion.
+
+Trace Safari cho thấy một state poll độc lập bắt đầu trong provisional navigation khi test cố ý giữ promotion GET rồi reload. Fixture chỉ tạm dừng timer trong bước kiểm tra hủy này, chờ các state read kết thúc rồi reload thật và bật lại timer; giữ AbortSignal, pagehide và `errors === []`, không lọc lỗi hay thay code sản phẩm. Regression lặp ba lần trên mỗi trình duyệt đạt **9/9**.
+
+Fixture tháng công trước đây dùng upsert cập nhật một ca bất biến khi worker khởi động lại sau lỗi. Nay chỉ tạo ca khi chưa có và đối chiếu toàn bộ cấu hình khi dùng lại; không đổi trigger hoặc nghiệp vụ. Chạy lại beforeAll trên cùng database qua hai lượt bài lịch sử tháng đạt **2/2**. Tổng kiểm tra trọng tâm bổ sung: **19/19**; format, ESLint, tools typecheck và secret check đạt. Rehearsal migrate/seed hai lần, SQL và quyền ba vai trò đạt trong database tổng hợp riêng. Kết quả full Quality Gate mới gắn với commit cuối tại checks PR #3, không suy PASS từ các lượt chạy trọng tâm.
+
 ### Gói triển khai và các giới hạn bắt buộc
 
 Migration mới **`packages/database/prisma/migrations/202610230001_bank_payment_evidence/migration.sql`** chỉ thêm schema; migration cũ không đổi. Swagger sinh lại **184 thao tác nghiệp vụ /193route**, từ điển/ERD **71 bảng**. [Bài06](06-thanh-toan.md), [API17](17-api.md), [thiết kế](reference/payos-platform-design.md), [runbook](reference/payos-demo-reset-runbook.md) và [triển khai26](26-trien-khai-qtruongres.md) cùng mô tả implementation.
