@@ -293,7 +293,10 @@ test('empty filter, occupied destination error with refreshed selection, and ext
     const snapshot = await (await staff.request.get('/api/core/tables')).json();
     // Keep the displayed list at its last response to reproduce a genuine race.
     // Opening and transferring still use the real API and real test database.
-    await staff.route('**/api/core/tables', (route) => route.fulfill({ json: snapshot }));
+    let showSnapshot = true;
+    await staff.route('**/api/core/tables', (route) =>
+      showSnapshot ? route.fulfill({ json: snapshot }) : route.continue(),
+    );
     await post(staff, '/core/tables/' + f.exact.id + '/open', {});
     await staff
       .getByRole('dialog', { name: 'Xác nhận chuyển bàn', exact: true })
@@ -301,7 +304,9 @@ test('empty filter, occupied destination error with refreshed selection, and ext
       .click();
     picker = staff.getByRole('dialog', { name: 'Chọn bàn để chuyển' });
     await expect(picker.getByRole('alert')).toContainText('Bàn A05 vừa được sử dụng');
-    await staff.unroute('**/api/core/tables');
+    // Keep interception installed while the workspace starts parallel polls. Removing
+    // it here can strand Chromium requests paused during Fetch-domain teardown.
+    showSnapshot = false;
     await picker.getByRole('button', { name: 'Tải lại bàn', exact: true }).click();
     await expect(picker.getByRole('radio', { name: /^A05 -/ })).toHaveCount(0);
     await expect(
