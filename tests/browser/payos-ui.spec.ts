@@ -297,6 +297,8 @@ async function mock(page: Page) {
                 scope: 'TABLE',
                 amount: intent.amount,
                 status: intent.online!.status,
+                verificationSource: intent.online!.verificationSource,
+                providerEvidenceAttached: intent.online!.providerEvidenceAttached,
                 paidAmount: sources.length
                   ? sum('amount')
                   : intent.online!.status === 'REQUIRES_RECONCILIATION'
@@ -309,7 +311,7 @@ async function mock(page: Page) {
                       refundedAmount: sum('refunded_amount'),
                     }
                   : {}),
-                bankConfirmedAmount: intent.online!.paidAmount,
+                bankConfirmedAmount: intent.online!.bankReportedAmount ?? intent.online!.paidAmount,
                 remainingAmount: sources.length
                   ? intent.online!.remainingAmount
                   : intent.online!.status === 'REQUIRES_RECONCILIATION'
@@ -1164,6 +1166,78 @@ test('session reconciliation reports show both amounts due and refundable withou
     await page.setViewportSize({ width, height: 1000 });
     await fits(page, table);
   }
+  expect(f.writes).toEqual([]);
+  expect(f.errors).toEqual([]);
+});
+
+function manualBankReceipt(f: Awaited<ReturnType<typeof mock>>) {
+  const intent = f.online('PAID', '10000', '0');
+  Object.assign(intent.online!, {
+    verificationSource: 'BANK_ADMIN_VERIFIED',
+    providerEvidenceAttached: false,
+    bankReportedAmount: '0',
+    recordedAmount: '10000',
+    appliedAmount: '10000',
+    refundedAmount: '0',
+    unallocatedAmount: '0',
+    remainingAmount: '0',
+  });
+  f.bill.account.paid_total = '10000';
+  f.bill.account.outstanding_amount = '440000';
+  f.bill.payments.push({
+    id: 'independent-bank',
+    payment_intent_id: intent.id,
+    method: 'ONLINE',
+    status: 'SUCCEEDED',
+    amount: '10000',
+    allocated_amount: '10000',
+    refunded_amount: '0',
+    refundable_amount: '0',
+    confirmed_at: at,
+    metadata: { verificationSource: 'BANK_ADMIN_VERIFIED' },
+  });
+  return intent;
+}
+test('STAFF distinguishes independent ADMIN bank verification and late provider evidence without a second receipt', async ({
+  page,
+}) => {
+  const f = await mock(page),
+    intent = manualBankReceipt(f);
+  const dialog = await staffPayment(page),
+    card = dialog.getByRole('region', { name: 'Khoản thu online' });
+  await expect(card.getByLabel('Nguồn xác minh thanh toán', { exact: true })).toContainText(
+    'qua quản trị',
+  );
+  await expect(card).toContainText('Nhà hàng đã đối chiếu qua quản trị');
+  await expect(card).not.toContainText('Không cần xác nhận thủ công.');
+  await expect(dialog.locator('.last-payment')).toContainText('Quản trị đã đối chiếu');
+  await expect(card.getByRole('img')).toHaveCount(0);
+  await pauseClock(page);
+  intent.online!.providerEvidenceAttached = true;
+  await page.clock.runFor(12000);
+  await expect(card).toContainText('payOS đã bổ sung xác minh cùng giao dịch.');
+  expect(f.bill.payments).toHaveLength(1);
+  expect(f.writes).toEqual([]);
+  expect(f.errors).toEqual([]);
+});
+test('GUEST sees independent bank confirmation without internal identifiers or claims of automatic payOS verification', async ({
+  page,
+}) => {
+  const f = await mock(page);
+  manualBankReceipt(f);
+  await page.goto('/guest');
+  await page
+    .getByRole('navigation', { name: 'Điều hướng khách' })
+    .getByRole('button', { name: 'Thanh toán', exact: true })
+    .click();
+  const card = page.getByRole('region', { name: 'Trạng thái thanh toán online' });
+  await expect(card.getByRole('status')).toHaveText('Thanh toán thành công');
+  await expect(card.getByLabel('Nguồn xác minh thanh toán', { exact: true })).toContainText(
+    'qua quản trị',
+  );
+  await expect(card).toContainText('10.000 đ');
+  await expect(card).not.toContainText('202610140001');
+  await expect(card).not.toContainText('tự động qua payOS');
   expect(f.writes).toEqual([]);
   expect(f.errors).toEqual([]);
 });

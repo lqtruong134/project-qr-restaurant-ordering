@@ -1,8 +1,14 @@
 # 26. Triển khai qtruongres trên laptop và chuyển sang VPS
 
-## Nền tảng payOS M1 và điều kiện dừng trước triển khai — 22/10/2026
+## Review nền tảng payOS M2/M3 — 23/10/2026
 
-Nhánh `feat/payos-payment-platform` hiện chỉ bàn giao M1: durable order allocator, inventory/dry-run và thiết kế. **M2 bank evidence/shared posting và M3 UI/E2E sâu/cutover chưa triển khai; M1 không phải bản hoàn tất nền tảng mới để deploy production.** Không tự nâng cấp dịch vụ, bootstrap state, đổi webhook hoặc làm mới DB trong đợt chuẩn bị này. Đọc [thiết kế](reference/payos-platform-design.md), [runbook DB mới/archive](reference/payos-demo-reset-runbook.md), [nghiệp vụ](06-thanh-toan.md) và [biên bản test hiện hành](15-doi-chieu.md).
+PR #3 bổ sung xác minh tự động primary MB, ADMIN bank-evidence và UI ba vai trò; không tự deploy. Kết quả test/build/Quality Gate ở [bài 15](15-doi-chieu.md). Chủ dự án review mã và kế hoạch bên dưới trước khi vận hành. Không thay secrets, gọi payOS thật hoặc chạm DB production trong đợt kiểm thử.
+
+M2 có migration cộng thêm **`202610230001_bank_payment_evidence/migration.sql`**. Khi được chủ dự án duyệt triển khai sau này: xác nhận đúng target, fence writer và backup DB/runtime/allocator, thử restore lab, kiểm binding riêng và watermark lịch sử, build image đã review, dùng maintenance UID10001 chạy migration được duyệt rồi mới đổi application writer. Không migrate/reset/seed tự động khi API start. M1 không có migration; điều đó không có nghĩa bỏ migration M2.
+
+**Rollback:** trước khi có dữ liệu M2, có thể quay lại application tương thích đã kiểm chứng và giữ schema cộng thêm. Sau khi đã phát sinh receipt BANK_ADMIN_VERIFIED, chỉ dùng code M2 hiểu đúng provenance/ledger; không chạy lại M1 làm snapshot PENDING ghi đè trạng thái local. Nếu không có bản tương thích, giữ writer dừng và sửa tiếp; không restore DB cũ đè giao dịch mới. Watermark allocator chỉ được tiến; gói backup cũ chưa chứng minh upper bound mới nhất.
+
+**Làm sạch dữ liệu:** không cần reset để áp M2. Phương án ưu tiên giữ DB và mọi lịch sử tiền thật; inventory chỉ đọc, auto-delete=0. [Runbook](reference/payos-demo-reset-runbook.md) có quy trình review manifest/backup/archive/single-writer và giới hạn chưa có dispatcher archive tự động. Không tự cutover DB mới trên cùng channel khi chưa giải quyết các điều kiện này.
 
 ### Store orderCode và service maintenance riêng
 
@@ -36,7 +42,7 @@ CLI backup từ chối khi có `migrate` hoặc `payos-state` đang chạy; nó 
 
 **Restore gói cũ có thể đưa high-water về quá khứ.** Gói legacy không có allocator vẫn đọc được nhưng không tự tạo/khởi tạo state. Gói có allocator cũ cũng chưa chứng minh mã chưa được dùng sau thời điểm backup. Trước khi bật lại payOS, phải đối chiếu upper bound độc lập từ state mới hơn còn giữ, mọi DB/archive và provider, rồi đảm bảo store đích không thấp hơn giới hạn đã chứng minh. Thiếu bằng chứng thì giữ writer/payOS dừng, không initialize lại từ max của DB vừa restore và không start để thử. Không restore đè một store đang hoạt động hoặc rewind allocator theo rollback application DB.
 
-Runbook bên dưới về deploy/restore của các phiên bản trước là tham khảo lịch sử. Với nền tảng M1, các guard mới ở đầu bài và phần backup/restore áp dụng trước; không hiểu chuỗi lệnh cũ là quyền bỏ qua kiểm chứng allocator hoặc triển khai M2/M3 còn thiếu.
+Runbook bên dưới về deploy/restore của các phiên bản trước là tham khảo lịch sử. Với nền tảng M1, các guard mới ở đầu bài và phần backup/restore áp dụng trước; không hiểu chuỗi lệnh cũ là quyền bỏ qua kiểm chứng allocator, migration M2 hoặc cổng review của chủ dự án.
 
 ## Review chuyển dư có giới hạn phạm vi — 18/10/2026
 

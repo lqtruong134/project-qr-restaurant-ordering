@@ -1,5 +1,10 @@
 # Học và làm chủ hệ thống gọi món QR
 
+## Review nền tảng payOS M2/M3 — 23/10/2026
+
+PR #3 đã có quy tắc signed GET/MB tin cậy, ADMIN đối chiếu ngân hàng bằng chứng từ hai bước, shared receipt chống ghi trùng và giao diện ba vai trò theo đúng nguồn xác minh. Chưa merge hoặc triển khai. Đọc [nghiệp vụ](06-thanh-toan.md), [API](17-api.md), [kiểm chứng hiện hành](15-doi-chieu.md) và [kế hoạch backup/rollback/làm sạch an toàn](26-trien-khai-qtruongres.md); các mục cũ bên dưới là lịch sử.
+
+
 ## Review toàn bộ trải nghiệm payOS — 19/10/2026
 
 Nhánh **`fix/payos-payment-experience`** chuẩn hóa một nguồn số dư từ backend, tự phục hồi giao dịch có đủ bằng chứng, tách ngoại lệ thật cho ADMIN và đơn giản hóa STAFF/GUEST. QR chờ 5.000đ trên hóa đơn 69.000đ chỉ giữ chỗ: còn nợ 69.000đ, còn được lập khoản mới 64.000đ. Sau xác minh và phân bổ 5.000đ mới còn nợ 64.000đ. Không báo thành công chỉ từ nhãn PAID hoặc số ngân hàng báo.

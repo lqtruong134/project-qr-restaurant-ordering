@@ -70,3 +70,34 @@ it('a verified cancellation with no bank money can leave the queue without claim
     }).canResolve,
   ).toBe(true);
 });
+
+it('accepts independently verified bank funds only after actual returns, never unknown money', () => {
+  const bank = {
+    ...valid,
+    providerStatus: 'PENDING',
+    requestedAmount: '10000',
+    bankReportedAmount: '0',
+    recordedAmount: '12000',
+    allocatedAmount: '10000',
+    originalAllocatedAmount: '10000',
+    refundedAmount: '2000',
+    independentBankVerified: true,
+    verified: false,
+  };
+  expect(payosResolutionReadiness(bank).canResolve).toBe(true);
+  expect(payosResolutionReadiness({ ...bank, independentBankVerified: false }).canResolve).toBe(
+    false,
+  );
+  expect(payosResolutionReadiness({ ...bank, unpostedBankReferences: true }).canResolve).toBe(
+    false,
+  );
+  expect(payosResolutionReadiness({ ...bank, bankReportedAmount: '13000' }).canResolve).toBe(false);
+  expect(
+    payosResolutionReadiness({
+      ...bank,
+      refundedAmount: '0',
+      unappliedAmount: '2000',
+      sessionRefundDue: '2000',
+    }).canResolve,
+  ).toBe(false);
+});

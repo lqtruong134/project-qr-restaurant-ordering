@@ -1138,13 +1138,13 @@ it('MB recipient hotfix requires independent binding for the current client, ten
   ]) {
     await withMbBinding(binding, async () => {
       const f = await mbFixture();
-      await service.webhook(event(f, f.bank));
+      await service.process(f.id, true, false);
       expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
       expect((await stored(f)).status).toBe('REQUIRES_RECONCILIATION');
     });
   }
 });
-it('MB recipient hotfix rejects another real recipient, unbound QR or missing webhook despite equal account lengths', async () => {
+it('MB recipient binding rejects another real recipient or unbound QR even without a webhook', async () => {
   await withMbBinding(mbBinding(), async () => {
     for (const options of [
       { primary: '3000000003' },
@@ -1153,13 +1153,32 @@ it('MB recipient hotfix rejects another real recipient, unbound QR or missing we
       { qr: 'UNVERIFIABLE_QR' },
     ]) {
       const f = await mbFixture(options);
-      await service.webhook(event(f, f.bank));
+      await service.process(f.id, true, false);
       expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
       expect((await stored(f)).reconciliation_status).toBe('OPEN');
     }
-    const f = await mbFixture();
+  });
+});
+it('MB recipient binding automatically records a verified primary-only GET without waiting for a webhook', async () => {
+  await withMbBinding(mbBinding(), async () => {
+    const f = await mbFixture({ guest: true });
     await service.process(f.id, true, false);
-    expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
+    expect(await ledger(f)).toEqual({ count: 1, received: '10000', allocated: '10000' });
+    expect(await stored(f)).toMatchObject({ status: 'PAID', reconciliation_status: null });
+    const staff = await api('/core/sessions/' + f.sid + '/bill');
+    expect(staff.financialSummary).toMatchObject({
+      bankReportedAmount: '10000',
+      recordedAmount: '10000',
+      appliedAmount: '10000',
+      outstandingAmount: '10000',
+      reviewRequired: false,
+    });
+    expect((await api('/guest/state', undefined, 'projection_guest')).financialSummary).toEqual(
+      staff.financialSummary,
+    );
+    await service.refreshForAdmin(f.id, adminId);
+    await service.webhook(event(f, f.bank));
+    expect(await ledger(f)).toEqual({ count: 1, received: '10000', allocated: '10000' });
   });
 });
 it('MB recipient hotfix never repairs a conflicting explicit GET or webhook VA through a trusted primary', async () => {
@@ -1194,7 +1213,8 @@ it('MB recipient hotfix blocks bad signatures and wrong order, link, reference, 
       const payload = event(f, f.bank, fields);
       if (mismatch === 'signature') payload.signature = '0'.repeat(64);
       await service.webhook(payload).catch(() => undefined);
-      await service.process(f.id, true, false);
+      // Reject the invalid webhook itself. A later independently verified GET is
+      // allowed to recover the legitimate receipt without trusting this message.
       expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
     }
     for (const field of ['orderCode', 'amount'] as const) {

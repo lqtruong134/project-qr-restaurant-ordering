@@ -2,7 +2,7 @@
 
 Ngày lập: **22/10/2026**. Nhánh: `feat/payos-payment-platform`, nền `main` tại `6c45`. Đây là hồ sơ thiết kế đi cùng [nghiệp vụ thanh toán](../06-thanh-toan.md), [bằng chứng kiểm chứng](../15-doi-chieu.md) và [quy trình triển khai/khôi phục](../26-trien-khai-qtruongres.md). Không thay bộ tài liệu hiện hành bằng một bộ hướng dẫn vận hành khác.
 
-**Phạm vi bàn giao hiện tại là M1: nền tảng cấp mã bền vững, kiểm kê reset chỉ đọc và hồ sơ thiết kế. M2 (nghiệp vụ chứng từ ngân hàng) và M3 (UI, E2E sâu, nghiệm thu triển khai) CHƯA được triển khai trên nhánh này. Không coi nhánh này là bản hoàn tất tính năng hoặc sẵn sàng deploy toàn bộ luồng mới.** Tên endpoint/type trong phần đề xuất bên dưới là thiết kế cho M2/M3, không phải API đã có. Trạng thái file/test cuối của M1 được chốt ở bài 15; tài liệu này không tự tuyên bố mọi test đã đạt.
+**M1 được giữ nguyên; M2 backend và M3 UI/rehearsal đã được triển khai trên PR #3.** Trạng thái kiểm thử đầy đủ, Quality Gate và các giới hạn nghiệm thu được chốt tại [bài 15](../15-doi-chieu.md). Endpoint trong phần 5 hiện đã có implementation; tài liệu không xác nhận đã deploy hoặc xử lý khoản tiền thật.
 
 ## 1. Bằng chứng và giới hạn kết luận
 
@@ -11,7 +11,7 @@ Ngày lập: **22/10/2026**. Nhánh: `feat/payos-payment-platform`, nền `main`
 | Chủ dự án tự chạy diagnostic với giao dịch A10 / phiên 48A135F3 / 10.000đ | CREATE và QR cùng account 13 số; GET đã xác minh chữ ký, PAID và khớp order/link/amount; webhook v2 đủ điều kiện cùng primary 10 số; hai VA null | Không suy ra hai account cùng chủ chỉ từ độ dài hoặc hai thông báo có cùng primary |
 | Kết quả công cụ riêng tư do chủ dự án xác nhận | Primary 10 số từ provider khớp chính xác tài khoản MB của đúng kênh được nhập từ nguồn độc lập | Input diagnostic không tự trở thành quyền ghi sổ, cấu hình backend hoặc bằng chứng payOS xác nhận mapping |
 | Đối chiếu code | Nhánh thiếu VA không nối được primary với account CREATE, dẫn đến `WEBHOOK_DOES_NOT_BRIDGE_TO_CREATE`; tiền báo nhận có thể có trước ledger/allocation | Không đồng nhất PAID, báo nhận, ghi sổ và phân bổ thành một trạng thái |
-| Hotfix recipient hiện có ở nền | Cho phép bridge khi có backend binding đúng client/restaurant/bank/account, QR CREATE phù hợp và hai nguồn hợp lệ; VA mâu thuẫn vẫn bị chặn | Không dùng hotfix làm đường xác nhận thủ công mọi khoản lỗi hoặc bỏ qua receipt đến muộn/phiên đã chốt |
+| Hotfix recipient ở nền M1 | Cho phép bridge khi có backend binding đúng client/restaurant/bank/account, QR CREATE phù hợp và hai nguồn hợp lệ; M2 còn cho signed GET độc lập khi backend binding/QR/link đã đủ; VA mâu thuẫn vẫn bị chặn | Không dùng hotfix làm đường xác nhận thủ công mọi khoản lỗi hoặc bỏ qua receipt đến muộn/phiên đã chốt |
 
 [FAQ chính thức payOS, câu 6](https://payos.vn/docs/cau-hoi-thuong-gap/) giải thích link VietQR Pro có thể hiển thị VA gắn với đơn và số tiền. [Mô tả công nghệ VA](https://payos.vn/tai-khoan-ao/) giải thích quan hệ VA với tài khoản chính. Đó là căn cứ cho khả năng hai biểu diễn có ngữ nghĩa khác nhau, không tự xác nhận metadata của một merchant cụ thể.
 
@@ -66,7 +66,7 @@ Khi webhook đến sau một receipt BANK_ADMIN_VERIFIED:
 3. Không sửa lịch sử source thành một câu chuyện khác: lưu rằng tiền đã được ghi nhận nhờ bank/admin và sau đó provider bổ sung bằng chứng.
 4. Reference mới hoặc dữ liệu mâu thuẫn phải vào inbox/quarantine để xác minh. Trong đường nối receipt cũ, cùng amount không được coi là duplicate. Một khoản tiền thật khác vẫn phải được phân biệt và xử lý bằng nghiệp vụ thu/hoàn, không bị âm thầm bỏ qua.
 
-## 5. Luồng ADMIN hai bước dự kiến cho M2/M3
+## 5. Luồng ADMIN hai bước đã triển khai
 
 Đây là ngoại lệ có audit, không phải nút “ép PAID”.
 
@@ -80,9 +80,9 @@ Proof phải lưu riêng có quyền đọc ADMIN, MIME/magic bytes và dung lư
 
 Thời điểm hợp lệ phải được đối chiếu với bằng chứng đáng tin cậy và lịch sử quote; không chỉ giờ do ADMIN tự gõ. Không đổi expires_at, quote amount hoặc số dư để cứu một khoản cũ. Phiên đã chốt giữ nguyên receipt snapshot; ngoại lệ đến muộn đi đường được thiết kế riêng và phải có đầy đủ ngân hàng/hoàn tiền, không mở lại phiếu lịch sử.
 
-### Contract API/UI đề xuất, chưa tồn tại ở M1
+### Contract API/UI hiện hành ở M2
 
-Tên endpoint và field cần được chốt trước khi triển khai; bảng này không phải Swagger hiện hành.
+Types ở `packages/contracts/src/bank-evidence.ts`; endpoint được sinh từ route hiện hành vào Swagger. Tất cả cần ADMIN đúng tenant và CSRF/Origin cho POST.
 
 | API đề xuất | Request đáng chú ý | Response/guard |
 | --- | --- | --- |
@@ -128,11 +128,22 @@ Triển khai, migration, đổi writer/webhook route, mount state, archive và r
 | Mốc | Phạm vi | Điều kiện/giới hạn |
 | --- | --- | --- |
 | M1 — nền tảng hiện tại | Durable order allocator, reset inventory chỉ đọc, kiến trúc/bằng chứng và kiểm thử tương ứng | Kết quả thực chạy ghi ở [bài 15](../15-doi-chieu.md); không có reset executor, bank-evidence mutation hoặc UI mới hoặc quyền tự cutover |
-| M2 — backend, CHƯA triển khai | Schema/evidence registry, preview/confirm, protected proof, shared posting, cross-provider dedup, late webhook attachment, migration cần thiết | Integration cách ly cho success/deny/replay/concurrency/rollback; không fake provider success từ một ảnh |
-| M3 — UI và nghiệm thu sâu, CHƯA triển khai | ADMIN hai bước, provenance STAFF/GUEST, UI lỗi/stale state, E2E desktop/mobile, triển khai/rollback rehearsal | Chỉ báo deploy-ready sau M2/M3 hoàn tất và test đạt; production acceptance do chủ dự án thực hiện theo kế hoạch |
+| M2 — backend đã triển khai | Schema/evidence registry, preview/confirm, protected proof, shared posting, cross-provider dedup, late webhook attachment, migration cần thiết | Integration cách ly cho success/deny/replay/concurrency/rollback; không fake provider success từ một ảnh |
+| M3 — UI và rehearsal đã triển khai; kết quả nghiệm thu xem bài 15 | ADMIN hai bước, provenance STAFF/GUEST, UI lỗi/stale state, E2E desktop/mobile, triển khai/rollback rehearsal | Chỉ báo deploy-ready sau M2/M3 hoàn tất và test đạt; production acceptance do chủ dự án thực hiện theo kế hoạch |
 
 M2 phải có test exact recipient mapping, sai client/tenant/account/VA, invalid signature/order/link/reference/amount, quyền STAFF/GUEST, proof mismatch, token replay/expiry/stale state, concurrent confirm/webhook/refresh, bank/manual cross-provider duplicate, unknown reference và phiên đã chốt/tiền đến muộn. Một receipt, một lần allocation, một audit/outbox phù hợp; lỗi DB phải rollback toàn bộ.
 
 M3 phải kiểm tra bank-reported/recorded/applied/outstanding/refund trên cùng snapshot backend; trường provider readonly; chứng từ không lộ cho guest/staff; BANK_ADMIN_VERIFIED không bị gắn nhãn PAYOS; nhập/sửa proof sau preview buộc xác minh lại; refresh tự cập nhật và reload không gửi lại confirm. Giữ nguyên Quality gate, không bỏ test/skip/nới assertion để lấy PASS.
 
 Hồ sơ này được viết từ code/schema/fixture và bằng chứng do chủ dự án cung cấp. Không tự chạy migration, reset/archive thực, giao dịch payOS hoặc kiểm thử ngân hàng thật. M2/M3 còn thiếu là công việc chưa hoàn thành, không được mô tả như đã có chỉ vì endpoint/flow được đề xuất ở trên.
+
+
+## 9. Implementation và giới hạn vận hành M2/M3
+
+`bank-receipt-posting.ts` giữ shared posting/khóa identity/cap allocation, `bank-evidence.service.ts` kiểm tra proof/preview/confirm, `payment-verification-source.ts` chiếu nguồn và điều kiện đối soát. Migration 202610230001 thêm bốn bảng với FK/unique/check, guard bất biến và một lần consume preview; không sửa migration cũ. Claim được thêm khi receipt mới hoặc receipt cũ đủ định danh được đọc lại; không đoán mapping receiver cho lịch sử chưa đủ chứng cứ.
+
+GET-only trusted primary giữ nguyên chữ ký và toàn bộ guard định danh/timeliness/idempotency. Proof/preview không tự chuyển tiền. Provider không kết nối được vẫn có thể ghi nhận nguồn BANK_ADMIN_VERIFIED sau khi ADMIN kiểm tra ngân hàng trực tiếp và mọi điều kiện server đạt. Bằng chứng nhập tay không được hợp thức hóa receipt quá hạn không có quan sát provider đúng hạn.
+
+Một giao dịch ADMIN đã ghi nhận không bị snapshot PENDING hoặc lỗi mạng provider làm giảm ledger/đổi nguồn. Refresh/webhook lặp cùng reference chỉ gắn `providerVerifiedAt` và một audit corroboration, không ghi thêm receipt/outbox/allocation. Reference mới không được dùng làm bằng chứng cho receipt cũ. Tiền chưa phân bổ, tham chiếu chưa xử lý và phiên đóng luôn giữ blocker thích hợp, không fake hoàn tiền.
+
+Rehearsal dùng database/container tmpfs có nhãn và credentials tổng hợp, restore vào DB trống, kiểm đủ 71 bảng và hash chứng từ/quyền 600/700. Đây là bằng chứng phần mềm, không chứng minh dữ liệu hoặc cấu hình production đã sẵn sàng. Không có reset executor, dispatcher archive tự động hoặc quyền xóa tiền thật; kế hoạch triển khai phải giữ mọi lịch sử/unknown và có một webhook writer duy nhất. Rollback không được chạy lại code M1 trên receipt BANK_ADMIN_VERIFIED đã phát sinh; cần bản M2 tương thích hoặc giữ writer dừng để sửa tiếp.

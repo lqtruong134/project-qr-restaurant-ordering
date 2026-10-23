@@ -1495,6 +1495,8 @@ it('guest online snapshots are table/participant scoped, private, and follow par
       'remainingAmount',
       'expiresAt',
       'createdAt',
+      'verificationSource',
+      'providerEvidenceAttached',
     ].sort(),
   );
   expect(own).toMatchObject({

@@ -132,7 +132,11 @@ export function guestOnlinePaymentStatus(payment: GuestOnlinePayment): PaymentSt
         kind: 'paid',
         title: 'Thanh toán thành công',
         detail:
-          'Nhà hàng đã xác nhận tiền qua ngân hàng. Xem số dư của cả bàn bên trên; khoản này không cần chuyển thêm.',
+          (payment.verificationSource === 'BANK_ADMIN_VERIFIED' ||
+          payment.verificationSource === 'MIXED'
+            ? 'Nhà hàng đã đối chiếu tiền thực nhận qua quản trị. '
+            : 'Nhà hàng đã xác nhận tiền qua ngân hàng. ') +
+          'Xem số dư của cả bàn bên trên; khoản này không cần chuyển thêm.',
       };
     }
     case 'UNDERPAID':

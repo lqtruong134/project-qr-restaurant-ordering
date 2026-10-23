@@ -46,6 +46,8 @@ describe('guest online payment projection', () => {
         'remainingAmount',
         'expiresAt',
         'createdAt',
+        'verificationSource',
+        'providerEvidenceAttached',
       ].sort(),
     );
     expect(result.id).toMatch(/^[a-f0-9]{64}$/);

@@ -1,3 +1,9 @@
+import { readPayosConfig } from './payos-adapter.js';
+import {
+  bankReceiverDigest,
+  assertBankReferenceAvailable,
+  registerBankReceiptClaim,
+} from './bank-receipt-posting.js';
 import { consumePromotion, reservePromotionForIntent } from '../finance/pricing.service.js';
 import { readPolicy } from '../risk/policy.service.js';
 import {
@@ -127,19 +133,32 @@ export async function confirmPayment(
       "SELECT p.id FROM payment_transaction p JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND p.status='SUCCEEDED' AND p.metadata->'proof'->>'sha256'=$2",
       [restaurant, proof.sha256],
     );
-    if (duplicate.rowCount)
+    const bankProof = await c.query(
+      `SELECT e.id FROM payment_bank_evidence e JOIN payment_bank_proof proof ON proof.id=e.proof_id
+       WHERE e.restaurant_id=$1 AND proof.sha256=$2`,
+      [restaurant, proof.sha256],
+    );
+    if (duplicate.rowCount || bankProof.rowCount)
       reject('Ảnh chứng từ này đã dùng cho giao dịch khác. Hãy đối chiếu lại tiền thực nhận.');
   }
-  if (reference) {
-    await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
-      restaurant + ':bank:' + reference,
-    ]);
-    const duplicate = await c.query(
-      "SELECT p.id FROM payment_transaction p JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND p.method='BANK_TRANSFER' AND p.status='SUCCEEDED' AND p.metadata->>'reference'=$2",
-      [restaurant, reference],
-    );
-    if (duplicate.rowCount) reject('Mã chuyển khoản đã được xác nhận cho một giao dịch khác.');
-  }
+  const payosConfig = readPayosConfig();
+  const binding = payosConfig.recipientBinding;
+  const receiverDigest =
+    reference &&
+    binding &&
+    binding.clientId === payosConfig.clientId &&
+    binding.restaurantId === restaurant &&
+    binding.bankBin === '970422'
+      ? bankReceiverDigest(binding.bankBin, binding.accountNumber)
+      : undefined;
+  if (reference)
+    await assertBankReferenceAvailable(c, {
+      restaurantId: restaurant,
+      paymentIntentId: id,
+      reference,
+      amount,
+      receiverDigest,
+    });
   const cashReceived = pi.method === 'CASH' ? money(b.receivedAmount ?? amount) : null;
   if (cashReceived !== null && BigInt(cashReceived) < BigInt(amount))
     reject('Tiền khách đưa chưa đủ số tiền xác nhận.', 400);
@@ -159,6 +178,7 @@ export async function confirmPayment(
       actor,
       JSON.stringify({
         reference,
+        ...(receiverDigest ? { bankReceiverDigest: receiverDigest } : {}),
         cashHandlingVersion: 1,
         cashReceived,
         changeGiven,
@@ -168,6 +188,15 @@ export async function confirmPayment(
       }),
     ],
   );
+  if (reference && receiverDigest)
+    await registerBankReceiptClaim(c, {
+      restaurantId: restaurant,
+      paymentIntentId: id,
+      reference,
+      amount,
+      receiverDigest,
+      receiptId: payment.id,
+    });
   const charges = (
     await c.query(
       `SELECT f.*,f.amount-f.discount_amount-COALESCE((SELECT sum(allocated_amount-reversed_amount) FROM payment_allocation WHERE financial_charge_id=f.id),0) AS remaining FROM financial_charge f WHERE f.session_id=$1 AND f.status='ACTIVE' AND ($2::uuid IS NULL OR EXISTS(SELECT 1 FROM order_item i WHERE i.id=f.order_item_id AND i.owner_participant_id=$2)) ORDER BY f.created_at,f.id FOR UPDATE`,

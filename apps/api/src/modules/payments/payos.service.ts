@@ -1,3 +1,8 @@
+import { assertBankReferenceAvailable } from './bank-receipt-posting.js';
+import {
+  paymentVerificationJoin,
+  paymentBankVerificationJoin,
+} from './payment-verification-source.js';
 import { allocatePayosOrderCode, PayosOrderCodeError } from './payos-order-code.js';
 import { payosBankReportedJoin } from './payment-reported-funds.js';
 import { payosResolutionReadiness } from './payos-resolution.js';
@@ -10,7 +15,7 @@ import {
   sameRecipient,
   type PayosRecipient,
 } from './payos-normalization.js';
-import type { OnlinePaymentView } from '@thesis/contracts';
+import type { OnlinePaymentView, PaymentVerificationSource } from '@thesis/contracts';
 import type {
   CreatePaymentLinkRequest,
   CreatePaymentLinkResponse,
@@ -20,7 +25,11 @@ import type {
 import { createIntent } from './collection.service.js';
 import { requireCollectionOwner, finishPaymentRequests } from './payment-requests.routes.js';
 import { recalculate } from '../finance/ledger.service.js';
-import { consumePromotion } from '../finance/pricing.service.js';
+import {
+  bankReceiverDigest,
+  lockBankReferences,
+  postPayosReceipt,
+} from './bank-receipt-posting.js';
 import { payosIntentFundsJoin, readRefundSourceBudgets } from './refund-budget.service.js';
 import {
   digest,
@@ -41,6 +50,8 @@ import {
 } from './payos-adapter.js';
 
 type PayosRow = {
+  verification_source?: PaymentVerificationSource;
+  provider_evidence_attached?: boolean;
   id: string;
   payment_intent_id: string;
   order_code: string;
@@ -105,6 +116,8 @@ export function onlineView(row: PayosRow, expiresAt: unknown): OnlinePaymentView
     paid = BigInt(row.paid_amount ?? 0);
   return {
     provider: 'PAYOS',
+    verificationSource: row.verification_source ?? 'UNVERIFIED',
+    providerEvidenceAttached: row.provider_evidence_attached ?? false,
     status: row.status,
     orderCode: String(row.order_code),
     checkoutUrl: row.checkout_url ?? null,
@@ -117,7 +130,10 @@ export function onlineView(row: PayosRow, expiresAt: unknown): OnlinePaymentView
     appliedAmount: String(row.allocated_amount ?? '0'),
     refundedAmount: String(row.refunded_amount ?? '0'),
     unallocatedAmount: String(row.unapplied_amount ?? '0'),
-    remainingAmount: (amount > paid ? amount - paid : 0n).toString(),
+    remainingAmount: (amount > BigInt(row.recorded_amount ?? paid)
+      ? amount - BigInt(row.recorded_amount ?? paid)
+      : 0n
+    ).toString(),
   };
 }
 export async function readPaymentIntents(c: Connection, sid: string) {
@@ -128,11 +144,14 @@ export async function readPaymentIntents(c: Connection, sid: string) {
           'recorded_amount',COALESCE(funds.recorded_amount,0)::text,
           'allocated_amount',COALESCE(funds.allocated_amount,0)::text,
           'refunded_amount',COALESCE(funds.refunded_amount,0)::text,
-          'unapplied_amount',COALESCE(funds.unapplied_amount,0)::text
+          'unapplied_amount',COALESCE(funds.unapplied_amount,0)::text,
+          'verification_source',verification.verification_source,
+          'provider_evidence_attached',verification.provider_evidence_attached
         ) END AS online_data
         FROM payment_intent p LEFT JOIN payos_payment_request q ON q.payment_intent_id=p.id
         ${payosIntentFundsJoin}
         ${payosBankReportedJoin}
+        ${paymentVerificationJoin}
         WHERE p.session_id=$1 ORDER BY p.created_at DESC,p.id`,
       [sid],
     )
@@ -564,7 +583,7 @@ export class PayosService {
       await transaction(this.db, async (c) => {
         await session(c, q.session_id, this.restaurant, false);
         await c.query(
-          `UPDATE payos_payment_request SET status=CASE WHEN reconciliation_status='OPEN' THEN 'REQUIRES_RECONCILIATION' WHEN provider_status IN ('PAID','CANCELLED','EXPIRED','FAILED') THEN status WHEN cancel_requested THEN 'CANCEL_PENDING' ELSE 'ERROR' END,last_error=CASE WHEN provider_status IN ('PAID','CANCELLED','EXPIRED','FAILED') THEN last_error ELSE $2 END,next_poll_at=now()+interval '30 seconds' WHERE id=$1 AND lease_until=$3::timestamptz`,
+          `UPDATE payos_payment_request SET status=CASE WHEN reconciliation_status='OPEN' THEN 'REQUIRES_RECONCILIATION' WHEN EXISTS(SELECT 1 FROM payment_intent settled WHERE settled.id=payment_intent_id AND settled.status='SUCCEEDED') THEN status WHEN provider_status IN ('PAID','CANCELLED','EXPIRED','FAILED') THEN status WHEN cancel_requested THEN 'CANCEL_PENDING' ELSE 'ERROR' END,last_error=CASE WHEN provider_status IN ('PAID','CANCELLED','EXPIRED','FAILED') THEN last_error ELSE $2 END,next_poll_at=now()+interval '30 seconds' WHERE id=$1 AND lease_until=$3::timestamptz`,
           [q.id, safeError, q.lease_token],
         );
         await recalculate(c, q.session_id);
@@ -660,7 +679,7 @@ export class PayosService {
       if (BigInt(q.paid_amount) > actual) return { status: 'STALE_IGNORED' };
       const prior = (
         await c.query(
-          "SELECT provider_transaction_id AS reference,amount::text FROM payment_transaction WHERE payment_intent_id=$1 AND provider='PAYOS' AND status='SUCCEEDED'",
+          "SELECT id,provider_transaction_id AS reference,amount::text,metadata->>'verificationSource' AS verification_source FROM payment_transaction WHERE payment_intent_id=$1 AND provider='PAYOS' AND status='SUCCEEDED'",
           [id],
         )
       ).rows;
@@ -668,7 +687,10 @@ export class PayosService {
         ? q.quarantined_transactions
         : [];
       if (
-        [...prior, ...oldQuarantine].some(
+        [
+          ...prior.filter((receipt) => receipt.verification_source !== 'BANK_ADMIN_VERIFIED'),
+          ...oldQuarantine,
+        ].some(
           (previous: Record<string, unknown>) =>
             !link.transactions.some(
               (t) =>
@@ -720,6 +742,10 @@ export class PayosService {
           bankReportedAmount: actual.toString(),
           providerStatus: link.status,
           references: link.transactions.map((bank) => bank.reference),
+          receiptFacts: link.transactions.map((bank) => ({
+            reference: bank.reference,
+            amount: String(bank.amount),
+          })),
         },
       );
       const expectedRecipient = normalizePayosAccount(q.account_number);
@@ -890,12 +916,44 @@ export class PayosService {
           bankReportedAmount: actual.toString(),
           providerStatus: link.status,
           references: link.transactions.map((bank) => bank.reference),
+          receiptFacts: link.transactions.map((bank) => ({
+            reference: bank.reference,
+            amount: String(bank.amount),
+          })),
         },
       );
 
       // A signed replay still reports the original gross bank receipt after an
       // actual refund. It must not reopen an admin-resolved overpayment forever.
-      if (q.reconciliation_status === 'RESOLVED' && !hasNewMoney) return { status: 'PROCESSED' };
+      if (q.reconciliation_status === 'RESOLVED' && !hasNewMoney) {
+        // A fully refunded/closed case stays resolved, but a later verified
+        // provider receipt may still corroborate the original ADMIN evidence.
+        for (const bank of link.transactions) {
+          const previous = prior.find((receipt) => receipt.reference === bank.reference);
+          if (previous?.verification_source !== 'BANK_ADMIN_VERIFIED') continue;
+          const receipt = await postPayosReceipt(c, {
+            pi,
+            restaurantId: this.restaurant,
+            reference: bank.reference,
+            amount: String(bank.amount),
+            metadata: {},
+            verificationSource: 'PAYOS_VERIFIED',
+            ...(trustedPrimary
+              ? { receiverDigest: bankReceiverDigest('970422', trustedPrimary) }
+              : {}),
+          });
+          await this.attachProviderEvidence(
+            c,
+            id,
+            String(q.order_code),
+            link.id,
+            bank,
+            receipt.receiptId,
+          );
+          await this.completeBankEvent(c, String(q.order_code), link.id, bank, receipt.receiptId);
+        }
+        return { status: 'PROCESSED' };
+      }
       await c.query(
         `UPDATE payos_payment_request SET payment_link_id=$2,checkout_url=COALESCE(checkout_url,$3),provider_status=$4,paid_amount=$5,last_error=NULL,next_poll_at=now()+interval '30 seconds' WHERE id=$1`,
         [q.id, link.id, checkout(link.id), link.status, actual.toString()],
@@ -907,10 +965,46 @@ export class PayosService {
       const quarantine = Array.isArray(q.quarantined_transactions)
         ? q.quarantined_transactions
         : [];
-      for (const reference of [...seen].sort())
-        await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
-          'PAYOS:' + reference,
-        ]);
+      await lockBankReferences(
+        c,
+        link.transactions.map((bank) => ({
+          restaurantId: this.restaurant,
+          reference: bank.reference,
+          ...(trustedPrimary
+            ? { receiverDigest: bankReceiverDigest('970422', trustedPrimary) }
+            : {}),
+        })),
+      );
+      try {
+        for (const bank of link.transactions)
+          await assertBankReferenceAvailable(c, {
+            restaurantId: this.restaurant,
+            reference: bank.reference,
+            paymentIntentId: id,
+            amount: String(bank.amount),
+            ...(trustedPrimary
+              ? { receiverDigest: bankReceiverDigest('970422', trustedPrimary) }
+              : {}),
+          });
+      } catch (error) {
+        if (
+          error &&
+          typeof error === 'object' &&
+          'statusCode' in error &&
+          error.statusCode === 409 &&
+          'publicMessage' in error
+        ) {
+          await reconciliation(
+            c,
+            this.restaurant,
+            pi,
+            { ...q, paid_amount: actual.toString() },
+            'Tham chiếu ngân hàng đã được ghi nhận qua khoản thu khác; cần đối chiếu.',
+          );
+          return { status: 'REQUIRES_RECONCILIATION' };
+        }
+        throw error;
+      }
       for (const bank of link.transactions) {
         const existing = (
           await c.query(
@@ -932,6 +1026,27 @@ export class PayosService {
             );
             return { status: 'REQUIRES_RECONCILIATION' };
           }
+          await postPayosReceipt(c, {
+            pi,
+            restaurantId: this.restaurant,
+            reference: bank.reference,
+            amount: String(bank.amount),
+            metadata: {},
+            verificationSource: 'PAYOS_VERIFIED',
+            ...(trustedPrimary
+              ? { receiverDigest: bankReceiverDigest('970422', trustedPrimary) }
+              : {}),
+          });
+          // Attach independently verified provider evidence without rewriting
+          // the original ADMIN provenance or posting another receipt/allocation.
+          await this.attachProviderEvidence(
+            c,
+            id,
+            String(q.order_code),
+            link.id,
+            bank,
+            existing.id,
+          );
           await this.completeBankEvent(c, String(q.order_code), link.id, bank, existing.id);
           continue;
         }
@@ -946,86 +1061,36 @@ export class PayosService {
           anomaly = true;
           continue;
         }
-        const account = await recalculate(c, pi.session_id);
-        const captured = await one(
-          c,
-          "SELECT COALESCE(sum(amount),0)::text AS amount FROM payment_transaction WHERE payment_intent_id=$1 AND status='SUCCEEDED'",
-          [id],
-        );
-        const remaining =
-          BigInt(pi.amount) > BigInt(captured.amount)
-            ? BigInt(pi.amount) - BigInt(captured.amount)
-            : 0n;
-        const payment = await one(
-          c,
-          `INSERT INTO payment_transaction(payment_intent_id,session_id,method,provider,provider_transaction_id,amount,status,confirmed_at,metadata) VALUES($1,$2,'ONLINE','PAYOS',$3,$4,'SUCCEEDED',now(),$5) RETURNING *`,
-          [
-            id,
-            pi.session_id,
-            bank.reference,
-            String(bank.amount),
-            JSON.stringify({
-              orderCode: String(q.order_code),
-              paymentLinkId: link.id,
-              collectionScope: pi.collection_scope,
-              payerParticipantId: pi.payer_participant_id,
-              bankTransactionAt: bank.transactionDateTime,
-              quoteInvalidatedAtReceipt,
-            }),
-          ],
-        );
-        recordedCount++;
-        await this.completeBankEvent(c, String(q.order_code), link.id, bank, payment.id);
-        let left = BigInt(bank.amount);
-        const safeLimit = left < remaining ? left : remaining;
-        left =
-          safeLimit < BigInt(account.outstanding_amount)
-            ? safeLimit
-            : BigInt(account.outstanding_amount);
-        const allocatedTarget = left;
-        const charges = (
-          await c.query(
-            `SELECT f.id,f.amount-f.discount_amount-COALESCE((SELECT sum(allocated_amount-reversed_amount) FROM payment_allocation WHERE financial_charge_id=f.id),0) AS remaining FROM financial_charge f WHERE f.session_id=$1 AND f.status='ACTIVE' AND ($2::uuid IS NULL OR EXISTS(SELECT 1 FROM order_item i WHERE i.id=f.order_item_id AND i.owner_participant_id=$2)) ORDER BY f.created_at,f.id FOR UPDATE`,
-            [pi.session_id, pi.collection_scope === 'PARTICIPANT' ? pi.payer_participant_id : null],
-          )
-        ).rows;
-        for (const charge of charges) {
-          if (!left) break;
-          const available = BigInt(charge.remaining);
-          if (available <= 0n) continue;
-          const part = left < available ? left : available;
-          await c.query(
-            'INSERT INTO payment_allocation(payment_transaction_id,financial_charge_id,allocated_amount) VALUES($1,$2,$3)',
-            [payment.id, charge.id, part.toString()],
-          );
-          left -= part;
-        }
-        if (left > 0n || allocatedTarget < BigInt(bank.amount)) anomaly = true;
-        await consumePromotion(c, pi.session_id);
-        await recalculate(c, pi.session_id);
-        await c.query(
-          `INSERT INTO outbox_event(aggregate_type,payment_transaction_id,event_type,payload) VALUES('PAYMENT_TRANSACTION',$1,'PAYMENT_RECEIVED',$2)`,
-          [payment.id, JSON.stringify({ sessionId: pi.session_id, provider: 'PAYOS' })],
-        );
-        await audit(
-          c,
-          this.restaurant,
-          null,
-          id,
-          'PAYOS_BANK_PAYMENT_RECEIVED',
-          'payOS xác nhận tiền đã vào tài khoản',
-          {
-            sessionId: pi.session_id,
-            paymentId: payment.id,
-            amount: payment.amount,
-            reference: bank.reference,
+        const posted = await postPayosReceipt(c, {
+          pi,
+          restaurantId: this.restaurant,
+          reference: bank.reference,
+          amount: String(bank.amount),
+          verificationSource: 'PAYOS_VERIFIED',
+          ...(trustedPrimary
+            ? { receiverDigest: bankReceiverDigest('970422', trustedPrimary) }
+            : {}),
+          metadata: {
+            orderCode: String(q.order_code),
+            paymentLinkId: link.id,
+            bankTransactionAt: bank.transactionDateTime,
+            quoteInvalidatedAtReceipt,
           },
-        );
+        });
+        if (posted.created) recordedCount++;
+        if (posted.anomaly) anomaly = true;
+        await this.completeBankEvent(c, String(q.order_code), link.id, bank, posted.receiptId);
       }
       await c.query('UPDATE payos_payment_request SET quarantined_transactions=$2 WHERE id=$1', [
         q.id,
         JSON.stringify(quarantine),
       ]);
+      const manualUnreported = prior
+        .filter(
+          (receipt) =>
+            receipt.verification_source === 'BANK_ADMIN_VERIFIED' && !seen.has(receipt.reference),
+        )
+        .reduce((sum, receipt) => sum + BigInt(receipt.amount), 0n);
       if (recoverableIdentityCase && !anomaly) {
         const sources = await readRefundSourceBudgets(c, pi.session_id, null, null, id);
         const recorded = sources.reduce((sum, source) => sum + BigInt(source.amount), 0n);
@@ -1040,7 +1105,7 @@ export class PayosService {
         // Old receipts skip the insert/allocation loop. Revalidate their current
         // source budgets before clearing any former identity or generic exception.
         if (
-          recorded !== actual ||
+          recorded !== actual + manualUnreported ||
           recorded - returned !== applied ||
           sources.some((source) => BigInt(source.refundable_amount) > 0n) ||
           BigInt(currentAccount?.refund_due_amount ?? '0') > 0n ||
@@ -1061,7 +1126,21 @@ export class PayosService {
               : 'Tiền payOS cần đối soát hoặc hoàn phần vượt.',
         );
       } else {
-        const fulfilled = actual === BigInt(pi.amount) && link.status === 'PAID';
+        const localFunds = await one(
+          c,
+          `SELECT COALESCE(sum(receipt.amount),0)::text AS recorded,
+          COALESCE(bool_or(receipt.metadata->>'verificationSource'='BANK_ADMIN_VERIFIED'),false) AS has_admin,
+          COALESCE((SELECT sum(a.allocated_amount) FROM payment_allocation a JOIN payment_transaction posted
+            ON posted.id=a.payment_transaction_id WHERE posted.payment_intent_id=$1 AND posted.status='SUCCEEDED'),0)::text AS applied
+          FROM payment_transaction receipt WHERE receipt.payment_intent_id=$1 AND receipt.status='SUCCEEDED'`,
+          [id],
+        );
+        const bankAdminSettled =
+          localFunds.has_admin &&
+          BigInt(localFunds.recorded) >= BigInt(pi.amount) &&
+          BigInt(localFunds.applied) >= BigInt(pi.amount);
+        const fulfilled =
+          bankAdminSettled || (actual === BigInt(pi.amount) && link.status === 'PAID');
         const finalState = fulfilled
           ? 'SUCCEEDED'
           : terminal.includes(link.status)
@@ -1084,7 +1163,8 @@ export class PayosService {
             : link.status === 'PROCESSING' ||
                 (actual === BigInt(pi.amount) && !terminal.includes(link.status))
               ? 'PROCESSING'
-              : actual > 0n && !terminal.includes(link.status)
+              : (actual > 0n || (localFunds.has_admin && BigInt(localFunds.recorded) > 0n)) &&
+                  !terminal.includes(link.status)
                 ? 'UNDERPAID'
                 : link.status,
         ]);
@@ -1135,6 +1215,10 @@ export class PayosService {
             previousReason: q.reconciliation_reason,
             bankReportedAmount: actual.toString(),
             references: link.transactions.map((bank) => bank.reference),
+            receiptFacts: link.transactions.map((bank) => ({
+              reference: bank.reference,
+              amount: String(bank.amount),
+            })),
           },
         );
       }
@@ -1172,6 +1256,38 @@ export class PayosService {
     if (recordedCount > 0) this.observe('RECORDED', outcome);
     this.observe(recordedCount > 0 ? 'ACCOUNT_UPDATED' : 'SNAPSHOT_APPLIED', outcome);
     return result;
+  }
+  private async attachProviderEvidence(
+    c: Connection,
+    id: string,
+    orderCode: string,
+    linkId: string,
+    bank: PaymentLink['transactions'][number],
+    paymentId: string,
+  ) {
+    const attached = await c.query(
+      `UPDATE payment_transaction
+      SET metadata=metadata || jsonb_build_object('providerVerifiedAt',now()::text)
+      WHERE id=$1 AND metadata->>'verificationSource'='BANK_ADMIN_VERIFIED'
+        AND NOT (metadata ? 'providerVerifiedAt') RETURNING id`,
+      [paymentId],
+    );
+    if (attached.rowCount)
+      await audit(
+        c,
+        this.restaurant,
+        null,
+        id,
+        'BANK_ADMIN_PROVIDER_CORROBORATED',
+        'payOS đã bổ sung bằng chứng cho cùng giao dịch ngân hàng quản trị ghi nhận.',
+        {
+          paymentId,
+          orderCode,
+          paymentLinkId: linkId,
+          reference: bank.reference,
+          amount: String(bank.amount),
+        },
+      );
   }
   private async completeBankEvent(
     c: Connection,
@@ -1376,7 +1492,7 @@ export class PayosService {
     if (!this.provider || !this.capabilities.online) return;
     const rows = (
       await this.db.pool.query(
-        `SELECT p.id FROM payos_payment_request q JOIN payment_intent p ON p.id=q.payment_intent_id JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND q.next_poll_at<=now() AND (q.status IN ('CREATE_PENDING','PENDING','PROCESSING','UNDERPAID','CANCEL_PENDING') OR (q.status='ERROR' AND COALESCE(q.provider_status,'') NOT IN ('PAID','CANCELLED','EXPIRED','FAILED')) OR (q.reconciliation_status='OPEN' AND (
+        `SELECT p.id FROM payos_payment_request q JOIN payment_intent p ON p.id=q.payment_intent_id JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND q.next_poll_at<=now() AND (q.status IN ('CREATE_PENDING','PENDING','PROCESSING','UNDERPAID','CANCEL_PENDING') OR (q.status='PAID' AND COALESCE(q.provider_status,'') NOT IN ('PAID','CANCELLED','EXPIRED','FAILED') AND EXISTS(SELECT 1 FROM payment_bank_evidence evidence WHERE evidence.payment_intent_id=p.id)) OR (q.status='ERROR' AND COALESCE(q.provider_status,'') NOT IN ('PAID','CANCELLED','EXPIRED','FAILED')) OR (q.reconciliation_status='OPEN' AND (
             COALESCE(q.provider_status,'') NOT IN ('PAID','CANCELLED','EXPIRED','FAILED') OR
             (q.reconciliation_reason=ANY($2::text[]) AND q.paid_amount<=p.amount
               AND jsonb_array_length(q.quarantined_transactions)=0)
@@ -1401,7 +1517,7 @@ export class PayosService {
          ORDER BY history_q.updated_at DESC,history_q.id DESC LIMIT 100
        )
        SELECT p.id,p.id AS payment_intent_id,p.session_id,t.code AS table_code,s.session_status,
-        p.amount::text,q.paid_amount::text,
+        p.amount::text,q.paid_amount::text,verification.verification_source,verification.provider_evidence_attached,
         COALESCE(funds.recorded_amount,0)::text AS recorded_amount,
         COALESCE(funds.allocated_amount,0)::text AS allocated_amount,
         COALESCE(funds.original_allocated_amount,0)::text AS original_allocated_amount,
@@ -1411,9 +1527,10 @@ export class PayosService {
         COALESCE((SELECT sum((x->>'amount')::bigint)
           FROM jsonb_array_elements(q.quarantined_transactions) x),0)::text AS quarantined_amount,
         COALESCE(q.provider_status,q.status) AS provider_status,q.last_error,q.updated_at,
-        q.reconciliation_reason AS reason,COALESCE(q.reconciliation_status,'RESOLVED') AS status,
+        q.reconciliation_reason AS reason,CASE WHEN q.reconciliation_status IS NOT NULL THEN q.reconciliation_status
+          WHEN q.status='ERROR' AND q.resolved_at IS NULL THEN 'OPEN' ELSE 'RESOLVED' END AS status,
         q.reconciliation_status AS active_reconciliation_status,q.resolved_at,
-        verified.created_at AS verified_at,
+        verified.created_at AS verified_at,bank_verification.bank_verified_at,bank_verification.independent_bank_verified,bank_verification.unposted_bank_references,
         COALESCE(reported.details->'references',verified.details->'references','[]'::jsonb) AS provider_references,
         acknowledged.created_at AS acknowledged_at,acknowledged.display_name AS acknowledged_by_name,
         CASE WHEN q.resolved_at IS NOT NULL THEN COALESCE(recovered.reason,q.reconciliation_reason)
@@ -1426,6 +1543,8 @@ export class PayosService {
        JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id
        LEFT JOIN session_financial_account fa ON fa.session_id=p.session_id
        ${payosIntentFundsJoin}
+       ${paymentVerificationJoin}
+       ${paymentBankVerificationJoin}
        LEFT JOIN LATERAL (
          SELECT e.created_at,e.details FROM business_audit_event e
          WHERE e.restaurant_id=$1 AND e.resource_id=p.id AND e.action='PAYOS_PROVIDER_VERIFIED'
@@ -1457,7 +1576,7 @@ export class PayosService {
          ORDER BY e.created_at DESC,e.id DESC LIMIT 1
        ) recovered ON true
        WHERE t.restaurant_id=$1 AND
-         (q.reconciliation_status='OPEN' OR q.id IN (SELECT id FROM recent_history))
+         (q.reconciliation_status='OPEN' OR q.id IN (SELECT id FROM recent_history) OR (q.status='ERROR' AND s.session_status='ACTIVE' AND p.status<>'SUCCEEDED'))
        ORDER BY (q.reconciliation_status='OPEN') DESC NULLS LAST,q.updated_at DESC,q.id DESC`,
         [this.restaurant],
       )
@@ -1477,6 +1596,8 @@ export class PayosService {
         sessionRefundDue: row.refund_due_amount,
         quoteInvalidatedAtReceipt: row.quote_invalidated_at_receipt === true,
         verified: row.verified_at !== null,
+        independentBankVerified: row.independent_bank_verified === true,
+        unpostedBankReferences: row.unposted_bank_references === true,
         open: row.active_reconciliation_status === 'OPEN',
       });
       const {
@@ -1491,11 +1612,19 @@ export class PayosService {
       return {
         ...view,
         verified_at: row.verified_at ? new Date(row.verified_at).toISOString() : null,
+        bank_verified_at: row.bank_verified_at
+          ? new Date(row.bank_verified_at).toISOString()
+          : null,
         acknowledged_at: row.acknowledged_at ? new Date(row.acknowledged_at).toISOString() : null,
         resolved_at: row.resolved_at ? new Date(row.resolved_at).toISOString() : null,
         provider_references: Array.isArray(row.provider_references) ? row.provider_references : [],
         can_resolve: readiness.canResolve,
-        resolution_blockers: readiness.blockers,
+        resolution_blockers:
+          row.status === 'OPEN' && row.active_reconciliation_status === null
+            ? [
+                'Khoản thu đang lỗi kết nối; đối chiếu payOS hoặc xác minh ngân hàng trước khi kết thúc.',
+              ]
+            : readiness.blockers,
         can_return_externally: false,
       };
     });
@@ -1520,9 +1649,15 @@ export class PayosService {
       );
       if (q.reconciliation_status === 'RESOLVED') return { status: 'ok', alreadyProcessed: true };
       if (q.reconciliation_status !== 'OPEN') reject('Khoản này không có hồ sơ đối soát đang mở.');
-      if (!terminal.includes(q.provider_status))
+      const bankCheck = await one(
+        c,
+        `SELECT bank_verification.* FROM payment_intent p
+        JOIN payos_payment_request q ON q.payment_intent_id=p.id ${paymentBankVerificationJoin} WHERE p.id=$1`,
+        [id],
+      );
+      if (!terminal.includes(q.provider_status) && !bankCheck.independent_bank_verified)
         reject(
-          'payOS chưa xác nhận khoản thanh toán đã kết thúc. Hãy kiểm tra lại; khoản đang chờ không thể đóng hồ sơ.',
+          'payOS chưa xác nhận khoản thanh toán đã kết thúc và chưa đủ chứng cứ ngân hàng độc lập.',
         );
       const quarantine = q.quarantined_transactions.reduce(
         (sum: bigint, x: { amount: string }) => sum + BigInt(x.amount),
@@ -1583,6 +1718,8 @@ export class PayosService {
         quoteInvalidatedAtReceipt:
           checked.invalidated || q.cancel_requested || ['CANCELLED', 'EXPIRED'].includes(pi.status),
         verified: checked.verified === true,
+        independentBankVerified: bankCheck.independent_bank_verified === true,
+        unpostedBankReferences: bankCheck.unposted_bank_references === true,
         open: q.reconciliation_status === 'OPEN',
       });
       if (!readiness.canResolve) reject(readiness.blockers.join(' '));
@@ -1611,7 +1748,8 @@ export class PayosService {
         if (b.resolution !== 'RECONCILED')
           reject('Chọn xác nhận đã đối soát khoản tại phiên đang mở.', 400);
         if (
-          captured !== BigInt(q.paid_amount) ||
+          (captured !== BigInt(q.paid_amount) && !bankCheck.independent_bank_verified) ||
+          BigInt(q.paid_amount) > captured ||
           (q.provider_status === 'PAID' && captured < BigInt(pi.amount))
         )
           reject(
@@ -1647,8 +1785,17 @@ export class PayosService {
       const onlineStatus =
         cancelledQuote || (reference && captured < BigInt(pi.amount))
           ? 'CANCELLED'
-          : q.provider_status;
-      const intentStatus = onlineStatus === 'PAID' ? 'SUCCEEDED' : onlineStatus;
+          : bankCheck.independent_bank_verified
+            ? fulfilledQuote
+              ? 'PAID'
+              : 'UNDERPAID'
+            : q.provider_status;
+      const intentStatus =
+        onlineStatus === 'PAID'
+          ? 'SUCCEEDED'
+          : onlineStatus === 'UNDERPAID'
+            ? 'PENDING'
+            : onlineStatus;
       await c.query(
         `UPDATE payos_payment_request SET reconciliation_status='RESOLVED',resolved_by=$2,resolved_at=now(),reconciliation_reason=$3,last_error=NULL,status=$4 WHERE id=$1`,
         [q.id, actor, reason, onlineStatus],

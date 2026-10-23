@@ -80,7 +80,7 @@ export async function finishPaymentRequests(
     if (actor) await cancelPending(c, request, actor, 'Khoản thanh toán đã được ghi nhận.');
     else
       await c.query(
-        "UPDATE support_request_handoff SET status='CANCELLED',responded_at=clock_timestamp(),responded_by=NULL,response_actor_type='SYSTEM',response_reason='payOS đã ghi nhận tiền thanh toán.' WHERE support_request_id=$1 AND status='PENDING'",
+        "UPDATE support_request_handoff SET status='CANCELLED',responded_at=clock_timestamp(),responded_by=NULL,response_actor_type='SYSTEM',response_reason='Khoản thanh toán đã được ghi nhận.' WHERE support_request_id=$1 AND status='PENDING'",
         [request.id],
       );
     const linked = request.id === id;

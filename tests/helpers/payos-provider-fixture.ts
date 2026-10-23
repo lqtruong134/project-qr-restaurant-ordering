@@ -105,7 +105,7 @@ export class FakeProvider implements PayosProvider {
   }
   verify = (body: unknown) => verifier.verify(body);
   isNotFound = (error: unknown) => error === notFound;
-  add(orderCode: number, amount: number, reference = randomUUID()) {
+  add(orderCode: number, amount: number, reference: string = randomUUID()) {
     const link = this.links.get(orderCode)!;
     link.transactions.push({
       reference,

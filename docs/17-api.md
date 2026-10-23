@@ -1,5 +1,12 @@
 # 17. Danh mục API hiện hành
 
+## Chứng từ ngân hàng ADMIN và provenance — 23/10/2026
+
+Có **184 thao tác nghiệp vụ / 193 route tổng** (7 auth/workspace, 2 health; không tính HEAD). Nhóm `/core/admin/payment-reconciliation/:id/bank-evidence` bổ sung GET facts/history, POST `/proof`, GET `/proof/:proofId`, POST `/preview` và POST `/confirm`. Chỉ ADMIN còn quyền đúng tenant; mutation kiểm CSRF/Origin, proof 2 MB và token preview 2 phút. Chứng từ không có URL public. Xem request/examples trong [Swagger hiện hành](core45/openapi-paths.json) và [nghiệp vụ](06-thanh-toan.md).
+
+OnlinePaymentView và GuestOnlinePayment có `verificationSource` UNVERIFIED/PAYOS_VERIFIED/BANK_ADMIN_VERIFIED/MIXED cùng `providerEvidenceAttached`; không lộ identifiers/proof qua guest. Cases có `verification_source`, `bank_verified_at` riêng với `verified_at` của provider. Một source hoặc PAID không tự làm giảm nợ: ledger/allocation vẫn quyết định số tiền. Xem trước không ghi tiền; xác nhận stale/expired/wrong actor bị409/403/404 thích hợp. Replay thành công trả receipt đã có. Đóng đối soát dùng cùng readiness của read model và mutation, gồm ngân sách hoàn/tham chiếu chưa ghi sổ; chứng từ bank hợp lệ không bị buộc giả provider PAID.
+
+
 ## Projection tài chính và trung tâm ngoại lệ — 19/10/2026
 
 GET `/core/sessions/:id/bill` và `/guest/state` thêm `financialSummary` (tiền báo nhận/ghi sổ/phân bổ/còn nợ/giữ chỗ/chưa phân bổ/cần hoàn/đã hoàn) và `collectionAvailability` (nợ, giữ chỗ, phần được lập khoản mới và lý do chặn). Guest chỉ nhận dòng participant của mình; các tổng cả bàn không lộ danh tính hoặc tham chiếu ngân hàng. Snapshot phiếu đã đóng được trả nguyên trạng. Tiền dạng chuỗi số nguyên VND; frontend không tự trừ QR khỏi nợ.

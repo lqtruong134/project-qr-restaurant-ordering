@@ -20,6 +20,10 @@ const finance = () => ({
   order_batches: '8',
   order_items: '17',
   proof_records: '1',
+  admin_bank_proof_records: '2',
+  bank_preview_records: '3',
+  bank_evidence_records: '1',
+  bank_receipt_claims: '2',
   operational_alerts: '3',
   financial_accounts: '3',
   receipt_rows: '4',
@@ -142,6 +146,10 @@ test('any payOS attempt/provider evidence is protected UNKNOWN, never automatica
   assert.equal(result.counts.order_batches, '8');
   assert.equal(result.counts.order_items, '17');
   assert.equal(result.counts.proof_records, '1');
+  assert.equal(result.counts.admin_bank_proof_records, '2');
+  assert.equal(result.counts.bank_preview_records, '3');
+  assert.equal(result.counts.bank_evidence_records, '1');
+  assert.equal(result.counts.bank_receipt_claims, '2');
   assert.equal(result.counts.operational_alerts, '3');
   assert.equal(result.counts.unscoped_payos_events, '1');
   assert.equal(result.automaticDemoDeleteEligibleCount, '0');

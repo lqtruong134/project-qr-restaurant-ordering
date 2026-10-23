@@ -60,6 +60,14 @@ SELECT count(*)::text AS sessions,
     JOIN scoped_sessions s ON s.id=b.session_id) AS order_items,
   (SELECT count(*)::text FROM payment_intent p JOIN scoped_sessions s ON s.id=p.session_id
     WHERE p.proof IS NOT NULL AND p.proof <> 'null'::jsonb) AS proof_records,
+  (SELECT count(*)::text FROM payment_bank_proof p WHERE p.restaurant_id=$1)
+    AS admin_bank_proof_records,
+  (SELECT count(*)::text FROM payment_bank_preview p WHERE p.restaurant_id=$1)
+    AS bank_preview_records,
+  (SELECT count(*)::text FROM payment_bank_evidence e WHERE e.restaurant_id=$1)
+    AS bank_evidence_records,
+  (SELECT count(*)::text FROM bank_receipt_claim c WHERE c.restaurant_id=$1)
+    AS bank_receipt_claims,
   (SELECT count(*)::text FROM operational_alert a JOIN dining_table t ON t.id=a.table_id
     WHERE t.restaurant_id=$1) AS operational_alerts,
   (SELECT count(*)::text FROM session_financial_account a
@@ -97,6 +105,10 @@ const fields = [
   'order_batches',
   'order_items',
   'proof_records',
+  'admin_bank_proof_records',
+  'bank_preview_records',
+  'bank_evidence_records',
+  'bank_receipt_claims',
   'operational_alerts',
   'financial_accounts',
   'receipt_rows',

@@ -7,6 +7,7 @@ import { restaurantDateTime } from '../shared/restaurant-time';
 import { SessionReference } from '../shared/session-reference';
 import BillPanel from '../workspace/bill-panel';
 import styles from './payment-exceptions.module.css';
+import BankEvidenceDialog from './bank-evidence-dialog';
 
 const providerStates: Record<string, string> = {
   CREATE_PENDING: 'Đang tạo khoản thu',
@@ -29,11 +30,13 @@ function CaseCard({
   row,
   refresh,
   refund,
+  bankEvidence,
   notify,
 }: {
   row: PaymentReconciliationCase;
   refresh: () => Promise<void>;
   refund: () => void;
+  bankEvidence: () => void;
   notify: (message: string) => void;
 }) {
   const closed = row.status === 'RESOLVED';
@@ -80,6 +83,19 @@ function CaseCard({
           </div>
         ))}
       </div>
+      {row.verification_source && row.verification_source !== 'UNVERIFIED' && (
+        <p className="small-note" aria-label="Nguồn xác minh thanh toán">
+          <strong>Nguồn ghi nhận:</strong>{' '}
+          {row.verification_source === 'BANK_ADMIN_VERIFIED'
+            ? 'Quản trị đã đối chiếu ngân hàng'
+            : row.verification_source === 'MIXED'
+              ? 'payOS tự xác minh và quản trị đối chiếu ngân hàng'
+              : 'payOS đã xác minh tự động'}
+          {row.provider_evidence_attached &&
+            row.verification_source === 'BANK_ADMIN_VERIFIED' &&
+            ' · payOS đã bổ sung bằng chứng cho giao dịch này.'}
+        </p>
+      )}
       <p className="small-note">
         Tiền payOS báo đã nhận chỉ giảm công nợ khi đã được xác minh và tính vào tiền món. Tiền chưa
         phân bổ và khoản cần hoàn được xử lý riêng.
@@ -102,9 +118,13 @@ function CaseCard({
         <div>
           <dt>Xác minh giao dịch</dt>
           <dd>
-            {row.verified_at
-              ? `Đã xác minh · ${restaurantDateTime(row.verified_at)}`
-              : 'Chưa đủ bằng chứng xác minh'}
+            {row.verification_source === 'BANK_ADMIN_VERIFIED'
+              ? `Ngân hàng do quản trị đối chiếu${row.bank_verified_at ? ' · ' + restaurantDateTime(row.bank_verified_at) : ''}`
+              : row.verified_at
+                ? `Đã kiểm tra dữ liệu payOS · ${restaurantDateTime(row.verified_at)}`
+                : row.verification_source === 'MIXED'
+                  ? 'Ngân hàng đã được quản trị đối chiếu'
+                  : 'Chưa đủ bằng chứng xác minh'}
           </dd>
         </div>
         <div>
@@ -158,6 +178,13 @@ function CaseCard({
           )}
         </dl>
       </details>
+      {closed &&
+        (row.verification_source === 'BANK_ADMIN_VERIFIED' ||
+          row.verification_source === 'MIXED') && (
+          <button type="button" className="secondary-button" onClick={bankEvidence}>
+            Xem chứng từ ngân hàng
+          </button>
+        )}
       {!closed && (
         <div className={styles.next}>
           <h4>Bước xử lý tiếp theo</h4>
@@ -207,6 +234,9 @@ function CaseCard({
             >
               <Icon name="refresh" size={16} /> Đối chiếu lại với payOS
             </Action>
+            <button className="secondary-button" type="button" onClick={bankEvidence}>
+              <Icon name="shield" size={16} /> Xác minh qua ngân hàng
+            </button>
             {hasRefund && (
               <button className="secondary-button" type="button" onClick={refund}>
                 Mở xử lý hoàn tiền tại bàn
@@ -253,7 +283,8 @@ export default function OnlineReconciliationPanel({
     [search, setSearch] = useState(''),
     [notice, setNotice] = useState(''),
     [status, setStatus] = useState('OPEN'),
-    [refundSession, setRefundSession] = useState<string>();
+    [refundSession, setRefundSession] = useState<string>(),
+    [bankEvidenceId, setBankEvidenceId] = useState<string>();
   const [unmatched, setUnmatched] = useState<UnmatchedPaymentWebhook[]>([]),
     [inboxError, setInboxError] = useState('');
   const loading = useRef(false);
@@ -386,6 +417,7 @@ export default function OnlineReconciliationPanel({
               row={row}
               refresh={refreshAll}
               refund={() => setRefundSession(row.session_id)}
+              bankEvidence={() => setBankEvidenceId(row.id)}
               notify={setNotice}
             />
           ))}
@@ -440,6 +472,13 @@ export default function OnlineReconciliationPanel({
           </div>
         )}
       </section>
+      {bankEvidenceId && (
+        <BankEvidenceDialog
+          id={bankEvidenceId}
+          close={() => setBankEvidenceId(undefined)}
+          done={refreshAll}
+        />
+      )}
       {refundSession && (
         <Modal
           title="Kiểm tra và hoàn tiền từ giao dịch gốc"

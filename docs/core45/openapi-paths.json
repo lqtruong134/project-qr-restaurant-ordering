@@ -6586,6 +6586,317 @@
       }
     }
   },
+  "/core/admin/payment-reconciliation/{id}/bank-evidence": {
+    "get": {
+      "tags": [
+        "Thu tiền và payOS"
+      ],
+      "summary": "GET /core/admin/payment-reconciliation/{id}/bank-evidence",
+      "operationId": "core_get__core_admin_payment_reconciliation__id_bank_evidence",
+      "description": "ADMIN của đúng nhà hàng xem facts readonly, tài khoản nhận đã che, nguồn xác minh và lịch sử chứng từ. Không ghi tiền; không trả thông tin này cho STAFF/GUEST.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/admin/payment-reconciliation/{id}/bank-evidence/proof": {
+    "post": {
+      "tags": [
+        "Thu tiền và payOS"
+      ],
+      "summary": "POST /core/admin/payment-reconciliation/{id}/bank-evidence/proof",
+      "operationId": "core_post__core_admin_payment_reconciliation__id_bank_evidence_proof",
+      "description": "ADMIN tải ảnh PNG/JPEG/WebP tối đa 2 MB, base64 chuẩn; server kiểm magic bytes, tạo filename riêng, lưu hash và chỉ cho ADMIN xem. Ảnh không tự chứng minh ngân hàng nhận tiền.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {
+              "data": "BASE64_CUA_ANH_CHUNG_TU_PNG_JPEG_WEBP"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/admin/payment-reconciliation/{id}/bank-evidence/proof/{proofId}": {
+    "get": {
+      "tags": [
+        "Thu tiền và payOS"
+      ],
+      "summary": "GET /core/admin/payment-reconciliation/{id}/bank-evidence/proof/{proofId}",
+      "operationId": "core_get__core_admin_payment_reconciliation__id_bank_evidence_proof__proofId",
+      "description": "Đọc ảnh chứng từ riêng tư trong đúng tenant/intent; ADMIN-only, no-store, nosniff. Không nhận URL/path bên ngoài.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "proofId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/admin/payment-reconciliation/{id}/bank-evidence/preview": {
+    "post": {
+      "tags": [
+        "Thu tiền và payOS"
+      ],
+      "summary": "POST /core/admin/payment-reconciliation/{id}/bank-evidence/preview",
+      "operationId": "core_post__core_admin_payment_reconciliation__id_bank_evidence_preview",
+      "description": "Đối chiếu payOS trước, rồi xem tác động từ chứng cứ ngân hàng độc lập. Token 2 phút ràng buộc actor/tenant/intent/version/proof/hash/facts; chưa ghi sổ. Giờ phải có múi giờ; hết hạn chỉ phục hồi khi có chứng cứ provider đã quan sát đúng hạn. Gross nhận có thể lớn hơn quote nhưng allocation luôn bị giới hạn; phần dư phải hoàn riêng.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {
+              "proofId": "00000000-0000-4000-8000-000000000001",
+              "reference": "MA_GIAO_DICH_TREN_SAO_KE",
+              "amount": "10000",
+              "bankTransactionAt": "2026-10-23T10:00:00+07:00",
+              "reason": "Đã kiểm tra trực tiếp giao dịch tiền vào trên ngân hàng nhà hàng.",
+              "attested": true
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
+  "/core/admin/payment-reconciliation/{id}/bank-evidence/confirm": {
+    "post": {
+      "tags": [
+        "Thu tiền và payOS"
+      ],
+      "summary": "POST /core/admin/payment-reconciliation/{id}/bank-evidence/confirm",
+      "operationId": "core_post__core_admin_payment_reconciliation__id_bank_evidence_confirm",
+      "description": "ADMIN xác nhận cuối, server kiểm lại quyền/token/chứng từ/facts/số dư dưới khóa. Shared posting BANK_ADMIN_VERIFIED, claim ngân hàng xuyên nguồn, idempotent; không ép provider PAID hoặc xác nhận đã hoàn. Token cũ hoặc facts thay đổi trả409; replay đã xác nhận trả receipt cũ.",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "$ref": "#/components/parameters/Csrf"
+        }
+      ],
+      "security": [
+        {
+          "accessCookie": []
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "example": {
+              "token": "TOKEN_DO_PREVIEW_TRA_VE",
+              "attested": true
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Thành công"
+        },
+        "400": {
+          "description": "Dữ liệu không hợp lệ"
+        },
+        "401": {
+          "description": "Chưa xác thực"
+        },
+        "403": {
+          "description": "Không được phép"
+        },
+        "404": {
+          "description": "Không tìm thấy"
+        },
+        "409": {
+          "description": "Dữ liệu hoặc trạng thái đã thay đổi"
+        },
+        "429": {
+          "description": "Quá giới hạn gửi"
+        }
+      }
+    }
+  },
   "/core/sessions/{id}/bill": {
     "get": {
       "tags": [
@@ -6953,7 +7264,7 @@
       ],
       "summary": "POST /core/admin/payment-reconciliation/{id}/resolve",
       "operationId": "core_post__core_admin_payment_reconciliation__id_resolve",
-      "description": "ADMIN chỉ đóng RECONCILED sau kiểm tra lại dưới khóa: xác minh mới sau bất thường, provider kết thúc, sổ khớp ngân hàng, không còn tiền cách ly/chưa phân bổ hoặc nghĩa vụ hoàn. Ghi chú là tùy chọn, không phải chứng cứ. RETURNED_EXTERNALLY bị chặn vì chưa có connector xác minh chứng từ outbound; nhập reference không chứng minh đã hoàn. Phiếu đóng giữ nguyên; không tự gán PAID hoặc chuyển tiền.",
+      "description": "ADMIN chỉ đóng RECONCILED sau kiểm tra lại dưới khóa: xác minh provider hoặc chứng từ ngân hàng độc lập đủ điều kiện, không còn tham chiếu chưa xử lý, sổ khớp tiền thực nhận, không còn tiền cách ly/chưa phân bổ hoặc nghĩa vụ hoàn. Ghi chú là tùy chọn, không phải chứng cứ. RETURNED_EXTERNALLY bị chặn vì chưa có connector xác minh chứng từ outbound; nhập reference không chứng minh đã hoàn. Phiếu đóng giữ nguyên; không tự gán PAID hoặc chuyển tiền.",
       "parameters": [
         {
           "name": "id",

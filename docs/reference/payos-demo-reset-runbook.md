@@ -1,8 +1,8 @@
 # Kế hoạch làm mới dữ liệu vận hành payOS: DB mới và kho lịch sử chỉ đọc
 
-## Trạng thái M1 — 22/10/2026
+## Trạng thái chuẩn bị M2/M3 — 23/10/2026
 
-Nhánh `feat/payos-payment-platform` bàn giao M1 gồm allocator bền vững, inventory/reset plan chỉ đọc và [thiết kế nền tảng](payos-platform-design.md). **M2 bank-evidence/shared posting và M3 UI/E2E sâu/cutover chưa triển khai; M1 chưa deploy-ready cho toàn bộ nền tảng.** Công cụ inventory không phải reset executor; có allocator không đồng nghĩa đã có registry/dispatcher cho webhook cũ. Xem trạng thái kiểm chứng ở [bài 15](../15-doi-chieu.md), nghiệp vụ ở [bài 06](../06-thanh-toan.md), các lệnh maintenance ở [bài 26](../26-trien-khai-qtruongres.md).
+Nhánh `feat/payos-payment-platform` đã có allocator M1, shared posting/chứng từ ngân hàng M2 và UI/rehearsal M3. Kết quả cuối xem [bài 15](../15-doi-chieu.md). **Kế hoạch làm sạch vẫn chỉ đọc và giữ dữ liệu mặc định; không có quyền reset hoặc công cụ xóa tự động.** Không cần reset DB để đưa M2 vào dùng: phương án ưu tiên là migrate cộng thêm bốn bảng trên DB hiện tại sau backup/review, giữ nguyên lịch sử tiền thật.
 
 Tài liệu này là **runbook chuẩn bị và các điều kiện dừng**, không phải lệnh reset. Công cụ kèm theo chỉ inventory/dry-run bằng SELECT trong transaction READ ONLY; không có DELETE, DROP, TRUNCATE, reset executor, migration runner hoặc khả năng chấp thuận giao dịch. Chưa truy cập, phân loại hay làm mới production trong phần công việc này.
 
@@ -101,3 +101,44 @@ Nếu chưa có nghiệp vụ/tiền mới, rollback có thể quay lại snapsh
 ## 8. Phạm vi kiểm chứng của phần chuẩn bị
 
 Các test inventory dùng fake DB, kiểm tra READ ONLY/timeouts/ROLLBACK, scope, phân loại PROTECTED/UNKNOWN, redaction, fail-closed và việc từ chối mọi cờ thực thi. Allocator/initializer có unit tests bằng store tạm và DB giả; cold backup/restore state có kiểm thử riêng. Kết quả thực chạy và giới hạn được chốt tại bài 15, không suy từ văn bản runbook. Chúng không chứng minh dữ liệu production đã được phân loại hay backup/restore production đã đạt. Các bước hạ tầng, chuyển DB, provider routing và giao dịch thật ở trên đều là điều kiện cần review, không phải thao tác đã thực hiện.
+
+## 9. Rehearsal bảo toàn chứng từ ngân hàng — 23/10/2026
+
+Có công cụ tái hiện **chỉ dành cho lab tổng hợp**: `scripts/payos-platform-rehearsal.mjs`. Công cụ không đọc `.env`, không nhận backup/volume/database tùy ý, không gọi merchant/payOS và không chạy Compose hay start/stop container. Trước kết nối, nó kiểm tra Docker socket local, tên và nhãn lab, tmpfs không có volume/bind mount, cổng loopback khớp DATABASE_URL và credential cố định chỉ dành cho fixture. Database do công cụ tạo có prefix `thesis_platform_` + mã ngẫu nhiên; cuối lượt chỉ xóa đúng các database vừa tạo và thư mục tạm riêng.
+
+Lượt đã chạy dùng container `qtruongres-payos-receipt-lab-20261023`, nhãn `codex.task=payos-receipt-m2-20261023`, PostgreSQL ghim digest trong dự án, cổng loopback `64374` và tmpfs. Nếu tái chạy, phải có lab tương ứng; không đổi tên/nhãn container production để vượt guard. Lệnh chạy từ repository trong Linux/WSL với Node đã chọn:
+
+```bash
+env -i PATH="$PATH" HOME="$HOME" \
+  DATABASE_URL='postgresql://isolated_test:isolated_platform_test_only@127.0.0.1:64374/postgres' \
+  node --import tsx scripts/payos-platform-rehearsal.mjs \
+  --isolated-rehearsal --container qtruongres-payos-receipt-lab-20261023
+```
+
+Credential trong lệnh là fixture công khai, không phải cấu hình vận hành. Công cụ từ chối credential khác và mọi DATABASE_URL không trỏ đúng lab tmpfs đã kiểm tra. Nó không tạo container; việc chuẩn bị/xóa lab thuộc người chạy, không dùng project Compose production. Output gồm boolean, số đếm và vị trí source nếu lỗi; không in SQL, account, reference, ảnh, token preview hoặc nội dung database.
+
+| Kiểm chứng thực chạy | Kết quả |
+| --- | --- |
+| `pg_dump --format=custom` và `pg_restore --single-transaction --exit-on-error` trên database tổng hợp | Khôi phục đủ **71 bảng**; hash toàn bộ hàng/bảng và số đếm trước/sau bằng nhau |
+| Chứng từ mới | Giữ nguyên `payment_bank_proof`, `payment_bank_preview`, `payment_bank_evidence`, `bank_receipt_claim`, receipt/allocation/outbox/audit; fixture có một chứng cứ đã xác nhận và một canonical claim |
+| Dữ liệu tài chính | Đã ghi sổ 10.000đ, còn phải thu 10.000đ, cần hoàn 0đ trước/sau bằng nhau; `provider_status=PENDING` vẫn giữ riêng nguồn ADMIN, không bị sửa thành provider PAID |
+| Tệp chứng từ/runtime | SHA-256 proof khớp descriptor trong DB; file backup/proof 600, thư mục proof 700; allocator đi cùng cold archive |
+| Restore vào database/runtime đã có dữ liệu | Bị từ chối trước khi ghi đè; không có tùy chọn overwrite |
+| Lỗi restore file sau khi database đã restore | Báo rõ tài nguyên có thể đã khôi phục một phần, writer không được tự chạy; dữ liệu DB khôi phục còn nguyên để kiểm tra; chỉ thử lại bằng target rỗng mới |
+| Archive/backup bị sửa | Checksum không khớp bị từ chối trước restore |
+| Kho lịch sử READ ONLY | PostgreSQL từ chối UPDATE bằng SQLSTATE 25006 trong transaction READ ONLY |
+| Rollback allocator | Restore đè runtime đang giữ state mới bị từ chối; state live tiếp tục tăng. Bản restore cũ chỉ được đưa lên trên high-water mới đã chứng minh từ state live tổng hợp, không tiếp tục cấp mã từ watermark cũ |
+
+Bốn unit test riêng trong `scripts/payos-platform-rehearsal.test.mjs` kiểm parser, tên/nhãn/URL/cổng/mount và việc lỗi sớm không lộ cấu hình. Mười integration test của shared posting/DB guards kiểm tiền dư, cross-provider duplicate, concurrency, rollback giao dịch, tenant scope và lịch sử chứng cứ bất biến. Các kiểm thử này dùng dữ liệu tổng hợp; **không chứng minh backup production đã chạy hoặc số liệu production đã đối chiếu**.
+
+Inventory chỉ đọc hiện đếm thêm `admin_bank_proof_records`, `bank_preview_records`, `bank_evidence_records`, `bank_receipt_claims`. Chứng từ chưa xác nhận và preview hết hạn cũng được giữ trong inventory; không tự suy luận được phép xóa vì chưa ghi sổ. Full DB backup giữ cả bốn bảng; runtime archive giữ file ADMIN proof trong cùng `payment-proofs` có kiểm soát quyền, không đưa vào ảnh công khai.
+
+Rehearsal không thực hiện chuyển database, đổi webhook writer, archive routing hoặc rollback production. Với hồ sơ chưa đủ chứng minh dòng nào là demo hoặc chưa có mapping link cũ, phương án an toàn là giữ nguyên lịch sử vận hành và hoãn làm sạch. Không dùng kết quả PASS của lab làm quyền reset DB hoặc mất lịch sử tiền thật.
+
+## 10. Quyết định làm sạch trước production
+
+Ưu tiên **giữ DB vận hành hiện tại và toàn bộ lịch sử tài chính**, đưa ảnh/dữ liệu thử vào danh sách review riêng; không reset để sửa lỗi payOS. Inventory đếm cả bank_proof/preview/evidence/claim và luôn giữ trạng thái UNKNOWN/PROTECTED. Muốn xóa một bản ghi phi tài chính phải có manifest từng hàng, xác nhận nguồn gốc và kiểm tra liên kết; chưa có manifest từ dữ liệu thật thì không có danh sách được phép xóa. Không suy luận demo từ tên/tuổi/giá.
+
+Nếu chủ dự án sau này chọn DB mới, các điều kiện ở phần 3–8 là cổng bắt buộc: backup restore đã đối chiếu, khoản provider/tiền thật/hoàn chưa xử lý bằng 0 hoặc giữ hồ sơ xử lý có trách nhiệm, archive quyền đọc, mapping order/link được lưu, một writer duy nhất, unknown webhook giữ inbox và allocator không lùi. Hiện chưa có dispatcher archive tự động; không được cutover cùng channel và coi dữ liệu cũ đã hết trách nhiệm. Có thể giữ DB hiện tại cho tới khi kế hoạch routing/archive bổ sung được nghiệm thu, hoặc dùng channel độc lập đã được chủ dự án cấu hình riêng. Không chạy reset/drop/truncate từ tài liệu này.
+
+Bản backup phải giữ đồng bộ bốn bảng M2, ledger/allocation/refund/audit/webhook và tệp proof private. Preview là credential ngắn hạn nên archive phải được bảo vệ như dữ liệu ngân hàng. Không đưa dump/proof/SQLite vào Git. Sau khi có BANK_ADMIN_VERIFIED, rollback code chỉ tới phiên bản M2 tương thích; lỗi triển khai giữ writer dừng, không restore snapshot cũ đè khoản thu/hoàn mới và không hạ allocator.

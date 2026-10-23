@@ -1,5 +1,42 @@
 # 15. Hồ sơ đối chiếu và giới hạn xác minh
 
+## Nghiệm thu nền tảng payOS M2/M3 — 23/10/2026
+
+Nhánh `feat/payos-payment-platform`, PR #3 tiếp tục đầy đủ sau M1. Thay đổi M2 gồm tự động signed GET/primary MB, shared posting và claim ngân hàng xuyên nguồn, ADMIN chứng từ riêng tư/xem trước/xác nhận, chống ghi trùng và audit. M3 gồm UI ba vai trò, kiểm thử browser, migration đóng gói và rehearsal backup/restore/rollback. Đây là nghiệm thu mã và môi trường tổng hợp, không phải xác nhận production hoặc tiền A10 đã được xử lý.
+
+### Nguyên nhân và hành vi trước/sau
+
+Guard cũ đòi webhook làm cầu nối dù signed GET đã khớp đúng kênh/link và primary ngân hàng được cấu hình tin cậy. M2 cho phép GET độc lập khi exact client/restaurant/BIN MB/primary + signed CREATE QR/link đều đúng; VA mâu thuẫn hoặc chữ ký/định danh/tiền sai vẫn chặn. Không dùng độ dài tài khoản, lời xác nhận hoặc output diagnostic làm quyền ghi sổ.
+
+ADMIN có luồng riêng BANK_ADMIN_VERIFIED, không giả provider PAID. Proof 2 MB private/hash; preview 2 phút chưa ghi tiền; confirm kiểm lại quyền/tenant/versions/facts/hash/scope dưới khóa. Claim receiver hash+reference, receipt/allocation/evidence/outbox/audit cùng transaction; refresh/webhook cùng receipt không ghi lần hai. Hai preview hoặc hai nguồn cạnh tranh chỉ có một receipt; lỗi DB rollback toàn bộ. Dữ liệu đổi sau preview đòi xem trước mới.
+
+Bill 20.000đ/quote10.000đ/nhận12.000đ giữ nợ10.000đ và hoàn2.000đ, cả tự động lẫn ADMIN. Duyệt hoàn chưa được đóng đối soát; test thực hiện xác nhận trả tiền **giả lập** rồi mới đóng. Evidence ngân hàng đủ điều kiện đóng phần nghĩa vụ đã xử lý mà không ép provider PENDING thành PAID; worker tiếp tục đối chiếu nguồn. Phiên đã chốt và khoản đến muộn thiếu bằng chứng đúng hạn bị chặn.
+
+### Bằng chứng kiểm chứng
+
+| Nhóm | Kết quả đã quan sát / nơi đọc kết quả tự động |
+| --- | --- |
+| `pnpm check` | Format, ESLint, typecheck toàn workspace/tools và **384/384 unit /45files** đạt; số tăng từ364 của M1, không xóa/skip test |
+| Coverage tương đương CI | **659/659 /47files**, line **92,40%**, ngưỡng70%; gồm toàn backend/integration, không chỉ payOS |
+| Bank evidence SQL/API | **35/35**: permissions/tenant/proof/token expiry/stale/replay/concurrency/rollback/timely/closed/cross-source/sourceprivacy/overpay/actualrefund/resolution |
+| Shared bank posting | **10/10** PostgreSQL: uniqueidentity, allocationcap, collisiontenant/amount, concurrentclaim, rollback, immutablefacts |
+| Automatic MB recovery | **37/37** integration; normalization/binding **47/47** unit; GET-only thật của adaptergiả khớp10k cập nhật STAFF/GUEST và replay giữ một receipt |
+| E2E thanh toán | **81/81** trên desktop/Android/Safari; gồm21 bàiADMIN và6 bài provenanceSTAFF/GUEST mới, không thay skip hiện hữu |
+| Full E2E + fresh Quality Gate | Workflow hiện hành giữ nguyên, chạy trọn **501 lượt browser**. Bằng chứng PASS/FAIL, tổng số và commit chính xác đọc ở [checks PR #3](https://github.com/lqtruong134/project-qr-restaurant-ordering/pull/3/checks); không dùng run M1 thay cho commit M2/M3. Báo cáo nghiệm thu cuối trên PR gắn run mới sau khi hoàn tất |
+| Rehearsal dữ liệu/vận hành | Guardedlab CLI đã pg_dump/restore đủ **71 bảng**; giữ bankproof/preview/evidence/claim, hash/quyền600/700, ledger10k/due10k/refund0; từ chối DB đích không trống/gói hỏng, lỗi giữa chừng giữ writer dừng, archive READONLY và allocator khôngrewind |
+| Image/security/toolchecks | Kết quả imageAPI/maintenance/web và smokeUID10001 được ghi theo lượt build của PR; tooltests/secretcheck/audit high phải đạt trước push. Không dùng image M1 làm bằng chứng image M2 |
+
+Test PostgreSQL dùng container tmpfs có nhãn riêng, loopback, credentials tổng hợp; mỗi integration tạo DB ngẫu nhiên rồi dọn đúng DB đó. E2E chạy trong clone riêng với `.env` tổng hợp, không nạp `.env`/production compose của checkout thật. Giao dịch/hoàn trong tests là fixture; không gọi merchant/bank thật. Chẩn đoán browser chỉ ở thư mục lab, không commit scratch hoặc giảm assertion để bỏ lỗi.
+
+### Gói triển khai và các giới hạn bắt buộc
+
+Migration mới **`packages/database/prisma/migrations/202610230001_bank_payment_evidence/migration.sql`** chỉ thêm schema; migration cũ không đổi. Swagger sinh lại **184 thao tác nghiệp vụ /193route**, từ điển/ERD **71 bảng**. [Bài06](06-thanh-toan.md), [API17](17-api.md), [thiết kế](reference/payos-platform-design.md), [runbook](reference/payos-demo-reset-runbook.md) và [triển khai26](26-trien-khai-qtruongres.md) cùng mô tả implementation.
+
+Làm sạch production là **kế hoạch có cổng review**, không reset executor: giữ mọi tiền thật/unknown, ưu tiên migrate DB đang dùng, backup restore đã chứng minh, manifest từng hàng trước khi xét dữ liệu phi tài chính, một webhookwriter và allocator không lùi. Chưa có dispatcher archive tự động; không tự chuyển DB mới cùng channel khi chưa có routing được nghiệm thu. Sau BANK_ADMIN_VERIFIED chỉ rollback tới code M2 tương thích; không restore DB/state cũ đè tiền mới. Chưa có connector xác minh hoàn outbound nên không tự công nhận mã nhập tay là đã hoàn ngoài phiếu đóng.
+
+Không merge/deploy/start-stop production, không đọc/sửa DB production, không đổi secrets và không chuyển/hoàn tiền thật. Chủ dự án review kết quả freshCI, backup/migration/config/watermark rồi tự quyết định triển khai và nghiệm thu A10. Các mục dưới là **lịch sử milestone/nhánh trước**, không phải trạng thái hiện hành của M2/M3.
+
+
 ## Nền tảng payOS M1 — chốt 23/10/2026
 
 Nhánh mới **`feat/payos-payment-platform`**, tạo từ `main` tại `6c45a0156d049027dcc160ccd8efa9a4ee9e9bc6`. Đây là milestone nền tảng của yêu cầu xây dựng lại, **chưa hoàn tất luồng ADMIN xác minh ngân hàng hoặc UI mới, chưa sẵn sàng deploy/cutover**. [Thiết kế thống nhất và giới hạn bằng chứng](reference/payos-platform-design.md), [reset chỉ đọc/backup/archive/rollback](reference/payos-demo-reset-runbook.md), [nghiệp vụ](06-thanh-toan.md), [cấu hình và công cụ maintenance](26-trien-khai-qtruongres.md).
