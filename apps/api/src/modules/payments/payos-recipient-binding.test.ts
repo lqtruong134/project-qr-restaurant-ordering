@@ -6,6 +6,7 @@ const clientId = 'synthetic-mb-hotfix-client';
 const restaurantId = '10000000-0000-4000-8000-000000000001';
 const primary = '0123456789';
 const anchor = '1000000000001';
+const alphaAnchor = 'VQRTEST000018A';
 const linkId = 'synthetic-mb-hotfix-link';
 const binding = () => ({
   clientId,
@@ -67,6 +68,7 @@ describe('payOS trusted MB recipient binding', () => {
       JSON.stringify({ ...binding(), accountNumber: 1234567890 }),
       JSON.stringify({ ...binding(), accountNumber: '12345' }),
       JSON.stringify({ ...binding(), accountNumber: 'x'.repeat(10) }),
+      JSON.stringify({ ...binding(), accountNumber: alphaAnchor }),
       JSON.stringify({ ...binding(), accountNumber: '1'.repeat(35) }),
     ]) {
       expect(() => readPayosConfig({ PAYOS_RECIPIENT_BINDING: value })).toThrow(
@@ -92,6 +94,89 @@ describe('payOS trusted MB recipient binding', () => {
       bankBin: '970422',
       accountNumber: primary,
     });
+  });
+
+  it.each([alphaAnchor, 'Va0018', 'V' + '1'.repeat(33), '000018', '0'.repeat(34)])(
+    'preserves the exact ASCII alphanumeric or numeric QR account (%s)',
+    (account) => {
+      expect(readPayosQrRecipient(qr(account))).toEqual({
+        bankBin: '970422',
+        accountNumber: account,
+      });
+    },
+  );
+
+  it('rejects invalid account characters and lengths without trimming or masking high-bit bytes', () => {
+    for (const account of [
+      'V1234',
+      'V' + '1'.repeat(34),
+      'VA-000018',
+      'VA_000018',
+      'VA.000018',
+      'VA/000018',
+      ' VA000018',
+      'VA000018 ',
+      'VA 000018',
+      'VA\n000018',
+      'VA\u0000000018',
+      '\u00b012345',
+      '\uff36000018',
+      'VA\u200b000018',
+    ])
+      expect(readPayosQrRecipient(qr(account))).toBeNull();
+  });
+
+  it('keeps nested TLV length and duplicate-tag checks for an alphanumeric recipient', () => {
+    const recipient = tlv('00', '970422') + tlv('01', alphaAnchor);
+    const merchant = tlv('00', 'A000000727') + tlv('01', recipient);
+    for (const value of [
+      qr(alphaAnchor).slice(0, -1),
+      tlv('38', merchant) + tlv('38', merchant),
+      tlv('38', tlv('00', 'A000000727') + tlv('01', recipient + tlv('01', alphaAnchor))),
+      tlv('38', tlv('00', 'A000000727') + tlv('01', tlv('00', '970422') + '0199' + alphaAnchor)),
+    ])
+      expect(readPayosQrRecipient(value)).toBeNull();
+  });
+
+  it('requires the exact alphanumeric CREATE account, MB BIN, GUID and stored link', () => {
+    const resolve = (account: string, value: string, stored: string = linkId) =>
+      trustedPayosPrimary(config(), restaurantId, account, value, stored, linkId);
+    expect(resolve(alphaAnchor, qr(alphaAnchor))).toBe(primary);
+    expect(resolve('Va0018', qr('Va0018'))).toBe(primary);
+    for (const value of [
+      qr(alphaAnchor.toLowerCase()),
+      qr(alphaAnchor + 'B'),
+      qr(alphaAnchor, '970436'),
+      qr(alphaAnchor, '970422', 'UNRELATED'),
+      'FAKE_QR',
+    ])
+      expect(resolve(alphaAnchor, value)).toBeUndefined();
+    expect(resolve(alphaAnchor, qr(alphaAnchor), 'other-link')).toBeUndefined();
+    const trustedPrimary = resolve(alphaAnchor, qr(alphaAnchor));
+    expect(
+      recipientMatchesWithEvidence(
+        alphaAnchor,
+        { accountNumber: primary },
+        undefined,
+        trustedPrimary,
+      ),
+    ).toBe(true);
+    expect(
+      recipientMatchesWithEvidence(
+        alphaAnchor,
+        { accountNumber: primary },
+        { accountNumber: primary, virtualAccountNumber: alphaAnchor.toLowerCase() },
+        trustedPrimary,
+      ),
+    ).toBe(false);
+    expect(
+      recipientMatchesWithEvidence(
+        alphaAnchor,
+        { accountNumber: '9999999999' },
+        undefined,
+        trustedPrimary,
+      ),
+    ).toBe(false);
   });
 
   it('rejects malformed, oversized, duplicate-tag and unrelated QR structures', () => {

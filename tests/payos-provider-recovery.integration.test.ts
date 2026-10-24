@@ -1060,6 +1060,7 @@ it('executes the sanitized operator diagnostic in a read-only transaction on the
 });
 
 const mbQrAccount = '1000000000001';
+const mbAlphaQrAccount = 'VQRTEST000018A';
 const mbPrimaryAccount = '2000000002';
 function mbQr(account = mbQrAccount, bin = '970422') {
   const field = (tag: string, value: string) => tag + String(value.length).padStart(2, '0') + value;
@@ -1098,16 +1099,85 @@ async function withMbBinding(binding: PayosConfig['recipientBinding'], run: () =
     config.recipientBinding = previous;
   }
 }
-async function mbFixture(options: { qr?: string; guest?: boolean; primary?: string } = {}) {
-  provider.nextAccount = mbQrAccount;
-  provider.nextQr = options.qr ?? mbQr();
-  const f = await fixture('20000', '10000', false, false, options.guest);
-  const bank = provider.add(f.code, 10000);
+async function mbFixture(
+  options: {
+    qr?: string;
+    guest?: boolean;
+    primary?: string;
+    account?: string;
+    amount?: string;
+  } = {},
+) {
+  const account = options.account ?? mbQrAccount;
+  const amount = options.amount ?? '10000';
+  provider.nextAccount = account;
+  provider.nextQr = options.qr ?? mbQr(account);
+  const f = await fixture('20000', amount, false, false, options.guest);
+  const bank = provider.add(f.code, Number(amount));
   bank.accountNumber = options.primary ?? mbPrimaryAccount;
   bank.virtualAccountNumber = null;
   bank.transactionDateTime = new Date().toISOString();
   return { ...f, bank };
 }
+
+it('alphanumeric MB QR automatically records PAID 18000 once and projects the same STAFF/GUEST balance', async () => {
+  await withMbBinding(mbBinding(), async () => {
+    const f = await mbFixture({ account: mbAlphaQrAccount, amount: '18000', guest: true });
+    expect(f.q.account_number).toBe(mbAlphaQrAccount);
+    expect(provider.links.get(f.code)?.status).toBe('PAID');
+    await service.process(f.id, true, false);
+    expect(await ledger(f)).toEqual({ count: 1, received: '18000', allocated: '18000' });
+    expect(await stored(f)).toMatchObject({ status: 'PAID', reconciliation_status: null });
+    const staff = await api('/core/sessions/' + f.sid + '/bill');
+    expect(staff.financialSummary).toMatchObject({
+      bankReportedAmount: '18000',
+      recordedAmount: '18000',
+      appliedAmount: '18000',
+      outstandingAmount: '2000',
+      reviewRequired: false,
+    });
+    expect((await api('/guest/state', undefined, 'projection_guest')).financialSummary).toEqual(
+      staff.financialSummary,
+    );
+    const payload = event(f, f.bank);
+    await Promise.all([
+      service.webhook(payload),
+      service.webhook(payload),
+      service.refreshForAdmin(f.id, adminId),
+    ]);
+    expect(await ledger(f)).toEqual({ count: 1, received: '18000', allocated: '18000' });
+    expect(
+      await db.prisma.payment_webhook_event.count({
+        where: { provider: 'PAYOS', provider_event_id: f.bank.reference },
+      }),
+    ).toBe(1);
+    expect(
+      (
+        await db.pool.query(
+          'SELECT count(*)::int AS n FROM bank_receipt_claim WHERE payment_intent_id=$1',
+          [f.id],
+        )
+      ).rows[0].n,
+    ).toBe(1);
+  });
+});
+
+it('alphanumeric MB QR cannot bridge a different CREATE account, bank, primary or fake QR', async () => {
+  await withMbBinding(mbBinding(), async () => {
+    for (const options of [
+      { qr: mbQr(mbAlphaQrAccount.toLowerCase()) },
+      { qr: mbQr(mbAlphaQrAccount + 'B') },
+      { qr: mbQr(mbAlphaQrAccount, '970436') },
+      { qr: 'FAKE_QR' },
+      { primary: '9999999999' },
+    ]) {
+      const f = await mbFixture({ account: mbAlphaQrAccount, ...options });
+      await service.process(f.id, true, false);
+      expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
+      expect((await stored(f)).reconciliation_status).toBe('OPEN');
+    }
+  });
+});
 
 it('MB recipient hotfix records a scoped primary-account bridge and updates STAFF/GUEST balances', async () => {
   await withMbBinding(mbBinding(), async () => {
@@ -1181,50 +1251,56 @@ it('MB recipient binding automatically records a verified primary-only GET witho
     expect(await ledger(f)).toEqual({ count: 1, received: '10000', allocated: '10000' });
   });
 });
-it('MB recipient hotfix never repairs a conflicting explicit GET or webhook VA through a trusted primary', async () => {
-  await withMbBinding(mbBinding(), async () => {
-    for (const source of ['get', 'webhook'] as const) {
-      const f = await mbFixture();
-      if (source === 'get') f.bank.virtualAccountNumber = '9999999999999';
-      const fields = source === 'webhook' ? { virtualAccountNumber: '9999999999999' } : {};
-      await service.webhook(event(f, f.bank, fields));
-      expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
-      expect((await stored(f)).reconciliation_status).toBe('OPEN');
-    }
-  });
-});
-it('MB recipient hotfix blocks bad signatures and wrong order, link, reference, amount or currency', async () => {
-  await withMbBinding(mbBinding(), async () => {
-    for (const mismatch of [
-      'signature',
-      'orderCode',
-      'paymentLinkId',
-      'reference',
-      'amount',
-      'currency',
-    ] as const) {
-      const f = await mbFixture();
-      const fields: Partial<WebhookData> = {};
-      if (mismatch === 'orderCode') fields.orderCode = f.code + 100000;
-      if (mismatch === 'paymentLinkId') fields.paymentLinkId = 'another-synthetic-link';
-      if (mismatch === 'reference') fields.reference = randomUUID();
-      if (mismatch === 'amount') fields.amount = 9999;
-      if (mismatch === 'currency') fields.currency = 'USD';
-      const payload = event(f, f.bank, fields);
-      if (mismatch === 'signature') payload.signature = '0'.repeat(64);
-      await service.webhook(payload).catch(() => undefined);
-      // Reject the invalid webhook itself. A later independently verified GET is
-      // allowed to recover the legitimate receipt without trusting this message.
-      expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
-    }
-    for (const field of ['orderCode', 'amount'] as const) {
-      const f = await mbFixture();
-      provider.links.get(f.code)![field]++;
-      await service.webhook(event(f, f.bank)).catch(() => undefined);
-      expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
-    }
-  });
-});
+it.each([mbQrAccount, mbAlphaQrAccount])(
+  'MB recipient hotfix never repairs a conflicting explicit GET or webhook VA through a trusted primary (%s)',
+  async (account) => {
+    await withMbBinding(mbBinding(), async () => {
+      for (const source of ['get', 'webhook'] as const) {
+        const f = await mbFixture({ account });
+        if (source === 'get') f.bank.virtualAccountNumber = '9999999999999';
+        const fields = source === 'webhook' ? { virtualAccountNumber: '9999999999999' } : {};
+        await service.webhook(event(f, f.bank, fields));
+        expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
+        expect((await stored(f)).reconciliation_status).toBe('OPEN');
+      }
+    });
+  },
+);
+it.each([mbQrAccount, mbAlphaQrAccount])(
+  'MB recipient hotfix blocks bad signatures and wrong order, link, reference, amount or currency (%s)',
+  async (account) => {
+    await withMbBinding(mbBinding(), async () => {
+      for (const mismatch of [
+        'signature',
+        'orderCode',
+        'paymentLinkId',
+        'reference',
+        'amount',
+        'currency',
+      ] as const) {
+        const f = await mbFixture({ account });
+        const fields: Partial<WebhookData> = {};
+        if (mismatch === 'orderCode') fields.orderCode = f.code + 100000;
+        if (mismatch === 'paymentLinkId') fields.paymentLinkId = 'another-synthetic-link';
+        if (mismatch === 'reference') fields.reference = randomUUID();
+        if (mismatch === 'amount') fields.amount = 9999;
+        if (mismatch === 'currency') fields.currency = 'USD';
+        const payload = event(f, f.bank, fields);
+        if (mismatch === 'signature') payload.signature = '0'.repeat(64);
+        await service.webhook(payload).catch(() => undefined);
+        // Reject the invalid webhook itself. A later independently verified GET is
+        // allowed to recover the legitimate receipt without trusting this message.
+        expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
+      }
+      for (const field of ['orderCode', 'amount'] as const) {
+        const f = await mbFixture({ account });
+        provider.links.get(f.code)![field]++;
+        await service.webhook(event(f, f.bank)).catch(() => undefined);
+        expect(await ledger(f)).toEqual({ count: 0, received: '0', allocated: '0' });
+      }
+    });
+  },
+);
 it('MB recipient hotfix makes repeated webhooks and ADMIN refresh idempotent', async () => {
   await withMbBinding(mbBinding(), async () => {
     const f = await mbFixture();

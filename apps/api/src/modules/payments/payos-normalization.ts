@@ -95,11 +95,13 @@ export function readPayosQrRecipient(
   if (merchant?.get('00')?.toString('ascii') !== 'A000000727') return null;
   const recipient = tags(merchant.get('01'));
   const bankBin = recipient?.get('00')?.toString('ascii');
-  const accountNumber = recipient?.get('01')?.toString('ascii');
+  // A payOS VA may contain ASCII letters. UTF-8 avoids ASCII decoding's high-bit
+  // masking; preserve case/leading zeroes for the exact signed CREATE comparison.
+  const accountNumber = recipient?.get('01')?.toString('utf8');
   return bankBin &&
     /^[0-9]{6}$/.test(bankBin) &&
     accountNumber &&
-    /^[0-9]{6,34}$/.test(accountNumber)
+    /^[A-Za-z0-9]{6,34}$/.test(accountNumber)
     ? { bankBin, accountNumber }
     : null;
 }
