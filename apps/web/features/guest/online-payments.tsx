@@ -21,6 +21,12 @@ export function GuestOnlinePayments({ payments }: { payments: GuestOnlinePayment
               {status.title}
             </h3>
             <p>{status.detail}</p>
+            {(payment.verificationSource === 'BANK_ADMIN_VERIFIED' ||
+              payment.verificationSource === 'MIXED') && (
+              <p className="small-note" aria-label="Nguồn xác minh thanh toán">
+                Nhà hàng đã đối chiếu tiền thực nhận qua quản trị.
+              </p>
+            )}
             <div className="core-stats">
               <p>
                 Số tiền khoản thu<strong>{vnd(payment.amount)}</strong>

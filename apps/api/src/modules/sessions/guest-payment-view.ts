@@ -1,9 +1,12 @@
+import { paymentVerificationJoin } from '../payments/payment-verification-source.js';
 import { payosBankReportedJoin } from '../payments/payment-reported-funds.js';
-import type { GuestOnlinePayment, PayosStatus } from '@thesis/contracts';
+import type { GuestOnlinePayment, PayosStatus, PaymentVerificationSource } from '@thesis/contracts';
 import { digest, type Connection } from '../shared/core-persistence.js';
 import { payosIntentFundsJoin } from '../payments/refund-budget.service.js';
 
 type GuestPaymentRow = {
+  verification_source?: PaymentVerificationSource;
+  provider_evidence_attached?: boolean;
   id: string;
   collection_scope: 'TABLE' | 'PARTICIPANT';
   amount: string;
@@ -32,6 +35,8 @@ export function guestOnlinePaymentView(
     scope: row.collection_scope,
     amount: amount.toString(),
     status: row.status,
+    verificationSource: row.verification_source ?? 'UNVERIFIED',
+    providerEvidenceAttached: row.provider_evidence_attached ?? false,
     paidAmount: paid.toString(),
     bankConfirmedAmount: BigInt(row.bank_confirmed_amount).toString(),
     appliedAmount: BigInt(row.allocated_amount).toString(),
@@ -51,7 +56,7 @@ export async function readGuestOnlinePayments(
   restaurantId: string,
 ): Promise<GuestOnlinePayment[]> {
   const { rows } = await c.query<GuestPaymentRow>(
-    `SELECT p.id,p.collection_scope,p.amount::text,q.status,
+    `SELECT p.id,p.collection_scope,p.amount::text,q.status,verification.verification_source,verification.provider_evidence_attached,
       COALESCE(funds.recorded_amount,0)::text AS recorded_amount,
       COALESCE(funds.allocated_amount,0)::text AS allocated_amount,
       COALESCE(funds.original_allocated_amount,0)::text AS original_allocated_amount,
@@ -66,6 +71,7 @@ export async function readGuestOnlinePayments(
        AND own_request.session_id=p.session_id AND own_request.participant_id=$2
      ${payosIntentFundsJoin}
      ${payosBankReportedJoin}
+     ${paymentVerificationJoin}
      WHERE p.session_id=$1 AND t.restaurant_id=$3 AND p.method='ONLINE' AND p.provider='PAYOS'
        AND (p.collection_scope='TABLE'
          OR (p.collection_scope='PARTICIPANT' AND p.payer_participant_id=$2))

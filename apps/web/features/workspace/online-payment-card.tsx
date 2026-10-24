@@ -92,11 +92,30 @@ export function OnlinePaymentCard({
           <strong className="online-payment-amount">{vnd(intent.amount)}</strong>
         </div>
       </div>
+      {(online?.verificationSource === 'BANK_ADMIN_VERIFIED' ||
+        online?.verificationSource === 'MIXED') && (
+        <p className="small-note" aria-label="Nguồn xác minh thanh toán">
+          Nhà hàng đã đối chiếu ngân hàng qua quản trị.
+        </p>
+      )}
       {!(state.kind === 'paid' && funds) && <p className="online-payment-detail">{state.detail}</p>}
       {state.kind === 'paid' && funds && (
         <p className="online-payment-confirmation" role="status">
-          Đã nhận {vnd(funds.recorded)} qua payOS; đã thanh toán {vnd(funds.applied)} cho tiền món.
-          Không cần xác nhận thủ công.
+          {online?.verificationSource === 'BANK_ADMIN_VERIFIED' ||
+          online?.verificationSource === 'MIXED' ? (
+            <>
+              Nhà hàng đã đối chiếu qua quản trị: đã nhận {vnd(funds.recorded)}; đã thanh toán{' '}
+              {vnd(funds.applied)} cho tiền món.
+            </>
+          ) : (
+            <>
+              Đã nhận {vnd(funds.recorded)} qua payOS; đã thanh toán {vnd(funds.applied)} cho tiền
+              món. Không cần xác nhận thủ công.
+            </>
+          )}
+          {online?.providerEvidenceAttached && (
+            <span> payOS đã bổ sung xác minh cùng giao dịch.</span>
+          )}
         </p>
       )}
       {state.kind === 'review' && (

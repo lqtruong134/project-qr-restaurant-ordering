@@ -1,3 +1,5 @@
+export type PaymentVerificationSource =
+  'UNVERIFIED' | 'PAYOS_VERIFIED' | 'BANK_ADMIN_VERIFIED' | 'MIXED';
 export type PayosStatus =
   | 'CREATE_PENDING'
   | 'PENDING'
@@ -13,6 +15,8 @@ export type PayosStatus =
 export type PaymentCapabilities = { online: boolean; reason?: string };
 export type OnlinePaymentView = {
   provider: 'PAYOS';
+  verificationSource?: PaymentVerificationSource;
+  providerEvidenceAttached?: boolean;
   status: PayosStatus;
   orderCode: string;
   checkoutUrl: string | null;
@@ -28,6 +32,8 @@ export type OnlinePaymentView = {
   remainingAmount: string;
 };
 export type PaymentReconciliationCase = {
+  verification_source?: PaymentVerificationSource;
+  provider_evidence_attached?: boolean;
   id: string;
   session_id: string;
   table_code: string;
@@ -46,6 +52,7 @@ export type PaymentReconciliationCase = {
   status: 'OPEN' | 'RESOLVED';
   provider_references?: string[];
   verified_at?: string | null;
+  bank_verified_at?: string | null;
   acknowledged_at?: string | null;
   acknowledged_by_name?: string | null;
   resolved_at?: string | null;
@@ -67,6 +74,8 @@ export type UnmatchedPaymentWebhook = {
 
 /** A scoped display projection, never a provider payload or a payment mutation credential. */
 export type GuestOnlinePayment = {
+  verificationSource?: PaymentVerificationSource;
+  providerEvidenceAttached?: boolean;
   id: string;
   scope: 'TABLE' | 'PARTICIPANT';
   amount: string;

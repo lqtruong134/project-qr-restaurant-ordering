@@ -178,3 +178,28 @@ describe('per-intent money projection is not the provider-reported total', () =>
     ).toEqual({ recorded: 12000n, applied: 10000n, refunded: 0n, refundable: 2000n });
   });
 });
+
+// A later independent/provider verification changes UI provenance even with unchanged money.
+it('refreshes when verification provenance changes without a second payment', () => {
+  const intent = payment('a', '1000', 'PAID');
+  const model = { account: { id: 'account', paid_total: '1000' }, intents: [intent] };
+  const before = paymentRevision(model);
+  expect(
+    paymentRevision({
+      ...model,
+      intents: [
+        { ...intent, online: { ...intent.online!, verificationSource: 'BANK_ADMIN_VERIFIED' } },
+      ],
+    }),
+  ).not.toBe(before);
+  const manual = {
+    ...intent,
+    online: { ...intent.online!, verificationSource: 'BANK_ADMIN_VERIFIED' as const },
+  };
+  expect(
+    paymentRevision({
+      ...model,
+      intents: [{ ...manual, online: { ...manual.online, providerEvidenceAttached: true } }],
+    }),
+  ).not.toBe(paymentRevision({ ...model, intents: [manual] }));
+});

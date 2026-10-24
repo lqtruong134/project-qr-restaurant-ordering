@@ -24,6 +24,12 @@ export function paymentRevision(model: {
         intent.online?.status,
         intent.online?.paidAmount,
         intent.online?.remainingAmount,
+        intent.online?.recordedAmount,
+        intent.online?.appliedAmount,
+        intent.online?.refundedAmount,
+        intent.online?.unallocatedAmount,
+        intent.online?.verificationSource,
+        intent.online?.providerEvidenceAttached,
       ])
       .sort(),
     (model.paymentRequests ?? [])

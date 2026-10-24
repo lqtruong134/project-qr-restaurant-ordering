@@ -606,6 +606,7 @@ export function LastPayment({ payment }: { payment: Row }) {
     cashHandlingVersion?: number;
     proof?: unknown;
     reference?: string;
+    verificationSource?: string;
   } | null;
   return (
     <section className="last-payment">
@@ -631,7 +632,11 @@ export function LastPayment({ payment }: { payment: Row }) {
         <p className="small-note">Giao dịch cũ chưa lưu tiền khách đưa và tiền thối.</p>
       )}
       {payment.method === 'ONLINE' && (
-        <p className="small-note">Hệ thống đã xác minh thanh toán qua payOS.</p>
+        <p className="small-note">
+          {m?.verificationSource === 'BANK_ADMIN_VERIFIED'
+            ? 'Quản trị đã đối chiếu tiền thực nhận qua ngân hàng.'
+            : 'Hệ thống đã xác minh thanh toán qua payOS.'}
+        </p>
       )}
       {payment.allocated_amount !== undefined && (
         <p className="small-note">

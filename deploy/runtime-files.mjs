@@ -1,8 +1,18 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { createReadStream, createWriteStream } from 'node:fs';
+import { constants, createReadStream, createWriteStream } from 'node:fs';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { lstat, mkdir, mkdtemp, open, readdir, realpath, rm, unlink } from 'node:fs/promises';
+import {
+  chmod,
+  lstat,
+  mkdir,
+  mkdtemp,
+  open,
+  readdir,
+  realpath,
+  rm,
+  unlink,
+} from 'node:fs/promises';
 import { once } from 'node:events';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,11 +22,13 @@ export const MAX_FILE_BYTES = 2 * 1024 * 1024;
 export const MAX_ARCHIVE_BYTES = 1024 * 1024 * 1024;
 const maxFiles = 10000;
 const maxLineBytes = 3 * 1024 * 1024;
-const stores = ['menu-images', 'payment-proofs'];
+const allocatorStore = 'payos-state';
+const allocatorPath = allocatorStore + '/order-codes.sqlite';
+const stores = ['menu-images', 'payment-proofs', allocatorStore];
 const allowedPath =
   /^(menu-images|payment-proofs)\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.(png|jpg|webp)$/;
 export function validateRuntimePath(value) {
-  if (typeof value !== 'string' || !allowedPath.test(value))
+  if (typeof value !== 'string' || (value !== allocatorPath && !allowedPath.test(value)))
     throw Error('Invalid runtime archive path.');
   return value;
 }
@@ -136,6 +148,11 @@ export async function assertRuntimeEmpty(root) {
 async function output(stream, line) {
   if (!stream.write(line + '\n')) await once(stream, 'drain');
 }
+/** Cold-copy precondition: the caller MUST stop every allocator/application
+ * writer before backup and keep them stopped until completion. This is NOT a
+ * live SQLite backup API. Sidecars/unknown files fail closed rather than being
+ * silently omitted. Never reinitialize a missing store after a restore.
+ */
 export async function backupRuntimeFiles(root, stream) {
   const absolute = await safeRoot(root);
   await output(stream, JSON.stringify({ format: FILE_ARCHIVE_FORMAT }));
@@ -153,6 +170,7 @@ export async function backupRuntimeFiles(root, stream) {
         !entry.isFile() ||
         !info.isFile() ||
         info.isSymbolicLink() ||
+        (store === allocatorStore && info.nlink !== 1) ||
         info.size < 1 ||
         info.size > MAX_FILE_BYTES ||
         ++files > maxFiles
@@ -160,10 +178,51 @@ export async function backupRuntimeFiles(root, stream) {
         throw Error('Unsupported runtime file; backup stopped.');
       const chunks = [];
       let size = 0;
-      for await (const chunk of createReadStream(target)) {
-        size += chunk.length;
-        if (size > MAX_FILE_BYTES) throw Error('Runtime file exceeds 2 MiB.');
-        chunks.push(chunk);
+      if (store === allocatorStore) {
+        // NOFOLLOW pins this exact regular file; metadata checks detect a
+        // replacement or concurrent mutation instead of emitting a good-looking
+        // archive of a changing allocator. The cold-copy precondition still applies.
+        const handle = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW);
+        try {
+          const before = await handle.stat();
+          if (
+            !before.isFile() ||
+            before.nlink !== 1 ||
+            before.ino !== info.ino ||
+            before.dev !== info.dev
+          )
+            throw Error('Unsafe allocator state; backup stopped.');
+          for await (const chunk of handle.createReadStream({ autoClose: false })) {
+            size += chunk.length;
+            if (size > MAX_FILE_BYTES) throw Error('Runtime file exceeds 2 MiB.');
+            chunks.push(chunk);
+          }
+          const after = await handle.stat();
+          const current = await lstat(target);
+          if (
+            size !== before.size ||
+            after.size !== before.size ||
+            after.mtimeMs !== before.mtimeMs ||
+            after.ctimeMs !== before.ctimeMs ||
+            !current.isFile() ||
+            current.isSymbolicLink() ||
+            current.nlink !== 1 ||
+            current.ino !== before.ino ||
+            current.dev !== before.dev ||
+            (await storeState(absolute, allocatorStore)).some(
+              (item) => item.name !== 'order-codes.sqlite',
+            )
+          )
+            throw Error('Allocator changed or has sidecars; use a stopped, clean store.');
+        } finally {
+          await handle.close();
+        }
+      } else {
+        for await (const chunk of createReadStream(target)) {
+          size += chunk.length;
+          if (size > MAX_FILE_BYTES) throw Error('Runtime file exceeds 2 MiB.');
+          chunks.push(chunk);
+        }
       }
       const bytes = Buffer.concat(chunks);
       const line = JSON.stringify({
@@ -185,7 +244,7 @@ export async function restoreRuntimeFiles(root, file) {
   await assertRuntimeEmpty(absolute);
   const written = [];
   try {
-    for (const store of stores)
+    for (const store of stores.filter((value) => value !== allocatorStore))
       await mkdir(join(absolute, store), { recursive: true, mode: 0o700 });
     let header = false;
     for await (const line of lines(file)) {
@@ -194,10 +253,20 @@ export async function restoreRuntimeFiles(root, file) {
         continue;
       }
       const { row, bytes } = record(line);
+      if (row.path === allocatorPath) {
+        // Legacy v1 bundles without allocator state remain readable. They do not
+        // create or initialize an allocator; enabling payOS requires a separate
+        // channel/high-water verification after any restore.
+        const store = join(absolute, allocatorStore);
+        await mkdir(store, { recursive: true, mode: 0o700 });
+        await storeState(absolute, allocatorStore);
+        await chmod(store, 0o700);
+      }
       const target = join(absolute, row.path);
       const handle = await open(target, 'wx', 0o600);
       written.push(target);
       try {
+        if (row.path === allocatorPath) await handle.chmod(0o600);
         await handle.writeFile(bytes);
       } finally {
         await handle.close();

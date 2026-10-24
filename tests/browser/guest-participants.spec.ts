@@ -151,15 +151,41 @@ test('renaming and leaving update the open roster while duplicate names stay una
     await profile.getByRole('button', { name: 'Cập nhật tên', exact: true }).click();
     await expect(profile.getByRole('alert')).toContainText('Tên này đã được dùng');
     await profile.getByLabel('Tên của bạn', { exact: true }).fill('Lữ Trường');
+    const waitForRoster = (names: string[]) =>
+      f.a.waitForResponse(async (response) => {
+        if (
+          new URL(response.url()).pathname !== '/api/guest/state' ||
+          response.request().method() !== 'GET' ||
+          !response.ok()
+        )
+          return false;
+        const state = (await response.json()) as { participants: { display_name: string }[] };
+        return (
+          JSON.stringify(state.participants.map((member) => member.display_name).sort()) ===
+          JSON.stringify([...names].sort())
+        );
+      });
+    // WebKit's bringToFront does not guarantee a focus event. Wait for the real
+    // polling snapshot before checking its rendering, rather than racing its 5 s cadence.
+    const renamedRoster = waitForRoster(['Trường', 'Lữ Trường']);
+    const renameSaved = f.b.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/guest/profile' &&
+        response.request().method() === 'PATCH',
+    );
     await profile.getByRole('button', { name: 'Cập nhật tên', exact: true }).click();
+    expect((await renameSaved).status()).toBe(200);
     await f.a.bringToFront();
+    await renamedRoster;
     await expect(dialog(f.a)).toContainText('Lữ Trường');
     await f.b.bringToFront();
     await profile.getByRole('button', { name: 'Rời bàn', exact: true }).click();
     const confirm = f.b.getByRole('dialog', { name: 'Rời bàn trên thiết bị này?', exact: true });
+    const departedRoster = waitForRoster(['Trường']);
     await confirm.getByRole('button', { name: 'Xác nhận rời bàn', exact: true }).click();
     await expect(f.b.getByRole('heading', { name: 'Quét QR tại bàn để bắt đầu' })).toBeVisible();
     await f.a.bringToFront();
+    await departedRoster;
     await expect(dialog(f.a).getByRole('listitem')).toHaveCount(1);
     await expect(dialog(f.a)).not.toContainText('Lữ Trường');
     await fillJoin(f.b, f.joinPath, 'lữ trường');

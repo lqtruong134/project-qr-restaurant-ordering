@@ -182,9 +182,19 @@ const payosDescriptions: Record<string, string> = {
   'GET /core/admin/payment-reconciliation':
     'ADMIN xem toàn bộ hồ sơ OPEN và tối đa 100 hồ sơ lịch sử của đúng nhà hàng. Tách số yêu cầu, ngân hàng báo, ghi sổ, phân bổ, chưa phân bổ, cần hoàn cả phiên; tham chiếu đã biết chỉ đọc. can_resolve/resolution_blockers dùng cùng điều kiện với mutation. Không trả khóa hoặc raw payload.',
   'POST /core/admin/payment-reconciliation/:id/resolve':
-    'ADMIN chỉ đóng RECONCILED sau kiểm tra lại dưới khóa: xác minh mới sau bất thường, provider kết thúc, sổ khớp ngân hàng, không còn tiền cách ly/chưa phân bổ hoặc nghĩa vụ hoàn. Ghi chú là tùy chọn, không phải chứng cứ. RETURNED_EXTERNALLY bị chặn vì chưa có connector xác minh chứng từ outbound; nhập reference không chứng minh đã hoàn. Phiếu đóng giữ nguyên; không tự gán PAID hoặc chuyển tiền.',
+    'ADMIN chỉ đóng RECONCILED sau kiểm tra lại dưới khóa: xác minh provider hoặc chứng từ ngân hàng độc lập đủ điều kiện, không còn tham chiếu chưa xử lý, sổ khớp tiền thực nhận, không còn tiền cách ly/chưa phân bổ hoặc nghĩa vụ hoàn. Ghi chú là tùy chọn, không phải chứng cứ. RETURNED_EXTERNALLY bị chặn vì chưa có connector xác minh chứng từ outbound; nhập reference không chứng minh đã hoàn. Phiếu đóng giữ nguyên; không tự gán PAID hoặc chuyển tiền.',
   'POST /core/admin/payment-reconciliation/:id/refresh':
     'ADMIN yêu cầu backend xác minh lại khoản payOS của đúng nhà hàng. Không cần nhận quyền thu của STAFF, không tạo link hoặc ép ghi sổ. Mọi guard SDK, định danh, tài khoản và tiền vẫn áp dụng; busy409/provider503 giữ trạng thái an toàn.',
+  'GET /core/admin/payment-reconciliation/:id/bank-evidence':
+    'ADMIN của đúng nhà hàng xem facts readonly, tài khoản nhận đã che, nguồn xác minh và lịch sử chứng từ. Không ghi tiền; không trả thông tin này cho STAFF/GUEST.',
+  'POST /core/admin/payment-reconciliation/:id/bank-evidence/proof':
+    'ADMIN tải ảnh PNG/JPEG/WebP tối đa 2 MB, base64 chuẩn; server kiểm magic bytes, tạo filename riêng, lưu hash và chỉ cho ADMIN xem. Ảnh không tự chứng minh ngân hàng nhận tiền.',
+  'GET /core/admin/payment-reconciliation/:id/bank-evidence/proof/:proofId':
+    'Đọc ảnh chứng từ riêng tư trong đúng tenant/intent; ADMIN-only, no-store, nosniff. Không nhận URL/path bên ngoài.',
+  'POST /core/admin/payment-reconciliation/:id/bank-evidence/preview':
+    'Đối chiếu payOS trước, rồi xem tác động từ chứng cứ ngân hàng độc lập. Token 2 phút ràng buộc actor/tenant/intent/version/proof/hash/facts; chưa ghi sổ. Giờ phải có múi giờ; hết hạn chỉ phục hồi khi có chứng cứ provider đã quan sát đúng hạn. Gross nhận có thể lớn hơn quote nhưng allocation luôn bị giới hạn; phần dư phải hoàn riêng.',
+  'POST /core/admin/payment-reconciliation/:id/bank-evidence/confirm':
+    'ADMIN xác nhận cuối, server kiểm lại quyền/token/chứng từ/facts/số dư dưới khóa. Shared posting BANK_ADMIN_VERIFIED, claim ngân hàng xuyên nguồn, idempotent; không ép provider PAID hoặc xác nhận đã hoàn. Token cũ hoặc facts thay đổi trả409; replay đã xác nhận trả receipt cũ.',
   'POST /core/admin/payment-reconciliation/:id/acknowledge':
     'ADMIN tiếp nhận hồ sơ OPEN của đúng nhà hàng. Chỉ audit người/thời điểm, idempotent trong cùng bất thường; không xác minh ngân hàng, ghi tiền, hoàn tiền hoặc đóng hồ sơ.',
   'GET /core/admin/payment-webhooks/unmatched':
@@ -536,6 +546,21 @@ const examples: Record<string, unknown> = {
   'POST /guest/payment-requests': { method: 'BANK_TRANSFER' },
   'POST /core/payments/:id/refresh': {},
   'POST /core/payments/:id/cancel': {},
+  'POST /core/admin/payment-reconciliation/:id/bank-evidence/proof': {
+    data: 'BASE64_CUA_ANH_CHUNG_TU_PNG_JPEG_WEBP',
+  },
+  'POST /core/admin/payment-reconciliation/:id/bank-evidence/preview': {
+    proofId: id,
+    reference: 'MA_GIAO_DICH_TREN_SAO_KE',
+    amount: '10000',
+    bankTransactionAt: '2026-10-23T10:00:00+07:00',
+    reason: 'Đã kiểm tra trực tiếp giao dịch tiền vào trên ngân hàng nhà hàng.',
+    attested: true,
+  },
+  'POST /core/admin/payment-reconciliation/:id/bank-evidence/confirm': {
+    token: 'TOKEN_DO_PREVIEW_TRA_VE',
+    attested: true,
+  },
   'POST /core/admin/payment-reconciliation/:id/refresh': {},
   'POST /core/admin/payment-reconciliation/:id/acknowledge': {},
   'POST /core/admin/payment-reconciliation/:id/resolve': {

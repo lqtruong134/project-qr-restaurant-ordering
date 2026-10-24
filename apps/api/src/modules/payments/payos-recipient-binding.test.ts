@@ -153,16 +153,46 @@ describe('payOS trusted MB recipient binding', () => {
     expect(recipientMatchesWithEvidence(anchor, bank, webhook, trusted())).toBe(true);
   });
 
-  it('does not accept an unconfigured account, a same-length foreign account or a missing webhook', () => {
+  it('does not accept an unconfigured account or a same-length foreign account', () => {
     const bank = { accountNumber: primary };
     expect(recipientMatchesWithEvidence(anchor, bank, bank)).toBe(false);
     expect(recipientMatchesWithEvidence(anchor, bank, bank, '9999999999')).toBe(false);
     const foreign = { accountNumber: '9999999999' };
     expect(recipientMatchesWithEvidence(anchor, foreign, foreign, primary)).toBe(false);
-    expect(recipientMatchesWithEvidence(anchor, bank, undefined, primary)).toBe(false);
+    expect(recipientMatchesWithEvidence(anchor, bank, undefined, trusted())).toBe(true);
+    expect(recipientMatchesWithEvidence(anchor, bank, undefined)).toBe(false);
     expect(recipientMatchesWithEvidence('', bank, bank, primary)).toBe(false);
   });
 
+  it('accepts a primary-only verified GET without a webhook only after the exact channel binding passes', () => {
+    const bank = { accountNumber: primary, virtualAccountNumber: null };
+    expect(recipientMatchesWithEvidence(anchor, bank, undefined, trusted())).toBe(true);
+    for (const value of [
+      { ...config(), enabled: false },
+      { ...config(), clientId: 'another-channel' },
+      { ...config(), recipientBinding: undefined },
+      { ...config(), recipientBinding: { ...binding(), restaurantId: 'another-restaurant' } },
+      { ...config(), recipientBinding: { ...binding(), bankBin: '970436' } },
+    ]) {
+      expect(recipientMatchesWithEvidence(anchor, bank, undefined, trusted(value))).toBe(false);
+    }
+    expect(
+      recipientMatchesWithEvidence(anchor, { accountNumber: '9999999999' }, undefined, trusted()),
+    ).toBe(false);
+  });
+
+  it('does not treat malformed virtual accounts as an absent VA when the webhook is missing', () => {
+    for (const virtualAccountNumber of [123, true, {}, [], '9999999999999']) {
+      expect(
+        recipientMatchesWithEvidence(
+          anchor,
+          { accountNumber: primary, virtualAccountNumber },
+          undefined,
+          trusted(),
+        ),
+      ).toBe(false);
+    }
+  });
   it('never repairs an explicitly conflicting VA with a configured primary', () => {
     const ordinary = { accountNumber: primary, virtualAccountNumber: null };
     const conflicting = { accountNumber: primary, virtualAccountNumber: '2000000000002' };

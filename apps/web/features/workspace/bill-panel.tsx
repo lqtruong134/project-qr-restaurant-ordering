@@ -101,7 +101,13 @@ export default function BillPanel({
                     ' vào tiền món. Khoản chuyển vẫn cần quản trị kiểm tra; không thu lại cùng khoản này.'
                 : 'Thanh toán thành công — Đã nhận ' +
                     vnd(increase) +
-                    ' qua payOS và tính vào tiền món. Còn phải thu ' +
+                    (next.intents.some(
+                      (intent) =>
+                        intent.online?.verificationSource === 'BANK_ADMIN_VERIFIED' ||
+                        intent.online?.verificationSource === 'MIXED',
+                    )
+                      ? ' qua ngân hàng do quản trị đối chiếu và tính vào tiền món. Còn phải thu '
+                      : ' qua payOS và tính vào tiền món. Còn phải thu ') +
                     vnd(
                       next.financialSummary?.outstandingAmount ?? next.account.outstanding_amount,
                     ) +

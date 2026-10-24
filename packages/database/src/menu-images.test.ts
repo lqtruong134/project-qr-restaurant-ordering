@@ -1,5 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import filesystem from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -30,6 +32,42 @@ const temporaryRoot = async () => {
 afterEach(async () => {
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
 });
+
+// Hold a real write after its first bytes. This tests visibility at the actual
+// filesystem boundary without timing sleeps or relying on scheduler luck.
+function pauseFirstImageWrite() {
+  let signalPartial!: () => void;
+  let releaseWrite!: () => void;
+  const partial = new Promise<void>((resolve) => {
+    signalPartial = resolve;
+  });
+  const proceed = new Promise<void>((resolve) => {
+    releaseWrite = resolve;
+  });
+  const original = filesystem.writeFile;
+  let paused = false;
+  const spy = vi.spyOn(filesystem, 'writeFile').mockImplementation(async (file, data, options) => {
+    if (!paused && data instanceof Uint8Array && Buffer.from(data).equals(png)) {
+      paused = true;
+      const bytes = Buffer.from(data),
+        middle = Math.ceil(bytes.length / 2);
+      await original(file, bytes.subarray(0, middle), options);
+      signalPartial();
+      await proceed;
+      if (typeof file === 'string') await original(file, bytes.subarray(middle), { flag: 'a' });
+      else await original(file, bytes.subarray(middle), options);
+    } else await original(file, data, options);
+  });
+  syncBuiltinESMExports();
+  return {
+    partial,
+    release: releaseWrite,
+    restore() {
+      spy.mockRestore();
+      syncBuiltinESMExports();
+    },
+  };
+}
 
 describe('one immutable menu-image store for bootstrap and administrative uploads', () => {
   it('accepts the supported formats and rejects invalid or oversized input', () => {
@@ -87,11 +125,55 @@ describe('one immutable menu-image store for bootstrap and administrative upload
     expect(second.imageUrl).toBe(first.imageUrl);
     expect(await readdir(root)).toEqual([first.name]);
     expect((await readMenuImage(first.name, { root })).bytes).toEqual(png);
+    expect((await stat(join(root, first.name))).mode & 0o777).toBe(0o600);
     const replacement = await storeMenuImage(Buffer.concat([png, Buffer.from('replacement')]), {
       root,
     });
     expect(replacement.imageUrl).not.toBe(first.imageUrl);
     expect(await readFile(join(root, first.name))).toEqual(png);
+  });
+
+  it('publishes no final image name until all bytes have been written', async () => {
+    const root = await temporaryRoot();
+    const pause = pauseFirstImageWrite();
+    const pending = storeMenuImage(png, { root });
+    void pending.catch(() => {});
+    try {
+      await pause.partial;
+      await expect(readMenuImage(menuImageName(png), { root })).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+      pause.release();
+      const stored = await pending;
+      expect((await readMenuImage(stored.name, { root })).bytes).toEqual(png);
+      expect(await readdir(root)).toEqual([stored.name]);
+    } finally {
+      pause.release();
+      await pending.catch(() => {});
+      pause.restore();
+    }
+  });
+
+  it('accepts an identical concurrent writer while the first write is paused midway', async () => {
+    const root = await temporaryRoot();
+    const pause = pauseFirstImageWrite();
+    const first = storeMenuImage(png, { root });
+    void first.catch(() => {});
+    let second: ReturnType<typeof storeMenuImage> | undefined;
+    try {
+      await pause.partial;
+      second = storeMenuImage(png, { root });
+      await expect(second).resolves.toMatchObject({ name: menuImageName(png) });
+      // The second writer has published; readers still must never see the first writer's partial bytes.
+      expect((await readMenuImage(menuImageName(png), { root })).bytes).toEqual(png);
+      pause.release();
+      expect((await first).name).toBe((await second).name);
+      expect(await readdir(root)).toEqual([menuImageName(png)]);
+    } finally {
+      pause.release();
+      await Promise.allSettled(second ? [first, second] : [first]);
+      pause.restore();
+    }
   });
 
   it('does not overwrite an existing file with conflicting content', async () => {
@@ -101,7 +183,34 @@ describe('one immutable menu-image store for bootstrap and administrative upload
       'Tên ảnh đã tồn tại với nội dung khác.',
     );
     expect((await readFile(join(root, menuImageName(png)))).toString()).toBe('different bytes');
+    expect(await readdir(root)).toEqual([menuImageName(png)]);
   });
+
+  it.each(['write', 'publish'] as const)(
+    'cleans private staging files after a %s failure',
+    async (phase) => {
+      const root = await temporaryRoot();
+      const failure = Object.assign(new Error('Synthetic menu storage failure'), { code: 'EIO' });
+      const original = filesystem.writeFile;
+      const spy =
+        phase === 'write'
+          ? vi
+              .spyOn(filesystem, 'writeFile')
+              .mockImplementationOnce(async (file, _data, options) => {
+                await original(file, png.subarray(0, 8), options);
+                throw failure;
+              })
+          : vi.spyOn(filesystem, 'link').mockRejectedValueOnce(failure);
+      syncBuiltinESMExports();
+      try {
+        await expect(storeMenuImage(png, { root })).rejects.toBe(failure);
+        expect(await readdir(root)).toEqual([]);
+      } finally {
+        spy.mockRestore();
+        syncBuiltinESMExports();
+      }
+    },
+  );
 
   it('rejects traversal and reads existing administrative UUID file names', async () => {
     const root = await temporaryRoot();

@@ -38,6 +38,7 @@ export function sameRecipient(left: PayosRecipient, right: PayosRecipient) {
  * omitted by a GET transaction, while both identify the same primary account.
  * A conflicting explicit VA can never be repaired by another message.
  * trustedPrimary must come from a scoped backend channel binding, not from either input.
+ * That binding may independently verify a primary-only GET even if no webhook arrives.
  */
 export function recipientMatchesWithEvidence(
   expected: string,
@@ -52,18 +53,20 @@ export function recipientMatchesWithEvidence(
   )
     return false;
   if (recipientMatches(expected, bank)) return !corroboration || sameRecipient(bank, corroboration);
-  if (normalizePayosAccount(bank.virtualAccountNumber) !== null || !corroboration) return false;
-  const primary = normalizePayosAccount(bank.accountNumber);
   const absentVirtual = (value: unknown) =>
     value == null || (typeof value === 'string' && normalizePayosAccount(value) === null);
+  if (!absentVirtual(bank.virtualAccountNumber)) return false;
+  const primary = normalizePayosAccount(bank.accountNumber);
+  const trusted =
+    normalizePayosAccount(expected) !== null &&
+    primary !== null &&
+    primary === normalizePayosAccount(trustedPrimary);
+  if (!corroboration) return trusted;
   return (
     primary !== null &&
     primary === normalizePayosAccount(corroboration.accountNumber) &&
     (recipientMatches(expected, corroboration) ||
-      (normalizePayosAccount(expected) !== null &&
-        absentVirtual(bank.virtualAccountNumber) &&
-        absentVirtual(corroboration.virtualAccountNumber) &&
-        primary === normalizePayosAccount(trustedPrimary)))
+      (trusted && absentVirtual(corroboration.virtualAccountNumber)))
   );
 }
 

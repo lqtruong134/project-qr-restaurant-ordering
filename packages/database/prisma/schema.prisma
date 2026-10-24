@@ -11,6 +11,9 @@ datasource db {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model app_user {
+  bank_proofs                payment_bank_proof[]
+  bank_previews              payment_bank_preview[]
+  bank_evidence              payment_bank_evidence[]
   payos_created              payos_payment_request[]   @relation("payos_created")
   payos_resolved             payos_payment_request[]   @relation("payos_resolved")
   tax_policies_created       restaurant_tax_policy[]
@@ -207,6 +210,10 @@ model product_combo_item {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model restaurant {
+  bank_receipt_claims    bank_receipt_claim[]
+  bank_proofs            payment_bank_proof[]
+  bank_previews          payment_bank_preview[]
+  bank_evidence          payment_bank_evidence[]
   tax_policies           restaurant_tax_policy[]
   discount_programs      discount_program[]
   menu_promotions        menu_promotion[]
@@ -891,28 +898,32 @@ model payment_allocation {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model payment_intent {
+  bank_receipt_claims  bank_receipt_claim[]
+  bank_proofs          payment_bank_proof[]
+  bank_previews        payment_bank_preview[]
+  bank_evidence        payment_bank_evidence[]
   payos_request        payos_payment_request?
-  collection_scope     String                 @default("TABLE")
+  collection_scope     String                  @default("TABLE")
   proof                Json?
-  support_request_id   String?                @db.Uuid
-  support_request      support_request?       @relation(fields: [support_request_id], references: [id], onDelete: Restrict)
-  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  session_id           String                 @db.Uuid
-  payer_participant_id String?                @db.Uuid
+  support_request_id   String?                 @db.Uuid
+  support_request      support_request?        @relation(fields: [support_request_id], references: [id], onDelete: Restrict)
+  id                   String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id           String                  @db.Uuid
+  payer_participant_id String?                 @db.Uuid
   method               String
   amount               BigInt
-  currency             String                 @default("VND")
-  status               String                 @default("CREATED")
+  currency             String                  @default("VND")
+  status               String                  @default("CREATED")
   client_request_id    String
   provider             String?
   provider_reference   String?
-  expires_at           DateTime               @db.Timestamptz(6)
-  version              Int                    @default(1)
-  created_at           DateTime               @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime               @default(now()) @db.Timestamptz(6)
+  expires_at           DateTime                @db.Timestamptz(6)
+  version              Int                     @default(1)
+  created_at           DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime                @default(now()) @db.Timestamptz(6)
   idempotency_record   idempotency_record[]
-  table_session        table_session          @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_payment_intent_f1")
-  session_participant  session_participant?   @relation(fields: [payer_participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_payment_intent_f2")
+  table_session        table_session           @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_payment_intent_f1")
+  session_participant  session_participant?    @relation(fields: [payer_participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_payment_intent_f2")
   payment_transaction  payment_transaction[]
 
   @@unique([session_id, client_request_id])
@@ -924,6 +935,9 @@ model payment_intent {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model payment_transaction {
+  bank_receipt_claim      bank_receipt_claim?
+  bank_previews           payment_bank_preview[]
+  bank_evidence           payment_bank_evidence[]
   id                      String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   payment_intent_id       String?                 @db.Uuid
   session_id              String                  @db.Uuid
@@ -1615,4 +1629,102 @@ model payos_payment_request {
   @@index([created_by], map: "payos_request_created_by")
   @@index([resolved_by], map: "payos_request_resolved_by")
   @@index([alert_id], map: "payos_request_alert")
+}
+
+/// Canonical physical bank receipt identity. Immutable; contains no account plaintext.
+model bank_receipt_claim {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  receiver_digest   String
+  bank_reference    String
+  restaurant_id     String              @db.Uuid
+  payment_intent_id String              @db.Uuid
+  receipt_id        String              @unique @db.Uuid
+  amount            BigInt
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  restaurant        restaurant          @relation(fields: [restaurant_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  payment_intent    payment_intent      @relation(fields: [payment_intent_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  receipt           payment_transaction @relation(fields: [receipt_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([receiver_digest, bank_reference])
+  @@index([payment_intent_id], map: "bank_receipt_claim_intent")
+  @@index([restaurant_id], map: "bank_receipt_claim_restaurant")
+}
+
+/// Protected independent bank proof; immutable descriptor, ADMIN-only access.
+model payment_bank_proof {
+  id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id     String                  @db.Uuid
+  payment_intent_id String                  @db.Uuid
+  uploaded_by       String                  @db.Uuid
+  filename          String                  @unique
+  sha256            String
+  mime              String
+  byte_size         Int
+  created_at        DateTime                @default(now()) @db.Timestamptz(6)
+  restaurant        restaurant              @relation(fields: [restaurant_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  payment_intent    payment_intent          @relation(fields: [payment_intent_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  uploader          app_user                @relation(fields: [uploaded_by], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  previews          payment_bank_preview[]
+  evidence          payment_bank_evidence[]
+
+  @@index([payment_intent_id], map: "payment_bank_proof_intent")
+  @@index([restaurant_id, sha256], map: "payment_bank_proof_hash")
+  @@index([uploaded_by], map: "payment_bank_proof_uploader")
+}
+
+/// Short-lived actor/intent/proof/facts-bound preview, with one confirmation transition.
+model payment_bank_preview {
+  id                  String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token_hash          String                 @unique
+  restaurant_id       String                 @db.Uuid
+  payment_intent_id   String                 @db.Uuid
+  actor_id            String                 @db.Uuid
+  proof_id            String                 @db.Uuid
+  bank_reference      String
+  amount              BigInt
+  bank_transaction_at DateTime               @db.Timestamptz(6)
+  reason              String
+  snapshot            Json
+  expires_at          DateTime               @db.Timestamptz(6)
+  confirmed_at        DateTime?              @db.Timestamptz(6)
+  receipt_id          String?                @db.Uuid
+  created_at          DateTime               @default(now()) @db.Timestamptz(6)
+  restaurant          restaurant             @relation(fields: [restaurant_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  payment_intent      payment_intent         @relation(fields: [payment_intent_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  actor               app_user               @relation(fields: [actor_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  proof               payment_bank_proof     @relation(fields: [proof_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  receipt             payment_transaction?   @relation(fields: [receipt_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  evidence            payment_bank_evidence?
+
+  @@index([payment_intent_id], map: "payment_bank_preview_intent")
+  @@index([actor_id], map: "payment_bank_preview_actor")
+  @@index([proof_id], map: "payment_bank_preview_proof")
+  @@index([receipt_id], map: "payment_bank_preview_receipt")
+}
+
+/// Immutable source BANK_ADMIN_VERIFIED; provider evidence never rewrites its origin.
+model payment_bank_evidence {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  preview_id          String               @unique @db.Uuid
+  receipt_id          String               @db.Uuid
+  restaurant_id       String               @db.Uuid
+  payment_intent_id   String               @db.Uuid
+  actor_id            String               @db.Uuid
+  proof_id            String               @db.Uuid
+  bank_reference      String
+  amount              BigInt
+  bank_transaction_at DateTime             @db.Timestamptz(6)
+  receiver_digest     String
+  created_at          DateTime             @default(now()) @db.Timestamptz(6)
+  preview             payment_bank_preview @relation(fields: [preview_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  receipt             payment_transaction  @relation(fields: [receipt_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  restaurant          restaurant           @relation(fields: [restaurant_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  payment_intent      payment_intent       @relation(fields: [payment_intent_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  actor               app_user             @relation(fields: [actor_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  proof               payment_bank_proof   @relation(fields: [proof_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([payment_intent_id], map: "payment_bank_evidence_intent")
+  @@index([receipt_id], map: "payment_bank_evidence_receipt")
+  @@index([actor_id], map: "payment_bank_evidence_actor")
+  @@index([proof_id], map: "payment_bank_evidence_proof")
 }

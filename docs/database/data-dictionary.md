@@ -1,4 +1,4 @@
-# Từ điển dữ liệu vật lý — 67 bảng
+# Từ điển dữ liệu vật lý — 71 bảng
 
 Sinh từ metadata PostgreSQL bằng `pnpm docs:database`, không chứa bản ghi nghiệp vụ hay thông tin đăng nhập. Kiểu, giá trị mặc định và các ràng buộc bên dưới lấy trực tiếp từ database đã migrate.
 
@@ -117,6 +117,51 @@ attendance_record_assignment_id_restaurant_id_key: UNIQUE (assignment_id, restau
 CREATE UNIQUE INDEX attendance_record_assignment_id_key ON public.attendance_record USING btree (assignment_id);
 CREATE UNIQUE INDEX attendance_record_assignment_id_restaurant_id_key ON public.attendance_record USING btree (assignment_id, restaurant_id);
 CREATE UNIQUE INDEX attendance_record_pkey ON public.attendance_record USING btree (id);
+```
+
+## bank_receipt_claim
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| receiver_digest | text | Có |  | — | — |
+| bank_reference | text | Có |  | — | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| payment_intent_id | uuid | Có | FK | — | — |
+| receipt_id | uuid | Có | FK | — | — |
+| amount | bigint | Có |  | — | — |
+| created_at | timestamp with time zone | Có |  | now() | — |
+
+### Ràng buộc
+```sql
+bank_receipt_claim_amount_check: CHECK (((amount >= 1) AND (amount <= '100000000000'::bigint)))
+bank_receipt_claim_bank_reference_check: CHECK ((((length(bank_reference) >= 1) AND (length(bank_reference) <= 160)) AND (bank_reference = btrim(bank_reference)) AND (bank_reference !~ '[[:cntrl:]]'::text)))
+bank_receipt_claim_receiver_digest_check: CHECK ((receiver_digest ~ '^[a-f0-9]{64}$'::text))
+bank_receipt_claim_payment_intent_id_fkey: FOREIGN KEY (payment_intent_id) REFERENCES payment_intent(id) ON DELETE RESTRICT
+bank_receipt_claim_receipt_id_fkey: FOREIGN KEY (receipt_id) REFERENCES payment_transaction(id) ON DELETE RESTRICT
+bank_receipt_claim_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id) ON DELETE RESTRICT
+bank_receipt_claim_amount_not_null: NOT NULL amount
+bank_receipt_claim_bank_reference_not_null: NOT NULL bank_reference
+bank_receipt_claim_created_at_not_null: NOT NULL created_at
+bank_receipt_claim_id_not_null: NOT NULL id
+bank_receipt_claim_payment_intent_id_not_null: NOT NULL payment_intent_id
+bank_receipt_claim_receipt_id_not_null: NOT NULL receipt_id
+bank_receipt_claim_receiver_digest_not_null: NOT NULL receiver_digest
+bank_receipt_claim_restaurant_id_not_null: NOT NULL restaurant_id
+bank_receipt_claim_pkey: PRIMARY KEY (id)
+bank_receipt_claim_receipt_id_key: UNIQUE (receipt_id)
+bank_receipt_claim_receiver_digest_bank_reference_key: UNIQUE (receiver_digest, bank_reference)
+```
+
+### Chỉ mục
+```sql
+CREATE INDEX bank_receipt_claim_intent ON public.bank_receipt_claim USING btree (payment_intent_id);
+CREATE UNIQUE INDEX bank_receipt_claim_pkey ON public.bank_receipt_claim USING btree (id);
+CREATE UNIQUE INDEX bank_receipt_claim_receipt_id_key ON public.bank_receipt_claim USING btree (receipt_id);
+CREATE UNIQUE INDEX bank_receipt_claim_receiver_digest_bank_reference_key ON public.bank_receipt_claim USING btree (receiver_digest, bank_reference);
+CREATE INDEX bank_receipt_claim_restaurant ON public.bank_receipt_claim USING btree (restaurant_id);
 ```
 
 ## business_audit_event
@@ -1505,6 +1550,172 @@ CREATE UNIQUE INDEX payment_allocation_payment_transaction_id_financial_charge__
 CREATE UNIQUE INDEX payment_allocation_pkey ON public.payment_allocation USING btree (id);
 ```
 
+## payment_bank_evidence
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| preview_id | uuid | Có | FK | — | — |
+| receipt_id | uuid | Có | FK | — | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| payment_intent_id | uuid | Có | FK | — | — |
+| actor_id | uuid | Có | FK | — | — |
+| proof_id | uuid | Có | FK | — | — |
+| bank_reference | text | Có |  | — | — |
+| amount | bigint | Có |  | — | — |
+| bank_transaction_at | timestamp with time zone | Có |  | — | — |
+| receiver_digest | text | Có |  | — | — |
+| created_at | timestamp with time zone | Có |  | now() | — |
+
+### Ràng buộc
+```sql
+payment_bank_evidence_amount_check: CHECK (((amount >= 1) AND (amount <= '100000000000'::bigint)))
+payment_bank_evidence_bank_reference_check: CHECK ((((length(bank_reference) >= 1) AND (length(bank_reference) <= 160)) AND (bank_reference = btrim(bank_reference)) AND (bank_reference !~ '[[:cntrl:]]'::text)))
+payment_bank_evidence_receiver_digest_check: CHECK ((receiver_digest ~ '^[a-f0-9]{64}$'::text))
+payment_bank_evidence_actor_id_fkey: FOREIGN KEY (actor_id) REFERENCES app_user(id) ON DELETE RESTRICT
+payment_bank_evidence_payment_intent_id_fkey: FOREIGN KEY (payment_intent_id) REFERENCES payment_intent(id) ON DELETE RESTRICT
+payment_bank_evidence_preview_id_fkey: FOREIGN KEY (preview_id) REFERENCES payment_bank_preview(id) ON DELETE RESTRICT
+payment_bank_evidence_proof_id_fkey: FOREIGN KEY (proof_id) REFERENCES payment_bank_proof(id) ON DELETE RESTRICT
+payment_bank_evidence_receipt_id_fkey: FOREIGN KEY (receipt_id) REFERENCES payment_transaction(id) ON DELETE RESTRICT
+payment_bank_evidence_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id) ON DELETE RESTRICT
+payment_bank_evidence_actor_id_not_null: NOT NULL actor_id
+payment_bank_evidence_amount_not_null: NOT NULL amount
+payment_bank_evidence_bank_reference_not_null: NOT NULL bank_reference
+payment_bank_evidence_bank_transaction_at_not_null: NOT NULL bank_transaction_at
+payment_bank_evidence_created_at_not_null: NOT NULL created_at
+payment_bank_evidence_id_not_null: NOT NULL id
+payment_bank_evidence_payment_intent_id_not_null: NOT NULL payment_intent_id
+payment_bank_evidence_preview_id_not_null: NOT NULL preview_id
+payment_bank_evidence_proof_id_not_null: NOT NULL proof_id
+payment_bank_evidence_receipt_id_not_null: NOT NULL receipt_id
+payment_bank_evidence_receiver_digest_not_null: NOT NULL receiver_digest
+payment_bank_evidence_restaurant_id_not_null: NOT NULL restaurant_id
+payment_bank_evidence_pkey: PRIMARY KEY (id)
+payment_bank_evidence_preview_id_key: UNIQUE (preview_id)
+```
+
+### Chỉ mục
+```sql
+CREATE INDEX payment_bank_evidence_actor ON public.payment_bank_evidence USING btree (actor_id);
+CREATE INDEX payment_bank_evidence_intent ON public.payment_bank_evidence USING btree (payment_intent_id);
+CREATE UNIQUE INDEX payment_bank_evidence_pkey ON public.payment_bank_evidence USING btree (id);
+CREATE UNIQUE INDEX payment_bank_evidence_preview_id_key ON public.payment_bank_evidence USING btree (preview_id);
+CREATE INDEX payment_bank_evidence_proof ON public.payment_bank_evidence USING btree (proof_id);
+CREATE INDEX payment_bank_evidence_receipt ON public.payment_bank_evidence USING btree (receipt_id);
+```
+
+## payment_bank_preview
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| token_hash | text | Có |  | — | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| payment_intent_id | uuid | Có | FK | — | — |
+| actor_id | uuid | Có | FK | — | — |
+| proof_id | uuid | Có | FK | — | — |
+| bank_reference | text | Có |  | — | — |
+| amount | bigint | Có |  | — | — |
+| bank_transaction_at | timestamp with time zone | Có |  | — | — |
+| reason | text | Có |  | — | — |
+| snapshot | jsonb | Có |  | — | — |
+| expires_at | timestamp with time zone | Có |  | — | — |
+| confirmed_at | timestamp with time zone | Không |  | — | — |
+| receipt_id | uuid | Không | FK | — | — |
+| created_at | timestamp with time zone | Có |  | now() | — |
+
+### Ràng buộc
+```sql
+payment_bank_preview_amount_check: CHECK (((amount >= 1) AND (amount <= '100000000000'::bigint)))
+payment_bank_preview_bank_reference_check: CHECK ((((length(bank_reference) >= 1) AND (length(bank_reference) <= 160)) AND (bank_reference = btrim(bank_reference)) AND (bank_reference !~ '[[:cntrl:]]'::text)))
+payment_bank_preview_check: CHECK (((expires_at > created_at) AND (expires_at <= (created_at + '00:10:00'::interval))))
+payment_bank_preview_check1: CHECK ((((confirmed_at IS NULL) AND (receipt_id IS NULL)) OR ((confirmed_at IS NOT NULL) AND (receipt_id IS NOT NULL) AND (confirmed_at >= created_at))))
+payment_bank_preview_reason_check: CHECK (((length(btrim(reason)) >= 1) AND (length(btrim(reason)) <= 1000)))
+payment_bank_preview_snapshot_check: CHECK ((jsonb_typeof(snapshot) = 'object'::text))
+payment_bank_preview_token_hash_check: CHECK ((token_hash ~ '^[a-f0-9]{64}$'::text))
+payment_bank_preview_actor_id_fkey: FOREIGN KEY (actor_id) REFERENCES app_user(id) ON DELETE RESTRICT
+payment_bank_preview_payment_intent_id_fkey: FOREIGN KEY (payment_intent_id) REFERENCES payment_intent(id) ON DELETE RESTRICT
+payment_bank_preview_proof_id_fkey: FOREIGN KEY (proof_id) REFERENCES payment_bank_proof(id) ON DELETE RESTRICT
+payment_bank_preview_receipt_id_fkey: FOREIGN KEY (receipt_id) REFERENCES payment_transaction(id) ON DELETE RESTRICT
+payment_bank_preview_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id) ON DELETE RESTRICT
+payment_bank_preview_actor_id_not_null: NOT NULL actor_id
+payment_bank_preview_amount_not_null: NOT NULL amount
+payment_bank_preview_bank_reference_not_null: NOT NULL bank_reference
+payment_bank_preview_bank_transaction_at_not_null: NOT NULL bank_transaction_at
+payment_bank_preview_created_at_not_null: NOT NULL created_at
+payment_bank_preview_expires_at_not_null: NOT NULL expires_at
+payment_bank_preview_id_not_null: NOT NULL id
+payment_bank_preview_payment_intent_id_not_null: NOT NULL payment_intent_id
+payment_bank_preview_proof_id_not_null: NOT NULL proof_id
+payment_bank_preview_reason_not_null: NOT NULL reason
+payment_bank_preview_restaurant_id_not_null: NOT NULL restaurant_id
+payment_bank_preview_snapshot_not_null: NOT NULL snapshot
+payment_bank_preview_token_hash_not_null: NOT NULL token_hash
+payment_bank_preview_pkey: PRIMARY KEY (id)
+payment_bank_preview_token_hash_key: UNIQUE (token_hash)
+```
+
+### Chỉ mục
+```sql
+CREATE INDEX payment_bank_preview_actor ON public.payment_bank_preview USING btree (actor_id);
+CREATE INDEX payment_bank_preview_intent ON public.payment_bank_preview USING btree (payment_intent_id);
+CREATE UNIQUE INDEX payment_bank_preview_pkey ON public.payment_bank_preview USING btree (id);
+CREATE INDEX payment_bank_preview_proof ON public.payment_bank_preview USING btree (proof_id);
+CREATE INDEX payment_bank_preview_receipt ON public.payment_bank_preview USING btree (receipt_id);
+CREATE UNIQUE INDEX payment_bank_preview_token_hash_key ON public.payment_bank_preview USING btree (token_hash);
+```
+
+## payment_bank_proof
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| payment_intent_id | uuid | Có | FK | — | — |
+| uploaded_by | uuid | Có | FK | — | — |
+| filename | text | Có |  | — | — |
+| sha256 | text | Có |  | — | — |
+| mime | text | Có |  | — | — |
+| byte_size | integer | Có |  | — | — |
+| created_at | timestamp with time zone | Có |  | now() | — |
+
+### Ràng buộc
+```sql
+payment_bank_proof_byte_size_check: CHECK (((byte_size >= 1) AND (byte_size <= 2097152)))
+payment_bank_proof_filename_check: CHECK ((filename ~ '^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\.(png|jpg|webp)$'::text))
+payment_bank_proof_mime_check: CHECK ((mime = ANY (ARRAY['image/png'::text, 'image/jpeg'::text, 'image/webp'::text])))
+payment_bank_proof_sha256_check: CHECK ((sha256 ~ '^[a-f0-9]{64}$'::text))
+payment_bank_proof_payment_intent_id_fkey: FOREIGN KEY (payment_intent_id) REFERENCES payment_intent(id) ON DELETE RESTRICT
+payment_bank_proof_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id) ON DELETE RESTRICT
+payment_bank_proof_uploaded_by_fkey: FOREIGN KEY (uploaded_by) REFERENCES app_user(id) ON DELETE RESTRICT
+payment_bank_proof_byte_size_not_null: NOT NULL byte_size
+payment_bank_proof_created_at_not_null: NOT NULL created_at
+payment_bank_proof_filename_not_null: NOT NULL filename
+payment_bank_proof_id_not_null: NOT NULL id
+payment_bank_proof_mime_not_null: NOT NULL mime
+payment_bank_proof_payment_intent_id_not_null: NOT NULL payment_intent_id
+payment_bank_proof_restaurant_id_not_null: NOT NULL restaurant_id
+payment_bank_proof_sha256_not_null: NOT NULL sha256
+payment_bank_proof_uploaded_by_not_null: NOT NULL uploaded_by
+payment_bank_proof_pkey: PRIMARY KEY (id)
+payment_bank_proof_filename_key: UNIQUE (filename)
+```
+
+### Chỉ mục
+```sql
+CREATE UNIQUE INDEX payment_bank_proof_filename_key ON public.payment_bank_proof USING btree (filename);
+CREATE INDEX payment_bank_proof_hash ON public.payment_bank_proof USING btree (restaurant_id, sha256);
+CREATE INDEX payment_bank_proof_intent ON public.payment_bank_proof USING btree (payment_intent_id);
+CREATE UNIQUE INDEX payment_bank_proof_pkey ON public.payment_bank_proof USING btree (id);
+CREATE INDEX payment_bank_proof_uploader ON public.payment_bank_proof USING btree (uploaded_by);
+```
+
 ## payment_intent
 
 
@@ -2843,11 +3054,11 @@ CREATE UNIQUE INDEX stock_location_restaurant_id_code_key ON public.stock_locati
 ```sql
 access_request_visitor: CHECK (((request_type <> 'ACCESS_CODE'::text) OR ((visitor_hash IS NOT NULL) AND ((length(btrim(visitor_name)) >= 1) AND (length(btrim(visitor_name)) <= 80)))))
 support_payment_method: CHECK (((payment_method IS NULL) OR ((request_type = 'BILL'::text) AND (payment_method = ANY (ARRAY['CASH'::text, 'BANK_TRANSFER'::text, 'ONLINE'::text])))))
-support_request_check: CHECK (((status <> 'RESOLVED'::text) OR ((resolved_by IS NOT NULL) AND (resolved_at IS NOT NULL))))
 support_request_context: CHECK ((((session_id IS NOT NULL) AND (table_id IS NULL)) OR ((request_type = 'ACCESS_CODE'::text) AND (session_id IS NULL) AND (table_id IS NOT NULL) AND (participant_id IS NULL))))
 support_request_owner_state: CHECK ((((status = 'NEW'::text) AND (acknowledged_by IS NULL) AND (acknowledged_at IS NULL) AND (resolved_by IS NULL) AND (resolved_at IS NULL)) OR ((status = 'ACKNOWLEDGED'::text) AND (acknowledged_by IS NOT NULL) AND (acknowledged_at IS NOT NULL) AND (resolved_by IS NULL) AND (resolved_at IS NULL)) OR ((status = 'RESOLVED'::text) AND (acknowledged_by IS NOT NULL) AND (acknowledged_at IS NOT NULL) AND (resolved_at IS NOT NULL) AND (((resolution_actor_type = 'USER'::text) AND (resolved_by = acknowledged_by)) OR ((resolution_actor_type = 'SYSTEM'::text) AND (resolved_by IS NULL)))) OR (status = 'CANCELLED'::text)))
 support_request_request_type_check: CHECK ((request_type = ANY (ARRAY['ASSISTANCE'::text, 'WATER'::text, 'UTENSILS'::text, 'BILL'::text, 'OTHER'::text, 'ACCESS_CODE'::text])))
 support_request_request_type_check1: CHECK ((length(btrim(request_type)) > 0))
+support_request_resolution_actor: CHECK (((status <> 'RESOLVED'::text) OR ((resolved_at IS NOT NULL) AND (((NOT (resolution_actor_type IS DISTINCT FROM 'SYSTEM'::text)) AND (resolved_by IS NULL)) OR ((NOT (resolution_actor_type IS DISTINCT FROM 'USER'::text)) AND (resolved_by IS NOT NULL))))))
 support_request_resolution_actor_type_check: CHECK ((resolution_actor_type = ANY (ARRAY['USER'::text, 'SYSTEM'::text])))
 support_request_status_check: CHECK ((status = ANY (ARRAY['NEW'::text, 'ACKNOWLEDGED'::text, 'RESOLVED'::text, 'CANCELLED'::text])))
 support_request_status_check1: CHECK ((length(btrim(status)) > 0))

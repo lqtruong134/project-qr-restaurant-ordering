@@ -1,4 +1,17 @@
 import { randomBytes, randomUUID, createHmac } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { initializePayosOrderCodeStore } from '../../apps/api/src/modules/payments/payos-order-code.js';
+const orderCodeDirectory = mkdtempSync(join(tmpdir(), 'payos-fixture-order-codes-'));
+const orderCodeStore = join(orderCodeDirectory, 'order-codes.sqlite');
+// Explicit bootstrap of a synthetic channel only; never read a merchant env file.
+initializePayosOrderCodeStore({
+  storePath: orderCodeStore,
+  channelId: 'isolated-test-client',
+  highWaterMark: 0n,
+});
+process.once('exit', () => rmSync(orderCodeDirectory, { recursive: true, force: true }));
 import {
   officialPayosProvider,
   type CreatePaymentLinkRequest,
@@ -11,6 +24,7 @@ import type {
 } from '../../apps/api/src/modules/payments/payos-adapter.js';
 export const config: PayosConfig = {
   enabled: true,
+  orderCodeStore,
   clientId: 'isolated-test-client',
   apiKey: 'isolated-test-api',
   checksumKey: randomBytes(32).toString('hex'),
@@ -91,7 +105,7 @@ export class FakeProvider implements PayosProvider {
   }
   verify = (body: unknown) => verifier.verify(body);
   isNotFound = (error: unknown) => error === notFound;
-  add(orderCode: number, amount: number, reference = randomUUID()) {
+  add(orderCode: number, amount: number, reference: string = randomUUID()) {
     const link = this.links.get(orderCode)!;
     link.transactions.push({
       reference,

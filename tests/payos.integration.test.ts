@@ -16,6 +16,7 @@ import { buildApp } from '../apps/api/src/app.js';
 import { registerAuth } from '../apps/api/src/auth.js';
 import { registerModules } from '../apps/api/src/modules/index.js';
 import { PayosService } from '../apps/api/src/modules/payments/payos.service.js';
+import { allocatePayosOrderCode } from '../apps/api/src/modules/payments/payos-order-code.js';
 import { maintainCore } from '../apps/api/src/modules/notifications/maintenance.js';
 import { config, signature, FakeProvider } from './helpers/payos-provider-fixture.js';
 let host: Database, db: Database, app: ReturnType<typeof buildApp>, service: PayosService;
@@ -1494,6 +1495,8 @@ it('guest online snapshots are table/participant scoped, private, and follow par
       'remainingAmount',
       'expiresAt',
       'createdAt',
+      'verificationSource',
+      'providerEvidenceAttached',
     ].sort(),
   );
   expect(own).toMatchObject({
@@ -1940,4 +1943,311 @@ it('reconciliation reports subtract written-off debt from due without treating i
   });
   expect((await sessionReconciliation(p.sid, 'due')).total).toBe(0);
   expect((await sessionReconciliation(p.sid, 'refund')).total).toBe(0);
+});
+
+it('payOS durable allocator issues increasing unique codes to distinct intents and service instances', async () => {
+  const firstParty = await party('10000');
+  const first = await create(firstParty.sid, '10000');
+  const staff = await db.prisma.app_user.findFirstOrThrow({ where: { username: 'pv001' } });
+  const secondParty = await party('10000');
+  const otherService = new PayosService(db, restaurantId, { config, provider });
+  const second = await otherService.create(secondParty.sid, staff.id, {
+    requestId: randomUUID(),
+    amount: '10000',
+  });
+  const firstCode = Number(first.online.orderCode);
+  const secondCode = Number(second.online!.orderCode);
+  expect(Number.isSafeInteger(firstCode)).toBe(true);
+  expect(Number.isSafeInteger(secondCode)).toBe(true);
+  expect(secondCode).toBeGreaterThan(firstCode);
+  const storedCodes = await db.pool.query(
+    'SELECT order_code::text FROM payos_payment_request WHERE payment_intent_id=ANY($1::uuid[])',
+    [[first.id, second.id]],
+  );
+  expect(new Set(storedCodes.rows.map((row) => row.order_code))).toEqual(
+    new Set([String(firstCode), String(secondCode)]),
+  );
+});
+
+it('payOS durable allocator fails closed before provider calls and rolls back intents for an uninitialized store', async () => {
+  const p = await party('10000');
+  const body = { requestId: randomUUID(), method: 'ONLINE', amount: '10000' };
+  const previous = config.orderCodeStore;
+  const createsBefore = provider.creates;
+  const missing = join(image, 'allocator-uninitialized-' + randomUUID(), 'order-codes.sqlite');
+  const staff = await db.prisma.app_user.findFirstOrThrow({ where: { username: 'pv001' } });
+  config.orderCodeStore = missing;
+  try {
+    const response = await request('/core/sessions/' + p.sid + '/payments', body);
+    expect(response.statusCode).toBe(503);
+    for (const privateValue of [missing, config.clientId!, config.apiKey!, config.checksumKey!])
+      expect(response.body).not.toContain(privateValue);
+    await expect(
+      service.create(p.sid, staff.id, { ...body, requestId: randomUUID() }),
+    ).rejects.toMatchObject({ statusCode: 503 });
+    expect(provider.creates).toBe(createsBefore);
+    expect(await db.prisma.payment_intent.count({ where: { session_id: p.sid } })).toBe(0);
+    expect(
+      (
+        await db.pool.query(
+          'SELECT count(*)::int AS count FROM payos_payment_request q JOIN payment_intent p ON p.id=q.payment_intent_id WHERE p.session_id=$1',
+          [p.sid],
+        )
+      ).rows[0].count,
+    ).toBe(0);
+  } finally {
+    config.orderCodeStore = previous;
+  }
+  // The same idempotency key must work after the operator restores the durable store.
+  const retried = await ok('/core/sessions/' + p.sid + '/payments', body);
+  expect(retried.status).toBe('PENDING');
+  expect(await db.prisma.payment_intent.count({ where: { session_id: p.sid } })).toBe(1);
+});
+
+it('payOS durable allocator does not reuse a reservation when the application DB transaction rolls back', async () => {
+  const p = await party('10000');
+  const client = await db.pool.connect();
+  const rolledBackId = randomUUID();
+  let reserved = 0;
+  let begun = false;
+  try {
+    await client.query('BEGIN');
+    begun = true;
+    await client.query(
+      `INSERT INTO payment_intent(id,session_id,method,provider,amount,currency,client_request_id,expires_at)
+       VALUES($1,$2,'ONLINE','PAYOS',1000,'VND',$3,now()+interval '15 minutes')`,
+      [rolledBackId, p.sid, randomUUID()],
+    );
+    const current = (
+      await client.query(
+        'SELECT COALESCE(max(order_code),0)::text AS code FROM payos_payment_request',
+      )
+    ).rows[0];
+    expect(config.orderCodeStore).toBeTypeOf('string');
+    reserved = allocatePayosOrderCode({
+      storePath: config.orderCodeStore!,
+      channelId: config.clientId!,
+      databaseFloor: BigInt(current.code),
+    });
+    await client.query('ROLLBACK');
+    begun = false;
+  } finally {
+    // A failed assertion cannot leave a PostgreSQL transaction or connection open.
+    if (begun) await client.query('ROLLBACK');
+    client.release();
+  }
+  expect(await db.prisma.payment_intent.findUnique({ where: { id: rolledBackId } })).toBeNull();
+  const next = await create(p.sid, '10000');
+  expect(Number(next.online.orderCode)).toBeGreaterThan(reserved);
+  expect(
+    (await db.pool.query('SELECT id FROM payos_payment_request WHERE order_code=$1', [reserved]))
+      .rowCount,
+  ).toBe(0);
+});
+
+it('payOS durable allocator retains one code after lost CREATE response and never gives it to the next intent', async () => {
+  const p = await party('10000');
+  const body = { requestId: randomUUID(), method: 'ONLINE', amount: '10000' };
+  const createsBefore = provider.creates;
+  provider.loseCreateResponse = true;
+  const first = await ok('/core/sessions/' + p.sid + '/payments', body);
+  expect(first.online.status).toBe('ERROR');
+  const reservedCode = first.online.orderCode;
+  const retried = await ok('/core/sessions/' + p.sid + '/payments', body);
+  expect(retried.id).toBe(first.id);
+  expect(retried.online.orderCode).toBe(reservedCode);
+  expect(provider.creates - createsBefore).toBe(1);
+  const other = await party('10000');
+  const next = await create(other.sid, '10000');
+  expect(Number(next.online.orderCode)).toBeGreaterThan(Number(reservedCode));
+  expect(provider.creates - createsBefore).toBe(2);
+});
+
+it('payOS durable allocator advances beyond an existing application DB high-water code', async () => {
+  const p = await party('10000');
+  const staff = await db.prisma.app_user.findFirstOrThrow({ where: { username: 'pv001' } });
+  const current = (
+    await db.pool.query(
+      'SELECT COALESCE(max(order_code),0)::text AS code FROM payos_payment_request',
+    )
+  ).rows[0];
+  const clock = BigInt(Date.now());
+  const previous = BigInt(current.code) > clock ? BigInt(current.code) : clock;
+  const legacyCode = previous + 1000000n;
+  const legacyId = randomUUID();
+  await db.pool.query(
+    `INSERT INTO payment_intent(id,session_id,method,provider,amount,currency,status,client_request_id,created_at,expires_at)
+     VALUES($1,$2,'ONLINE','PAYOS',1000,'VND','EXPIRED',$3,now()-interval '2 minutes',now()-interval '1 second')`,
+    [legacyId, p.sid, randomUUID()],
+  );
+  await db.pool.query(
+    `INSERT INTO payos_payment_request(payment_intent_id,created_by,order_code,request_payload,status,provider_status)
+     VALUES($1,$2,$3,$4,'EXPIRED','EXPIRED')`,
+    [
+      legacyId,
+      staff.id,
+      legacyCode.toString(),
+      JSON.stringify({
+        orderCode: Number(legacyCode),
+        amount: 1000,
+        description: 'Synthetic legacy allocator fixture',
+        returnUrl: config.returnUrl,
+        cancelUrl: config.cancelUrl,
+      }),
+    ],
+  );
+  const next = await create(p.sid, '10000');
+  expect(BigInt(next.online.orderCode)).toBeGreaterThan(legacyCode);
+  expect(provider.links.has(Number(legacyCode))).toBe(false);
+});
+
+it('payOS reset plan inventories real SQL read-only and protects all online history without changing records', async () => {
+  const { inventoryResetPlan } = await import(
+    new URL('../scripts/payos-demo-reset-plan.mjs', import.meta.url).href
+  );
+  const p = await party('10000');
+  await create(p.sid, '10000');
+  const reference = 'reset-plan-private-ref-' + randomUUID();
+  const privateAccount = '0001234567890123456789';
+  const privateToken = 'synthetic-reset-plan-token-never-print';
+  await db.pool.query(
+    `INSERT INTO payment_webhook_event(provider,provider_event_id,payload_hash,payload_snapshot,signature_valid)
+     VALUES('PAYOS',$1,$2,$3,false)`,
+    [
+      reference,
+      randomBytes(32).toString('hex'),
+      JSON.stringify({
+        accountNumber: privateAccount,
+        reference,
+        privateToken,
+      }),
+    ],
+  );
+  const snapshot = async () =>
+    (
+      await db.pool.query(`
+        SELECT
+          (SELECT count(*)::text FROM payment_intent) AS intents,
+          (SELECT count(*)::text FROM payos_payment_request) AS requests,
+          (SELECT count(*)::text FROM payment_transaction) AS receipts,
+          (SELECT count(*)::text FROM payment_allocation) AS allocations,
+          (SELECT count(*)::text FROM refund_case) AS refund_cases,
+          (SELECT count(*)::text FROM refund_transaction) AS refunds,
+          (SELECT count(*)::text FROM payment_webhook_event) AS webhooks,
+          (SELECT count(*)::text FROM session_financial_account) AS accounts,
+          (SELECT count(*)::text FROM business_audit_event) AS audits,
+          (SELECT count(*)::text FROM outbox_event) AS outbox
+      `)
+    ).rows[0];
+  const expected = (
+    await db.pool.query(
+      `SELECT count(*)::text AS total,
+         count(*) FILTER(WHERE p.method='ONLINE' OR p.provider='PAYOS')::text AS online
+       FROM payment_intent p JOIN table_session s ON s.id=p.session_id
+       JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1`,
+      [restaurantId],
+    )
+  ).rows[0];
+  const before = await snapshot();
+  const providerBefore = {
+    creates: provider.creates,
+    gets: provider.gets,
+    cancels: provider.cancels,
+  };
+  const statements: string[] = [];
+  let transactionReadOnly: string | undefined;
+  let released = false;
+  const pool = {
+    async connect() {
+      const client = await db.pool.connect();
+      return {
+        async query(sql: string, params?: unknown[]) {
+          statements.push(sql);
+          const result = await client.query(sql, params);
+          if (sql.startsWith('BEGIN')) {
+            transactionReadOnly = (await client.query('SHOW transaction_read_only')).rows[0]
+              .transaction_read_only;
+          }
+          return result;
+        },
+        release() {
+          released = true;
+          client.release();
+        },
+      };
+    },
+  };
+  const plan = await inventoryResetPlan(pool, restaurantId, {
+    targetLabel: 'isolated-integration-reset-plan',
+  });
+  expect(transactionReadOnly).toBe('on');
+  expect(statements[0]).toBe('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+  expect(statements.at(-1)).toBe('ROLLBACK');
+  expect(released).toBe(true);
+  expect(plan.counts.total_intents).toBe(expected.total);
+  expect(BigInt(plan.counts.protected_payos_unknown_intents)).toBeGreaterThanOrEqual(
+    BigInt(expected.online),
+  );
+  expect(BigInt(expected.online)).toBeGreaterThan(0n);
+  expect(BigInt(plan.counts.unscoped_payos_events)).toBeGreaterThanOrEqual(1n);
+  expect(plan).toMatchObject({
+    dryRun: true,
+    readOnly: true,
+    providerContacted: false,
+    executionSupported: false,
+    destructiveResetAuthorized: false,
+    automaticDemoDeleteEligibleCount: '0',
+    productionClassificationVerified: false,
+  });
+  expect(await snapshot()).toEqual(before);
+  expect({
+    creates: provider.creates,
+    gets: provider.gets,
+    cancels: provider.cancels,
+  }).toEqual(providerBefore);
+  const json = JSON.stringify(plan);
+  for (const value of [privateAccount, reference, privateToken, restaurantId])
+    expect(json).not.toContain(value);
+}, 15000);
+
+it('payOS reset plan retains partially recorded bank funds and counts dependent restaurant records', async () => {
+  const { inventoryResetPlan } = await import(
+    new URL('../scripts/payos-demo-reset-plan.mjs', import.meta.url).href
+  );
+  const p = await party('10000');
+  const intent = await create(p.sid, '10000');
+  expect((await deliver(await webhook(intent, 4000))).statusCode).toBe(200);
+  const code = Number(intent.online.orderCode);
+  const unverified = provider.add(code, 2000);
+  unverified.accountNumber = '87654321';
+  await ok('/core/payments/' + intent.id + '/refresh', {});
+  const facts = (
+    await db.pool.query(
+      `SELECT q.paid_amount::text AS reported,
+      COALESCE((SELECT sum(t.amount) FROM payment_transaction t
+        WHERE t.payment_intent_id=q.payment_intent_id AND t.provider='PAYOS' AND t.status='SUCCEEDED'),0)::text AS recorded
+      FROM payos_payment_request q WHERE q.payment_intent_id=$1`,
+      [intent.id],
+    )
+  ).rows[0];
+  expect(facts).toEqual({ reported: '6000', recorded: '4000' });
+  const plan = await inventoryResetPlan(db.pool, restaurantId, {
+    targetLabel: 'isolated-partial-ledger-inventory',
+  });
+  expect(BigInt(plan.counts.bank_reported_without_ledger_intents)).toBeGreaterThanOrEqual(1n);
+  const expected = (
+    await db.pool.query(
+      `WITH scoped AS (
+      SELECT s.id,s.receipt_number FROM table_session s JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1)
+    SELECT (SELECT count(*)::text FROM scoped WHERE receipt_number IS NOT NULL) AS closed_receipts,
+      (SELECT count(*)::text FROM order_batch b JOIN scoped s ON s.id=b.session_id) AS order_batches,
+      (SELECT count(*)::text FROM order_item i JOIN order_batch b ON b.id=i.order_batch_id JOIN scoped s ON s.id=b.session_id) AS order_items,
+      (SELECT count(*)::text FROM payment_intent p JOIN scoped s ON s.id=p.session_id WHERE p.proof IS NOT NULL AND p.proof <> 'null'::jsonb) AS proof_records,
+      (SELECT count(*)::text FROM operational_alert a JOIN dining_table t ON t.id=a.table_id WHERE t.restaurant_id=$1) AS operational_alerts`,
+      [restaurantId],
+    )
+  ).rows[0];
+  for (const [field, value] of Object.entries(expected)) expect(plan.counts[field]).toBe(value);
+  expect(BigInt(plan.counts.order_items)).toBeGreaterThan(0n);
+  expect(plan.automaticDemoDeleteEligibleCount).toBe('0');
 });

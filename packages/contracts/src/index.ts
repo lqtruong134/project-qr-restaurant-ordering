@@ -45,3 +45,14 @@ export type {
 export * from './menu-assistant';
 
 export type { CollectionAvailability, PaymentFinancialSummary } from './payments-online';
+
+export type {
+  BankEvidenceProof,
+  BankEvidenceFacts,
+  BankEvidenceContext,
+  BankEvidenceInput,
+  BankEvidencePreview,
+  BankEvidenceConfirmation,
+} from './bank-evidence';
+
+export type { PaymentVerificationSource } from './payments-online';

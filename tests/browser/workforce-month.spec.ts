@@ -55,24 +55,35 @@ test.beforeAll(async ({ browserName }, info) => {
     const person = await db.prisma.app_user.findFirstOrThrow({ where: { username: 'bep001' } });
     const start = new Date(reviewDay + 'T07:00:00+07:00'),
       end = new Date(reviewDay + 'T16:00:00+07:00');
-    const shift = await db.prisma.work_shift.upsert({
-      where: {
-        restaurant_id_code: {
-          restaurant_id: restaurantId,
-          code: 'CA-KIEM-TRA-' + info.project.name,
+    const shiftFacts = {
+      restaurant_id: restaurantId,
+      code: 'CA-KIEM-TRA-' + info.project.name,
+      name: reviewShiftName,
+      starts_at: start,
+      ends_at: end,
+      break_minutes: 60,
+      hourly_rate_override: null,
+      created_by: admin.id,
+    };
+    // A failed test restarts its worker and reruns beforeAll against the same database.
+    // Recorded shifts are immutable, so reuse matching facts without issuing an UPDATE.
+    const shift =
+      (await db.prisma.work_shift.findUnique({
+        where: {
+          restaurant_id_code: {
+            restaurant_id: restaurantId,
+            code: shiftFacts.code,
+          },
         },
-      },
-      update: { name: reviewShiftName },
-      create: {
-        restaurant_id: restaurantId,
-        code: 'CA-KIEM-TRA-' + info.project.name,
-        name: reviewShiftName,
-        starts_at: start,
-        ends_at: end,
-        break_minutes: 60,
-        hourly_rate_override: null,
-        created_by: admin.id,
-      },
+      })) ?? (await db.prisma.work_shift.create({ data: shiftFacts }));
+    expect(shift, 'A reused review shift must retain all expected immutable facts').toMatchObject({
+      ...shiftFacts,
+      template_id: null,
+      scheduled_date: null,
+      template_version: null,
+      attendance_grace_minutes: 15,
+      clock_in_early_minutes: 15,
+      clock_out_late_minutes: 120,
     });
     const assignment = await db.prisma.shift_assignment.upsert({
       where: { shift_id_user_id: { shift_id: shift.id, user_id: person.id } },

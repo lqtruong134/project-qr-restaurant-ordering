@@ -29,6 +29,14 @@ test('one compact neutral card per table with several jobs; empty, cart, provisi
   )) as [Page, Page, Page, Page, Page];
   const errors: string[] = [];
   for (const p of [staff, guest]) p.on('pageerror', (e) => errors.push(e.message));
+  await guest.clock.install();
+  const activeStateReads = new Set<Request>();
+  guest.on('request', (request) => {
+    if (request.method() === 'GET' && new URL(request.url()).pathname === '/api/guest/state')
+      activeStateReads.add(request);
+  });
+  guest.on('requestfinished', (request) => activeStateReads.delete(request));
+  guest.on('requestfailed', (request) => activeStateReads.delete(request));
   try {
     await login(admin, 'quyettruong05', 'admin');
     await login(staff, 'pv003', 'staff');
@@ -139,6 +147,7 @@ test('one compact neutral card per table with several jobs; empty, cart, provisi
       await route.continue().catch(() => undefined);
     };
     await guest.route('**/api/guest/promotion', holdQuote);
+    let clockPaused = false;
     try {
       await expect.poll(() => Boolean(heldRequest), { timeout: 10000 }).toBe(true);
       const heldId = heldRequest!.headers()['x-playwright-read-id']!;
@@ -150,7 +159,17 @@ test('one compact neutral card per table with several jobs; empty, cart, provisi
           { marker: abortMarker, id: heldId },
         );
       await expect.poll(heldState).toBe('started');
+      // Isolate this navigation-abort check from the independent five-second
+      // state poll. CI WebKit started that poll during provisional navigation,
+      // before pagehide, and reported a native access-control error. The held
+      // promotion read and its real AbortSignal remain active until reload.
+      await guest.clock.pauseAt(await guest.evaluate(() => Date.now() + 1000));
+      clockPaused = true;
+      await expect.poll(() => activeStateReads.size).toBe(0);
+      await expect.poll(heldState).toBe('started');
       await guest.reload();
+      await guest.clock.resume();
+      clockPaused = false;
       releaseQuote();
       // The held read must terminate without a response. Chromium can retire its signal
       // after native cancellation but before pagehide; WebKit may abort the signal first.
@@ -161,6 +180,7 @@ test('one compact neutral card per table with several jobs; empty, cart, provisi
         )
         .toBe('left');
     } finally {
+      if (clockPaused) await guest.clock.resume();
       releaseQuote();
       await guest.unroute('**/api/guest/promotion', holdQuote);
       await guest.evaluate((marker) => {

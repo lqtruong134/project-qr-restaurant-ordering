@@ -1,5 +1,98 @@
 # 15. Hồ sơ đối chiếu và giới hạn xác minh
 
+## Nghiệm thu nền tảng payOS M2/M3 — 23/10/2026
+
+Nhánh `feat/payos-payment-platform`, PR #3 tiếp tục đầy đủ sau M1. Thay đổi M2 gồm tự động signed GET/primary MB, shared posting và claim ngân hàng xuyên nguồn, ADMIN chứng từ riêng tư/xem trước/xác nhận, chống ghi trùng và audit. M3 gồm UI ba vai trò, kiểm thử browser, migration đóng gói và rehearsal backup/restore/rollback. Đây là nghiệm thu mã và môi trường tổng hợp, không phải xác nhận production hoặc tiền A10 đã được xử lý.
+
+### Nguyên nhân và hành vi trước/sau
+
+Guard cũ đòi webhook làm cầu nối dù signed GET đã khớp đúng kênh/link và primary ngân hàng được cấu hình tin cậy. M2 cho phép GET độc lập khi exact client/restaurant/BIN MB/primary + signed CREATE QR/link đều đúng; VA mâu thuẫn hoặc chữ ký/định danh/tiền sai vẫn chặn. Không dùng độ dài tài khoản, lời xác nhận hoặc output diagnostic làm quyền ghi sổ.
+
+ADMIN có luồng riêng BANK_ADMIN_VERIFIED, không giả provider PAID. Proof 2 MB private/hash; preview 2 phút chưa ghi tiền; confirm kiểm lại quyền/tenant/versions/facts/hash/scope dưới khóa. Claim receiver hash+reference, receipt/allocation/evidence/outbox/audit cùng transaction; refresh/webhook cùng receipt không ghi lần hai. Hai preview hoặc hai nguồn cạnh tranh chỉ có một receipt; lỗi DB rollback toàn bộ. Dữ liệu đổi sau preview đòi xem trước mới.
+
+Bill 20.000đ/quote10.000đ/nhận12.000đ giữ nợ10.000đ và hoàn2.000đ, cả tự động lẫn ADMIN. Duyệt hoàn chưa được đóng đối soát; test thực hiện xác nhận trả tiền **giả lập** rồi mới đóng. Evidence ngân hàng đủ điều kiện đóng phần nghĩa vụ đã xử lý mà không ép provider PENDING thành PAID; worker tiếp tục đối chiếu nguồn. Phiên đã chốt và khoản đến muộn thiếu bằng chứng đúng hạn bị chặn.
+
+### Bằng chứng kiểm chứng
+
+| Nhóm | Kết quả đã quan sát / nơi đọc kết quả tự động |
+| --- | --- |
+| `pnpm check` | Format, ESLint, typecheck toàn workspace/tools và **384/384 unit /45files** đạt; số tăng từ364 của M1, không xóa/skip test |
+| Coverage tương đương CI | **659/659 /47files**, line **92,40%**, ngưỡng70%; gồm toàn backend/integration, không chỉ payOS |
+| Bank evidence SQL/API | **35/35**: permissions/tenant/proof/token expiry/stale/replay/concurrency/rollback/timely/closed/cross-source/sourceprivacy/overpay/actualrefund/resolution |
+| Shared bank posting | **10/10** PostgreSQL: uniqueidentity, allocationcap, collisiontenant/amount, concurrentclaim, rollback, immutablefacts |
+| Automatic MB recovery | **37/37** integration; normalization/binding **47/47** unit; GET-only thật của adaptergiả khớp10k cập nhật STAFF/GUEST và replay giữ một receipt |
+| E2E thanh toán | **81/81** trên desktop/Android/Safari; gồm21 bàiADMIN và6 bài provenanceSTAFF/GUEST mới, không thay skip hiện hữu |
+| Full E2E + fresh Quality Gate | Workflow hiện hành giữ nguyên, chạy trọn **501 lượt browser**. Bằng chứng PASS/FAIL, tổng số và commit chính xác đọc ở [checks PR #3](https://github.com/lqtruong134/project-qr-restaurant-ordering/pull/3/checks); không dùng run M1 thay cho commit M2/M3. Báo cáo nghiệm thu cuối trên PR gắn run mới sau khi hoàn tất |
+| Rehearsal dữ liệu/vận hành | Guardedlab CLI đã pg_dump/restore đủ **71 bảng**; giữ bankproof/preview/evidence/claim, hash/quyền600/700, ledger10k/due10k/refund0; từ chối DB đích không trống/gói hỏng, lỗi giữa chừng giữ writer dừng, archive READONLY và allocator khôngrewind |
+| Image/security/toolchecks | Kết quả imageAPI/maintenance/web và smokeUID10001 được ghi theo lượt build của PR; tooltests/secretcheck/audit high phải đạt trước push. Không dùng image M1 làm bằng chứng image M2 |
+
+Test PostgreSQL dùng container tmpfs có nhãn riêng, loopback, credentials tổng hợp; mỗi integration tạo DB ngẫu nhiên rồi dọn đúng DB đó. E2E chạy trong clone riêng với `.env` tổng hợp, không nạp `.env`/production compose của checkout thật. Giao dịch/hoàn trong tests là fixture; không gọi merchant/bank thật. Chẩn đoán browser chỉ ở thư mục lab, không commit scratch hoặc giảm assertion để bỏ lỗi.
+
+### Đối chiếu lỗi browser trước lượt CI cuối
+
+Lượt full local đầu tiên đạt 492/501, lỗi 8 và bỏ qua 1 bài Swagger có sẵn. Cùng commit `8c3d216`, [GitHub run 39928076414](https://github.com/lqtruong134/project-qr-restaurant-ordering/actions/runs/39928076414) đạt 499, lỗi 1 Safari và bỏ qua 1; mọi bước trước E2E đều đạt. Không tính hai lượt này là PASS. Tám tình huống local đã được chạy lại đúng spec/project và đạt **8/8**, giữ nguyên timeout và assertion.
+
+Trace Safari cho thấy một state poll độc lập bắt đầu trong provisional navigation khi test cố ý giữ promotion GET rồi reload. Fixture chỉ tạm dừng timer trong bước kiểm tra hủy này, chờ các state read kết thúc rồi reload thật và bật lại timer; giữ AbortSignal, pagehide và `errors === []`, không lọc lỗi hay thay code sản phẩm. Regression lặp ba lần trên mỗi trình duyệt đạt **9/9**.
+
+Fixture tháng công trước đây dùng upsert cập nhật một ca bất biến khi worker khởi động lại sau lỗi. Nay chỉ tạo ca khi chưa có và đối chiếu toàn bộ cấu hình khi dùng lại; không đổi trigger hoặc nghiệp vụ. Chạy lại beforeAll trên cùng database qua hai lượt bài lịch sử tháng đạt **2/2**. Tổng kiểm tra trọng tâm bổ sung: **19/19**; format, ESLint, tools typecheck và secret check đạt. Rehearsal migrate/seed hai lần, SQL và quyền ba vai trò đạt trong database tổng hợp riêng. Kết quả full Quality Gate mới gắn với commit cuối tại checks PR #3, không suy PASS từ các lượt chạy trọng tâm.
+
+Commit `ab18538` có hai kết quả được giữ riêng: [PR run 39968891726, attempt 2](https://github.com/lqtruong134/project-qr-restaurant-ordering/actions/runs/39968891726/attempts/2) đạt **500 E2E /0 lỗi /1 Swagger skip hiện hữu**, toàn bộ Quality Gate và rehearsal hai vòng đạt; [push run 39968885302](https://github.com/lqtruong134/project-qr-restaurant-ordering/actions/runs/39968885302) đạt499 và lỗi1 chuyển bàn. Trace lỗi thứ hai chứng minh bốn request polling bị treo đúng lúc fixture gỡ interception (Fetch-domain teardown); không có response mới bị code sản phẩm bỏ qua. Fixture nay giữ handler ổn định, chỉ chuyển từ snapshot sang `route.continue()` gọi API thật. Toàn bộ hai kịch bản chuyển bàn, ba browser và ba lần lặp đạt **18/18**, không đổi assertion/timeout. Tổng regression trọng tâm bổ sung là **37/37**. Lượt PR attempt1 đã hủy ở bước tải thư viện Ubuntu chậm trước E2E, sau đó chạy lại trên runner khác; không tính lượt bị hủy là PASS. Commit cuối vẫn phải xem fresh checks, không dùng kết quả cũ thay cho nó.
+
+Cập nhật **24/10/2026**: [PR run39982639261](https://github.com/lqtruong134/project-qr-restaurant-ordering/actions/runs/39982639261) của `83673ed` đạt499, lỗi1 roster Safari và bỏ qua1 bài Swagger cũ. Trace xác nhận PATCH đổi tên đã commit, GET polling kế tiếp trả đúng tên mới; `bringToFront` không bảo đảm focus/refresh ở headless WebKit, nên assertion5s đã chạy đua với chu kỳpoll5s và độ trễrender. Fixture nay chờ response GET thật có đúng danh sách người sau đổi tên/rời bàn rồi giữ nguyên assertion UI; không ép refresh, giả sự kiện, thay response, đổi timeout hay sửa code sản phẩm. Hai kịch bản roster, ba browser, ba lần lặp đạt **18/18**, đưa tổng lượt regression trọng tâm bổ sung lên **55/55**. Full checks của commit cuối vẫn được báo riêng trên PR; không gọi lượt499/1lỗi là PASS.
+
+Cùng ngày, [push run 39982634722, attempt 2](https://github.com/lqtruong134/project-qr-restaurant-ordering/actions/runs/39982634722/attempts/2) của `83673ed` đạt 499, lỗi một strict locator chuyển bàn và bỏ qua một bài Swagger cũ. Assertion cuối tìm theo tên `P01` đã khớp năm bàn của các fixture trước; các bàn có mã khác nhau dù cùng tên hiển thị. Test nay nhập lại prefix mã bàn duy nhất qua ô tìm kiếm sẵn có trước khi kiểm tra `P01`/`A06`, giữ nguyên strict locator, trạng thái và timeout. Không dùng phần tử đầu, không thay code sản phẩm và không suy đoán nguyên nhân bộ lọc mất giá trị. Toàn bộ hai kịch bản chuyển bàn trên ba browser, lặp ba lần, đạt **18/18**. Tổng lượt regression trọng tâm bổ sung là **73/73** (gồm các lần lặp, không phải 73 test mới). Lượt CI lỗi vẫn được giữ riêng; kết quả Quality Gate của commit cuối đọc tại PR.
+
+### Gói triển khai và các giới hạn bắt buộc
+
+Migration mới **`packages/database/prisma/migrations/202610230001_bank_payment_evidence/migration.sql`** chỉ thêm schema; migration cũ không đổi. Swagger sinh lại **184 thao tác nghiệp vụ /193route**, từ điển/ERD **71 bảng**. [Bài06](06-thanh-toan.md), [API17](17-api.md), [thiết kế](reference/payos-platform-design.md), [runbook](reference/payos-demo-reset-runbook.md) và [triển khai26](26-trien-khai-qtruongres.md) cùng mô tả implementation.
+
+Làm sạch production là **kế hoạch có cổng review**, không reset executor: giữ mọi tiền thật/unknown, ưu tiên migrate DB đang dùng, backup restore đã chứng minh, manifest từng hàng trước khi xét dữ liệu phi tài chính, một webhookwriter và allocator không lùi. Chưa có dispatcher archive tự động; không tự chuyển DB mới cùng channel khi chưa có routing được nghiệm thu. Sau BANK_ADMIN_VERIFIED chỉ rollback tới code M2 tương thích; không restore DB/state cũ đè tiền mới. Chưa có connector xác minh hoàn outbound nên không tự công nhận mã nhập tay là đã hoàn ngoài phiếu đóng.
+
+Không merge/deploy/start-stop production, không đọc/sửa DB production, không đổi secrets và không chuyển/hoàn tiền thật. Chủ dự án review kết quả freshCI, backup/migration/config/watermark rồi tự quyết định triển khai và nghiệm thu A10. Các mục dưới là **lịch sử milestone/nhánh trước**, không phải trạng thái hiện hành của M2/M3.
+
+
+## Nền tảng payOS M1 — chốt 23/10/2026
+
+Nhánh mới **`feat/payos-payment-platform`**, tạo từ `main` tại `6c45a0156d049027dcc160ccd8efa9a4ee9e9bc6`. Đây là milestone nền tảng của yêu cầu xây dựng lại, **chưa hoàn tất luồng ADMIN xác minh ngân hàng hoặc UI mới, chưa sẵn sàng deploy/cutover**. [Thiết kế thống nhất và giới hạn bằng chứng](reference/payos-platform-design.md), [reset chỉ đọc/backup/archive/rollback](reference/payos-demo-reset-runbook.md), [nghiệp vụ](06-thanh-toan.md), [cấu hình và công cụ maintenance](26-trien-khai-qtruongres.md).
+
+### Phần đã hoàn thành của milestone
+
+- Thay `nextval` trong đường tạo QR bằng allocator SQLite ngoài vòng đời DB vận hành: khóa ghi nguyên tử, high-water theo hash kênh, `max(previous+1, nowMs, databaseFloor+1)`, reserve trước gọi provider; rollback PostgreSQL không tái sử dụng mã. Sequence/schema SQL cũ không bị sửa. Thiếu namespace/store, file hỏng/quyền không phù hợp hoặc hết miền số nguyên an toàn đều chặn tạo khoản mới, không tự bootstrap merchant.
+- CLI khởi tạo riêng chỉ đọc max DB trong transaction READ ONLY rồi đóng kết nối, yêu cầu watermark lịch sử do operator kiểm chứng và xác nhận tường minh; không tự suy ra toàn bộ lịch sử từ DB hiện tại. Production Compose dùng `/data/payos-state/order-codes.sqlite` trong volume runtime, UID 10001; service maintenance mặc định chỉ `--help`.
+- Runtime backup/restore nhận đúng state file có checksum, quyền 700/600; chặn sidecar, symlink/hardlink và tool state chạy đồng thời. Đây là cold copy sau khi đã fence mọi writer. **Một snapshot hợp lệ nhưng cũ vẫn có thể làm counter lùi**; phải kiểm chứng upper bound độc lập trước khi bật payOS sau restore. Không có cơ chế tự chứng minh archive/provider history mới nhất.
+- Công cụ reset chỉ inventory trong READ ONLY/ROLLBACK, xuất counts/boolean/hash review đã khử dữ liệu riêng. Bao gồm hóa đơn đã chốt, lượt gọi món/món, chứng từ, cảnh báo và trường hợp đã ghi sổ một phần nhưng tiền báo nhận vẫn lớn hơn ledger. Mọi payOS/ONLINE/external attempt là PROTECTED/UNKNOWN; bản ghi khác giữ lại, auto-delete bằng 0. Không có executor reset hoặc quyền phê duyệt từ planHash.
+
+### Kiểm tra thực chạy
+
+| Kiểm tra | Kết quả và phạm vi |
+| --- | --- |
+| `pnpm check` trong môi trường sạch, không nạp env thật | Format, lint, typecheck toàn workspace/tools đạt; **364 unit tests / 44 files đạt** |
+| Ba suite `payos.integration`, `payos-provider-recovery.integration`, `payos-protocol.integration` | **122/122 đạt** trên PostgreSQL tmpfs, cổng localhost riêng, credential tổng hợp; SDK/provider giả không gọi merchant thật |
+| Node reset/deployment tests, bật smoke image API riêng | **39/39 đạt, 0 skip**; gồm archive roundtrip SQLite, hash/quyền/sidecar/corruption, guards, dữ liệu đầu ra an toàn |
+| Build API runtime và maintenance bằng Dockerfile production, tag riêng | Mốc nền tảng `aa1768e` đạt; không tag đè image production hoặc chạy stack live |
+| API image smoke | UID/GID 10001, root filesystem read-only, network none; đọc 3210 file/797 thư mục, import dependencies/native addon và health giả đạt; allocator giữ mã với DB floor quay về 0, chặn kênh chưa khởi tạo |
+| Maintenance image smoke | UID 10001, filesystem read-only/network none; initializer `--help` và đọc đủ **37 migration SQL** đạt; không chạy Prisma/migration hoặc kết nối DB |
+| Production Compose syntax | `config --quiet` với `/dev/null` và env tổng hợp đạt; compose dev không đổi |
+| Secret check và diff whitespace | Đạt; đây là kiểm tra cơ bản, không thay thế toàn bộ security audit; không đưa env thật/khóa/chứng từ/SQLite runtime/backup vào commit |
+
+Lần integration đầu thiếu AUTH_SECRET tổng hợp cho fixture mở bàn, gây lỗi trước đường payment; chạy lại với cấu hình test riêng đã đạt. Test PostgreSQL thật của inventory phát hiện SELECT thiếu FROM và tham số webhook so sánh UUID/text; đã sửa truy vấn và chạy lại toàn bộ ba suite đạt 122/122. Không nới guard hay assertion để bỏ qua lỗi. Các test chọn theo tên chỉ phục vụ chẩn đoán; số 122 là lượt đầy đủ cuối của ba suite.
+
+### Phần chưa thực hiện
+
+M2 còn phải xây protected bank evidence, ADMIN preview/confirm, receipt identity chung xuyên phương thức, khóa/dedup giữa ADMIN và webhook, provenance PAYOS_VERIFIED/BANK_ADMIN_VERIFIED và test cạnh tranh. M3 còn UI ba vai trò, E2E sâu, deployment/cutover/rollback rehearsal toàn nền tảng và nghiệm thu thật. Không coi các endpoint đề xuất trong hồ sơ thiết kế là chức năng hiện có.
+
+Chưa chạy E2E hoặc kiểm chứng production của nền tảng mới. Không xác minh merchant/webhook/Cloudflare live; không thực hiện giao dịch, hoàn tiền, reset/archive, chạy migration hoặc truy cập DB production. Không đổi secrets, merge hoặc deploy; Quality gate GitHub giữ nguyên và kết quả CI của PR mới phải đọc riêng sau push. Không kết luận giao dịch A10/A06 thật đã được ghi sổ hoặc đã hoàn.
+
+### Bổ sung sau CI đầu của PR #3
+
+[Run 39823834886](https://github.com/lqtruong134/project-qr-restaurant-ordering/actions/runs/39823834886) dừng tại audit trước mọi test: Next.js 16.3.8 thuộc phạm vi của [GHSA-2464-fhr4-w9xw](https://github.com/advisories/GHSA-2464-fhr4-w9xw) (critical) và [GHSA-p3m5-59mp-jv5r](https://github.com/advisories/GHSA-p3m5-59mp-jv5r) (high). Manifest/lock Next không bị M1 thay đổi trước lượt này; đây là dependency nền bị audit hiện hành chặn.
+
+Commit `23b65a3` nâng riêng Next, @next/env và tám gói SWC tương ứng lên **16.4.1**, là bản sửa được hai advisory chỉ rõ. Giữ nguyên pnpm 12.3.4, React 19.2.8, sharp 0.35.5, integrity, allowBuilds, overrides và ngưỡng audit. Frozen install đạt; audit mức high đạt với **0 high/critical**, vẫn còn **2 moderate của dev dependency @vitest/mocker**. Build web 7 route bằng Next 16.4.1 đạt với output riêng và API endpoint tổng hợp không thể gọi production. Không coi đó là full Docker/web cutover rehearsal; build/smoke Docker M1 trong bảng là mốc trước bản vá CI này.
+
+Khi chạy lại unit, test nhập cùng ảnh song song lộ race có sẵn ở main: writeFile với wx công bố tên tệp khi mới ghi một phần; importer khác gặp EEXIST rồi đọc 34/68 byte và báo nhầm xung đột. Hai regression deterministic tái hiện thất bại trên nguyên bản source cũ, không dùng sleep. Sửa riêng kho ảnh: ghi vào tệp riêng quyền 600, đóng tệp hoàn chỉnh rồi hardlink không ghi đè và dọn staging trong finally. Giữ URL theo nội dung và từ chối nội dung khác dưới tên đã tồn tại. Không đổi ảnh/dữ liệu/URL hiện có hoặc nghiệp vụ tài chính.
+
+Bốn test mới bao phủ không công bố ảnh dở, nhập đồng thời cùng nội dung, dọn staging khi ghi lỗi và khi publish lỗi. Bộ ảnh đạt **12/12**, hai regression song song đạt thêm 5 lượt liên tiếp; toàn repo format/lint/typecheck và **364 unit** đạt. Không xóa/skip/nới assertion để che lỗi. Kết quả GitHub của commit bổ sung cần đọc riêng sau push, chưa được kết luận PASS từ kết quả cục bộ.
+
 ## PR #1 — Phục hồi Quality gate toàn hệ thống — 21/10/2026
 
 ### Bổ sung sau lượt GitHub đầu của bản sửa

@@ -6,6 +6,7 @@ import { approveRefund, requireRefundApproval } from './refund-approval.service.
 import { createIntent, confirmPayment } from './collection.service.js';
 import { requireCollectionOwner } from './payment-requests.routes.js';
 import { registerPaymentRequests } from './payment-requests.routes.js';
+import { registerBankEvidence } from './bank-evidence.routes.js';
 import { registerPaymentProofs } from './payment-proof.routes.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '@thesis/database';
@@ -58,6 +59,7 @@ export function registerFinance(
   payos.setLogger(app.log);
   registerPaymentRequests(app, db, restaurant, payos.capabilities.online);
   registerPaymentProofs(app, db, restaurant);
+  registerBankEvidence(app, db, restaurant, payos);
   const staff = { permission: 'staff.workspace' };
   const finance = { permission: ['staff.workspace', 'admin.workspace'] };
   app.get('/core/sessions/:id/bill', { config: finance }, async (r) =>

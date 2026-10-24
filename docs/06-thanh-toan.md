@@ -1,5 +1,37 @@
 # 06. Hiểu tiền, hóa đơn và điều kiện đóng bàn
 
+## Nền tảng thanh toán M2/M3 — 23/10/2026
+
+Nhánh `feat/payos-payment-platform`, PR #3 bổ sung xác minh tự động tài khoản MB chính, chứng từ ngân hàng ADMIN hai bước, shared posting và nguồn xác minh rõ ràng cho cả ba vai trò. Kết quả nghiệm thu phần mềm hiện hành ở [bài 15](15-doi-chieu.md); [thiết kế](reference/payos-platform-design.md), [API](17-api.md) và [backup/rollback](26-trien-khai-qtruongres.md) đã cập nhật. Chưa merge, chưa triển khai hoặc xác nhận khoản A10 thật; test chỉ dùng dữ liệu tổng hợp.
+
+### Luồng tự động và tài khoản ảo
+
+Signed GET của đúng kênh có thể trả tài khoản MB chính khác account/VA từ signed CREATE/QR. Backend chấp nhận primary chỉ khi binding riêng khớp đầy đủ client/restaurant/BIN MB/tài khoản chính, QR CREATE khớp anchor và paymentLinkId GET khớp link đã lưu. Không còn bắt buộc chờ webhook cho trường hợp GET này đã đủ bằng chứng. Nếu webhook có mặt, mọi đối chiếu vẫn phải khớp; VA rõ ràng mâu thuẫn, chữ ký sai, order/link/reference/amount sai hoặc thiếu binding vẫn bị chặn. Không suy ra quan hệ từ độ dài tài khoản hoặc output diagnostic.
+
+### ADMIN đối chiếu độc lập với ngân hàng
+
+ADMIN vào **Việc cần xử lý → Ngoại lệ thanh toán → Xác minh qua ngân hàng**. Khoản lỗi kết nối `ERROR` đang mở cũng có thể truy cập; QR PENDING bình thường vẫn theo luồng tự động. Facts provider chỉ đọc, tài khoản nhận được che; ADMIN tải chứng từ PNG/JPEG/WebP tối đa 2 MB, nhập đúng reference/số thực nhận/thời điểm có múi giờ và xác nhận đã trực tiếp xem sao kê/app MB của nhà hàng. Ảnh khách gửi không tự chứng minh tiền vào tài khoản.
+
+**Xem trước** đối chiếu provider rồi trả tác động tiền cùng token 2 phút, chưa tạo receipt/allocation. **Xác nhận cuối** kiểm tra lại quyền, tenant, chứng từ/hash, quote/version, số dư và phạm vi dưới khóa. Chứng từ đã dùng, token sai/hết hạn, quyền bị thu hồi hoặc facts thay đổi bị từ chối; replay đã thành công trả receipt cũ. Hết hạn quote chỉ được phục hồi khi có bằng chứng provider đã được hệ thống quan sát đúng hạn, không chỉ giờ ADMIN tự gõ. Phiên đã chốt giữ nguyên phiếu và bị chặn đường phân bổ này.
+
+Receipt có source `PAYOS_VERIFIED` hoặc `BANK_ADMIN_VERIFIED`; intent có thể `MIXED`. ADMIN không làm provider_status thành PAID hoặc làm tăng số tiền payOS báo. STAFF/GUEST hiển thị số đã ghi sổ/phân bổ cùng nguồn thực tế; khách không nhận chứng từ, reference ngân hàng, tài khoản hoặc định danh nội bộ. Webhook đến sau chỉ bổ sung bằng chứng cho cùng receipt khi toàn bộ định danh/amount/receiver khớp, không ghi lần hai. Reference khác hoặc mâu thuẫn tiếp tục đối soát, không gộp bằng số tiền.
+
+Cả hai nguồn dùng một hàm posting và identity **hash receiver tin cậy + exact reference**, có unique/lock xuyên nguồn. Chuyển khoản STAFF còn kiểm tra reference/chứng từ đã dùng; không tạo thêm receipt PAYOS từ khoản đã xác nhận thủ công. Mọi receipt/allocation/evidence/outbox/audit nằm trong cùng transaction.
+
+Ví dụ bill 20.000đ, quote 10.000đ, thực nhận 12.000đ: ghi sổ 12.000đ, phân bổ tối đa 10.000đ, còn nợ 10.000đ và cần hoàn 2.000đ. Xem trước ADMIN cũng tách bốn số này. Duyệt hoàn chưa phải hoàn thực tế; chỉ đóng đối soát khi đúng nguồn đã hoàn thành công và không còn tiền/tham chiếu chưa xử lý. Chứng cứ ngân hàng độc lập đủ điều kiện có thể đóng nghĩa vụ tài chính sau hoàn dù provider đang PENDING, nhưng vẫn giữ nguyên facts provider và tiếp tục đối chiếu nền.
+
+### Nền tảng M1 được giữ nguyên
+
+Khi lập khoản payOS mới, service dùng allocator SQLite theo namespace Client ID, giữ high-water qua restart hoặc thay DB. Reservation được ghi bền vững trước khi request tạo link; transaction ứng dụng rollback có thể để khoảng trống mã nhưng không được cấp lại mã đó. Sequence PostgreSQL cũ vẫn giữ nguyên để tương thích schema/lịch sử; **M1 không thêm migration và không reset sequence**.
+
+Production cố định `PAYOS_ORDER_CODE_STORE=/data/payos-state/order-codes.sqlite` trong volume `runtime_data`, tách khỏi volume PostgreSQL. Dev mặc định là `var/payos-state/order-codes.sqlite` ở gốc repo, suy ra từ `import.meta.url`, không đổi theo working directory của tiến trình. Store/channel chưa khởi tạo hợp lệ hoặc hỏng phải dừng cấp mã; không tự lấy max trong DB mới hay giờ hiện tại làm lịch sử merchant.
+
+Có CLI khởi tạo **tường minh** ở `scripts/payos-order-code-store.ts`, chạy bằng maintenance service `payos-state` với UID 10001. Lệnh mặc định chỉ in `--help`; không mở DB, ghi state hoặc gọi payOS. Initialize cần watermark do operator đã kiểm chứng với **mọi DB/archive/provider và durable state cũ**, cùng `--confirm-channel-history`; CLI chỉ kiểm tra thêm READ ONLY rằng watermark không thấp hơn max trong DB đang trỏ tới. Cờ này là cam kết người vận hành, không phải xác minh lịch sử provider tự động. Không đưa watermark đoán hoặc giá trị 0 vào kênh đang có giao dịch; DB sạch không chứng minh kênh mới. Chỉ thực hiện bootstrap sau đợt review/cutover được chấp thuận, mọi writer cũ đã được fence và backup/restore đã kiểm chứng.
+
+M2 thêm migration **`202610230001_bank_payment_evidence/migration.sql`** cho receipt identity, chứng từ private, preview và evidence bất biến. Các migration SQL cũ không đổi. Allocator M1 tiếp tục nằm ngoài DB ứng dụng; không reset cùng dữ liệu vận hành.
+
+Các mục bên dưới là lịch sử hotfix/điều tra; quy tắc hiện hành M2/M3 ở đầu bài được ưu tiên. Không có xác nhận cutover hoặc giao dịch production trong đợt phát triển này.
+
 ## Hotfix MB: tài khoản QR khác tài khoản ngân hàng chính — 22/10/2026
 
 **Đã sửa trên PR #2, chưa triển khai production.** Chủ dự án xác nhận công cụ riêng tư so khớp chính xác primary 10 số với tài khoản MB của đúng kênh. Bằng chứng trước đó: CREATE/QR cùng tài khoản 13 số; signed GET PAID 10.000đ và webhook v2 hợp lệ cùng primary 10 số, cả hai VA null. Nguyên nhân guard: code chỉ biết anchor CREATE/VA nên không nối được hai biểu diễn tài khoản. [FAQ chính thức payOS](https://payos.vn/docs/cau-hoi-thuong-gap/) giải thích VietQR Pro dùng tài khoản ảo theo đơn; **hotfix vẫn không lấy lời xác nhận hoặc output chẩn đoán làm quyền ghi sổ**.

@@ -17,6 +17,7 @@ x-api-environment: &api-environment
   API_TRUSTED_PROXIES: ${QTRUONGRES_CADDY_IP:-172.30.80.10}
   MENU_UPLOAD_DIR: /data/menu-images
   PAYMENT_PROOF_DIR: /data/payment-proofs
+  PAYOS_ORDER_CODE_STORE: /data/payos-state/order-codes.sqlite
   LOGIN_LIMIT: ${LOGIN_LIMIT:-5}
   LOGIN_WINDOW_SECONDS: ${LOGIN_WINDOW_SECONDS:-60}
   PAYOS_ENABLED: ${PAYOS_ENABLED:-false}
@@ -190,6 +191,30 @@ services:
     security_opt: [no-new-privileges:true]
     mem_limit: 1g
     cpus: 2.0
+    logging: *bounded-logs
+
+  # Explicit operator bootstrap tool only. --help is harmless; no automatic init.
+  payos-state:
+    image: ${QTRUONGRES_MAINTENANCE_IMAGE:-qtruongres-maintenance:local}
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.api
+      target: maintenance
+    profiles: [maintenance]
+    environment: *api-environment
+    command: [node, --import, tsx, scripts/payos-order-code-store.ts, --help]
+    user: '10001:10001'
+    volumes: [runtime_data:/data]
+    networks: [database]
+    restart: 'no'
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    cpus: 0.5
     logging: *bounded-logs
 
   cloudflared:

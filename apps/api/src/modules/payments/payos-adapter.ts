@@ -8,6 +8,7 @@ import {
   type WebhookData,
 } from '@payos/node';
 import { timingSafeEqual } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import {
   normalizePayosLink,
   normalizePayosAccount,
@@ -23,6 +24,7 @@ export type PayosConfig = {
   returnUrl?: string;
   cancelUrl?: string;
   webhookUrl?: string;
+  orderCodeStore?: string;
   recipientBinding?: {
     clientId: string;
     restaurantId: string;
@@ -48,6 +50,13 @@ export function readPayosConfig(env: NodeJS.ProcessEnv = process.env): PayosConf
     returnUrl: env.PAYOS_RETURN_URL,
     cancelUrl: env.PAYOS_CANCEL_URL,
     webhookUrl: env.PAYOS_WEBHOOK_URL,
+    orderCodeStore:
+      env.PAYOS_ORDER_CODE_STORE ||
+      (env.NODE_ENV === 'production'
+        ? '/data/payos-state/order-codes.sqlite'
+        : fileURLToPath(
+            new URL('../../../../../var/payos-state/order-codes.sqlite', import.meta.url),
+          )),
     recipientBinding: recipientBinding(env.PAYOS_RECIPIENT_BINDING),
   };
   if (!enabled) return result;
