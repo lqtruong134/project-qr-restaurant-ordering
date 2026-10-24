@@ -218,10 +218,8 @@ test('CORE screens support QR guest order through review, kitchen, settlement an
       .getByRole('button', { name: 'Thanh toán', exact: true })
       .click();
     const payment = guest!.getByRole('form', { name: 'Yêu cầu thanh toán', exact: true });
-    await payment.getByRole('button', { name: 'Báo nhân viên thu tiền' }).click();
-    await expect(
-      guest!.getByText('Bạn đã báo nhân viên hỗ trợ thanh toán', { exact: true }),
-    ).toBeVisible();
+    await payment.getByRole('button', { name: 'Gọi nhân viên thanh toán' }).click();
+    await expect(guest!.getByText('Đã gọi nhân viên thanh toán', { exact: true })).toBeVisible();
     await staff!.bringToFront();
     await staff!
       .getByRole('navigation', { name: 'Phục vụ' })

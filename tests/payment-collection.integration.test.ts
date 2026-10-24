@@ -131,6 +131,66 @@ async function intent(sid: string, amount: string, extra: Record<string, unknown
 }
 const png =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0l8AAAAASUVORK5CYII=';
+
+it('requests payment help without choosing a method or creating a financial transaction', async () => {
+  const p = await party();
+  await dish(p.guests[0]!.cookie);
+  const requestId = randomUUID();
+  const results = await Promise.all(
+    Array.from({ length: 6 }, () =>
+      ok('/guest/payment-requests', p.guests[0]!.cookie, { requestId }),
+    ),
+  );
+  expect(new Set(results.map((r) => r.id)).size).toBe(1);
+  expect(results.every((r) => r.payment_method === null)).toBe(true);
+  expect(
+    (await db.pool.query('SELECT id FROM payment_intent WHERE session_id=$1', [p.sid])).rowCount,
+  ).toBe(0);
+  expect(
+    (
+      await db.pool.query(
+        'SELECT id FROM payment_transaction WHERE payment_intent_id IN (SELECT id FROM payment_intent WHERE session_id=$1)',
+        [p.sid],
+      )
+    ).rowCount,
+  ).toBe(0);
+  expect((await ok('/guest/state', p.guests[0]!.cookie)).account.paid_total).toBe('0');
+});
+
+it('replays a request key after resolution but permits a genuinely new identical request', async () => {
+  const p = await party();
+  await dish(p.guests[0]!.cookie);
+  const requestId = randomUUID();
+  const first = await ok('/guest/payment-requests', p.guests[0]!.cookie, { requestId });
+  const aliasId = randomUUID();
+  const alias = await ok('/guest/payment-requests', p.guests[0]!.cookie, { requestId: aliasId });
+  expect(alias.id).toBe(first.id);
+  await ok('/core/support/' + first.id + '/claim', 'pv001', {});
+  await ok('/core/support/' + first.id + '/resolve', 'pv001', {
+    reason: 'Khách chưa thanh toán, đã giải đáp yêu cầu.',
+  });
+  for (const key of [requestId, aliasId]) {
+    const replay = await ok('/guest/payment-requests', p.guests[0]!.cookie, { requestId: key });
+    expect(replay.id).toBe(first.id);
+    expect(replay.status).toBe('RESOLVED');
+    expect(replay.reused).toBe(true);
+  }
+  const next = await ok('/guest/payment-requests', p.guests[0]!.cookie, {
+    requestId: randomUUID(),
+  });
+  expect(next.id).not.toBe(first.id);
+  const other = await ok('/guest/payment-requests', p.guests[1]!.cookie, { requestId });
+  expect(other.id).not.toBe(first.id);
+  expect(
+    (await req('/guest/payment-requests', p.guests[0]!.cookie, { requestId, method: 'CASH' }))
+      .statusCode,
+  ).toBe(409);
+  expect(
+    (await req('/guest/payment-requests', p.guests[0]!.cookie, { requestId: 'invalid' }))
+      .statusCode,
+  ).toBe(400);
+});
+
 it('guest calls staff once with preferred method and reserves no money, including concurrent retries', async () => {
   const p = await party();
   await dish(p.guests[0]!.cookie);

@@ -1,5 +1,7 @@
 export { tableTransferPolicy, type TableTransferReason } from './table-transfer-policy';
 export { supportTypes, supportStatuses, supportPolicy } from './support-policy';
+/** Calling staff does not choose a tender or record money. Reuse requestId only for retries. */
+export type GuestPaymentAssistanceRequest = { requestId: string };
 export type ServiceHealth = {
   status: 'ok' | 'unavailable';
   service: 'api';

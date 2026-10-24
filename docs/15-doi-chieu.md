@@ -1,5 +1,10 @@
 # 15. Hồ sơ đối chiếu và giới hạn xác minh
 
+## Rà soát trước AI — 25/10/2026
+
+Baseline source là `67ad44681e4c43b55478d997ed44ded880034c71`, đã merge PR #3 và #4. Nhánh `chore/pre-ai-system-audit` sửa gọi nhân viên thanh toán, bill khách và quyền STAFF xem QR hiện có. [Biên bản theo phạm vi](reference/pre-ai-audit-20261025.md) ghi kết quả hiện hành và vùng chưa xác minh; các mốc bên dưới là lịch sử, không xác nhận trạng thái production.
+
+
 ## Nghiệm thu nền tảng payOS M2/M3 — 23/10/2026
 
 Nhánh `feat/payos-payment-platform`, PR #3 tiếp tục đầy đủ sau M1. Thay đổi M2 gồm tự động signed GET/primary MB, shared posting và claim ngân hàng xuyên nguồn, ADMIN chứng từ riêng tư/xem trước/xác nhận, chống ghi trùng và audit. M3 gồm UI ba vai trò, kiểm thử browser, migration đóng gói và rehearsal backup/restore/rollback. Đây là nghiệm thu mã và môi trường tổng hợp, không phải xác nhận production hoặc tiền A10 đã được xử lý.

@@ -12,13 +12,14 @@ export function BillingTotals({
   receipt?: boolean;
 }) {
   const facts = pricingFacts(billing, account);
+  const includesVat = Boolean(billing?.vatGroups.some((group) => group.treatment === 'TAXABLE'));
   const tax = (
     <>
       {billing && (
         <dl className="billing-tax-facts">
-          {!billing.legacyTaxUnavailable && (
+          {!billing.legacyTaxUnavailable && includesVat && (
             <div>
-              <dt>Giá trị trước VAT, sau khuyến mãi</dt>
+              <dt>{receipt ? 'Tiền trước VAT' : 'Giá trị trước VAT, sau khuyến mãi'}</dt>
               <dd>{vnd(facts.beforeVat)}</dd>
             </div>
           )}
@@ -26,7 +27,9 @@ export function BillingTotals({
             <div key={index}>
               <dt>
                 {taxLabel(group.treatment, group.ratePercent)}
-                {group.treatment === 'TAXABLE' && <small>Đã nằm trong tổng thanh toán</small>}
+                {!receipt && group.treatment === 'TAXABLE' && (
+                  <small>Đã nằm trong tổng thanh toán</small>
+                )}
               </dt>
               <dd>{vnd(group.treatment === 'TAXABLE' ? group.vatAmount : group.totalAmount)}</dd>
             </div>
@@ -48,10 +51,12 @@ export function BillingTotals({
       aria-label="Tiền món, khuyến mãi và VAT"
     >
       <dl className="billing-price-facts">
-        <div>
-          <dt>Tiền món trước khuyến mãi</dt>
-          <dd>{vnd(facts.subtotal)}</dd>
-        </div>
+        {(!receipt || facts.discount > 0n) && (
+          <div>
+            <dt>{receipt ? 'Tiền món' : 'Tiền món trước khuyến mãi'}</dt>
+            <dd>{vnd(facts.subtotal)}</dd>
+          </div>
+        )}
         {facts.discount > 0n && (
           <div className="billing-discount">
             <dt>
@@ -67,7 +72,7 @@ export function BillingTotals({
           </div>
         )}
         <div className="billing-payable">
-          <dt>Tổng thanh toán{facts.hasTaxDetails && <small>Đã gồm VAT</small>}</dt>
+          <dt>Tổng thanh toán{facts.hasTaxDetails && includesVat && <small>Đã gồm VAT</small>}</dt>
           <dd>{vnd(facts.payable)}</dd>
         </div>
       </dl>
@@ -75,16 +80,15 @@ export function BillingTotals({
         tax
       ) : (
         <details className="billing-tax-details">
-          <summary>Chi tiết VAT{facts.hasTaxDetails ? ' đã gồm trong giá' : ''}</summary>
+          <summary>
+            {includesVat ? 'Chi tiết VAT' : 'Thông tin thuế'}
+            {facts.hasTaxDetails && includesVat ? ' đã gồm trong giá' : ''}
+          </summary>
           {tax}
         </details>
       )}
-      {billing && !billing.legacyTaxUnavailable && (
-        <p className="billing-tax-note">
-          {receipt
-            ? 'VAT đã nằm trong giá, không thu thêm.'
-            : 'Giá đã gồm VAT. Thuế được tách từ tiền sau khuyến mãi, không cộng thêm vào số tiền cần trả.'}
-        </p>
+      {!receipt && billing && !billing.legacyTaxUnavailable && includesVat && (
+        <p className="billing-tax-note">Giá đã gồm VAT, không thu thêm.</p>
       )}
     </section>
   );

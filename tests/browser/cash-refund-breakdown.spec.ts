@@ -189,7 +189,7 @@ test('two cash tenders and full cancellation refunds reconcile for guest, staff,
     await expect(
       receipt
         .locator('.receipt-totals > div')
-        .filter({ hasText: 'Đã tính vào tiền món' })
+        .filter({ hasText: 'Đã thanh toán' })
         .locator('strong'),
     ).toHaveText('0 đ');
     await expect(receipt.locator('.receipt-payment-entry .cash-history')).toHaveCount(2);

@@ -3179,7 +3179,7 @@
     },
     "get": {
       "tags": [
-        "admin.workspace"
+        "admin.workspace,staff.workspace"
       ],
       "summary": "GET /core/tables/{id}/qr",
       "operationId": "core_get__core_tables__id_qr",
@@ -6425,7 +6425,7 @@
       ],
       "summary": "POST /guest/payment-requests",
       "operationId": "core_post__guest_payment_requests",
-      "description": "Khách gọi nhân viên thu tiền, không tạo payment intent và không đóng phiên. CASH/BANK_TRANSFER; ONLINE chỉ được gửi như lời gọi khi payOS đã cấu hình. Nhân viên nhận việc trước khi bắt đầu thu.",
+      "description": "Khách gọi nhân viên thanh toán bằng requestId UUID; không cần chọn phương thức, không tạo payment intent hoặc ghi tiền. Gửi lại cùng requestId trả về yêu cầu cũ kể cả đã hoàn tất; mã mới có thể tái dùng yêu cầu đang mở. Mã trùng nhưng nội dung khác bị từ chối. method là tùy chọn tương thích client cũ; ONLINE cần payOS đã cấu hình. Nhân viên nhận việc rồi chọn phương thức thu thực tế.",
       "parameters": [
         {
           "$ref": "#/components/parameters/Csrf"
@@ -6442,10 +6442,24 @@
           "application/json": {
             "schema": {
               "type": "object",
-              "additionalProperties": true
+              "description": "Client mới gửi requestId UUID để retry an toàn. method chỉ dành cho tương thích client cũ, không phải chứng cứ đã trả tiền.",
+              "properties": {
+                "requestId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "method": {
+                  "type": "string",
+                  "enum": [
+                    "CASH",
+                    "BANK_TRANSFER",
+                    "ONLINE"
+                  ]
+                }
+              }
             },
             "example": {
-              "method": "BANK_TRANSFER"
+              "requestId": "00000000-0000-4000-8000-000000000001"
             }
           }
         }

@@ -1,5 +1,6 @@
 'use client';
 import type {
+  GuestPaymentAssistanceRequest,
   BillingSummary,
   CollectionAvailability,
   PaymentFinancialSummary,
@@ -8,7 +9,7 @@ import type {
   MenuPromotion,
 } from '@thesis/contracts';
 import { SupportRetry } from './support-retry';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { api, type Product, type Row } from '../shared/components';
 import { Empty } from '../shared/primitives';
 import { isOnlinePaymentPending } from '../shared/online-payment';
@@ -39,26 +40,26 @@ export type GuestState = {
   onlinePayments?: GuestOnlinePayment[];
 };
 export function PaymentForm({
+  participantId,
   done,
   available,
   paymentStatus,
   requests = [],
   onlinePayments = [],
 }: {
+  participantId: string;
   done: () => Promise<void>;
   available: string;
   paymentStatus: PaymentStatus;
   requests?: Row[];
   onlinePayments?: GuestOnlinePayment[];
 }) {
-  const [method, setMethod] = useState('CASH'),
-    [busy, setBusy] = useState(false),
+  const submission = useRef<string | null>(null),
+    sending = useRef(false);
+  const [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   const pending = requests.find(
-    (r) =>
-      r.request_type === 'BILL' &&
-      r.payment_method &&
-      ['NEW', 'ACKNOWLEDGED'].includes(String(r.status)),
+    (r) => r.request_type === 'BILL' && ['NEW', 'ACKNOWLEDGED'].includes(String(r.status)),
   );
   // A server-settled balance takes precedence over an old support request.
   if (BigInt(available) <= 0n)
@@ -77,16 +78,12 @@ export function PaymentForm({
   if (pending)
     return (
       <div className="guest-payment-sent">
-        <strong>Bạn đã báo nhân viên hỗ trợ thanh toán</strong>
+        <strong>Đã gọi nhân viên thanh toán</strong>
         <p role="status">
           {pending.status === 'ACKNOWLEDGED'
-            ? 'Nhân viên đã tiếp nhận yêu cầu. Vui lòng chờ tại bàn để được hỗ trợ thanh toán.'
-            : 'Yêu cầu đã được gửi. Nhân viên sẽ đến bàn hỗ trợ bạn thanh toán.'}
+            ? 'Nhân viên đã tiếp nhận, vui lòng chờ tại bàn.'
+            : 'Nhân viên sẽ đến bàn hỗ trợ bạn.'}
         </p>
-        <span>
-          {pending.payment_method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'} -{' '}
-          {pending.status === 'ACKNOWLEDGED' ? 'Nhân viên đang xử lý' : 'Đang chờ nhân viên'}
-        </span>
         <SupportRetry request={pending} done={done} />
       </div>
     );
@@ -97,49 +94,51 @@ export function PaymentForm({
       aria-label="Yêu cầu thanh toán"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (busy) return;
+        if (sending.current) return;
+        sending.current = true;
         setBusy(true);
         setError('');
         try {
-          await api<Row>('/guest/payment-requests', { method }, 'POST', true);
+          const storageKey = 'payment-assistance:' + participantId;
+          if (!submission.current) {
+            try {
+              submission.current = sessionStorage.getItem(storageKey);
+            } catch {
+              /* Storage may be unavailable. */
+            }
+            submission.current ??= crypto.randomUUID();
+          }
+          try {
+            sessionStorage.setItem(storageKey, submission.current);
+          } catch {
+            /* Keep in memory. */
+          }
+          const body: GuestPaymentAssistanceRequest = { requestId: submission.current };
+          await api<Row>('/guest/payment-requests', body, 'POST', true);
           await done();
+          submission.current = null;
+          try {
+            sessionStorage.removeItem(storageKey);
+          } catch {
+            /* Storage may be unavailable. */
+          }
         } catch (e) {
           setError((e as Error).message);
         } finally {
+          sending.current = false;
           setBusy(false);
         }
       }}
     >
-      <h3>Bạn muốn thanh toán bằng cách nào?</h3>
-      <div className="amount-choices" role="group" aria-label="Hình thức thanh toán">
-        {[
-          ['CASH', 'Tiền mặt', 'Nhân viên đến bàn thu tiền'],
-          ['BANK_TRANSFER', 'Chuyển khoản', 'Nhân viên hướng dẫn chuyển khoản'],
-        ].map(([m, label, hint]) => (
-          <button
-            type="button"
-            key={m}
-            aria-label={label}
-            aria-pressed={method === m}
-            disabled={busy}
-            onClick={() => setMethod(m!)}
-          >
-            <strong>{label}</strong>
-            <span>{hint}</span>
-          </button>
-        ))}
-      </div>
-      <p>
-        Bạn có thể trả cho cả bàn hoặc riêng món của mình. Hãy cho nhân viên biết phần bạn muốn
-        thanh toán.
-      </p>
+      <h3>Thanh toán với nhân viên</h3>
+      <p>Nhân viên sẽ đến bàn hỗ trợ. Bạn có thể trả cả bàn hoặc phần của mình.</p>
       {error && (
         <p className="form-error" role="alert">
           {error}
         </p>
       )}
       <button className="primary-button" disabled={busy}>
-        {busy ? 'Đang báo nhân viên…' : 'Báo nhân viên thu tiền'}
+        {busy ? 'Đang báo nhân viên…' : 'Gọi nhân viên thanh toán'}
       </button>
     </form>
   );

@@ -72,8 +72,7 @@ export const restaurantPolicy = {
       'Hủy món đang chờ bếp nhận? Món hủy thành công không tính tiền; nếu trạng thái đã đổi, hệ thống sẽ giữ món và báo lại.',
     leave:
       'Rời phiên bàn này? Giỏ chưa gửi của bạn sẽ bị xóa. Món đã gửi và số tiền đã phát sinh vẫn thuộc bàn, không bị xóa.',
-    payment:
-      'Chọn hình thức thanh toán và báo nhân viên đến bàn. Nhân viên sẽ trao đổi số tiền cần trả; thao tác gọi nhân viên chưa ghi nhận đã thanh toán.',
+    payment: 'Gọi nhân viên đến bàn để thanh toán. Yêu cầu này chưa ghi nhận tiền đã trả.',
     bill: 'Yêu cầu tính tiền sẽ gọi nhân viên hỗ trợ; thao tác này chưa ghi nhận bạn đã trả tiền.',
     support:
       'Chọn việc bạn cần và gửi cho nhân viên. Nếu yêu cầu tính tiền, thao tác này chỉ gọi hỗ trợ, chưa ghi nhận đã thanh toán.',

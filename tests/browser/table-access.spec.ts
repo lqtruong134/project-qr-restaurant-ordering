@@ -388,3 +388,50 @@ test('a later guest receives the existing verified table code after staff claims
     await Promise.all(contexts.map((c) => c.close()));
   }
 });
+
+test('staff displays the existing ordering QR for a free table and guest still needs its access code', async ({
+  browser,
+  baseURL,
+}, info) => {
+  const contexts = await Promise.all(
+    Array.from({ length: 3 }, () => browser.newContext({ baseURL, ...info.project.use })),
+  );
+  const [admin, staff, guest] = await Promise.all(contexts.map((c) => c.newPage()));
+  try {
+    await login(admin!, 'quyettruong05', 'admin');
+    await login(staff!, 'pv001', 'staff');
+    const areas = await (await admin!.request.get('/api/core/areas')).json();
+    const code = 'QR-' + randomUUID().slice(0, 8);
+    const table = await post(admin!, '/core/tables', {
+      areaId: areas[0].id,
+      code,
+      name: code,
+      capacity: 4,
+    });
+    const issued = await post(admin!, '/core/tables/' + table.id + '/qr', {});
+    await staff!.reload();
+    await staff!.getByRole('textbox', { name: 'Tìm tên hoặc mã bàn…' }).fill(code);
+    const card = staff!.locator('.table-dashboard-card').filter({ hasText: code });
+    const qrRead = staff!.waitForResponse(
+      (r) => r.url().endsWith('/core/tables/' + table.id + '/qr') && r.request().method() === 'GET',
+    );
+    await card.getByRole('button', { name: 'QR bàn', exact: true }).click();
+    const response = await qrRead;
+    expect((await response.json()).joinPath).toBe(issued.joinPath);
+    const dialog = staff!.getByRole('dialog', { name: 'QR bàn — ' + code });
+    const image = dialog.getByRole('img', { name: 'QR gọi món — ' + code });
+    await expect(image).toBeVisible();
+    await expect
+      .poll(() => image.evaluate((el) => (el as HTMLImageElement).naturalWidth))
+      .toBeGreaterThan(0);
+    expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    await dialog.screenshot({ path: info.outputPath('staff-table-qr.png') });
+    await guest!.goto(issued.joinPath);
+    await expect(guest!.getByLabel('Mã vào bàn', { exact: true })).toBeVisible();
+    await expect(guest!.getByRole('button', { name: 'Gửi món', exact: true })).toHaveCount(0);
+    const after = await (await staff!.request.get('/api/core/tables/' + table.id + '/qr')).json();
+    expect(after.joinPath).toBe(issued.joinPath);
+  } finally {
+    await Promise.all(contexts.map((c) => c.close()));
+  }
+});

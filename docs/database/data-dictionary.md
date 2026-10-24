@@ -1,4 +1,4 @@
-# Từ điển dữ liệu vật lý — 71 bảng
+# Từ điển dữ liệu vật lý — 72 bảng
 
 Sinh từ metadata PostgreSQL bằng `pnpm docs:database`, không chứa bản ghi nghiệp vụ hay thông tin đăng nhập. Kiểu, giá trị mặc định và các ràng buộc bên dưới lấy trực tiếp từ database đã migrate.
 
@@ -1548,6 +1548,37 @@ CREATE INDEX core_payment_allocation_fk1 ON public.payment_allocation USING btre
 CREATE INDEX core_payment_allocation_fk2 ON public.payment_allocation USING btree (financial_charge_id);
 CREATE UNIQUE INDEX payment_allocation_payment_transaction_id_financial_charge__key ON public.payment_allocation USING btree (payment_transaction_id, financial_charge_id);
 CREATE UNIQUE INDEX payment_allocation_pkey ON public.payment_allocation USING btree (id);
+```
+
+## payment_assistance_submission
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| participant_id | uuid | Có | PK, FK | — | — |
+| request_id | uuid | Có | PK | — | — |
+| request_hash | text | Có |  | — | — |
+| support_request_id | uuid | Có | FK | — | — |
+| created_at | timestamp(6) with time zone | Có |  | now() | — |
+
+### Ràng buộc
+```sql
+payment_assistance_submission_request_hash_check: CHECK ((request_hash ~ '^[0-9a-f]{64}$'::text))
+payment_assistance_submission_participant_id_fkey: FOREIGN KEY (participant_id) REFERENCES session_participant(id) ON DELETE RESTRICT
+payment_assistance_submission_support_request_id_fkey: FOREIGN KEY (support_request_id) REFERENCES support_request(id) ON DELETE RESTRICT
+payment_assistance_submission_created_at_not_null: NOT NULL created_at
+payment_assistance_submission_participant_id_not_null: NOT NULL participant_id
+payment_assistance_submission_request_hash_not_null: NOT NULL request_hash
+payment_assistance_submission_request_id_not_null: NOT NULL request_id
+payment_assistance_submission_support_request_id_not_null: NOT NULL support_request_id
+payment_assistance_submission_pkey: PRIMARY KEY (participant_id, request_id)
+```
+
+### Chỉ mục
+```sql
+CREATE UNIQUE INDEX payment_assistance_submission_pkey ON public.payment_assistance_submission USING btree (participant_id, request_id);
+CREATE INDEX payment_assistance_submission_request ON public.payment_assistance_submission USING btree (support_request_id);
 ```
 
 ## payment_bank_evidence

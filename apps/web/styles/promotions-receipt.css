@@ -197,7 +197,7 @@
 }
 .receipt-sheet {
   max-width: 520px;
-  padding: 24px;
+  padding: 16px;
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 13px;
@@ -213,7 +213,7 @@
   overflow-wrap: anywhere;
 }
 .receipt-sheet .receipt-store h3 {
-  margin: 16px 0 10px;
+  margin: 10px 0 6px;
   letter-spacing: 0.04em;
   font-size: 16px;
 }
@@ -221,7 +221,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 4px;
-  padding-bottom: 14px;
+  padding-bottom: 8px;
   font-size: 11px;
 }
 .receipt-line-discount {
@@ -230,8 +230,8 @@
   margin-top: 3px;
 }
 .receipt-sheet .billing-totals {
-  margin: 14px 0 0;
-  padding: 14px 0;
+  margin: 8px 0 0;
+  padding: 8px 0;
   border: 0;
   border-top: 1px solid #222;
   border-radius: 0;
@@ -415,4 +415,30 @@
 }
 .guest-discount-discovery .ui-icon {
   flex-shrink: 0;
+}
+
+.receipt-sheet .receipt-payments {
+  padding: 6px 0;
+}
+.receipt-sheet .receipt-footer {
+  padding-top: 8px;
+}
+.receipt-sheet .receipt-payment-entry {
+  align-items: baseline;
+}
+.receipt-sheet .receipt-money-breakdown {
+  margin: 0;
+}
+.receipt-sheet .receipt-store {
+  padding-bottom: 8px;
+}
+.receipt-sheet .receipt-totals {
+  padding-bottom: 8px;
+}
+
+.receipt-sheet .receipt-payment-entry {
+  flex-wrap: wrap;
+}
+.receipt-sheet .receipt-payment-entry .cash-history {
+  flex-basis: 100%;
 }

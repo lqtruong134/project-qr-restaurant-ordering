@@ -292,28 +292,29 @@ model session_cart {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model session_participant {
+  payment_assistance_submissions                                         payment_assistance_submission[]
   accepted_policy_version                                                String?
-  accepted_policy_at                                                     DateTime?              @db.Timestamptz(6)
-  id                                                                     String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  session_id                                                             String                 @db.Uuid
-  guest_id                                                               String                 @db.Uuid
+  accepted_policy_at                                                     DateTime?                       @db.Timestamptz(6)
+  id                                                                     String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id                                                             String                          @db.Uuid
+  guest_id                                                               String                          @db.Uuid
   display_name                                                           String?
-  credential_hash                                                        String                 @unique
+  credential_hash                                                        String                          @unique
   device_session_hash                                                    String?
-  status                                                                 String                 @default("ACTIVE")
-  blocked_until                                                          DateTime?              @db.Timestamptz(6)
-  joined_at                                                              DateTime               @default(now()) @db.Timestamptz(6)
-  last_seen_at                                                           DateTime               @default(now()) @db.Timestamptz(6)
-  created_at                                                             DateTime               @default(now()) @db.Timestamptz(6)
-  updated_at                                                             DateTime               @default(now()) @db.Timestamptz(6)
+  status                                                                 String                          @default("ACTIVE")
+  blocked_until                                                          DateTime?                       @db.Timestamptz(6)
+  joined_at                                                              DateTime                        @default(now()) @db.Timestamptz(6)
+  last_seen_at                                                           DateTime                        @default(now()) @db.Timestamptz(6)
+  created_at                                                             DateTime                        @default(now()) @db.Timestamptz(6)
+  updated_at                                                             DateTime                        @default(now()) @db.Timestamptz(6)
   cart_item                                                              cart_item[]
   idempotency_record                                                     idempotency_record[]
   order_batch                                                            order_batch[]
-  order_item_order_item_cancelled_by_participant_idTosession_participant order_item[]           @relation("order_item_cancelled_by_participant_idTosession_participant")
-  order_item_order_item_owner_participant_idTosession_participant        order_item[]           @relation("order_item_owner_participant_idTosession_participant")
+  order_item_order_item_cancelled_by_participant_idTosession_participant order_item[]                    @relation("order_item_cancelled_by_participant_idTosession_participant")
+  order_item_order_item_owner_participant_idTosession_participant        order_item[]                    @relation("order_item_owner_participant_idTosession_participant")
   order_status_history                                                   order_status_history[]
   payment_intent                                                         payment_intent[]
-  table_session                                                          table_session          @relation(fields: [session_id], references: [id], onUpdate: Restrict)
+  table_session                                                          table_session                   @relation(fields: [session_id], references: [id], onUpdate: Restrict)
   support_request                                                        support_request[]
 
   @@unique([session_id, guest_id])
@@ -1136,34 +1137,35 @@ model stock_location {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model support_request {
-  resolution_actor_type                              String                    @default("USER")
-  table_id                                           String?                   @db.Uuid
-  access_table                                       dining_table?             @relation("access_request_table", fields: [table_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  payment_assistance_submissions                     payment_assistance_submission[]
+  resolution_actor_type                              String                          @default("USER")
+  table_id                                           String?                         @db.Uuid
+  access_table                                       dining_table?                   @relation("access_request_table", fields: [table_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
   visitor_hash                                       String?
   visitor_name                                       String?
-  replaces_request_id                                String?                   @db.Uuid
-  replaces_request                                   support_request?          @relation("support_replacement", fields: [replaces_request_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  replacements                                       support_request[]         @relation("support_replacement")
+  replaces_request_id                                String?                         @db.Uuid
+  replaces_request                                   support_request?                @relation("support_replacement", fields: [replaces_request_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  replacements                                       support_request[]               @relation("support_replacement")
   payment_method                                     String?
   payment_intents                                    payment_intent[]
   handoffs                                           support_request_handoff[]
   support_outbox                                     outbox_event[]
-  id                                                 String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  session_id                                         String?                   @db.Uuid
-  participant_id                                     String?                   @db.Uuid
+  id                                                 String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id                                         String?                         @db.Uuid
+  participant_id                                     String?                         @db.Uuid
   request_type                                       String
   content                                            String?
-  status                                             String                    @default("NEW")
-  acknowledged_by                                    String?                   @db.Uuid
-  resolved_by                                        String?                   @db.Uuid
-  created_at                                         DateTime                  @default(now()) @db.Timestamptz(6)
-  updated_at                                         DateTime                  @default(now()) @db.Timestamptz(6)
-  acknowledged_at                                    DateTime?                 @db.Timestamptz(6)
-  resolved_at                                        DateTime?                 @db.Timestamptz(6)
-  table_session                                      table_session?            @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_support_request_f1")
-  session_participant                                session_participant?      @relation(fields: [participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_support_request_f2")
-  app_user_support_request_acknowledged_byToapp_user app_user?                 @relation("support_request_acknowledged_byToapp_user", fields: [acknowledged_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_support_request_f3")
-  app_user_support_request_resolved_byToapp_user     app_user?                 @relation("support_request_resolved_byToapp_user", fields: [resolved_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_support_request_f4")
+  status                                             String                          @default("NEW")
+  acknowledged_by                                    String?                         @db.Uuid
+  resolved_by                                        String?                         @db.Uuid
+  created_at                                         DateTime                        @default(now()) @db.Timestamptz(6)
+  updated_at                                         DateTime                        @default(now()) @db.Timestamptz(6)
+  acknowledged_at                                    DateTime?                       @db.Timestamptz(6)
+  resolved_at                                        DateTime?                       @db.Timestamptz(6)
+  table_session                                      table_session?                  @relation(fields: [session_id], references: [id], onUpdate: Restrict, map: "core_support_request_f1")
+  session_participant                                session_participant?            @relation(fields: [participant_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_support_request_f2")
+  app_user_support_request_acknowledged_byToapp_user app_user?                       @relation("support_request_acknowledged_byToapp_user", fields: [acknowledged_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_support_request_f3")
+  app_user_support_request_resolved_byToapp_user     app_user?                       @relation("support_request_resolved_byToapp_user", fields: [resolved_by], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "core_support_request_f4")
 
   @@unique([session_id, participant_id, request_type], map: "support_request_active_participant", where: raw("((participant_id IS NOT NULL) AND (status = ANY (ARRAY['NEW'::text, 'ACKNOWLEDGED'::text])))"))
   @@index([status, created_at], map: "support_request_queue")
@@ -1727,4 +1729,18 @@ model payment_bank_evidence {
   @@index([receipt_id], map: "payment_bank_evidence_receipt")
   @@index([actor_id], map: "payment_bank_evidence_actor")
   @@index([proof_id], map: "payment_bank_evidence_proof")
+}
+
+/// Durable retry identity for guest payment assistance; never a financial transaction.
+model payment_assistance_submission {
+  participant_id     String              @db.Uuid
+  request_id         String              @db.Uuid
+  request_hash       String
+  support_request_id String              @db.Uuid
+  created_at         DateTime            @default(now()) @db.Timestamptz(6)
+  participant        session_participant @relation(fields: [participant_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  support_request    support_request     @relation(fields: [support_request_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@id([participant_id, request_id])
+  @@index([support_request_id], map: "payment_assistance_submission_request")
 }

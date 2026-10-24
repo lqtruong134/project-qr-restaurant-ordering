@@ -180,6 +180,8 @@ test('container bootstrap executes the streamed tool with synthetic modules, no 
   const { containerComparison } = await import('./payos-recipient-compare.mjs');
   const root = await mkdtemp(join(tmpdir(), 'payos-private-fixture-'));
   try {
+    // The deployed API is ESM. The isolated fixture must have the same module boundary.
+    await writeFile(join(root, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
     await mkdir(join(root, 'src/modules/payments'), { recursive: true });
     await mkdir(join(root, 'node_modules/@thesis/database'), { recursive: true });
     const get = {

@@ -1,5 +1,12 @@
 # 20. Giao diện, ảnh thật và cách thay ảnh
 
+## QR bàn và bill khách — 25/10/2026
+
+STAFF → Sơ đồ bàn → **QR bàn** mở QR gọi món hiện có, cả bàn chưa mở phiên. Khách quét rồi nhập tên/mã theo quy trình hiện hành; thao tác xem QR không mở bàn hoặc đổi token. Trong Chi tiết bàn → Việc tại bàn cũng có QR và mã tham gia riêng.
+
+Thanh toán khách chỉ cần một nút gọi nhân viên. Bảng tiền món dùng cùng grid cho tiêu đề/dòng ở desktop, chuyển thành các dòng có nhãn trên điện thoại. Bill giảm nội dung lặp và giữ các khoản cần khách hiểu. [Biên bản và ảnh kiểm chứng](reference/pre-ai-audit-20261025.md).
+
+
 ## Thông báo thao tác có thanh thời gian — 15/10/2026
 
 Thông báo thao tác dùng chung cho khách và nội bộ xuất hiện ở góc phải phía trên, có biểu tượng, nội dung và nút ×. Thành công dùng xanh lá; thông tin như lịch đã tồn tại hoặc chỉ hủy được một phần dùng xanh dương để không báo nhầm thành công toàn bộ. Thanh ở chân thẻ giảm dần và thông báo tự đóng sau khoảng **5 giây**.

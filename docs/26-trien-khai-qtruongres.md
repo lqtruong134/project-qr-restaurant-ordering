@@ -1,5 +1,12 @@
 # 26. Triển khai qtruongres trên laptop và chuyển sang VPS
 
+## Review trước AI — 25/10/2026: chưa cho phép triển khai
+
+Baseline Git `67ad446` đã gồm PR #3/#4. Nhánh audit bổ sung migration **`202610250001_payment_assistance_retries/migration.sql`**: chỉ thêm bảng mapping retry/FK/index, không đổi ledger, migration cũ hoặc allocator. Phải áp migration trước khi API mới nhận request có `requestId`; không chạy lệnh migration trên production trong nhiệm vụ audit.
+
+Ưu tiên giữ PostgreSQL hiện tại. Không reset hoặc làm sạch tiền cũ để nghiệm thu mới. [Kế hoạch deployment/rollback và ranh giới thao tác](reference/pre-ai-audit-20261025.md) cần operator review; trạng thái public/merchant thực tế không suy từ các mốc lịch sử bên dưới.
+
+
 ## Review nền tảng payOS M2/M3 — 23/10/2026
 
 PR #3 bổ sung xác minh tự động primary MB, ADMIN bank-evidence và UI ba vai trò; không tự deploy. Kết quả test/build/Quality Gate ở [bài 15](15-doi-chieu.md). Chủ dự án review mã và kế hoạch bên dưới trước khi vận hành. Không thay secrets, gọi payOS thật hoặc chạm DB production trong đợt kiểm thử.

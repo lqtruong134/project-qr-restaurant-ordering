@@ -3,9 +3,11 @@ import { restaurantDateTime } from '../shared/restaurant-time';
 export function CashHistory({
   payment,
   statusOnly = false,
+  customerReceipt = false,
 }: {
   payment: Row;
   statusOnly?: boolean;
+  customerReceipt?: boolean;
 }) {
   const m = payment.metadata as unknown as {
     cashReceived?: string;
@@ -15,6 +17,15 @@ export function CashHistory({
   const received = payment.cash_received_amount ?? m?.cashReceived;
   if (payment.method !== 'CASH' || received == null) return null;
   const change = BigInt(String(payment.change_amount ?? m?.changeGiven ?? 0));
+  if (customerReceipt)
+    return (
+      <small className="cash-history">
+        Khách đưa {vnd(received)}
+        {change > 0n
+          ? ` · ${payment.change_returned_at ? 'Đã trả tiền thừa' : m?.cashHandlingVersion === 1 ? 'Tiền thừa chưa trả' : 'Tiền thừa chưa có xác nhận'} ${vnd(change)}`
+          : ' · Đưa đủ'}
+      </small>
+    );
   return (
     <div className="cash-history">
       {!statusOnly && (

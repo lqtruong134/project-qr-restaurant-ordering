@@ -10,6 +10,7 @@ import { notifyInfo, notifySuccess } from '../shared/operation-notice';
 import BillPanel from './bill-panel';
 import { AssistedOrder } from './assisted-order';
 import { StaffTableCode } from './table-access';
+import { StaffTableQr } from './table-qr';
 import { WorkQueue, workState } from './work-queue';
 import { tableWork, TableTasks, requestOwner } from './table-work';
 import OrderCard from './order-card';
@@ -37,6 +38,7 @@ export default function Service({
     [accessTable, setAccessTable] = useState('');
   const [receiptReload, setReceiptReload] = useState(0);
   const [cleaningTable, setCleaningTable] = useState('');
+  const [qrTable, setQrTable] = useState<Row>();
   const [selected, setSelected] = useState(''),
     [tab, setTab] = useState('tables'),
     [detailTab, setDetailTab] = useState('tasks'),
@@ -649,6 +651,11 @@ export default function Service({
                             </div>
                           )}
                           <div className="table-actions">
+                            {t.is_active && (
+                              <button className="secondary-button" onClick={() => setQrTable(t)}>
+                                QR bàn
+                              </button>
+                            )}
                             {t.session_id ? (
                               <button className="primary-button" onClick={() => openTable(t)}>
                                 Mở chi tiết bàn
@@ -709,6 +716,11 @@ export default function Service({
             </Empty>
           )}
         </div>
+      )}
+      {qrTable && (
+        <Modal title={'QR bàn — ' + String(qrTable.name)} close={() => setQrTable(undefined)}>
+          <StaffTableQr tableId={qrTable.id} initiallyExpanded />
+        </Modal>
       )}
       {!kitchen && tab === 'receipts' && (
         <>
@@ -920,6 +932,7 @@ export default function Service({
                     open={setDetailTab}
                   />
                   <div className="table-code-card">
+                    <StaffTableQr key={current.id} tableId={current.id} />
                     <StaffTableCode key={selected} tableId={current.id} done={refresh} />
                   </div>
                   {(support.some((s) => s.session_id === selected) ||

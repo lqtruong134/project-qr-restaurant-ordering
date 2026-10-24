@@ -12,7 +12,7 @@ import { BillingTotals } from '../shared/billing-totals';
 import { taxLabel } from '../shared/billing-summary';
 import { SessionReference } from '../shared/session-reference';
 import { vnd, type Row } from '../shared/components';
-import { paymentSummary } from '../shared/payment-summary';
+import { paymentFlowSummary } from '../shared/payment-summary';
 import { PaymentBreakdown } from '../shared/payment-breakdown';
 import { CashHistory } from './payment-handover';
 import { receiptLines } from './receipt-lines';
@@ -76,7 +76,7 @@ export default function Receipt({
 }) {
   const closed = bill.session.session_status === 'CLOSED',
     zone = String(bill.store.timezone ?? 'Asia/Ho_Chi_Minh');
-  const totals = paymentSummary(bill.account, bill.financialSummary);
+  const totals = paymentFlowSummary(bill.account, bill.payments, bill.financialSummary);
   const receipts = bill.payments.filter((p) => p.status === 'SUCCEEDED');
   const lines = receiptLines(bill);
   const owners =
@@ -89,7 +89,7 @@ export default function Receipt({
     >
       <header className="receipt-store">
         <h2>{String(bill.store.name)}</h2>
-        <p>{String(bill.store.address ?? '')}</p>
+        {bill.store.address && <p>{String(bill.store.address)}</p>}
         {bill.store.phone && <p>Điện thoại: {String(bill.store.phone)}</p>}
         {bill.store.tax_code && <p>MST: {String(bill.store.tax_code)}</p>}
         <h3>{closed ? 'PHIẾU THANH TOÁN' : 'PHIẾU TẠM TÍNH'}</h3>
@@ -108,21 +108,14 @@ export default function Receipt({
           Giờ vào: <strong>{billTime(bill.session.opened_at, zone)}</strong>
         </span>
         <span>
-          Giờ ra: <strong>{billTime(bill.session.closed_at, zone)}</strong>
-        </span>
-        <span>
           {closed ? 'Chốt lúc' : 'Tạm tính lúc'}:{' '}
           {billTime(bill.session.closed_at ?? bill.generatedAt, zone)}
         </span>
-        {bill.closedBy && (
-          <span>
-            Nhân viên chốt: {bill.closedBy.display_name} - {bill.closedBy.username}
-          </span>
-        )}
+        {bill.closedBy && <span>Thu ngân: {bill.closedBy.display_name}</span>}
       </div>
       <div className="receipt-table">
         <div className="receipt-row receipt-row-head">
-          <span>Món / khoản thu</span>
+          <span>Món</span>
           <span>SL</span>
           <span>Đơn giá</span>
           <span>
@@ -195,47 +188,48 @@ export default function Receipt({
             <strong>{vnd(totals.collectedTotal)}</strong>
           </div>
         )}
-        <div>
-          <span>Đã tính vào tiền món</span>
-          <strong>{vnd(totals.appliedTotal)}</strong>
-        </div>
+        {totals.collectedTotal > 0n && (
+          <div>
+            <span>Đã thanh toán</span>
+            <strong>{vnd(totals.appliedTotal)}</strong>
+          </div>
+        )}
         <div>
           <span>Còn phải thanh toán</span>
-          <strong>{vnd(bill.account.outstanding_amount)}</strong>
+          <strong>{vnd(totals.outstanding)}</strong>
         </div>
-        {BigInt(String(bill.account.refund_due_amount)) > 0n && (
+        {totals.refundDue > 0n && (
           <div>
             <span>Cần hoàn lại khách</span>
-            <strong>{vnd(bill.account.refund_due_amount)}</strong>
+            <strong>{vnd(totals.refundDue)}</strong>
           </div>
         )}
       </div>
-      {totals.refundedTotal > 0n && (
-        <p className="receipt-short-note">Đã trừ các khoản thực tế hoàn lại khách.</p>
+      {(totals.hasCash || totals.refundedTotal > 0n || totals.unappliedHeld > 0n) && (
+        <section className="receipt-money-breakdown" aria-label="Chi tiết thanh toán">
+          <PaymentBreakdown account={bill.account} payments={bill.payments} compact />
+        </section>
       )}
-      <section className="receipt-money-breakdown" aria-label="Đối chiếu thanh toán">
-        <h4>Đối chiếu tiền khách đã đưa</h4>
-        <PaymentBreakdown account={bill.account} payments={bill.payments} compact />
-      </section>
-      <div className="receipt-payments">
-        <strong>Các lần nhận tiền</strong>
-        {!receipts.length && <p>Chưa thu tiền</p>}
-        {receipts.map((p) => {
-          return (
+      {bill.financialSummary &&
+        BigInt(bill.financialSummary.bankReportedAmount) >
+          BigInt(bill.financialSummary.recordedAmount) && (
+          <p className="receipt-short-note">
+            Có khoản chuyển tiền đang được kiểm tra, chưa tính vào số đã thanh toán.
+          </p>
+        )}
+      {receipts.length > 0 && (
+        <div className="receipt-payments">
+          {receipts.map((p) => (
             <div className="receipt-payment-entry" key={p.id}>
-              <p>
-                {paymentMethodLabel(p.method)} - Đã nhận {vnd(p.amount)}
-              </p>
-              <small>
-                {billTime(p.confirmed_at ?? p.created_at, zone)} -{' '}
-                {p.method === 'ONLINE' ? 'Hệ thống xác nhận' : String(p.confirmed_by_name ?? '')}{' '}
-                {p.method === 'ONLINE' ? '' : String(p.confirmed_by_username ?? '')}
-              </small>
-              <CashHistory payment={p} />
+              <span>{paymentMethodLabel(p.method)}</span>
+              <strong>{vnd(p.amount)}</strong>
+              {(receipts.length > 1 || layout === 'detailed') && (
+                <CashHistory payment={p} customerReceipt />
+              )}
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
       {(bill.refundTransactions ?? []).length > 0 && (
         <div className="receipt-payments">
           <strong>Các lần hoàn lại khách</strong>
@@ -257,7 +251,7 @@ export default function Receipt({
           <p>Phiên đóng theo hồ sơ thiếu tiền; không phải đã thu đủ.</p>
         )}
         <p>Cảm ơn quý khách và hẹn gặp lại!</p>
-        <small>Phiếu thanh toán nội bộ, không thay thế hóa đơn điện tử.</small>
+        <small>Phiếu này không thay thế hóa đơn điện tử.</small>
       </footer>
     </section>
   );

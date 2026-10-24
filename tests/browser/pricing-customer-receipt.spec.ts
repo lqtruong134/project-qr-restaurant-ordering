@@ -406,6 +406,22 @@ test('guest sees inclusive VAT, explicit eligible conditions and discounted own 
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });
     await fits(page);
+    const head = page.locator('.guest-bill-lines .compact-bill-head');
+    if (width <= 560) await expect(head).toBeHidden();
+    else {
+      const rightEdges = await page.locator('.guest-bill-lines').evaluate((root) => {
+        const head = root.querySelector('.compact-bill-head')!;
+        const row = root.querySelector('.guest-bill-item .compact-bill-row')!;
+        return [head, row].map((el) =>
+          Array.from(el.children)
+            .slice(1)
+            .map((cell) => cell.getBoundingClientRect().right),
+        );
+      });
+      rightEdges[0]!.forEach((edge, index) =>
+        expect(Math.abs(edge - rightEdges[1]![index]!)).toBeLessThanOrEqual(1),
+      );
+    }
   }
   await page.screenshot({
     path: info.outputPath('guest-discount-vat-320.png'),

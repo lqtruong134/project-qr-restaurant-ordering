@@ -8,7 +8,7 @@ Bắt đầu học tại [docs/00-bat-dau.md](docs/00-bat-dau.md), hoặc mở [
 
 [Hướng dẫn triển khai trên laptop và chuyển sang VPS](docs/26-trien-khai-qtruongres.md) là quy trình chính cho stack Docker riêng gồm web, API, PostgreSQL, Caddy và Cloudflare Named Tunnel tùy chọn. Cấu hình production dùng tệp riêng từ `deploy/.env.example`; giữ `.env` và database phát triển riêng. Không tự seed dữ liệu khi khởi động hoặc nâng cấp.
 
-Hiện mới chuẩn bị và diễn tập cục bộ, **chưa đưa website lên Internet**. Domain, tài khoản Cloudflare, token tunnel và giao dịch payOS thật còn do người vận hành thiết lập/nghiệm thu; AI vẫn OFF. Xem kết quả và giới hạn cụ thể ở [hồ sơ xác minh](docs/15-doi-chieu.md). Các lệnh cài đặt bên dưới dành cho môi trường phát triển; chuyển dữ liệu đang dùng phải theo quy trình sao lưu/khôi phục ở bài 26.
+Mã nguồn hỗ trợ public deployment; tình trạng website thực tế do người vận hành xác minh trên môi trường của mình. Domain, tài khoản Cloudflare, token tunnel và giao dịch payOS thật còn do người vận hành thiết lập/nghiệm thu; AI vẫn OFF. Xem kết quả và giới hạn cụ thể ở [hồ sơ xác minh](docs/15-doi-chieu.md). Các lệnh cài đặt bên dưới dành cho môi trường phát triển; chuyển dữ liệu đang dùng phải theo quy trình sao lưu/khôi phục ở bài 26.
 
 ## Cài từ bản clone mới
 
@@ -54,7 +54,7 @@ Xem [cách thay ảnh thật và bố cục từng vai trò](docs/20-anh-va-giao
 
 ## Thu tiền tại bàn
 
-PayOS được cấu hình riêng phía backend; không sao chép khóa vào Git. Xem [biến môi trường, webhook HTTPS và test thật 5.000đ](docs/12-van-hanh.md), cùng [nghiệm thu](docs/15-doi-chieu.md). Merchant production do người vận hành cấu hình; bản sửa thanh toán 17/10 chưa deploy. Xem checklist cập nhật và đối soát ở đầu [runbook](docs/26-trien-khai-qtruongres.md).
+PayOS được cấu hình riêng phía backend; không sao chép khóa vào Git. Xem [biến môi trường, webhook HTTPS và test thật 5.000đ](docs/12-van-hanh.md), cùng [nghiệm thu](docs/15-doi-chieu.md). Merchant production do người vận hành cấu hình; các ghi chú triển khai ngày cũ phải đọc cùng biên bản hiện hành, không dùng để suy trạng thái production. Xem checklist cập nhật và đối soát ở đầu [runbook](docs/26-trien-khai-qtruongres.md).
 
 [Khách gọi nhân viên, khoản thu, tiền thối và ảnh chuyển khoản](docs/25-thu-tien-tai-ban.md). Luồng thu tiền hiện hành đã bao gồm khuyến mãi, VAT và payOS; schema hiện có 67 bảng và 37 migration trong source (migration mới cần áp dụng có kiểm soát). Các phiếu chốt giữ ảnh chụp số liệu tại thời điểm thanh toán.
 

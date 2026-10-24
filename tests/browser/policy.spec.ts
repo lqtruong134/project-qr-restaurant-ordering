@@ -193,10 +193,8 @@ test('policy validation, keyboard/mobile reading, cart review, payment/leave con
       await post(staff!, '/core/orders/' + item.id + '/review', { approve: true });
     await nav.getByRole('button', { name: 'Thanh toán', exact: true }).click();
     const payment = guest!.getByRole('form', { name: 'Yêu cầu thanh toán', exact: true });
-    await payment.getByRole('button', { name: 'Báo nhân viên thu tiền', exact: true }).click();
-    await expect(
-      guest!.getByText('Bạn đã báo nhân viên hỗ trợ thanh toán', { exact: true }),
-    ).toBeVisible();
+    await payment.getByRole('button', { name: 'Gọi nhân viên thanh toán', exact: true }).click();
+    await expect(guest!.getByText('Đã gọi nhân viên thanh toán', { exact: true })).toBeVisible();
     const bill = await (await staff!.request.get('/api/core/sessions/' + sid + '/bill')).json();
     expect(bill.intents).toHaveLength(0);
     expect(bill.paymentRequests).toHaveLength(1);
@@ -204,9 +202,7 @@ test('policy validation, keyboard/mobile reading, cart review, payment/leave con
     expect(bill.account.reserved_payment_amount).toBe('0');
     await guest!.reload();
     await nav.getByRole('button', { name: 'Thanh toán', exact: true }).click();
-    await expect(
-      guest!.getByText('Bạn đã báo nhân viên hỗ trợ thanh toán', { exact: true }),
-    ).toBeVisible();
+    await expect(guest!.getByText('Đã gọi nhân viên thanh toán', { exact: true })).toBeVisible();
     await login(kitchen!, 'bep001', 'kitchen');
     await kitchen!.getByRole('button', { name: 'Hướng dẫn bếp', exact: true }).click();
     const kitchenHelp = kitchen!.getByRole('dialog', { name: 'Hướng dẫn bếp', exact: true });

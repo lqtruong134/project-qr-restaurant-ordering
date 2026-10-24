@@ -330,12 +330,12 @@ async function mock(page: Page) {
     if (path.endsWith('/payment-requests')) {
       const body = route.request().postDataJSON();
       writes.push({ path, body });
-      expect(['CASH', 'BANK_TRANSFER']).toContain(body.method);
+      expect(body).toEqual({ requestId: expect.stringMatching(/^[0-9a-f-]{36}$/) });
       const request = {
         id: 'request',
         status: 'NEW',
         request_type: 'BILL',
-        payment_method: body.method,
+        payment_method: null,
         participant_id: 'guest',
         display_name: 'Lan',
         session_id: sid,
@@ -511,7 +511,10 @@ test('staff creates a partial online QR after cash, refresh preserves QR, provid
   await expect(dialog.locator('.last-payment')).toContainText('payOS');
   await dialog.getByRole('button', { name: 'Phiếu thường', exact: true }).click();
   await expect(dialog.locator('.receipt-sheet')).toContainText('Online (payOS)');
-  await expect(dialog.locator('.receipt-sheet')).toContainText('Hệ thống xác nhận');
+  await expect(
+    dialog.locator('.receipt-sheet .receipt-payment-entry').filter({ hasText: 'Online (payOS)' }),
+  ).toContainText('150.000 đ');
+  await expect(dialog.locator('.receipt-sheet .receipt-totals')).toContainText('Đã thanh toán');
   await expect(dialog.locator('.receipt-sheet')).toContainText('100.000 đ');
   expect(f.writes.filter((write) => write.path.endsWith('/confirm'))).toHaveLength(0);
   expect(f.errors).toEqual([]);
@@ -587,10 +590,13 @@ test('guest only requests staff assistance and cannot start online payment or cl
   await expect(form.getByRole('button', { name: 'Online (payOS)' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Tạo QR thanh toán' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Đóng phiên/ })).toHaveCount(0);
-  await form.getByRole('button', { name: 'Chuyển khoản', exact: true }).click();
-  await form.getByRole('button', { name: 'Báo nhân viên thu tiền', exact: true }).click();
+  await expect(form.getByRole('group', { name: 'Hình thức thanh toán' })).toHaveCount(0);
+  await form.getByRole('button', { name: 'Gọi nhân viên thanh toán', exact: true }).click();
   expect(f.writes).toEqual([
-    { path: '/api/guest/payment-requests', body: { method: 'BANK_TRANSFER' } },
+    {
+      path: '/api/guest/payment-requests',
+      body: { requestId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+    },
   ]);
   expect(f.errors).toEqual([]);
 });
