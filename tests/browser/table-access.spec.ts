@@ -147,7 +147,16 @@ test('guest requests code, staff claims and issues it at table, members share co
       .getByRole('checkbox', { name: 'Tôi đồng ý với Quy định sử dụng dịch vụ tại bàn' })
       .check();
     await other.getByRole('button', { name: 'Xem thực đơn', exact: true }).click();
+    await expect(other.locator('.session-code strong')).toHaveText(pin);
+    // Wait for the actual polling read, as in the later-guest scenario below.
+    // A 5s UI assertion alone races the 5s poll and response/render time.
+    const refreshedRoster = guest.waitForResponse(async (response) => {
+      if (new URL(response.url()).pathname !== '/api/guest/state' || !response.ok()) return false;
+      const snapshot = await response.json();
+      return snapshot.participants.length === 2;
+    });
     await guest.bringToFront();
+    await refreshedRoster;
     await expect(guest.getByRole('button', { name: 'Người cùng bàn, 2 người' })).toBeVisible();
     await guest.getByRole('button', { name: 'Lưu ý khi chia sẻ mã vào bàn', exact: true }).focus();
     await guest.keyboard.press('Enter');

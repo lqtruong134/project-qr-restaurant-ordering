@@ -1,0 +1,18 @@
+{
+  "format": "payos-platform-isolated-rehearsal-v1",
+  "passed": true,
+  "syntheticOnly": true,
+  "providerContacted": false,
+  "productionAccessed": false,
+  "restoredTableCount": 72,
+  "bankEvidencePreserved": 1,
+  "assistanceRetryKeysPreserved": 1,
+  "canonicalClaimsPreserved": 1,
+  "proofHashAndPrivatePermissionsVerified": true,
+  "financialProjectionMatched": true,
+  "nonemptyRestoreRefused": true,
+  "partialFailureKeepsWritersStopped": true,
+  "corruptedBundleRefused": true,
+  "archiveReadOnlyVerified": true,
+  "allocatorRollbackSafetyVerified": true
+}

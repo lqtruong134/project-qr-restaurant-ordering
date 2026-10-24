@@ -174,6 +174,27 @@ export async function runPlatformRehearsal(args, connectionString) {
       const s = await one(c, `INSERT INTO table_session(table_id) VALUES($1) RETURNING id`, [
         table.id,
       ]);
+      const guest = await one(
+        c,
+        `INSERT INTO session_participant(session_id,guest_id,display_name,credential_hash) VALUES($1,gen_random_uuid(),'Synthetic guest',$2) RETURNING id`,
+        [s.id, randomBytes(32).toString('hex')],
+      );
+      const assistance = await one(
+        c,
+        `INSERT INTO support_request(session_id,participant_id,request_type) VALUES($1,$2,'BILL') RETURNING id`,
+        [s.id, guest.id],
+      );
+      await c.query(
+        `INSERT INTO payment_assistance_submission(participant_id,request_id,request_hash,support_request_id) VALUES($1,$2,$3,$4)`,
+        [
+          guest.id,
+          randomUUID(),
+          createHash('sha256')
+            .update(JSON.stringify({ method: null }))
+            .digest('hex'),
+          assistance.id,
+        ],
+      );
       await c.query(
         `INSERT INTO financial_charge(session_id,charge_type,amount) VALUES($1,'ADJUSTMENT',20000)`,
         [s.id],
@@ -374,6 +395,7 @@ export async function runPlatformRehearsal(args, connectionString) {
       productionAccessed: false,
       restoredTableCount: Object.keys(before.counts).length,
       bankEvidencePreserved: before.counts.payment_bank_evidence,
+      assistanceRetryKeysPreserved: before.counts.payment_assistance_submission,
       canonicalClaimsPreserved: before.counts.bank_receipt_claim,
       proofHashAndPrivatePermissionsVerified: true,
       financialProjectionMatched: true,

@@ -1652,8 +1652,7 @@ details.core-card > summary {
   padding: 12px 0;
   border-bottom: 1px dashed #9aa594;
 }
-.receipt-totals > div,
-.receipt-payments > div {
+.receipt-totals > div {
   display: flex;
   justify-content: space-between;
   gap: 12px;

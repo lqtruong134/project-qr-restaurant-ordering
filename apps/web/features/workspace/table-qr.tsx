@@ -5,19 +5,20 @@ import { api } from '../shared/components';
 
 export function StaffTableQr({
   tableId,
-  initiallyExpanded = false,
+  standalone = false,
 }: {
   tableId: string;
-  initiallyExpanded?: boolean;
+  standalone?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(initiallyExpanded);
+  const [expanded, setExpanded] = useState(false);
+  const open = standalone || expanded;
   const [qr, setQr] = useState<{ image: string; table: string }>();
   const [error, setError] = useState('');
   useEffect(() => {
     let active = true;
     setQr(undefined);
     setError('');
-    if (!expanded) return;
+    if (!open) return;
     void (async () => {
       try {
         const result = await api<{ available: boolean; table?: string; joinPath?: string }>(
@@ -38,7 +39,25 @@ export function StaffTableQr({
     return () => {
       active = false;
     };
-  }, [expanded, tableId]);
+  }, [open, tableId]);
+  const content = open && (
+    <div className="staff-table-qr-content">
+      {error ? (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      ) : qr ? (
+        <>
+          <strong>{qr.table}</strong>
+          <img src={qr.image} width={320} height={320} alt={'QR gọi món — ' + qr.table} />
+          <p>Khách quét để mở thực đơn. Mã vào bàn được cấp riêng.</p>
+        </>
+      ) : (
+        <p role="status">Đang tải QR bàn…</p>
+      )}
+    </div>
+  );
+  if (standalone) return <section className="staff-table-qr">{content}</section>;
   return (
     <details
       className="staff-table-qr"
@@ -46,23 +65,7 @@ export function StaffTableQr({
       onToggle={(e) => setExpanded(e.currentTarget.open)}
     >
       <summary>QR bàn</summary>
-      {expanded && (
-        <div className="staff-table-qr-content">
-          {error ? (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          ) : qr ? (
-            <>
-              <strong>{qr.table}</strong>
-              <img src={qr.image} width={320} height={320} alt={'QR gọi món — ' + qr.table} />
-              <p>Khách quét để mở thực đơn. Mã vào bàn được cấp riêng.</p>
-            </>
-          ) : (
-            <p role="status">Đang tải QR bàn…</p>
-          )}
-        </div>
-      )}
+      {content}
     </details>
   );
 }

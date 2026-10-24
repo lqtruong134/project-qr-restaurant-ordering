@@ -436,9 +436,16 @@
   padding-bottom: 8px;
 }
 
-.receipt-sheet .receipt-payment-entry {
-  flex-wrap: wrap;
+.receipt-sheet .receipt-payment-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 2px 12px;
+  padding: 2px 0;
+  border: 0;
 }
-.receipt-sheet .receipt-payment-entry .cash-history {
-  flex-basis: 100%;
+.receipt-sheet .receipt-payment-line > strong {
+  text-align: right;
+}
+.receipt-sheet .receipt-payment-line .cash-history {
+  grid-column: 1 / -1;
 }

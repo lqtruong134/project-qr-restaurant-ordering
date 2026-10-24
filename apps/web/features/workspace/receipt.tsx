@@ -220,7 +220,7 @@ export default function Receipt({
       {receipts.length > 0 && (
         <div className="receipt-payments">
           {receipts.map((p) => (
-            <div className="receipt-payment-entry" key={p.id}>
+            <div className="receipt-payment-entry receipt-payment-line" key={p.id}>
               <span>{paymentMethodLabel(p.method)}</span>
               <strong>{vnd(p.amount)}</strong>
               {(receipts.length > 1 || layout === 'detailed') && (

@@ -719,7 +719,7 @@ export default function Service({
       )}
       {qrTable && (
         <Modal title={'QR bàn — ' + String(qrTable.name)} close={() => setQrTable(undefined)}>
-          <StaffTableQr tableId={qrTable.id} initiallyExpanded />
+          <StaffTableQr tableId={qrTable.id} standalone />
         </Modal>
       )}
       {!kitchen && tab === 'receipts' && (

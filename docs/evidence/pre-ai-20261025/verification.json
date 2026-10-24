@@ -1,0 +1,78 @@
+{
+  "format": "pre-ai-review-evidence-v1",
+  "baselineMain": "67ad44681e4c43b55478d997ed44ded880034c71",
+  "pr": "https://github.com/lqtruong134/project-qr-restaurant-ordering/pull/5",
+  "productionMutated": false,
+  "qualityGate": "Check the exact PR HEAD; older commit results are not interchangeable.",
+  "unit": {
+    "passed": 400,
+    "failed": 0,
+    "files": 46
+  },
+  "apiCoverage": {
+    "passed": 675,
+    "failed": 0,
+    "files": 47,
+    "linesPercent": 92.44,
+    "overlapsUnit": true
+  },
+  "paymentSafetyTools": {
+    "passed": 40,
+    "failed": 0
+  },
+  "deploymentToolsWithFreshApiImage": {
+    "passed": 30,
+    "failed": 0,
+    "skipped": 0
+  },
+  "localFullBrowserBeforeLastFixtureAndVisualChanges": {
+    "passed": 500,
+    "failed": 3,
+    "skipped": 1,
+    "minutes": 52.7
+  },
+  "targetedBrowserAfterChanges": {
+    "rosterThreeProjectsRepeatThree": 9,
+    "safariPolicyAndQueueRepeatThree": 6,
+    "receiptAndQrThreeProjects": 9,
+    "finalEvidenceDesktop": 5,
+    "failed": 0,
+    "overlappingRuns": true
+  },
+  "images": {
+    "api": {
+      "tag": "qtruongres-preai-api:review-20261025",
+      "uid": 10001,
+      "readOnly": true,
+      "network": "none",
+      "dependencyImports": "passed"
+    },
+    "maintenance": {
+      "tag": "qtruongres-preai-maintenance:review-20261025",
+      "uid": 10001,
+      "readOnly": true,
+      "network": "none",
+      "readableMigrations": 39
+    },
+    "web": {
+      "tag": "qtruongres-preai-web:review-20261025",
+      "uid": 10001,
+      "readOnly": true,
+      "network": "none",
+      "httpStatus": 200
+    }
+  },
+  "devCleanup": {
+    "oldIgnoredNextBuildDirectories": 39,
+    "apparentBytesDeleted": 2302969510,
+    "measuredWslFreeIncreaseBytes": 2361290752,
+    "windowsSpaceGainClaimed": false
+  },
+  "limitations": [
+    "No production DB or merchant access",
+    "No physical printer/camera acceptance",
+    "Historical test classification requires operator manifest",
+    "Model quality not evaluated",
+    "Two local Safari transients did not reproduce in unchanged repeated scenarios"
+  ]
+}

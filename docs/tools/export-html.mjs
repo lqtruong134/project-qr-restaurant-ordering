@@ -43,7 +43,7 @@ for(const f of paymentReferencePages){
  const source=fs.readFileSync(path.join(out,f),'utf8');
  const title=source.split('\n')[0].replace(/^# /,'');
  const rendered=md(source,true);
- write(htmlName(f),'<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(title)+'</title><link rel="stylesheet" href="../assets/style.css"></head><body><header><a href="../06-thanh-toan.html">← Nghiệp vụ thanh toán</a><small>23/10/2026 · Nền tảng payOS M2/M3</small></header><main><article>'+rendered.html+'</article></main></body></html>');
+ write(htmlName(f),'<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(title)+'</title><link rel="stylesheet" href="../assets/style.css"></head><body><header><a href="../06-thanh-toan.html">← Nghiệp vụ thanh toán</a><small>'+esc(f==='reference/pre-ai-audit-20261025.md'?'25/10/2026 · Rà soát trước AI':'23/10/2026 · Nền tảng payOS M2/M3')+'</small></header><main><article>'+rendered.html+'</article></main></body></html>');
 }
 const dictionarySource='database/data-dictionary.md';
 if(fs.existsSync(path.join(out,dictionarySource))){
