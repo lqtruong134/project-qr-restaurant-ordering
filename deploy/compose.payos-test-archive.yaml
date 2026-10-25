@@ -1,0 +1,16 @@
+# Opt-in overlay for the operator-reviewed archive CLI. Never loaded by normal deployment.
+services:
+  payos-state:
+    environment:
+      PAYOS_ENABLED: 'false'
+      TSX_DISABLE_CACHE: '1'
+    command: [node, --import, tsx, scripts/payos-test-case-archive.ts, --help]
+    volumes:
+      - type: volume
+        source: runtime_data
+        target: /data
+        read_only: true
+      - type: bind
+        source: ${PAYOS_ARCHIVE_DIR:?Set an absolute private directory owned by UID 10001}
+        target: /archive
+    mem_limit: 768m

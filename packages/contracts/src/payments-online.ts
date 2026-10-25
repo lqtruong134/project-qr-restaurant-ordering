@@ -123,3 +123,23 @@ export type PaymentFinancialSummary = {
   refundedAmount: string;
   reviewRequired: boolean;
 };
+
+/** Read-only archive metadata. Archiving never settles, refunds, or reconciles money. */
+export type ArchivedPayosTestCase = {
+  id: string;
+  payment_intent_id: string;
+  session_id: string;
+  table_code: string;
+  amount: string;
+  original_audit_count: number;
+  archived_at: string;
+  visible_in_operations: boolean;
+  visibility_restored_at: string | null;
+  evidence_events: number;
+  unexpected_webhooks: number;
+  recorded_amount: string;
+  classification: 'CONFIRMED_TEST_WITH_REAL_FUNDS';
+  financially_resolved: false;
+  posting_blocked: true;
+  note: string;
+};

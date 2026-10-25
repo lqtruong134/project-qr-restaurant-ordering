@@ -41,6 +41,7 @@ export type {
   OnlinePaymentView,
   GuestOnlinePayment,
   PaymentReconciliationCase,
+  ArchivedPayosTestCase,
   UnmatchedPaymentWebhook,
 } from './payments-online';
 

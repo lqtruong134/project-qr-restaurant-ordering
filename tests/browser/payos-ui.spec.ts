@@ -1,6 +1,7 @@
 import { test, expect, type Page, type Locator } from '@playwright/test';
 import { selectAdmin } from './admin-navigation';
 import type {
+  ArchivedPayosTestCase,
   PaymentCapabilities,
   OnlinePaymentView,
   GuestOnlinePayment,
@@ -122,6 +123,7 @@ async function mock(page: Page) {
   let rejectRefresh = false;
   let reject = false;
   const cases: PaymentReconciliationCase[] = [];
+  const archives: ArchivedPayosTestCase[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   const makeIntent = (amount = '150000'): PaymentIntent => ({
     id: 'online-intent',
@@ -186,6 +188,8 @@ async function mock(page: Page) {
       if (path === '/api/core/catalog')
         return route.fulfill({ json: { products: [], categories: [] } });
       if (path === '/api/core/admin/payment-reconciliation') return route.fulfill({ json: cases });
+      if (path === '/api/core/admin/payment-test-archives')
+        return route.fulfill({ json: archives });
       if (path === '/api/core/inventory')
         return route.fulfill({
           json: {
@@ -360,6 +364,7 @@ async function mock(page: Page) {
       rejectRefresh = true;
     },
     cases,
+    archives,
     makeIntent,
     reject: () => {
       reject = true;
@@ -1244,6 +1249,61 @@ test('GUEST sees independent bank confirmation without internal identifiers or c
   await expect(card).toContainText('10.000 đ');
   await expect(card).not.toContainText('202610140001');
   await expect(card).not.toContainText('tự động qua payOS');
+  expect(f.writes).toEqual([]);
+  expect(f.errors).toEqual([]);
+});
+
+test('archived real-money tests are read-only and separate from active payment exceptions', async ({
+  page,
+}) => {
+  const f = await mock(page);
+  f.archives.push({
+    id: 'archive-case',
+    payment_intent_id: 'archived-intent',
+    session_id: 'ffc78214-0000-4000-8000-000000000001',
+    table_code: 'A01',
+    amount: '5000',
+    original_audit_count: 8789,
+    archived_at: at,
+    visible_in_operations: false,
+    visibility_restored_at: null,
+    evidence_events: 2,
+    unexpected_webhooks: 1,
+    recorded_amount: '0',
+    classification: 'CONFIRMED_TEST_WITH_REAL_FUNDS',
+    financially_resolved: false,
+    posting_blocked: true,
+    note: 'Lưu trữ riêng.',
+  });
+  await page.goto('/workspace/admin');
+  await selectAdmin(page, 'Việc cần xử lý', 'Ngoại lệ thanh toán');
+  const summary = page.getByText('Hồ sơ thử đã lưu trữ (1)', { exact: true });
+  await expect(summary).toBeVisible();
+  await summary.click();
+  const card = page.getByRole('article', { name: 'Hồ sơ thử đã lưu trữ bàn A01', exact: true });
+  await expect(card).toContainText('5.000');
+  await expect(card).toContainText('Chưa ghi sổ');
+  await expect(card).toContainText('Chặn ghi nhận tự động');
+  await expect(card.getByRole('alert')).toContainText('1 thông báo mới không khớp');
+  await expect(card.getByRole('button')).toHaveCount(0);
+  await expect(
+    page.getByRole('article', { name: 'Ngoại lệ thanh toán bàn A01', exact: true }),
+  ).toHaveCount(0);
+  expect(f.writes).toEqual([]);
+  expect(f.errors).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+});
+
+test('empty test archive adds no operational warning or settlement action', async ({ page }) => {
+  const f = await mock(page);
+  await page.goto('/workspace/admin');
+  await selectAdmin(page, 'Việc cần xử lý', 'Ngoại lệ thanh toán');
+  await expect(
+    page.getByRole('region', { name: 'Đối soát thanh toán online', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(/^Hồ sơ thử đã lưu trữ/)).toHaveCount(0);
   expect(f.writes).toEqual([]);
   expect(f.errors).toEqual([]);
 });

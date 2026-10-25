@@ -1,4 +1,4 @@
-# Từ điển dữ liệu vật lý — 72 bảng
+# Từ điển dữ liệu vật lý — 74 bảng
 
 Sinh từ metadata PostgreSQL bằng `pnpm docs:database`, không chứa bản ghi nghiệp vụ hay thông tin đăng nhập. Kiểu, giá trị mặc định và các ràng buộc bên dưới lấy trực tiếp từ database đã migrate.
 
@@ -1992,6 +1992,140 @@ CREATE INDEX payos_request_alert ON public.payos_payment_request USING btree (al
 CREATE INDEX payos_request_created_by ON public.payos_payment_request USING btree (created_by);
 CREATE INDEX payos_request_poll ON public.payos_payment_request USING btree (next_poll_at) WHERE (status <> ALL (ARRAY['PAID'::text, 'CANCELLED'::text, 'EXPIRED'::text, 'FAILED'::text]));
 CREATE INDEX payos_request_resolved_by ON public.payos_payment_request USING btree (resolved_by);
+```
+
+## payos_test_archive_event
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| archive_id | uuid | Có | FK | — | — |
+| event_kind | text | Có |  | — | — |
+| payload_hash | text | Có |  | — | — |
+| payload_snapshot | jsonb | Có |  | — | — |
+| created_at | timestamp with time zone | Có |  | clock_timestamp() | — |
+
+### Ràng buộc
+```sql
+payos_test_archive_event_event_kind_check: CHECK ((event_kind = ANY (ARRAY['ARCHIVED'::text, 'WEBHOOK_REPLAY'::text, 'WEBHOOK_CONFLICT'::text, 'PROVIDER_RESULT'::text, 'VISIBILITY_RESTORED'::text])))
+payos_test_archive_event_payload_hash_check: CHECK ((payload_hash ~ '^[a-f0-9]{64}$'::text))
+payos_test_archive_event_payload_snapshot_check: CHECK ((jsonb_typeof(payload_snapshot) = 'object'::text))
+payos_test_archive_event_archive_id_fkey: FOREIGN KEY (archive_id) REFERENCES payos_test_case_archive(id) ON DELETE RESTRICT
+payos_test_archive_event_archive_id_not_null: NOT NULL archive_id
+payos_test_archive_event_created_at_not_null: NOT NULL created_at
+payos_test_archive_event_event_kind_not_null: NOT NULL event_kind
+payos_test_archive_event_id_not_null: NOT NULL id
+payos_test_archive_event_payload_hash_not_null: NOT NULL payload_hash
+payos_test_archive_event_payload_snapshot_not_null: NOT NULL payload_snapshot
+payos_test_archive_event_pkey: PRIMARY KEY (id)
+payos_test_archive_event_archive_id_event_kind_payload_hash_key: UNIQUE (archive_id, event_kind, payload_hash)
+```
+
+### Chỉ mục
+```sql
+CREATE UNIQUE INDEX payos_test_archive_event_archive_id_event_kind_payload_hash_key ON public.payos_test_archive_event USING btree (archive_id, event_kind, payload_hash);
+CREATE INDEX payos_test_archive_event_case ON public.payos_test_archive_event USING btree (archive_id, created_at);
+CREATE UNIQUE INDEX payos_test_archive_event_pkey ON public.payos_test_archive_event USING btree (id);
+```
+
+## payos_test_case_archive
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| session_id | uuid | Có | FK | — | — |
+| table_id | uuid | Có | FK | — | — |
+| table_code | text | Có |  | — | — |
+| payment_intent_id | uuid | Có | FK | — | — |
+| payos_request_id | uuid | Có | FK | — | — |
+| webhook_id | uuid | Có | FK | — | — |
+| alert_id | uuid | Có | FK | — | — |
+| order_code | bigint | Có |  | — | — |
+| payment_link_id | text | Có |  | — | — |
+| bank_reference | text | Có |  | — | — |
+| amount | bigint | Có |  | — | — |
+| original_audit_count | integer | Có |  | — | — |
+| plan_hash | text | Có |  | — | — |
+| snapshot_hash | text | Có |  | — | — |
+| bundle_hash | text | Có |  | — | — |
+| backup_manifest_hash | text | Có |  | — | — |
+| reason | text | Có |  | — | — |
+| archived_by | uuid | Có | FK | — | — |
+| archived_at | timestamp with time zone | Có |  | clock_timestamp() | — |
+| visible_in_operations | boolean | Có |  | false | — |
+| visibility_restored_by | uuid | Không | FK | — | — |
+| visibility_restored_at | timestamp with time zone | Không |  | — | — |
+| visibility_restore_reason | text | Không |  | — | — |
+
+### Ràng buộc
+```sql
+payos_test_case_archive_amount_check: CHECK ((amount = 5000))
+payos_test_case_archive_backup_manifest_hash_check: CHECK ((backup_manifest_hash ~ '^[a-f0-9]{64}$'::text))
+payos_test_case_archive_bank_reference_check: CHECK ((((length(bank_reference) >= 1) AND (length(bank_reference) <= 160)) AND (bank_reference = btrim(bank_reference)) AND (bank_reference !~ '[[:cntrl:]]'::text)))
+payos_test_case_archive_bundle_hash_check: CHECK ((bundle_hash ~ '^[a-f0-9]{64}$'::text))
+payos_test_case_archive_check: CHECK ((((table_code = 'A01'::text) AND ("left"((session_id)::text, 8) = 'ffc78214'::text) AND (original_audit_count = 8789)) OR ((table_code = 'A02'::text) AND ("left"((session_id)::text, 8) = '300659c7'::text) AND (original_audit_count = 10284))))
+payos_test_case_archive_check1: CHECK ((((NOT visible_in_operations) AND (visibility_restored_by IS NULL) AND (visibility_restored_at IS NULL) AND (visibility_restore_reason IS NULL)) OR (visible_in_operations AND (visibility_restored_by IS NOT NULL) AND (visibility_restored_at >= archived_at) AND ((length(btrim(visibility_restore_reason)) >= 20) AND (length(btrim(visibility_restore_reason)) <= 1000)))))
+payos_test_case_archive_plan_hash_check: CHECK ((plan_hash ~ '^[a-f0-9]{64}$'::text))
+payos_test_case_archive_reason_check: CHECK (((length(btrim(reason)) >= 20) AND (length(btrim(reason)) <= 1000)))
+payos_test_case_archive_snapshot_hash_check: CHECK ((snapshot_hash ~ '^[a-f0-9]{64}$'::text))
+payos_test_case_archive_alert_id_fkey: FOREIGN KEY (alert_id) REFERENCES operational_alert(id) ON DELETE RESTRICT
+payos_test_case_archive_archived_by_fkey: FOREIGN KEY (archived_by) REFERENCES app_user(id) ON DELETE RESTRICT
+payos_test_case_archive_payment_intent_id_fkey: FOREIGN KEY (payment_intent_id) REFERENCES payment_intent(id) ON DELETE RESTRICT
+payos_test_case_archive_payos_request_id_fkey: FOREIGN KEY (payos_request_id) REFERENCES payos_payment_request(id) ON DELETE RESTRICT
+payos_test_case_archive_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id) ON DELETE RESTRICT
+payos_test_case_archive_session_id_fkey: FOREIGN KEY (session_id) REFERENCES table_session(id) ON DELETE RESTRICT
+payos_test_case_archive_table_id_fkey: FOREIGN KEY (table_id) REFERENCES dining_table(id) ON DELETE RESTRICT
+payos_test_case_archive_visibility_restored_by_fkey: FOREIGN KEY (visibility_restored_by) REFERENCES app_user(id) ON DELETE RESTRICT
+payos_test_case_archive_webhook_id_fkey: FOREIGN KEY (webhook_id) REFERENCES payment_webhook_event(id) ON DELETE RESTRICT
+payos_test_case_archive_alert_id_not_null: NOT NULL alert_id
+payos_test_case_archive_amount_not_null: NOT NULL amount
+payos_test_case_archive_archived_at_not_null: NOT NULL archived_at
+payos_test_case_archive_archived_by_not_null: NOT NULL archived_by
+payos_test_case_archive_backup_manifest_hash_not_null: NOT NULL backup_manifest_hash
+payos_test_case_archive_bank_reference_not_null: NOT NULL bank_reference
+payos_test_case_archive_bundle_hash_not_null: NOT NULL bundle_hash
+payos_test_case_archive_id_not_null: NOT NULL id
+payos_test_case_archive_order_code_not_null: NOT NULL order_code
+payos_test_case_archive_original_audit_count_not_null: NOT NULL original_audit_count
+payos_test_case_archive_payment_intent_id_not_null: NOT NULL payment_intent_id
+payos_test_case_archive_payment_link_id_not_null: NOT NULL payment_link_id
+payos_test_case_archive_payos_request_id_not_null: NOT NULL payos_request_id
+payos_test_case_archive_plan_hash_not_null: NOT NULL plan_hash
+payos_test_case_archive_reason_not_null: NOT NULL reason
+payos_test_case_archive_restaurant_id_not_null: NOT NULL restaurant_id
+payos_test_case_archive_session_id_not_null: NOT NULL session_id
+payos_test_case_archive_snapshot_hash_not_null: NOT NULL snapshot_hash
+payos_test_case_archive_table_code_not_null: NOT NULL table_code
+payos_test_case_archive_table_id_not_null: NOT NULL table_id
+payos_test_case_archive_visible_in_operations_not_null: NOT NULL visible_in_operations
+payos_test_case_archive_webhook_id_not_null: NOT NULL webhook_id
+payos_test_case_archive_pkey: PRIMARY KEY (id)
+payos_test_case_archive_alert_id_key: UNIQUE (alert_id)
+payos_test_case_archive_bank_reference_key: UNIQUE (bank_reference)
+payos_test_case_archive_order_code_key: UNIQUE (order_code)
+payos_test_case_archive_payment_intent_id_key: UNIQUE (payment_intent_id)
+payos_test_case_archive_payment_link_id_key: UNIQUE (payment_link_id)
+payos_test_case_archive_payos_request_id_key: UNIQUE (payos_request_id)
+payos_test_case_archive_webhook_id_key: UNIQUE (webhook_id)
+```
+
+### Chỉ mục
+```sql
+CREATE INDEX payos_test_archive_restaurant ON public.payos_test_case_archive USING btree (restaurant_id, archived_at);
+CREATE INDEX payos_test_archive_session ON public.payos_test_case_archive USING btree (session_id);
+CREATE UNIQUE INDEX payos_test_case_archive_alert_id_key ON public.payos_test_case_archive USING btree (alert_id);
+CREATE UNIQUE INDEX payos_test_case_archive_bank_reference_key ON public.payos_test_case_archive USING btree (bank_reference);
+CREATE UNIQUE INDEX payos_test_case_archive_order_code_key ON public.payos_test_case_archive USING btree (order_code);
+CREATE UNIQUE INDEX payos_test_case_archive_payment_intent_id_key ON public.payos_test_case_archive USING btree (payment_intent_id);
+CREATE UNIQUE INDEX payos_test_case_archive_payment_link_id_key ON public.payos_test_case_archive USING btree (payment_link_id);
+CREATE UNIQUE INDEX payos_test_case_archive_payos_request_id_key ON public.payos_test_case_archive USING btree (payos_request_id);
+CREATE UNIQUE INDEX payos_test_case_archive_pkey ON public.payos_test_case_archive USING btree (id);
+CREATE UNIQUE INDEX payos_test_case_archive_webhook_id_key ON public.payos_test_case_archive USING btree (webhook_id);
 ```
 
 ## payroll_line

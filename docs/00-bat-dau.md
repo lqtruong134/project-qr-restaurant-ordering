@@ -1,5 +1,10 @@
 # Học và làm chủ hệ thống gọi món QR
 
+## Lưu trữ riêng hai hồ sơ thử payOS — 25/10/2026
+
+Bổ sung công cụ mặc định chỉ dry-run cho A01/ffc78214 và A02/300659c7, mỗi khoản 5.000 VND có tiền thật. Giữ nguyên lịch sử/số dư, không reset hoặc giả đã đối soát; [phương án, phạm vi bảng và runbook](reference/payos-test-archive-20261025.md) cần reviewer duyệt trước khi operator thực thi. Không thao tác production trong tác vụ này.
+
+
 ## Rà soát trước AI — 25/10/2026
 
 PR #3 và #4 đã nằm trong baseline `main` `67ad446`. Đợt audit mới cải thiện thanh toán khách, bill và QR bàn cho STAFF; [biên bản](reference/pre-ai-audit-20261025.md) phân biệt các phần đã test và production chưa xác minh. Nội dung ngày cũ được giữ theo thời điểm ghi nhận.

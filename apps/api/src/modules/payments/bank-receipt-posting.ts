@@ -50,6 +50,18 @@ export async function lockBankReferences(
 export async function assertBankReferenceAvailable(c: Connection, input: BankIdentity) {
   const reference = input.reference;
   await lockBankReferences(c, [input]);
+  if (
+    (
+      await c.query(
+        'SELECT id FROM payos_test_case_archive WHERE bank_reference=$1 OR payment_intent_id=$2 LIMIT 1',
+        [reference, input.paymentIntentId],
+      )
+    ).rowCount
+  )
+    reject(
+      'Tham chiếu thuộc khoản thử đã lưu trữ; không được ghi sổ hoặc gán sang khoản thu khác.',
+      409,
+    );
   const claims = input.receiverDigest
     ? (
         await c.query(

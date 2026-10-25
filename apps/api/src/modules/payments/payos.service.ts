@@ -1,3 +1,11 @@
+import {
+  archivedPayosIntent,
+  requireOperationalPayosIntent,
+  captureArchivedPayosWebhook,
+  captureArchivedPayosWebhookWithConnection,
+  appendArchiveEvidence,
+  archiveHash,
+} from './test-case-archive.service.js';
 import { assertBankReferenceAvailable } from './bank-receipt-posting.js';
 import {
   paymentVerificationJoin,
@@ -170,6 +178,21 @@ async function audit(
   reason: string,
   details: Record<string, unknown>,
 ) {
+  if (['PAYOS_PROVIDER_REPORTED', 'PAYOS_PROVIDER_VERIFIED'].includes(action)) {
+    const previous = (
+      await c.query(
+        `SELECT details FROM business_audit_event
+      WHERE restaurant_id=$1 AND resource_type='PAYMENT_INTENT' AND resource_id=$2 AND action=$3
+      AND created_at>=COALESCE((SELECT max(e.created_at) FROM business_audit_event e
+        WHERE e.restaurant_id=$1 AND e.resource_id=$2 AND e.action='PAYOS_RECONCILIATION_REQUIRED'),'epoch'::timestamptz)
+      ORDER BY created_at DESC,id DESC LIMIT 1`,
+        [restaurant, id, action],
+      )
+    ).rows[0];
+    if (previous && archiveHash(previous.details) === archiveHash(details)) {
+      return;
+    }
+  }
   await c.query(
     `INSERT INTO business_audit_event(restaurant_id,actor_id,action,resource_type,resource_id,reason,details,actor_type) VALUES($1,$2,$3,'PAYMENT_INTENT',$4,$5,$6,CASE WHEN $2::uuid IS NULL THEN 'SYSTEM' ELSE 'USER' END)`,
     [restaurant, actor, action, id, reason, JSON.stringify(details)],
@@ -272,6 +295,7 @@ export class PayosService {
         { type: 'USER', id: actor },
         { ...b, method: 'ONLINE' },
       );
+      await requireOperationalPayosIntent(c, this.restaurant, pi.id);
       const current = await one(c, 'SELECT * FROM payment_intent WHERE id=$1', [pi.id]);
       const old = (
         await c.query('SELECT id FROM payos_payment_request WHERE payment_intent_id=$1', [pi.id])
@@ -333,6 +357,7 @@ export class PayosService {
     await transaction(this.db, async (c) => {
       const ref = await one(c, 'SELECT session_id FROM payment_intent WHERE id=$1', [id]);
       await session(c, ref.session_id, this.restaurant, false);
+      await requireOperationalPayosIntent(c, this.restaurant, id);
       const pi = await one(c, "SELECT * FROM payment_intent WHERE id=$1 AND provider='PAYOS'", [
         id,
       ]);
@@ -362,6 +387,7 @@ export class PayosService {
     await transaction(this.db, async (c) => {
       const ref = await one(c, 'SELECT session_id FROM payment_intent WHERE id=$1', [id]);
       await session(c, ref.session_id, this.restaurant, false);
+      await requireOperationalPayosIntent(c, this.restaurant, id);
       await one(c, "SELECT id FROM payment_intent WHERE id=$1 AND provider='PAYOS'", [id]);
       await audit(
         c,
@@ -384,6 +410,7 @@ export class PayosService {
     await transaction(this.db, async (c) => {
       const ref = await one(c, 'SELECT session_id FROM payment_intent WHERE id=$1', [id]);
       await session(c, ref.session_id, this.restaurant);
+      await requireOperationalPayosIntent(c, this.restaurant, id);
       const pi = await one(c, 'SELECT * FROM payment_intent WHERE id=$1 FOR UPDATE', [id]);
       await requireCollectionOwner(c, pi.session_id, pi.support_request_id, actor);
       const q = await one(
@@ -421,6 +448,7 @@ export class PayosService {
         `SELECT q.*,p.session_id,p.amount,p.status AS intent_status,p.expires_at FROM payos_payment_request q JOIN payment_intent p ON p.id=q.payment_intent_id WHERE p.id=$1 FOR UPDATE OF q`,
         [id],
       );
+      if (await archivedPayosIntent(c, this.restaurant, id)) return null;
       if (q.lease_until && new Date(q.lease_until).getTime() > Date.now()) return null;
       if (!force && new Date(q.next_poll_at).getTime() > Date.now()) return null;
       const lease = await one(
@@ -631,6 +659,11 @@ export class PayosService {
       const ref = await one(c, 'SELECT session_id FROM payment_intent WHERE id=$1', [id]);
       const s = await session(c, ref.session_id, this.restaurant, false);
       const pi = await one(c, 'SELECT * FROM payment_intent WHERE id=$1 FOR UPDATE', [id]);
+      const archived = await archivedPayosIntent(c, this.restaurant, id);
+      if (archived) {
+        await appendArchiveEvidence(c, archived.id, 'PROVIDER_RESULT', { ...link });
+        return { status: 'ARCHIVED_TEST' };
+      }
       const q = await one(
         c,
         'SELECT * FROM payos_payment_request WHERE payment_intent_id=$1 FOR UPDATE',
@@ -1322,6 +1355,8 @@ export class PayosService {
     text(data.reference, 160);
     text(data.paymentLinkId, 160);
     this.observe('VERIFIED', { orderCode: String(data.orderCode) });
+    const archived = await captureArchivedPayosWebhook(this.db, this.restaurant, data);
+    if (archived) return archived;
     const minimal = {
       orderCode: data.orderCode,
       amount: data.amount,
@@ -1338,6 +1373,22 @@ export class PayosService {
     const hash = digest(JSON.stringify({ ...minimal, ...recipientProof }));
     const legacyHash = digest(JSON.stringify(minimal));
     const event = await transaction(this.db, async (c) => {
+      // Match the receipt/refresh/archive lock order: session first, bank reference second.
+      const bound = (
+        await c.query(
+          `SELECT p.session_id FROM payos_payment_request q
+        JOIN payment_intent p ON p.id=q.payment_intent_id JOIN table_session s ON s.id=p.session_id
+        JOIN dining_table t ON t.id=s.table_id WHERE q.order_code=$1 AND t.restaurant_id=$2`,
+          [data.orderCode, this.restaurant],
+        )
+      ).rows[0];
+      if (bound) await session(c, bound.session_id, this.restaurant, false);
+      const archiveResult = await captureArchivedPayosWebhookWithConnection(
+        c,
+        this.restaurant,
+        data,
+      );
+      if (archiveResult) return { archiveResult };
       await c.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
         'PAYOS:' + data.reference,
       ]);
@@ -1393,6 +1444,7 @@ export class PayosService {
         ],
       );
     });
+    if (event.archiveResult) return event.archiveResult;
     if (event.processing_status === 'PROCESSED') {
       this.observe('DUPLICATE', { orderCode: String(data.orderCode) });
       return { status: 'PROCESSED' };
@@ -1452,6 +1504,8 @@ export class PayosService {
       reject('Chưa đối chiếu được payOS; webhook cần gửi lại.', 503);
     }
     const result = await this.applyLink(ref.id, link, data, event.id);
+    // Archiving may have committed after the first webhook lookup. Its inbox now owns the evidence.
+    if (result.status === 'ARCHIVED_TEST') return result;
     if (result.status === 'AWAITING_PROVIDER') {
       this.observe(
         'RETRY_REQUIRED',
@@ -1492,7 +1546,7 @@ export class PayosService {
     if (!this.provider || !this.capabilities.online) return;
     const rows = (
       await this.db.pool.query(
-        `SELECT p.id FROM payos_payment_request q JOIN payment_intent p ON p.id=q.payment_intent_id JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND q.next_poll_at<=now() AND (q.status IN ('CREATE_PENDING','PENDING','PROCESSING','UNDERPAID','CANCEL_PENDING') OR (q.status='PAID' AND COALESCE(q.provider_status,'') NOT IN ('PAID','CANCELLED','EXPIRED','FAILED') AND EXISTS(SELECT 1 FROM payment_bank_evidence evidence WHERE evidence.payment_intent_id=p.id)) OR (q.status='ERROR' AND COALESCE(q.provider_status,'') NOT IN ('PAID','CANCELLED','EXPIRED','FAILED')) OR (q.reconciliation_status='OPEN' AND (
+        `SELECT p.id FROM payos_payment_request q JOIN payment_intent p ON p.id=q.payment_intent_id JOIN table_session s ON s.id=p.session_id JOIN dining_table t ON t.id=s.table_id WHERE t.restaurant_id=$1 AND NOT EXISTS(SELECT 1 FROM payos_test_case_archive archived WHERE archived.payment_intent_id=p.id) AND q.next_poll_at<=now() AND (q.status IN ('CREATE_PENDING','PENDING','PROCESSING','UNDERPAID','CANCEL_PENDING') OR (q.status='PAID' AND COALESCE(q.provider_status,'') NOT IN ('PAID','CANCELLED','EXPIRED','FAILED') AND EXISTS(SELECT 1 FROM payment_bank_evidence evidence WHERE evidence.payment_intent_id=p.id)) OR (q.status='ERROR' AND COALESCE(q.provider_status,'') NOT IN ('PAID','CANCELLED','EXPIRED','FAILED')) OR (q.reconciliation_status='OPEN' AND (
             COALESCE(q.provider_status,'') NOT IN ('PAID','CANCELLED','EXPIRED','FAILED') OR
             (q.reconciliation_reason=ANY($2::text[]) AND q.paid_amount<=p.amount
               AND jsonb_array_length(q.quarantined_transactions)=0)
@@ -1575,7 +1629,7 @@ export class PayosService {
            AND e.created_at>=q.resolved_at
          ORDER BY e.created_at DESC,e.id DESC LIMIT 1
        ) recovered ON true
-       WHERE t.restaurant_id=$1 AND
+       WHERE t.restaurant_id=$1 AND NOT EXISTS(SELECT 1 FROM payos_test_case_archive archived WHERE archived.payment_intent_id=p.id AND NOT archived.visible_in_operations) AND
          (q.reconciliation_status='OPEN' OR q.id IN (SELECT id FROM recent_history) OR (q.status='ERROR' AND s.session_status='ACTIVE' AND p.status<>'SUCCEEDED'))
        ORDER BY (q.reconciliation_status='OPEN') DESC NULLS LAST,q.updated_at DESC,q.id DESC`,
         [this.restaurant],
@@ -1641,6 +1695,7 @@ export class PayosService {
     return transaction(this.db, async (c) => {
       const ref = await one(c, 'SELECT session_id FROM payment_intent WHERE id=$1', [id]);
       const s = await session(c, ref.session_id, this.restaurant, false);
+      await requireOperationalPayosIntent(c, this.restaurant, id);
       const pi = await one(c, 'SELECT * FROM payment_intent WHERE id=$1 FOR UPDATE', [id]);
       const q = await one(
         c,

@@ -1,0 +1,68 @@
+{
+  "format": "payos-test-archive-verification-v1",
+  "scope": "A01/ffc78214 + A02/300659c7, 5000 VND each",
+  "baseline": "aa4eb8acaf3fc65ef42639c5e815a1f198ed70b3",
+  "verifiedAt": "2026-10-26",
+  "environment": {
+    "productionAccessed": false,
+    "realProviderContacted": false,
+    "realFundsUsedForTests": false,
+    "database": "isolated PostgreSQL 18 tmpfs, random per-suite DBs"
+  },
+  "checks": {
+    "unit": {
+      "passed": 400,
+      "failed": 0
+    },
+    "targetedIntegration": {
+      "archive": 40,
+      "existingPayosAndBank": 172,
+      "passed": 212,
+      "failed": 0,
+      "workers": 1
+    },
+    "browser": {
+      "passed": 6,
+      "failed": 0,
+      "projects": [
+        "desktop",
+        "mobile",
+        "webkit-mobile"
+      ]
+    },
+    "deploymentTools": {
+      "passed": 29,
+      "failed": 0,
+      "existingOptInNotSelected": 1
+    },
+    "formatLintTypecheck": "PASS",
+    "basicSecretCheck": "PASS"
+  },
+  "rehearsal": {
+    "pgDumpRestore": "PASS",
+    "businessTables": 74,
+    "archivedCases": 2,
+    "originalIntentAuditEvents": 19073,
+    "proofFiles": 1,
+    "originalLedgerAndOtherSessionsUnchanged": true,
+    "foreignKeysMatch": true,
+    "restoredPostingGuardBlocked": true,
+    "repeatedWebhookPosted": 0,
+    "allocatorAndProofHashesMatch": true
+  },
+  "productionExecution": {
+    "merged": false,
+    "deployed": false,
+    "productionMigrated": false,
+    "productionRowsDeleted": 0,
+    "productionRowsUpdated": 0
+  },
+  "operatorRequirements": [
+    "Review private full UUIDs/restaurant/pre-images and exact counts",
+    "Fence every writer",
+    "Verified fresh backup and isolated restore before apply",
+    "Explicit plan/backup hash, active ADMIN UUID, reason and real-test-funds acknowledgement",
+    "Post-archive backup before reopening compatible writers",
+    "Visibility rollback never removes the posting tombstone"
+  ]
+}

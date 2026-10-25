@@ -1,5 +1,10 @@
 # 06. Hiểu tiền, hóa đơn và điều kiện đóng bàn
 
+## Lưu trữ ngoại lệ test có tiền thật — 25/10/2026
+
+Hai intent A01/A02 được lưu riêng bằng marker bất biến và inbox webhook riêng; status PAID của provider không biến thành receipt hoặc phân bổ. Chặn polling/refresh/ghi sổ lại và giữ nguyên công nợ. [Runbook riêng](reference/payos-test-archive-20261025.md) liệt kê chính xác bảng/bản ghi, kiểm tra full UUID/checksum và rollback hiển thị; không hỗ trợ xóa vật lý hay hoàn tiền giả.
+
+
 ## Nền tảng thanh toán M2/M3 — 23/10/2026
 
 Nhánh `feat/payos-payment-platform`, PR #3 bổ sung xác minh tự động tài khoản MB chính, chứng từ ngân hàng ADMIN hai bước, shared posting và nguồn xác minh rõ ràng cho cả ba vai trò. Kết quả nghiệm thu phần mềm hiện hành ở [bài 15](15-doi-chieu.md); [thiết kế](reference/payos-platform-design.md), [API](17-api.md) và [backup/rollback](26-trien-khai-qtruongres.md) đã cập nhật. Chưa merge, chưa triển khai hoặc xác nhận khoản A10 thật; test chỉ dùng dữ liệu tổng hợp.

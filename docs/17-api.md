@@ -1,5 +1,10 @@
 # 17. Danh mục API hiện hành
 
+## Hồ sơ thử payOS đã lưu trữ — 25/10/2026
+
+`GET /core/admin/payment-test-archives` chỉ dành cho `admin.workspace`, trả metadata bảng/phiên, số tiền, số audit/inbox và cờ chưa xử lý tài chính/chặn posting. Không trả raw webhook, chứng từ, tài khoản hoặc reference ngân hàng. Không có API web cho archive/rollback: operator dùng CLI riêng mặc định dry-run với xác nhận hash/full UUID. [Runbook](reference/payos-test-archive-20261025.md).
+
+
 ## Bổ sung trước AI — 25/10/2026
 
 - `POST /guest/payment-requests`: body client mới `{ "requestId": "<UUID mới cho thao tác>" }`. Không bắt buộc phương thức. Retry cùng mã/cùng guest trả yêu cầu cũ kể cả đã xử lý; khác nội dung trả 409. Không tạo payment intent hoặc transaction. Khóa phiên và mapping bền vững bảo vệ yêu cầu đồng thời; mã mới được ánh xạ cả khi tái dùng yêu cầu đang mở.

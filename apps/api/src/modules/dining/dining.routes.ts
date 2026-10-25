@@ -118,6 +118,7 @@ export function registerOperations(app: FastifyInstance, db: Database, restauran
     AND e.details->>'alertId'=a.id::text ORDER BY e.created_at DESC,e.id DESC LIMIT 1) report ON true
   LEFT JOIN order_item item ON item.id=report.resource_id
   WHERE t.restaurant_id=$1 AND a.status<>'RESOLVED'
+    AND NOT EXISTS(SELECT 1 FROM payos_test_case_archive archived WHERE archived.alert_id=a.id AND NOT archived.visible_in_operations)
     AND (a.alert_type<>'REFUND_REQUIRED' OR (COALESCE(account.refund_due_amount,0)>0
       AND ($2 OR least(COALESCE(account.refund_due_amount,0),COALESCE(refund_work.approved_amount,0))>0)))
   ORDER BY a.created_at`,

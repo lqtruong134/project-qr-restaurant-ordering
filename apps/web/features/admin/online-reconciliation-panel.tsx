@@ -1,5 +1,9 @@
 'use client';
-import type { PaymentReconciliationCase, UnmatchedPaymentWebhook } from '@thesis/contracts';
+import type {
+  ArchivedPayosTestCase,
+  PaymentReconciliationCase,
+  UnmatchedPaymentWebhook,
+} from '@thesis/contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Action, api, vnd } from '../shared/components';
 import { Empty, Icon, Modal, Search, matches } from '../shared/primitives';
@@ -287,6 +291,8 @@ export default function OnlineReconciliationPanel({
     [bankEvidenceId, setBankEvidenceId] = useState<string>();
   const [unmatched, setUnmatched] = useState<UnmatchedPaymentWebhook[]>([]),
     [inboxError, setInboxError] = useState('');
+  const [archives, setArchives] = useState<ArchivedPayosTestCase[]>([]);
+  const [archiveError, setArchiveError] = useState('');
   const loading = useRef(false);
   const refresh = useCallback(async () => {
     if (loading.current) return;
@@ -295,6 +301,7 @@ export default function OnlineReconciliationPanel({
       const results = await Promise.allSettled([
         api<PaymentReconciliationCase[]>('/core/admin/payment-reconciliation'),
         api<UnmatchedPaymentWebhook[]>('/core/admin/payment-webhooks/unmatched'),
+        api<ArchivedPayosTestCase[]>('/core/admin/payment-test-archives'),
       ]);
       if (results[0].status === 'fulfilled') {
         setRows(results[0].value);
@@ -304,6 +311,10 @@ export default function OnlineReconciliationPanel({
         setUnmatched(results[1].value);
         setInboxError('');
       } else setInboxError('Chưa cập nhật được thông báo payOS chưa khớp.');
+      if (results[2].status === 'fulfilled') {
+        setArchives(results[2].value);
+        setArchiveError('');
+      } else setArchiveError('Chưa tải được hồ sơ thử đã lưu trữ.');
     } finally {
       loading.current = false;
       setLoaded(true);
@@ -472,6 +483,52 @@ export default function OnlineReconciliationPanel({
           </div>
         )}
       </section>
+      {(archives.length > 0 || archiveError) && (
+        <details className={styles.history}>
+          <summary>
+            <span>Hồ sơ thử đã lưu trữ ({archives.length})</span>
+            {archives.some((row) => row.unexpected_webhooks > 0) && (
+              <strong> · Có thông báo mới cần kiểm tra</strong>
+            )}
+          </summary>
+          <p className="small-note">
+            Có tiền thật. Lưu trữ không đồng nghĩa đã thu, hoàn hoặc đối soát xong.
+          </p>
+          {archiveError && <p role="alert">{archiveError}</p>}
+          {archives.map((row) => (
+            <article
+              className="online-reconciliation-card"
+              key={row.id}
+              aria-label={`Hồ sơ thử đã lưu trữ bàn ${row.table_code}`}
+            >
+              <h3>
+                Bàn {row.table_code}
+                <SessionReference id={row.session_id} />
+              </h3>
+              <p>
+                {vnd(row.amount)} ·{' '}
+                {row.recorded_amount === '0'
+                  ? 'Chưa ghi sổ'
+                  : `Đã ghi sổ ${vnd(row.recorded_amount)}`}{' '}
+                · Chặn ghi nhận tự động
+              </p>
+              <p className="small-note">
+                Lưu trữ {restaurantDateTime(row.archived_at)} · Giữ{' '}
+                {row.original_audit_count.toLocaleString('vi-VN')} sự kiện audit
+              </p>
+              {row.visible_in_operations && (
+                <p className="small-note">Đã đưa trở lại hàng đợi kiểm tra; vẫn chặn ghi sổ.</p>
+              )}
+              {row.unexpected_webhooks > 0 && (
+                <p role="alert">
+                  Có {row.unexpected_webhooks} thông báo mới không khớp hồ sơ. Cần kiểm tra riêng;
+                  chưa ghi nhận tiền.
+                </p>
+              )}
+            </article>
+          ))}
+        </details>
+      )}
       {bankEvidenceId && (
         <BankEvidenceDialog
           id={bankEvidenceId}
