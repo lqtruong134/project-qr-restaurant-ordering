@@ -205,11 +205,8 @@ test('guest calls staff, cash and multiple bank receipts auto-update both roles 
       .click();
     const assistance = guest.getByRole('form', { name: 'Yêu cầu thanh toán' });
     await expect(assistance.getByRole('button', { name: 'Online (payOS)' })).toHaveCount(0);
-    await assistance.getByRole('button', { name: 'Tiền mặt', exact: true }).click();
-    await assistance.getByRole('button', { name: 'Báo nhân viên thu tiền', exact: true }).click();
-    await expect(guest.locator('.guest-payment-sent')).toContainText(
-      'Bạn đã báo nhân viên hỗ trợ thanh toán',
-    );
+    await assistance.getByRole('button', { name: 'Gọi nhân viên thanh toán', exact: true }).click();
+    await expect(guest.locator('.guest-payment-sent')).toContainText('Đã gọi nhân viên thanh toán');
     await guest.clock.pauseAt(await guest.evaluate(() => Date.now() + 1000));
     await guest.waitForLoadState('networkidle');
     await staff.goto('/workspace/staff');
@@ -249,16 +246,13 @@ test('guest calls staff, cash and multiple bank receipts auto-update both roles 
         })
       ).status,
     ).toBe('RESOLVED');
-    // Cash completes its assigned collection. The guest explicitly requests online assistance next.
+    // Cash completes its assigned collection. The guest calls staff again; staff selects the next payment method.
     await guest.clock.runFor(5500);
     const bankAssistance = guest.getByRole('form', { name: 'Yêu cầu thanh toán' });
-    await bankAssistance.getByRole('button', { name: 'Chuyển khoản', exact: true }).click();
     await bankAssistance
-      .getByRole('button', { name: 'Báo nhân viên thu tiền', exact: true })
+      .getByRole('button', { name: 'Gọi nhân viên thanh toán', exact: true })
       .click();
-    await expect(guest.locator('.guest-payment-sent')).toContainText(
-      'Bạn đã báo nhân viên hỗ trợ thanh toán',
-    );
+    await expect(guest.locator('.guest-payment-sent')).toContainText('Đã gọi nhân viên thanh toán');
     await staff.clock.runFor(11000);
     const [bankClaim] = await Promise.all([
       staff.waitForResponse(
@@ -430,7 +424,12 @@ test('guest calls staff, cash and multiple bank receipts auto-update both roles 
     await dialog.getByRole('button', { name: 'Phiếu thường', exact: true }).click();
     const receipt = dialog.getByRole('region', { name: 'Phiếu thanh toán', exact: true });
     await expect(receipt).toContainText('Online (payOS)');
-    await expect(receipt).toContainText('Hệ thống xác nhận');
+    await expect(
+      receipt
+        .locator('.receipt-totals > div')
+        .filter({ hasText: 'Đã thanh toán' })
+        .locator('strong'),
+    ).toHaveText('450.000 đ');
     await expect(receipt).toContainText('450.000 đ');
     await staff.emulateMedia({ media: 'print' });
     const printBounds = await receipt.boundingBox();

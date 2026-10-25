@@ -168,7 +168,7 @@ const payosDescriptions: Record<string, string> = {
   'POST /guest/payments':
     'Endpoint cũ đã ngừng tạo khoản thu. Cần guest cookie và luôn trả 403; khách dùng POST /guest/payment-requests để gọi nhân viên. Không xóa khoản thu lịch sử.',
   'POST /guest/payment-requests':
-    'Khách gọi nhân viên thu tiền, không tạo payment intent và không đóng phiên. CASH/BANK_TRANSFER; ONLINE chỉ được gửi như lời gọi khi payOS đã cấu hình. Nhân viên nhận việc trước khi bắt đầu thu.',
+    'Khách gọi nhân viên thanh toán bằng requestId UUID; không cần chọn phương thức, không tạo payment intent hoặc ghi tiền. Gửi lại cùng requestId trả về yêu cầu cũ kể cả đã hoàn tất; mã mới có thể tái dùng yêu cầu đang mở. Mã trùng nhưng nội dung khác bị từ chối. method là tùy chọn tương thích client cũ; ONLINE cần payOS đã cấu hình. Nhân viên nhận việc rồi chọn phương thức thu thực tế.',
   'POST /core/sessions/:id/payments':
     'Chỉ STAFF bắt đầu thu tiền trong phiên còn mở. Server kiểm tra số tiền nguyên VND, dư nợ sau giảm/VAT, khoản giữ chỗ, phạm vi khách và quyền phụ trách. ONLINE dùng payOS; gọi SDK ngoài transaction. Giữ cùng requestId/body khi thử lại. Sau create, bill trả online.status/QR/link/số tiền đã nhận và còn cần chuyển; lỗi mạng giữ chỗ để tránh thu trùng.',
   'POST /core/payments/:id/confirm':
@@ -282,6 +282,15 @@ const discountProperties = {
   status: { type: 'string', enum: ['ACTIVE', 'PAUSED', 'ARCHIVED'] },
 };
 const requestSchemas: Record<string, unknown> = {
+  'POST /guest/payment-requests': {
+    type: 'object',
+    description:
+      'Client mới gửi requestId UUID để retry an toàn. method chỉ dành cho tương thích client cũ, không phải chứng cứ đã trả tiền.',
+    properties: {
+      requestId: { type: 'string', format: 'uuid' },
+      method: { type: 'string', enum: ['CASH', 'BANK_TRANSFER', 'ONLINE'] },
+    },
+  },
   'POST /guest/menu-assistant/recommendations': assistantRequestSchema,
   'POST /core/sessions/:id/payments': {
     type: 'object',
@@ -543,7 +552,7 @@ const examples: Record<string, unknown> = {
     amount: '55000',
   },
   'POST /core/payments/:id/confirm': { amount: '55000', receivedAmount: '100000' },
-  'POST /guest/payment-requests': { method: 'BANK_TRANSFER' },
+  'POST /guest/payment-requests': { requestId: id },
   'POST /core/payments/:id/refresh': {},
   'POST /core/payments/:id/cancel': {},
   'POST /core/admin/payment-reconciliation/:id/bank-evidence/proof': {

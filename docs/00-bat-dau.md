@@ -1,5 +1,10 @@
 # Học và làm chủ hệ thống gọi món QR
 
+## Rà soát trước AI — 25/10/2026
+
+PR #3 và #4 đã nằm trong baseline `main` `67ad446`. Đợt audit mới cải thiện thanh toán khách, bill và QR bàn cho STAFF; [biên bản](reference/pre-ai-audit-20261025.md) phân biệt các phần đã test và production chưa xác minh. Nội dung ngày cũ được giữ theo thời điểm ghi nhận.
+
+
 ## Review nền tảng payOS M2/M3 — 23/10/2026
 
 PR #3 đã có quy tắc signed GET/MB tin cậy, ADMIN đối chiếu ngân hàng bằng chứng từ hai bước, shared receipt chống ghi trùng và giao diện ba vai trò theo đúng nguồn xác minh. Chưa merge hoặc triển khai. Đọc [nghiệp vụ](06-thanh-toan.md), [API](17-api.md), [kiểm chứng hiện hành](15-doi-chieu.md) và [kế hoạch backup/rollback/làm sạch an toàn](26-trien-khai-qtruongres.md); các mục cũ bên dưới là lịch sử.

@@ -81,6 +81,53 @@ async function issued() {
   const code = await ok('/core/tables/' + t.table.id + '/access-code', 'pv001', {});
   return { ...t, ...code };
 }
+it('staff reads the existing table QR without rotating it or opening a session', async () => {
+  const t = await fresh();
+  const before = await db.prisma.table_qr_token.findMany({ where: { table_id: t.table.id } });
+  const response = await req('/core/tables/' + t.table.id + '/qr', 'pv001');
+  expect(response.statusCode, response.body).toBe(200);
+  expect(response.headers['cache-control']).toContain('no-store');
+  expect(response.json()).toMatchObject({
+    available: true,
+    table: t.table.name,
+    joinPath: '/guest#' + t.token,
+  });
+  expect(await db.prisma.table_qr_token.findMany({ where: { table_id: t.table.id } })).toEqual(
+    before,
+  );
+  expect(await db.prisma.table_session.count({ where: { table_id: t.table.id } })).toBe(0);
+  expect((await req('/core/tables/' + t.table.id + '/qr', 'bep001')).statusCode).toBe(403);
+  expect((await req('/core/tables/' + t.table.id + '/qr', '')).statusCode).toBe(401);
+  expect((await req('/core/tables/' + t.table.id + '/qr', 'pv001', {})).statusCode).toBe(403);
+  await db.prisma.table_qr_token.updateMany({
+    where: { table_id: t.table.id },
+    data: { issued_at: new Date(Date.now() - 120000), expires_at: new Date(Date.now() - 60000) },
+  });
+  expect(await ok('/core/tables/' + t.table.id + '/qr', 'pv001')).toEqual({ available: false });
+});
+
+it('table QR read does not disclose inactive or other-restaurant tables', async () => {
+  const t = await fresh();
+  await db.prisma.dining_table.update({ where: { id: t.table.id }, data: { is_active: false } });
+  expect(await ok('/core/tables/' + t.table.id + '/qr', 'pv001')).toEqual({ available: false });
+  const foreign = await db.prisma.restaurant.create({
+    data: { name: 'Nhà hàng thử quyền' },
+  });
+  const area = await db.prisma.dining_area.create({
+    data: { restaurant_id: foreign.id, code: 'TEST', name: 'Khu riêng' },
+  });
+  const table = await db.prisma.dining_table.create({
+    data: {
+      restaurant_id: foreign.id,
+      area_id: area.id,
+      code: 'TEST',
+      name: 'Bàn riêng',
+      capacity: 2,
+    },
+  });
+  expect(await ok('/core/tables/' + table.id + '/qr', 'pv001')).toEqual({ available: false });
+});
+
 it('provides an existing code for a claimed assistance request without repeating verification', async () => {
   const t = await issued();
   const version = (await db.prisma.table_session.findUniqueOrThrow({ where: { id: t.sessionId } }))

@@ -406,6 +406,22 @@ test('guest sees inclusive VAT, explicit eligible conditions and discounted own 
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });
     await fits(page);
+    const head = page.locator('.guest-bill-lines .compact-bill-head');
+    if (width <= 560) await expect(head).toBeHidden();
+    else {
+      const rightEdges = await page.locator('.guest-bill-lines').evaluate((root) => {
+        const head = root.querySelector('.compact-bill-head')!;
+        const row = root.querySelector('.guest-bill-item .compact-bill-row')!;
+        return [head, row].map((el) =>
+          Array.from(el.children)
+            .slice(1)
+            .map((cell) => cell.getBoundingClientRect().right),
+        );
+      });
+      rightEdges[0]!.forEach((edge, index) =>
+        expect(Math.abs(edge - rightEdges[1]![index]!)).toBeLessThanOrEqual(1),
+      );
+    }
   }
   await page.screenshot({
     path: info.outputPath('guest-discount-vat-320.png'),
@@ -481,9 +497,28 @@ test('first payment locks promotion and cash change remains separate from refund
   await expect(receipt.locator('.receipt-money-breakdown')).toContainText('Tiền thối đã trả');
   await expect(receipt.locator('.receipt-money-breakdown')).toContainText('55.900 đ');
   await expect(receipt.locator('.receipt-money-breakdown')).not.toContainText('Đã hoàn lại khách');
+  async function alignedPaymentAmounts() {
+    const entries = await receipt.locator('.receipt-payment-line').evaluateAll((rows) =>
+      rows.map((row) => {
+        const label = row.querySelector(':scope > span')!.getBoundingClientRect();
+        const amount = row.querySelector(':scope > strong')!.getBoundingClientRect();
+        return {
+          gap: amount.left - label.right,
+          rightGap: row.getBoundingClientRect().right - amount.right,
+        };
+      }),
+    );
+    expect(entries).toHaveLength(2);
+    for (const entry of entries) {
+      expect(entry.gap).toBeGreaterThanOrEqual(8);
+      expect(Math.abs(entry.rightGap)).toBeLessThanOrEqual(1);
+    }
+  }
+
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });
     await fits(page, dialog);
+    await alignedPaymentAmounts();
   }
   await page.screenshot({
     path: info.outputPath('receipt-discount-split-320.png'),
@@ -493,6 +528,7 @@ test('first payment locks promotion and cash change remains separate from refund
   await page.emulateMedia({ media: 'print' });
   await expect(receipt).toBeVisible();
   expect(await receipt.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  await alignedPaymentAmounts();
   await page.screenshot({
     path: info.outputPath('receipt-discount-print.png'),
     fullPage: true,

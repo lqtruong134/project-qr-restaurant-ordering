@@ -1,5 +1,11 @@
 # 17. Danh mục API hiện hành
 
+## Bổ sung trước AI — 25/10/2026
+
+- `POST /guest/payment-requests`: body client mới `{ "requestId": "<UUID mới cho thao tác>" }`. Không bắt buộc phương thức. Retry cùng mã/cùng guest trả yêu cầu cũ kể cả đã xử lý; khác nội dung trả 409. Không tạo payment intent hoặc transaction. Khóa phiên và mapping bền vững bảo vệ yêu cầu đồng thời; mã mới được ánh xạ cả khi tái dùng yêu cầu đang mở.
+- `GET /core/tables/:id/qr`: ADMIN hoặc STAFF cùng nhà hàng xem QR đang còn hiệu lực, response `private, no-store`. Bàn/khu vực/nhà hàng không hoạt động hoặc thiếu token hợp lệ trả `{available:false}`. STAFF không được POST để tạo/đổi QR. Guest vẫn qua kiểm tra mã vào bàn. Không có thông tin thanh toán hoặc quyền nhân viên trong QR gọi món.
+
+
 ## Chứng từ ngân hàng ADMIN và provenance — 23/10/2026
 
 Có **184 thao tác nghiệp vụ / 193 route tổng** (7 auth/workspace, 2 health; không tính HEAD). Nhóm `/core/admin/payment-reconciliation/:id/bank-evidence` bổ sung GET facts/history, POST `/proof`, GET `/proof/:proofId`, POST `/preview` và POST `/confirm`. Chỉ ADMIN còn quyền đúng tenant; mutation kiểm CSRF/Origin, proof 2 MB và token preview 2 phút. Chứng từ không có URL public. Xem request/examples trong [Swagger hiện hành](core45/openapi-paths.json) và [nghiệp vụ](06-thanh-toan.md).

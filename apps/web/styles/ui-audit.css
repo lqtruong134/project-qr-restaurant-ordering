@@ -114,6 +114,9 @@
   padding-top: 12px;
   border-top: 1px solid var(--line);
 }
+.guest-experience .guest-bill-item > .compact-bill-row {
+  display: grid;
+}
 .guest-experience .compact-bill-row > :nth-child(n + 2) {
   font-variant-numeric: tabular-nums;
 }
@@ -211,6 +214,7 @@
 }
 
 .guest-experience .guest-bill-lines .compact-bill-row {
+  gap: 12px;
   grid-template-columns: minmax(0, 1fr) 56px 110px 120px;
 }
 .menu-manager-toolbar {

@@ -155,7 +155,7 @@ export function PromotionSelection({
       {locked ? (
         <p className="small-note">
           {paidLock
-            ? 'Bàn đã bắt đầu thanh toán. Khuyến mãi đã được chốt cho các món hiện có; món gọi thêm tính theo giá thực đơn và không được giảm tiếp.'
+            ? 'Ưu đãi đã chốt; món gọi thêm tính theo giá thực đơn, không áp dụng ưu đãi này.'
             : 'Đang có khoản thu chờ xác nhận. Hủy khoản thu hoặc chờ xử lý xong trước khi đổi ưu đãi.'}
         </p>
       ) : (

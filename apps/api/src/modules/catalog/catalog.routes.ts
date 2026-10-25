@@ -3,6 +3,7 @@ import { listMenuPromotions, productPromotionField } from '@thesis/database/menu
 import { MenuImageError, validateMenuImageUrl } from '@thesis/database/menu-images';
 import { registerImages } from './images.routes.js';
 import { comboCatalogFields, configureCombo, refreshDependentCombos } from './combo.service.js';
+import { serviceStaff } from '../support/support.service.js';
 import { readPolicy } from '../risk/policy.service.js';
 import type { FastifyInstance } from 'fastify';
 import type { Database } from '@thesis/database';
@@ -290,13 +291,18 @@ export function registerCatalog(
       return { joinPath: '/guest#' + token };
     }),
   );
-  app.get('/core/tables/:id/qr', { config: admin }, async (r) =>
-    db.pool
-      .query(
-        "SELECT q.token_ciphertext,t.name FROM table_qr_token q JOIN dining_table t ON t.id=q.table_id JOIN dining_area a ON a.id=t.area_id WHERE q.table_id=$1 AND t.restaurant_id=$2 AND t.is_active AND a.is_active AND q.status='ACTIVE' AND (q.expires_at IS NULL OR q.expires_at>now()) ORDER BY q.version_no DESC LIMIT 1",
-        [idParam(r), restaurant],
-      )
-      .then((result) => {
+  app.get(
+    '/core/tables/:id/qr',
+    { config: { permission: ['admin.workspace', 'staff.workspace'] } },
+    (r, reply) => {
+      reply.header('Cache-Control', 'private, no-store');
+      return transaction(db, async (c) => {
+        if (!r.identity!.permissions.includes('admin.workspace'))
+          await serviceStaff(c, [r.identity!.id], restaurant);
+        const result = await c.query(
+          "SELECT q.token_ciphertext,t.name FROM table_qr_token q JOIN dining_table t ON t.id=q.table_id JOIN dining_area a ON a.id=t.area_id JOIN restaurant r ON r.id=t.restaurant_id WHERE q.table_id=$1 AND t.restaurant_id=$2 AND t.is_active AND a.is_active AND r.status='ACTIVE' AND q.status='ACTIVE' AND (q.expires_at IS NULL OR q.expires_at>now()) ORDER BY q.version_no DESC LIMIT 1",
+          [idParam(r), restaurant],
+        );
         const row = result.rows[0];
         if (!row?.token_ciphertext) return { available: false };
         return {
@@ -304,6 +310,7 @@ export function registerCatalog(
           table: row.name,
           joinPath: '/guest#' + decryptQrToken(row.token_ciphertext, qrSecret),
         };
-      }),
+      });
+    },
   );
 }

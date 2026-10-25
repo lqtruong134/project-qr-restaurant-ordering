@@ -213,7 +213,7 @@
   font-size: inherit;
 }
 .receipt-payment-entry {
-  display: block !important;
+  display: block;
   padding: 6px 0;
   border-bottom: 1px dashed #ccc;
 }

@@ -1,5 +1,14 @@
 # 25. Khách gọi thanh toán — nhân viên thu tiền tại bàn
 
+## Gọi thanh toán và phiếu cho khách — 25/10/2026
+
+Khách chọn **Gọi nhân viên thanh toán**, không phải chọn tiền mặt/chuyển khoản. Yêu cầu BILL chưa tạo khoản thu hoặc ghi tiền; STAFF nhận việc rồi chọn phương thức thực tế. payOS giữ luồng riêng và chỉ giảm nợ sau xác minh/phân bổ hợp lệ.
+
+Client mới gửi `requestId` UUID tới `POST /guest/payment-requests`; giữ cùng mã khi retry mất mạng, dùng mã mới cho thao tác mới. Backend giữ mapping trong `payment_assistance_submission`, khóa phiên trước khi kiểm tra/tạo, tái dùng yêu cầu đang mở và lưu cả các mã tái dùng. Retry sau RESOLVED trả đúng yêu cầu cũ; yêu cầu mới sau đó được tạo khi còn nợ. `method` chỉ còn tùy chọn tương thích client cũ.
+
+Phiếu khách bỏ phần thu tiền rỗng và giải thích nội bộ; giữ số tiền phải trả, VAT theo snapshot, phương thức đã thu, tiền khách đưa/thừa và hoàn thực tế. Dữ liệu lưu và các guard tài chính không đổi. Phiếu tạm tính khác phiếu chốt và chưa thay thế hóa đơn điện tử.
+
+
 ## Luồng thu tiền và xử lý ngoại lệ mới — 19/10/2026
 
 Hướng dẫn này áp dụng cho nhánh **`fix/payos-payment-experience`**, thay cho mô tả cũ bên dưới về nhập mã hoàn ngoài để đóng đối soát và bắt kiểm tra lại thủ công ở giao dịch bình thường. Chưa deploy hoặc chạy giao dịch thật trong đợt cập nhật. Tình huống 5.000đ do chủ dự án phản ánh chưa được truy vết production trong đợt này; không coi màn hình payOS hoặc QR biến mất là chứng cứ đã trả hóa đơn. [Bài 06](06-thanh-toan.md) giải thích audit, số tiền và giới hạn bằng chứng; [bài 15](15-doi-chieu.md) chốt kết quả kiểm thử.

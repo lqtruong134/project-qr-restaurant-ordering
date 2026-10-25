@@ -30,7 +30,8 @@ export function GuestPaymentSummary({
     totals.outstanding > 0n
       ? requests.filter(
           (request) =>
-            request.payment_method && ['NEW', 'ACKNOWLEDGED'].includes(String(request.status)),
+            request.request_type === 'BILL' &&
+            ['NEW', 'ACKNOWLEDGED'].includes(String(request.status)),
         )
       : [];
   return (

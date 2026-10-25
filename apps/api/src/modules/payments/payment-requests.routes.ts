@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import type { Database } from '@thesis/database';
 import {
   guest,
+  digest,
+  uuid,
   object,
   one,
   reject,
@@ -21,32 +23,64 @@ export function registerPaymentRequests(
   app.post('/guest/payment-requests', { config: { public: true } }, (r) =>
     transaction(db, async (c) => {
       const p = await guest(c, r, restaurant),
-        method = text(object(r.body).method);
-      if (!['CASH', 'BANK_TRANSFER', 'ONLINE'].includes(method))
-        reject('Chọn tiền mặt, chuyển khoản hoặc online.', 400);
+        body = object(r.body),
+        method = body.method == null ? null : text(body.method),
+        requestId = body.requestId == null ? null : uuid(body.requestId),
+        requestHash = digest(JSON.stringify({ method }));
+      // Keep older clients compatible; choosing a method is no longer required to call staff.
+      if (method !== null && !['CASH', 'BANK_TRANSFER', 'ONLINE'].includes(method))
+        reject('Hình thức thanh toán không hợp lệ.', 400);
       if (method === 'ONLINE' && !onlineAvailable)
-        reject('Thanh toán online chưa được cấu hình; chọn tiền mặt hoặc chuyển khoản.', 400);
+        reject('Thanh toán online chưa được cấu hình.', 400);
+      // guest() holds the session lock. Replay survives completion and also records aliases
+      // when a second submission reuses the same active request.
+      if (requestId) {
+        const previous = (
+          await c.query(
+            'SELECT support_request_id,request_hash FROM payment_assistance_submission WHERE participant_id=$1 AND request_id=$2',
+            [p.id, requestId],
+          )
+        ).rows[0];
+        if (previous) {
+          if (previous.request_hash !== requestHash)
+            reject('Mã gửi lại đã dùng cho nội dung khác.');
+          return {
+            ...(await one(c, 'SELECT * FROM support_request WHERE id=$1 AND participant_id=$2', [
+              previous.support_request_id,
+              p.id,
+            ])),
+            reused: true,
+          };
+        }
+      }
       const account = await recalculate(c, p.session_id);
       if (BigInt(account.outstanding_amount) <= 0n)
         reject('Bàn hiện không còn khoản cần thanh toán.');
       const existing = (
         await c.query(
-          "SELECT * FROM support_request WHERE session_id=$1 AND participant_id=$2 AND request_type='BILL' AND status IN ('NEW','ACKNOWLEDGED') FOR UPDATE",
+          "SELECT * FROM support_request WHERE session_id=$1 AND participant_id=$2 AND request_type='BILL' AND status IN ('NEW','ACKNOWLEDGED') ORDER BY created_at,id LIMIT 1 FOR UPDATE",
           [p.session_id, p.id],
         )
       ).rows[0];
-      if (existing?.payment_method) return { ...existing, reused: true };
       const request = existing
-        ? await one(c, 'UPDATE support_request SET payment_method=$2 WHERE id=$1 RETURNING *', [
-            existing.id,
-            method,
-          ])
+        ? existing.payment_method || method === null
+          ? existing
+          : await one(c, 'UPDATE support_request SET payment_method=$2 WHERE id=$1 RETURNING *', [
+              existing.id,
+              method,
+            ])
         : await one(
             c,
             "INSERT INTO support_request(session_id,participant_id,request_type,payment_method) VALUES($1,$2,'BILL',$3) RETURNING *",
             [p.session_id, p.id, method],
           );
-      await supportEvent(c, request, 'PAYMENT_ASSISTANCE_REQUESTED', null, { method });
+      if (requestId)
+        await c.query(
+          'INSERT INTO payment_assistance_submission(participant_id,request_id,request_hash,support_request_id) VALUES($1,$2,$3,$4)',
+          [p.id, requestId, requestHash, request.id],
+        );
+      if (!existing || (!existing.payment_method && method !== null))
+        await supportEvent(c, request, 'PAYMENT_ASSISTANCE_REQUESTED', null, { method });
       return { ...request, reused: !!existing };
     }),
   );

@@ -15,16 +15,16 @@ export function PaymentBreakdown({
     ...(flow.hasCash && !flow.incomplete
       ? [['Tiền mặt khách đưa', flow.cashTendered] as [string, bigint]]
       : []),
-    ...(flow.bankReceived > 0n
+    ...(!compact && flow.bankReceived > 0n
       ? [['Đã nhận qua chuyển khoản', flow.bankReceived] as [string, bigint]]
       : []),
-    ...(flow.onlineReceived > 0n
+    ...(!compact && flow.onlineReceived > 0n
       ? [['Tiền nhận qua payOS', flow.onlineReceived] as [string, bigint]]
       : []),
-    ...(flow.otherReceived > 0n
+    ...(!compact && flow.otherReceived > 0n
       ? [['Đã nhận qua phương thức khác', flow.otherReceived] as [string, bigint]]
       : []),
-    ...(flow.hasCash && !flow.incomplete
+    ...(flow.hasCash && !flow.incomplete && (!compact || flow.changeReturned > 0n)
       ? [['Tiền thối đã trả', flow.changeReturned] as [string, bigint]]
       : []),
     ...(flow.changePending > 0n
@@ -40,9 +40,18 @@ export function PaymentBreakdown({
     ...(!compact ? [['Tiền còn giữ (sau hoàn)', flow.netPaid] as [string, bigint]] : []),
     ...(!compact ? [['Đã tính vào tiền món', flow.appliedTotal] as [string, bigint]] : []),
     ...(flow.unappliedHeld > 0n
-      ? [['Tiền chưa phân bổ, cần hoàn', flow.unappliedHeld] as [string, bigint]]
+      ? [
+          [compact ? 'Tiền dư chờ hoàn' : 'Tiền chưa phân bổ, cần hoàn', flow.unappliedHeld] as [
+            string,
+            bigint,
+          ],
+        ]
       : []),
-    ...(flow.customerRetained !== null
+    ...((!compact ||
+      flow.refundedTotal > 0n ||
+      flow.changePending > 0n ||
+      flow.unappliedHeld > 0n) &&
+    flow.customerRetained !== null
       ? [['Nhà hàng còn giữ', flow.customerRetained] as [string, bigint]]
       : []),
   ];

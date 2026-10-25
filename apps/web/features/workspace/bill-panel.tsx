@@ -375,10 +375,7 @@ export default function BillPanel({
                   </p>
                 ) : (
                   <>
-                    <p>
-                      Chỉ xác nhận sau khi đã trả tiền thừa và giao phiếu. Bấm nút in chưa được coi
-                      là đã giao phiếu.
-                    </p>
+                    <p>Trả đủ tiền thừa và giao phiếu cho khách trước khi xác nhận.</p>
                     <div className="core-actions">
                       {(['PRINTED', 'DECLINED'] as const).map((delivery) => (
                         <Action

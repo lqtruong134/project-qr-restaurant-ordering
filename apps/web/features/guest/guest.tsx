@@ -781,6 +781,7 @@ export default function Guest() {
                   (BigInt(String(state.account?.refunded_total ?? 0)) === 0n &&
                     BigInt(String(state.account?.refund_due_amount ?? 0)) === 0n)) && (
                   <PaymentForm
+                    participantId={state.participant.id}
                     done={refresh}
                     available={String(
                       state.financialSummary?.outstandingAmount ??

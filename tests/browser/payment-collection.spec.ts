@@ -99,7 +99,7 @@ async function serve(guest: Page, staff: Page, kitchen: Page, name: string, quan
   await post(staff, '/core/items/' + item.id + '/serve', {});
   return item;
 }
-async function requestPayment(p: Page, method = 'Tiền mặt') {
+async function requestPayment(p: Page) {
   await p.bringToFront();
   await p.reload();
   await p
@@ -108,11 +108,9 @@ async function requestPayment(p: Page, method = 'Tiền mặt') {
     .click();
   const form = p.getByRole('form', { name: 'Yêu cầu thanh toán', exact: true });
   await expect(form.getByRole('spinbutton')).toHaveCount(0);
-  await form.getByRole('button', { name: method, exact: true }).click();
-  await form.getByRole('button', { name: 'Báo nhân viên thu tiền', exact: true }).click();
-  await expect(
-    p.getByText('Bạn đã báo nhân viên hỗ trợ thanh toán', { exact: true }),
-  ).toBeVisible();
+  await expect(form.getByRole('group', { name: 'Hình thức thanh toán' })).toHaveCount(0);
+  await form.getByRole('button', { name: 'Gọi nhân viên thanh toán', exact: true }).click();
+  await expect(p.getByText('Đã gọi nhân viên thanh toán', { exact: true })).toBeVisible();
   await expect(p.getByRole('dialog')).toHaveCount(0);
 }
 
@@ -167,9 +165,7 @@ test('guest calls staff without amount; cash partial/full collection clearly sep
       .getByRole('navigation', { name: 'Điều hướng khách' })
       .getByRole('button', { name: 'Thanh toán', exact: true })
       .click();
-    await expect(
-      guest.getByText('Bạn đã báo nhân viên hỗ trợ thanh toán', { exact: true }),
-    ).toBeVisible();
+    await expect(guest.getByText('Đã gọi nhân viên thanh toán', { exact: true })).toBeVisible();
     await guest.locator('.guest-payment-sent').scrollIntoViewIfNeeded();
     await guest.screenshot({ path: info.outputPath('payment-guest-request.png'), scale: 'css' });
     let bill = await (await f.staff.request.get('/api/core/sessions/' + f.sid + '/bill')).json();
@@ -453,9 +449,10 @@ test('bank screenshot or reference supports own-dish collection, without allocat
   try {
     const a = await serve(lan, f.staff, f.kitchen, 'Nước suối 500 ml', 1),
       b = await serve(minh, f.staff, f.kitchen, 'Gỏi cuốn tôm thịt', 2);
-    await requestPayment(minh, 'Chuyển khoản');
+    await requestPayment(minh);
     const dialog = await openPayment(f.staff, f.code);
     const form = dialog.getByRole('form', { name: 'Thu tiền tại bàn' });
+    await form.getByRole('button', { name: 'Chuyển khoản', exact: true }).click();
     await form.getByRole('button', { name: /Món của một khách/ }).click();
     await expect(form.getByLabel('Khách thanh toán món riêng')).toContainText('Minh');
     await expect(form).toContainText('90.000');

@@ -183,7 +183,9 @@ test('real promotion, inclusive VAT, cash change and staff refund agree across a
       animations: 'disabled',
     });
 
-    await staff.goto('/workspace/staff');
+    // The staff workspace is already open. Use its live floor read instead of
+    // reloading during a background poll (WebKit can reject a read before pagehide).
+    await staff.bringToFront();
     await staff.getByRole('textbox', { name: 'Tìm tên hoặc mã bàn…' }).fill(code);
     await staff
       .locator('.table-tile')
