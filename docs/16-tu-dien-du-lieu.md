@@ -1,5 +1,10 @@
 # 16. Từ điển dữ liệu hiện hành
 
+
+## Kết thúc kỹ thuật phiên thử đã archive — 26/10/2026
+
+Nhánh `chore/retire-archived-test-sessions` bổ sung công cụ một lần cho đúng UUID A01/A02, lý do `ARCHIVED_TEST_RETIRED` và migration 41 `202610260001_retire_archived_test_sessions` (75 bảng). Không nới guard đóng bàn, không ghi thu/hoàn/write-off; giữ số dư và tiền thật chưa quyết toán. Bàn chuyển NEEDS_CLEANING, nhân viên dọn rồi mở phiên/mã mới, QR giữ nguyên. [Báo cáo, bảng tác động và runbook](reference/payos-test-session-retirement-20261026.md) có preflight schema40, backup/restore, kế hoạch schema41, apply xác nhận và khôi phục không ghi đè giao dịch mới. Chưa thực hiện production; trạng thái/counts thực tế phải do operator xác minh.
+
 ## Schema lưu trữ hai khoản thử — 25/10/2026
 
 Source bổ sung `payos_test_case_archive` và `payos_test_archive_event`: **74 bảng, 40 migration**. Marker giữ định danh/hash/bằng chứng xét duyệt và chặn posting; inbox append-only giữ webhook mới riêng. Không đổi trạng thái thu/hoàn hoặc xóa tài chính. [Từ điển vật lý](database/data-dictionary.md), [phạm vi từng bảng](reference/payos-test-archive-20261025.md). Số liệu của các mốc trước bên dưới là lịch sử.

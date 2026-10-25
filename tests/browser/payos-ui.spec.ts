@@ -1307,3 +1307,88 @@ test('empty test archive adds no operational warning or settlement action', asyn
   expect(f.writes).toEqual([]);
   expect(f.errors).toEqual([]);
 });
+
+test('retired test history shows an unsettled technical record without payment actions', async ({
+  page,
+}) => {
+  const f = await mock(page);
+  Object.assign(f.bill.session, {
+    session_status: 'CLOSED',
+    close_reason: 'ARCHIVED_TEST_RETIRED',
+    closed_at: at,
+  });
+  f.table.session_id = 'fbfbfbfb-0000-4000-8000-000000000001';
+  await page.route('**/api/core/history/closed-bills?**', (route) =>
+    route.fulfill({
+      json: {
+        rows: [
+          {
+            id: sid,
+            table_code: 'A10',
+            closed_at: at,
+            close_reason: 'ARCHIVED_TEST_RETIRED',
+            total_amount: '450000',
+          },
+        ],
+        total: 1,
+        page: 0,
+        pageSize: 12,
+        timezone: 'Asia/Ho_Chi_Minh',
+        range: null,
+      },
+    }),
+  );
+  await page.goto('/workspace/staff');
+  await page
+    .getByRole('navigation', { name: 'Phục vụ', exact: true })
+    .getByRole('button', { name: 'Phiếu đã chốt', exact: true })
+    .click();
+  await expect(
+    page.getByText('Phiên thử · Tiền thật chưa quyết toán', { exact: false }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Xem / in lại', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: 'HỒ SƠ PHIÊN THỬ', exact: true })).toBeVisible();
+  await expect(dialog).toContainText('Tiền thật chưa quyết toán');
+  await expect(dialog).toContainText('450.000');
+  await expect(dialog.getByRole('button', { name: 'Kết thúc bàn', exact: true })).toHaveCount(0);
+  await expect(dialog.getByRole('heading', { name: 'PHIẾU THANH TOÁN', exact: true })).toHaveCount(
+    0,
+  );
+  expect(f.writes).toEqual([]);
+  expect(f.errors).toEqual([]);
+});
+test('retired archive remains real money unsettled after a new table session opens', async ({
+  page,
+}) => {
+  const f = await mock(page);
+  f.archives.push({
+    id: 'retired-archive',
+    payment_intent_id: 'archived-intent',
+    session_id: 'ffc78214-13d4-4fd3-adae-dd78d01affd5',
+    table_code: 'A01',
+    amount: '5000',
+    original_audit_count: 8789,
+    archived_at: at,
+    visible_in_operations: false,
+    visibility_restored_at: null,
+    session_retired_at: at,
+    evidence_events: 2,
+    unexpected_webhooks: 0,
+    recorded_amount: '0',
+    classification: 'CONFIRMED_TEST_WITH_REAL_FUNDS',
+    financially_resolved: false,
+    posting_blocked: true,
+    note: 'Tiền thật chưa quyết toán.',
+  });
+  await page.goto('/workspace/admin');
+  await selectAdmin(page, 'Việc cần xử lý', 'Ngoại lệ thanh toán');
+  await page.getByText('Hồ sơ thử đã lưu trữ (1)', { exact: true }).click();
+  const card = page.getByRole('article', { name: 'Hồ sơ thử đã lưu trữ bàn A01', exact: true });
+  await expect(card).toContainText('Phiên thử đã kết thúc');
+  await expect(card).toContainText('Tiền thật chưa quyết toán');
+  await expect(card).toContainText('Chưa ghi sổ');
+  await expect(card.getByRole('button')).toHaveCount(0);
+  expect(f.writes).toEqual([]);
+  expect(f.errors).toEqual([]);
+});

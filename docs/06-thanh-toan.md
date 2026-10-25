@@ -1,5 +1,10 @@
 # 06. Hiểu tiền, hóa đơn và điều kiện đóng bàn
 
+
+## Kết thúc kỹ thuật phiên thử đã archive — 26/10/2026
+
+Nhánh `chore/retire-archived-test-sessions` bổ sung công cụ một lần cho đúng UUID A01/A02, lý do `ARCHIVED_TEST_RETIRED` và migration 41 `202610260001_retire_archived_test_sessions` (75 bảng). Không nới guard đóng bàn, không ghi thu/hoàn/write-off; giữ số dư và tiền thật chưa quyết toán. Bàn chuyển NEEDS_CLEANING, nhân viên dọn rồi mở phiên/mã mới, QR giữ nguyên. [Báo cáo, bảng tác động và runbook](reference/payos-test-session-retirement-20261026.md) có preflight schema40, backup/restore, kế hoạch schema41, apply xác nhận và khôi phục không ghi đè giao dịch mới. Chưa thực hiện production; trạng thái/counts thực tế phải do operator xác minh.
+
 ## Lưu trữ ngoại lệ test có tiền thật — 25/10/2026
 
 Hai intent A01/A02 được lưu riêng bằng marker bất biến và inbox webhook riêng; status PAID của provider không biến thành receipt hoặc phân bổ. Chặn polling/refresh/ghi sổ lại và giữ nguyên công nợ. [Runbook riêng](reference/payos-test-archive-20261025.md) liệt kê chính xác bảng/bản ghi, kiểm tra full UUID/checksum và rollback hiển thị; không hỗ trợ xóa vật lý hay hoàn tiền giả.

@@ -232,9 +232,11 @@ export default function BillPanel({
             Bàn {String(bill.session.table_code)}
             <SessionReference id={bill.session.id} />
             {' · '}
-            {bill.session.session_status === 'CLOSED'
-              ? 'Phiên đã đóng — chỉ xem thông tin'
-              : 'Phiên đang phục vụ'}
+            {bill.session.close_reason === 'ARCHIVED_TEST_RETIRED'
+              ? 'Phiên thử đã kết thúc · Tiền thật chưa quyết toán'
+              : bill.session.session_status === 'CLOSED'
+                ? 'Phiên đã đóng — chỉ xem thông tin'
+                : 'Phiên đang phục vụ'}
           </p>
           <BillingTotals billing={bill.billing} account={bill.account} />
           <div className="bill-balance-grid">

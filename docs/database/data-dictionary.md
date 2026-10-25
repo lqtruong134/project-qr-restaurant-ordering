@@ -1,4 +1,4 @@
-# Từ điển dữ liệu vật lý — 74 bảng
+# Từ điển dữ liệu vật lý — 75 bảng
 
 Sinh từ metadata PostgreSQL bằng `pnpm docs:database`, không chứa bản ghi nghiệp vụ hay thông tin đăng nhập. Kiểu, giá trị mặc định và các ràng buộc bên dưới lấy trực tiếp từ database đã migrate.
 
@@ -2126,6 +2126,71 @@ CREATE UNIQUE INDEX payos_test_case_archive_payment_link_id_key ON public.payos_
 CREATE UNIQUE INDEX payos_test_case_archive_payos_request_id_key ON public.payos_test_case_archive USING btree (payos_request_id);
 CREATE UNIQUE INDEX payos_test_case_archive_pkey ON public.payos_test_case_archive USING btree (id);
 CREATE UNIQUE INDEX payos_test_case_archive_webhook_id_key ON public.payos_test_case_archive USING btree (webhook_id);
+```
+
+## payos_test_session_retirement
+
+
+
+| Cột | Kiểu | Bắt buộc | Khóa | Mặc định | Ý nghĩa |
+|---|---|---|---|---|---|
+| id | uuid | Có | PK | gen_random_uuid() | — |
+| restaurant_id | uuid | Có | FK | — | — |
+| session_id | uuid | Có | FK | — | — |
+| archive_id | uuid | Có | FK | — | — |
+| table_id | uuid | Có | FK | — | — |
+| voided_case_id | uuid | Không | FK | — | — |
+| financial_snapshot | jsonb | Có |  | — | — |
+| before_snapshot_hash | text | Có |  | — | — |
+| plan_hash | text | Có |  | — | — |
+| bundle_hash | text | Có |  | — | — |
+| backup_manifest_hash | text | Có |  | — | — |
+| retired_by | uuid | Có | FK | — | — |
+| reason | text | Có |  | — | — |
+| retired_at | timestamp with time zone | Có |  | clock_timestamp() | — |
+
+### Ràng buộc
+```sql
+payos_test_session_retirement_backup_manifest_hash_check: CHECK ((backup_manifest_hash ~ '^[a-f0-9]{64}$'::text))
+payos_test_session_retirement_before_snapshot_hash_check: CHECK ((before_snapshot_hash ~ '^[a-f0-9]{64}$'::text))
+payos_test_session_retirement_bundle_hash_check: CHECK ((bundle_hash ~ '^[a-f0-9]{64}$'::text))
+payos_test_session_retirement_financial_snapshot_check: CHECK ((jsonb_typeof(financial_snapshot) = 'object'::text))
+payos_test_session_retirement_plan_hash_check: CHECK ((plan_hash ~ '^[a-f0-9]{64}$'::text))
+payos_test_session_retirement_reason_check: CHECK (((length(btrim(reason)) >= 20) AND (length(btrim(reason)) <= 1000)))
+payos_test_session_retirement_session_id_check: CHECK ((session_id = ANY (ARRAY['ffc78214-13d4-4fd3-adae-dd78d01affd5'::uuid, '300659c7-5fea-4a77-a976-94551b078738'::uuid])))
+payos_test_session_retirement_archive_id_fkey: FOREIGN KEY (archive_id) REFERENCES payos_test_case_archive(id) ON DELETE RESTRICT
+payos_test_session_retirement_restaurant_id_fkey: FOREIGN KEY (restaurant_id) REFERENCES restaurant(id) ON DELETE RESTRICT
+payos_test_session_retirement_retired_by_fkey: FOREIGN KEY (retired_by) REFERENCES app_user(id) ON DELETE RESTRICT
+payos_test_session_retirement_session_id_fkey: FOREIGN KEY (session_id) REFERENCES table_session(id) ON DELETE RESTRICT
+payos_test_session_retirement_table_id_fkey: FOREIGN KEY (table_id) REFERENCES dining_table(id) ON DELETE RESTRICT
+payos_test_session_retirement_voided_case_id_fkey: FOREIGN KEY (voided_case_id) REFERENCES outstanding_balance_case(id) ON DELETE RESTRICT
+payos_test_session_retirement_archive_id_not_null: NOT NULL archive_id
+payos_test_session_retirement_backup_manifest_hash_not_null: NOT NULL backup_manifest_hash
+payos_test_session_retirement_before_snapshot_hash_not_null: NOT NULL before_snapshot_hash
+payos_test_session_retirement_bundle_hash_not_null: NOT NULL bundle_hash
+payos_test_session_retirement_financial_snapshot_not_null: NOT NULL financial_snapshot
+payos_test_session_retirement_id_not_null: NOT NULL id
+payos_test_session_retirement_plan_hash_not_null: NOT NULL plan_hash
+payos_test_session_retirement_reason_not_null: NOT NULL reason
+payos_test_session_retirement_restaurant_id_not_null: NOT NULL restaurant_id
+payos_test_session_retirement_retired_at_not_null: NOT NULL retired_at
+payos_test_session_retirement_retired_by_not_null: NOT NULL retired_by
+payos_test_session_retirement_session_id_not_null: NOT NULL session_id
+payos_test_session_retirement_table_id_not_null: NOT NULL table_id
+payos_test_session_retirement_pkey: PRIMARY KEY (id)
+retirement_complete: TRIGGER DEFERRABLE INITIALLY DEFERRED
+payos_test_session_retirement_archive_id_key: UNIQUE (archive_id)
+payos_test_session_retirement_session_id_key: UNIQUE (session_id)
+payos_test_session_retirement_voided_case_id_key: UNIQUE (voided_case_id)
+```
+
+### Chỉ mục
+```sql
+CREATE INDEX payos_test_retirement_restaurant ON public.payos_test_session_retirement USING btree (restaurant_id, retired_at);
+CREATE UNIQUE INDEX payos_test_session_retirement_archive_id_key ON public.payos_test_session_retirement USING btree (archive_id);
+CREATE UNIQUE INDEX payos_test_session_retirement_pkey ON public.payos_test_session_retirement USING btree (id);
+CREATE UNIQUE INDEX payos_test_session_retirement_session_id_key ON public.payos_test_session_retirement USING btree (session_id);
+CREATE UNIQUE INDEX payos_test_session_retirement_voided_case_id_key ON public.payos_test_session_retirement USING btree (voided_case_id);
 ```
 
 ## payroll_line

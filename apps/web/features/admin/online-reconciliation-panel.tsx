@@ -516,6 +516,12 @@ export default function OnlineReconciliationPanel({
                 Lưu trữ {restaurantDateTime(row.archived_at)} · Giữ{' '}
                 {row.original_audit_count.toLocaleString('vi-VN')} sự kiện audit
               </p>
+              {row.session_retired_at && (
+                <p className="small-note">
+                  Phiên thử đã kết thúc {restaurantDateTime(row.session_retired_at)} · Tiền thật
+                  chưa quyết toán.
+                </p>
+              )}
               {row.visible_in_operations && (
                 <p className="small-note">Đã đưa trở lại hàng đợi kiểm tra; vẫn chặn ghi sổ.</p>
               )}

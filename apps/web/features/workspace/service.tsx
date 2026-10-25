@@ -732,6 +732,7 @@ export default function Service({
             statuses={[
               { value: 'SETTLED', label: 'Đã thanh toán đủ' },
               { value: 'OUTSTANDING_WRITTEN_OFF', label: 'Có khoản đã miễn thu' },
+              { value: 'ARCHIVED_TEST_RETIRED', label: 'Phiên thử đã kết thúc' },
             ]}
           >
             {(rows) => (
@@ -744,6 +745,8 @@ export default function Service({
                       </strong>
                       <p>
                         {restaurantDateTime(s.closed_at)} - {vnd(s.total_amount)}
+                        {s.close_reason === 'ARCHIVED_TEST_RETIRED' &&
+                          ' · Phiên thử · Tiền thật chưa quyết toán'}
                       </p>
                     </div>
                     <button className="secondary-button" onClick={() => setSelected(s.id)}>

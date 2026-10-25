@@ -114,6 +114,7 @@ export async function readPayosTestArchives(db: Database, restaurant: string) {
     await db.pool.query(
       `SELECT a.id,a.payment_intent_id,a.session_id,a.table_code,a.amount::text,
     a.original_audit_count,a.archived_at,a.visible_in_operations,a.visibility_restored_at,
+    (SELECT retired_at FROM payos_test_session_retirement r WHERE r.archive_id=a.id) AS session_retired_at,
     (SELECT count(*)::int FROM payos_test_archive_event e WHERE e.archive_id=a.id) AS evidence_events,
     (SELECT count(*)::int FROM payos_test_archive_event e WHERE e.archive_id=a.id AND e.event_kind='WEBHOOK_CONFLICT') AS unexpected_webhooks,
     COALESCE((SELECT sum(p.amount) FROM payment_transaction p WHERE p.payment_intent_id=a.payment_intent_id AND p.status='SUCCEEDED'),0)::text AS recorded_amount

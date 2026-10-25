@@ -135,6 +135,7 @@ export type ArchivedPayosTestCase = {
   archived_at: string;
   visible_in_operations: boolean;
   visibility_restored_at: string | null;
+  session_retired_at?: string | null;
   evidence_events: number;
   unexpected_webhooks: number;
   recorded_amount: string;
