@@ -1,5 +1,10 @@
 # 26. Triển khai qtruongres trên laptop và chuyển sang VPS
 
+## Chuẩn bị archive đúng A01/A02 — 25/10/2026
+
+Sau PR #5 (39 migration), thay đổi riêng này thêm migration thứ 40 và overlay opt-in `deploy/compose.payos-test-archive.yaml`. Nó mount runtime read-only, thư mục riêng UID10001 ngoài source, payOS OFF và không tự chạy trong deploy thường. Operator cần review, fence writer, backup/thử restore, migrate được duyệt, dry-run/full UUID, backup mới rồi mới apply xác nhận. [Runbook đầy đủ và rollback giữ posting tombstone](reference/payos-test-archive-20261025.md). Tác vụ chưa merge/deploy/migrate production.
+
+
 ## Review trước AI — 25/10/2026: chưa cho phép triển khai
 
 Baseline Git `67ad446` đã gồm PR #3/#4. Nhánh audit bổ sung migration **`202610250001_payment_assistance_retries/migration.sql`**: chỉ thêm bảng mapping retry/FK/index, không đổi ledger, migration cũ hoặc allocator. Phải áp migration trước khi API mới nhận request có `requestId`; không chạy lệnh migration trên production trong nhiệm vụ audit.

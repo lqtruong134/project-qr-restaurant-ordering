@@ -1,5 +1,10 @@
 # 15. Hồ sơ đối chiếu và giới hạn xác minh
 
+## Kiểm chứng công cụ lưu trữ A01/A02 — 25/10/2026
+
+Baseline `aa4eb8a` đã merge PR #5. Bộ lưu trữ dùng migration cộng thêm `202610250002_payos_test_case_archive`, 2 bảng mới (tổng 74), giữ nguyên 19.073 audit gốc theo profile chủ dự án cung cấp. [Biên bản và runbook](reference/payos-test-archive-20261025.md) tách bằng chứng code/lab khỏi trạng thái production chưa truy cập. Kết quả cuối gắn với commit/PR riêng, không dùng checks PR #5 thay thế. Kiểm chứng kết thúc 26/10: 400 unit, toàn bộ 716 API coverage (41 archive mới; lines 92,53%) và 6 browser trọng tâm đạt; rehearsal giữ 74 bảng/19.073 audit, proof/allocator và chặn posting sau restore. [Bằng chứng tổng hợp](reference/payos-test-archive-verification.json).
+
+
 ## Rà soát trước AI — 25/10/2026
 
 Baseline source là `67ad44681e4c43b55478d997ed44ded880034c71`, đã merge PR #3 và #4. Nhánh `chore/pre-ai-system-audit` sửa gọi nhân viên thanh toán, bill khách và quyền STAFF xem QR hiện có. [Biên bản theo phạm vi](reference/pre-ai-audit-20261025.md) ghi kết quả hiện hành và vùng chưa xác minh; các mốc bên dưới là lịch sử, không xác nhận trạng thái production.

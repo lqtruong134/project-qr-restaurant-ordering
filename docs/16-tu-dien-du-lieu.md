@@ -1,5 +1,10 @@
 # 16. Từ điển dữ liệu hiện hành
 
+## Schema lưu trữ hai khoản thử — 25/10/2026
+
+Source bổ sung `payos_test_case_archive` và `payos_test_archive_event`: **74 bảng, 40 migration**. Marker giữ định danh/hash/bằng chứng xét duyệt và chặn posting; inbox append-only giữ webhook mới riêng. Không đổi trạng thái thu/hoàn hoặc xóa tài chính. [Từ điển vật lý](database/data-dictionary.md), [phạm vi từng bảng](reference/payos-test-archive-20261025.md). Số liệu của các mốc trước bên dưới là lịch sử.
+
+
 ## Bổ sung schema trước AI — 25/10/2026
 
 Source hiện có **72 bảng**, gồm `payment_assistance_submission` lưu retry key của lời gọi nhân viên. Khóa chính `(participant_id,request_id)`, hash nội dung và FK tới support_request giúp trả lại yêu cầu cũ khi retry sau khi hoàn tất. Bảng này không ghi nhận tiền. [Từ điển và ERD vật lý vừa sinh từ database test đã áp 39 migration](database/data-dictionary.md). Các số liệu ngày cũ bên dưới là lịch sử.

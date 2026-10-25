@@ -1,3 +1,4 @@
+import { requireOperationalPayosIntent } from './test-case-archive.service.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { mkdir, open, unlink } from 'node:fs/promises';
@@ -94,6 +95,7 @@ export class BankEvidenceService {
       [id, this.restaurant],
     );
     const s = await session(c, ref.session_id, this.restaurant, false);
+    await requireOperationalPayosIntent(c, this.restaurant, id);
     const pi = await one(c, 'SELECT * FROM payment_intent WHERE id=$1 FOR UPDATE', [id]);
     const q = await one(
       c,

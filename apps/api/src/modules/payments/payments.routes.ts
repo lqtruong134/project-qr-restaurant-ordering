@@ -1,3 +1,7 @@
+import {
+  readPayosTestArchives,
+  requireOperationalPayosIntent,
+} from './test-case-archive.service.js';
 import { PayosService } from './payos.service.js';
 import { completionStatus } from './completion.service.js';
 import { readRefundContext } from './refund-context.service.js';
@@ -108,6 +112,9 @@ export function registerFinance(
     { config: { public: true, externalWebhook: true }, bodyLimit: 64 * 1024 },
     (r, reply) => providerAction(r, reply, () => payos.webhook(r.body)),
   );
+  app.get('/core/admin/payment-test-archives', { config: { permission: 'admin.workspace' } }, () =>
+    readPayosTestArchives(db, restaurant),
+  );
   app.get('/core/admin/payment-reconciliation', { config: { permission: 'admin.workspace' } }, () =>
     payos.cases(),
   );
@@ -132,6 +139,7 @@ export function registerFinance(
           [idParam(r), restaurant],
         );
         await session(c, intent.session_id, restaurant, false);
+        await requireOperationalPayosIntent(c, restaurant, intent.id);
         const q = await one(
           c,
           'SELECT * FROM payos_payment_request WHERE payment_intent_id=$1 FOR UPDATE',
