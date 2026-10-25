@@ -165,6 +165,13 @@ async function fixture(tableCode?: string, prefix?: string): Promise<Case> {
   );
   const requestId = randomUUID(),
     intent = await service.create(sid, staffId, { requestId, amount: '5000' });
+  // This fixture also hosts the real 5-second maintenance loop. Non-target intents
+  // must not become due merely because coverage takes longer than a 30-second poll.
+  // Archive targets are explicitly made due below; worker behavior has its own tests.
+  await db.pool.query(
+    "UPDATE payos_payment_request SET next_poll_at=now()+interval '1 day' WHERE payment_intent_id=$1",
+    [intent.id],
+  );
   const q = (
     await db.pool.query('SELECT * FROM payos_payment_request WHERE payment_intent_id=$1', [
       intent.id,
@@ -188,7 +195,7 @@ function event(f: Case, fields: Partial<WebhookData> = {}) {
   };
   return { code: '00', success: true, data, signature: signature(data) };
 }
-async function snapshot() {
+async function snapshotRows() {
   const result: Record<string, unknown> = {};
   for (const table of [
     'payment_intent',
@@ -213,7 +220,10 @@ async function snapshot() {
     result[table] = (
       await db.pool.query('SELECT to_jsonb(r) AS row FROM ' + table + ' r ORDER BY id')
     ).rows.map((r) => r.row);
-  return archiveHash(result);
+  return result;
+}
+async function snapshot() {
+  return archiveHash(await snapshotRows());
 }
 function allocatorSnapshot() {
   const path = config.orderCodeStore!;
@@ -638,8 +648,50 @@ it('supports the existing M2 bank-proof table without losing the legacy proof or
   ).toBe(0);
   expect((await inspect()).snapshotHash).toBe(plan.snapshotHash);
 });
+it('keeps the real worker active but schedules unrelated polling explicitly for fenced archive assertions', async () => {
+  const targetHash = (await inspect()).snapshotHash;
+  const before = (
+    await db.pool.query('SELECT version FROM session_financial_account WHERE session_id=$1', [
+      other.sid,
+    ])
+  ).rows[0].version;
+  await db.pool.query(
+    "UPDATE payos_payment_request SET next_poll_at=now()-interval '1 day' WHERE payment_intent_id=$1",
+    [other.id],
+  );
+  await service.maintain();
+  await expect
+    .poll(
+      async () =>
+        (
+          await db.pool.query('SELECT version FROM session_financial_account WHERE session_id=$1', [
+            other.sid,
+          ])
+        ).rows[0].version,
+    )
+    .toBeGreaterThan(before);
+  // The scheduled application worker may have won the same lease. Wait for its
+  // release as well, before asserting a fenced whole-database pre-image.
+  await expect
+    .poll(
+      async () =>
+        (
+          await db.pool.query(
+            'SELECT lease_until FROM payos_payment_request WHERE payment_intent_id=$1',
+            [other.id],
+          )
+        ).rows[0].lease_until,
+    )
+    .toBeNull();
+  expect((await inspect()).snapshotHash).toBe(targetHash);
+  await db.pool.query(
+    "UPDATE payos_payment_request SET next_poll_at=now()+interval '1 day' WHERE payment_intent_id=$1",
+    [other.id],
+  );
+});
 it('archives exactly two cases once under concurrent execution, retaining all original rows and balances', async () => {
-  const before = await snapshot(),
+  const beforeRows = await snapshotRows(),
+    before = archiveHash(beforeRows),
     allocator = allocatorSnapshot(),
     audit = (await db.pool.query('SELECT count(*)::int AS n FROM business_audit_event')).rows[0].n;
   const locked = await db.pool.connect();
@@ -707,7 +759,9 @@ it('archives exactly two cases once under concurrent execution, retaining all or
   expect(
     (await db.pool.query('SELECT count(*)::int AS n FROM business_audit_event')).rows[0].n,
   ).toBe(audit + 2);
-  expect(await snapshot()).toBe(before);
+  const afterRows = await snapshotRows();
+  expect(afterRows).toEqual(beforeRows);
+  expect(archiveHash(afterRows)).toBe(before);
   expect(allocatorSnapshot()).toBe(allocator);
 }, 30000);
 it('is idempotent through the operator CLI and rejects a changed confirmed plan', async () => {

@@ -2,7 +2,7 @@
 
 ## Kiểm chứng công cụ lưu trữ A01/A02 — 25/10/2026
 
-Baseline `aa4eb8a` đã merge PR #5. Bộ lưu trữ dùng migration cộng thêm `202610250002_payos_test_case_archive`, 2 bảng mới (tổng 74), giữ nguyên 19.073 audit gốc theo profile chủ dự án cung cấp. [Biên bản và runbook](reference/payos-test-archive-20261025.md) tách bằng chứng code/lab khỏi trạng thái production chưa truy cập. Kết quả cuối gắn với commit/PR riêng, không dùng checks PR #5 thay thế. Kiểm chứng kết thúc 26/10: 400 unit, 212 integration trọng tâm và 6 browser đạt; rehearsal giữ 74 bảng/19.073 audit, proof/allocator và chặn posting sau restore. [Bằng chứng tổng hợp](reference/payos-test-archive-verification.json).
+Baseline `aa4eb8a` đã merge PR #5. Bộ lưu trữ dùng migration cộng thêm `202610250002_payos_test_case_archive`, 2 bảng mới (tổng 74), giữ nguyên 19.073 audit gốc theo profile chủ dự án cung cấp. [Biên bản và runbook](reference/payos-test-archive-20261025.md) tách bằng chứng code/lab khỏi trạng thái production chưa truy cập. Kết quả cuối gắn với commit/PR riêng, không dùng checks PR #5 thay thế. Kiểm chứng kết thúc 26/10: 400 unit, toàn bộ 716 API coverage (41 archive mới; lines 92,53%) và 6 browser trọng tâm đạt; rehearsal giữ 74 bảng/19.073 audit, proof/allocator và chặn posting sau restore. [Bằng chứng tổng hợp](reference/payos-test-archive-verification.json).
 
 
 ## Rà soát trước AI — 25/10/2026
