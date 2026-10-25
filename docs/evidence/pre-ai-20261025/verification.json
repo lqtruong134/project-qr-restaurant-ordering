@@ -74,5 +74,17 @@
     "Historical test classification requires operator manifest",
     "Model quality not evaluated",
     "Two local Safari transients did not reproduce in unchanged repeated scenarios"
-  ]
+  ],
+  "ciFollowUp": {
+    "previousHead": "8ef7afc05c36f759c5970c661a6ab072f9c7aecf",
+    "runId": 40143585824,
+    "browserPassed": 502,
+    "browserFailed": 1,
+    "browserSkipped": 1,
+    "cause": "WebKit background read during redundant staff document navigation; assertions on all financial values passed",
+    "fix": "Bring existing staff workspace to front; wait for real live floor data, retain pageerror and financial assertions",
+    "pricingScenarioThreeProjectsRepeatThreePassed": 9,
+    "transportUnitPassed": 20,
+    "lintTypecheckSecretCheck": "passed"
+  }
 }

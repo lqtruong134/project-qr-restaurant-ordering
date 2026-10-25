@@ -140,3 +140,10 @@ Migration mới: `packages/database/prisma/migrations/202610250001_payment_assis
 Rollback giữ DB mới và bảng mapping, không DROP bảng hoặc restore đè snapshot cũ. Phải phối hợp rollback web/API, ngăn request client mới trong cửa sổ chuyển đổi vì API cũ yêu cầu method và không hiểu UUID. Bảo toàn receipt/claim và upper bound orderCode mới; tuyệt đối không rewind allocator hoặc sao chép allocator cũ đè bản đang dùng.
 
 Chủ dự án/ChatGPT reviewer cần duyệt: HEAD + gate đúng commit; cửa sổ backup/cutover; thông tin pháp lý/thuế và máy in; manifest phân loại dữ liệu cũ trước mọi thao tác lưu trữ; nghiệm thu camera và giao dịch mới đầu tiên. Việc model/AI production là nhiệm vụ sau, chưa được bật trong PR này.
+
+
+## CI follow-up: readiness của workspace STAFF
+
+Gate của `575c711` đạt 503 browser /1 skip. Gate `8ef7afc` đạt 502 /1 lỗi /1 skip: toàn bộ assertion VAT/cash/refund/frozen receipt đạt nhưng assertion cuối `errors=[]` ghi nhận native WebKit access-control ở `/api/core/orders`. Trace artifact 12581162382 (hash AF9BC3BCA3D925EE036DFE6FD00364BF8E237D889C1A8F31E7C20606B2463288) cho thấy test `staff.goto('/workspace/staff')` bắt đầu ở 2246325,039 ms, lỗi poll ở 2246380,481 ms, chỉ sau 55,442 ms; các GET orders trước/sau đều HTTP 200. Đây là thao tác tải lại dư thừa khi workspace đã đăng nhập, không có bằng chứng CORS server hoặc sai nghiệp vụ tiền.
+
+Đổi riêng fixture sang `staff.bringToFront()` và chờ bàn mới qua polling thật của sản phẩm. Không lọc pageerror, không sửa transport/CORS/guard tài chính, không đổi timeout hay assertion. Việc hủy read khi điều hướng vẫn được kiểm riêng ở api-client và table-queue; không dùng scenario pricing để tạo đua điều hướng ngoài mục đích kiểm tiền. Sau sửa fixture, nguyên scenario lặp 3 lần trên 3 browser đạt 9/9 (4,3 phút); transport unit 20/20, lint, typecheck và secret check đạt. Gate đầy đủ của đúng HEAD xem PR Checks. Không dùng lại kết quả gate của commit cũ.
