@@ -99,7 +99,7 @@ export function parsePayosArchiveArgs(args: string[], env: NodeJS.ProcessEnv = {
     throw Error('ARCHIVE_DRY_RUN_OUTPUT_REQUIRED');
   return result;
 }
-async function privateDirectory(path: string) {
+export async function privateDirectory(path: string) {
   const full = resolve(path),
     s = await lstat(full);
   if (
@@ -111,7 +111,7 @@ async function privateDirectory(path: string) {
     throw Error('ARCHIVE_PRIVATE_DIRECTORY_REQUIRED');
   return full;
 }
-async function readPrivate(path: string, max = 64 * 1024 * 1024) {
+export async function readPrivate(path: string, max = 64 * 1024 * 1024) {
   const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
     const s = await handle.stat();
@@ -122,7 +122,7 @@ async function readPrivate(path: string, max = 64 * 1024 * 1024) {
     await handle.close();
   }
 }
-async function durableWrite(path: string, data: Buffer | string) {
+export async function durableWrite(path: string, data: Buffer | string) {
   const handle = await open(
     path,
     constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
@@ -135,7 +135,7 @@ async function durableWrite(path: string, data: Buffer | string) {
     await handle.close();
   }
 }
-async function syncDirectory(path: string) {
+export async function syncDirectory(path: string) {
   const h = await open(path, constants.O_RDONLY);
   try {
     await h.sync();
@@ -179,7 +179,7 @@ type BundleManifest = {
   createdAt: string;
   files: Record<string, { sha256: string; size: number }>;
 };
-function requireExternalArchive(path: string) {
+export function requireExternalArchive(path: string) {
   const repository = fileURLToPath(new URL('..', import.meta.url));
   const rel = relative(repository, resolve(path));
   if (

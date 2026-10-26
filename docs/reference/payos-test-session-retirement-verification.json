@@ -1,0 +1,78 @@
+{
+  "format": "payos-test-session-retirement-verification-v1",
+  "verifiedAt": "2026-10-26",
+  "baseline": "b7a889348e5e6910eca5a9cae8525ee020103c5b",
+  "branch": "chore/retire-archived-test-sessions",
+  "scope": [
+    { "table": "A01", "session": "ffc78214-13d4-4fd3-adae-dd78d01affd5", "intent": "f728d24c-6d31-4c07-89a0-d658832ded69", "realFundsUnsettledVnd": "5000" },
+    { "table": "A02", "session": "300659c7-5fea-4a77-a976-94551b078738", "intent": "85f9d699-e6de-48f1-ad0e-d77ada9423d3", "realFundsUnsettledVnd": "5000" }
+  ],
+  "production": {
+    "accessed": false,
+    "rowsChanged": 0,
+    "migrated": false,
+    "deployed": false,
+    "merged": false,
+    "realProviderContacted": false,
+    "actualBlockerCountsVerified": false
+  },
+  "checks": {
+    "formatLintTypecheck": "PASS",
+    "unit": { "passed": 401, "failed": 0, "newTests": 1, "removedTests": 0 },
+    "apiCoverage": { "passed": 740, "failed": 0, "suites": 49, "linesPercent": 92.53, "thresholdUnchanged": true },
+    "retirementIntegration": { "passed": 24, "failed": 0, "includedInApiCoverage": true, "latestAdditionalRefundAndNewIntentAssertions": "PASS" },
+    "browser": { "passed": 12, "failed": 0, "projects": ["desktop", "mobile", "webkit-mobile"], "scope": "2 existing archive scenarios + 2 new retired-history scenarios" },
+    "deploymentTools": { "passed": 29, "failed": 0, "existingOptInNotSelected": 1 },
+    "secretCheck": "PASS",
+    "migration40Changed": false,
+    "prismaMigrateDeployOnEmptyLab": { "passed": true, "migrationCount": 41, "businessTables": 75 },
+    "dockerMaintenanceBuild": "PASS",
+    "maintenanceReadOnlyNetworkNoneSmoke": { "uid": 10001, "readableMigrations": 41, "tsxCacheDisabledAsInComposeOverlay": true, "cliImportAndHelp": "PASS" },
+    "dockerWebProductionBuild": "PASS",
+    "githubQualityGate": "Workflow unchanged; see checks of the current PR commit. Local checks are not a claim of remote PASS."
+  },
+  "realBackupRestoreRehearsal": {
+    "database": "isolated PostgreSQL 18 tmpfs on loopback, synthetic credentials and random DB names",
+    "backup": "real pg_dump custom format + existing runtime-files backup + manifest SHA256, before CLI apply and after retirement",
+    "restore": "pg_restore to a different empty lab database, single transaction, exit-on-error; no trigger disabled",
+    "businessTables": 75,
+    "allTableHashesMatch": true,
+    "foreignKeysMatch": true,
+    "archiveMarkers": 2,
+    "retirementMarkers": 2,
+    "originalIntentAuditEvents": 19073,
+    "newSessionReceiptsPreserved": 1,
+    "oldWebhookPosted": 0,
+    "retiredSessionReopenBlocked": true,
+    "oldReceiptPostingBlocked": true,
+    "proofAndAllocatorHashesMatch": true,
+    "canonicalTestsRepeated": 24,
+    "additionalRestoreScenarioPassed": 1,
+    "temporaryHarnessRemovedBeforeCommit": true
+  },
+  "financialEffect": {
+    "historicalAccountAndLedgerChanged": false,
+    "fakePaymentOrRefundCreated": false,
+    "writtenOffAmountCreated": "0",
+    "mistakenA02ReportCancelledWithoutLoss": true,
+    "physicalTableQrChanged": false,
+    "normalNewSyntheticPaymentRecordedOnce": { "receivedVnd": "1000", "billVnd": "20000", "remainingVnd": "19000" }
+  },
+  "operatorRequired": [
+    "Read-only preflight of current full UUIDs, tenant, table IDs, archive markers and blockers; production is not assumed PASS",
+    "Direct confirmation that no real guest or active work remains",
+    "Fence all writers and verify full database/runtime/allocator backup with an isolated restore",
+    "Separately approve migration 41 and create a fresh private plan and a newer verified backup",
+    "Explicit ADMIN, exact sessions, plan/backup hashes, reason, real-funds acknowledgement and no-active-guests confirmation",
+    "Verify exact before/after effects and create a post-retirement backup before restarting compatible API/Web",
+    "STAFF cleaning then opening new sessions, retaining physical QR",
+    "Never undo financial history or restore an old database/allocator over new transactions"
+  ],
+  "correctedLocalEnvironmentRun": {
+    "firstApiCoveragePassed": 512,
+    "firstApiCoverageFailed": 228,
+    "provenCause": "AUTH_SECRET was absent from the direct lab test command; existing table-code crypto refused opening sessions.",
+    "correction": "Supply an explicit synthetic AUTH_SECRET with the lab URL; no product guard or assertion relaxed.",
+    "subsequentApiCoverage": "740 passed, 0 failed"
+  }
+}

@@ -74,6 +74,7 @@ export default function Receipt({
   visible: boolean;
   layout?: 'standard' | 'detailed';
 }) {
+  const retiredTest = bill.session.close_reason === 'ARCHIVED_TEST_RETIRED';
   const closed = bill.session.session_status === 'CLOSED',
     zone = String(bill.store.timezone ?? 'Asia/Ho_Chi_Minh');
   const totals = paymentFlowSummary(bill.account, bill.payments, bill.financialSummary);
@@ -92,7 +93,10 @@ export default function Receipt({
         {bill.store.address && <p>{String(bill.store.address)}</p>}
         {bill.store.phone && <p>Điện thoại: {String(bill.store.phone)}</p>}
         {bill.store.tax_code && <p>MST: {String(bill.store.tax_code)}</p>}
-        <h3>{closed ? 'PHIẾU THANH TOÁN' : 'PHIẾU TẠM TÍNH'}</h3>
+        <h3>{retiredTest ? 'HỒ SƠ PHIÊN THỬ' : closed ? 'PHIẾU THANH TOÁN' : 'PHIẾU TẠM TÍNH'}</h3>
+        {retiredTest && (
+          <p>Đã kết thúc thử nghiệm. Tiền thật chưa quyết toán; số dư lịch sử giữ nguyên.</p>
+        )}
       </header>
       <div className="receipt-meta">
         {bill.session.receipt_number && (

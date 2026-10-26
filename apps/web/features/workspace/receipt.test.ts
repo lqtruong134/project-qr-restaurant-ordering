@@ -236,3 +236,20 @@ it('retains the cash handover detail for multiple tenders and reconciles an actu
   expect(html).toContain('55.000 đ');
   expect(html).toMatch(/Nhà hàng còn giữ<\/dt><dd>0 đ/);
 });
+
+it('labels a retired test as unsettled history, preserving debt and never implying paid or written off', () => {
+  const value = bill();
+  Object.assign(value.session, {
+    session_status: 'CLOSED',
+    close_reason: 'ARCHIVED_TEST_RETIRED',
+    closed_at: '2026-10-26T05:00:00Z',
+  });
+  const before = JSON.stringify(value),
+    html = render(value);
+  expect(html).toContain('HỒ SƠ PHIÊN THỬ');
+  expect(html).toContain('Tiền thật chưa quyết toán');
+  expect(html).not.toContain('PHIẾU THANH TOÁN');
+  expect(html).not.toContain('Phiên đóng theo hồ sơ thiếu tiền');
+  expect(html).toContain('55.000');
+  expect(JSON.stringify(value)).toBe(before);
+});

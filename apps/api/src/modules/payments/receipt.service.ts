@@ -21,7 +21,12 @@ export async function readBill(c: Connection, s: Record<string, unknown>, restau
         : [],
     };
   }
-  const account = await recalculate(c, String(s.id));
+  // A technical retirement preserves its historical account; reading it must not
+  // recalculate prices, increment financial versions, or imply settlement.
+  const account =
+    s.close_reason === 'ARCHIVED_TEST_RETIRED'
+      ? await one(c, 'SELECT * FROM session_financial_account WHERE session_id=$1', [s.id])
+      : await recalculate(c, String(s.id));
   const refundSources = new Map(
     (await readRefundSourceBudgets(c, String(s.id))).map((source) => [source.id, source]),
   );

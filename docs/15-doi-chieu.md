@@ -1,5 +1,10 @@
 # 15. Hồ sơ đối chiếu và giới hạn xác minh
 
+
+## Kết thúc kỹ thuật phiên thử đã archive — 26/10/2026
+
+Nhánh `chore/retire-archived-test-sessions` bổ sung công cụ một lần cho đúng UUID A01/A02, lý do `ARCHIVED_TEST_RETIRED` và migration 41 `202610260001_retire_archived_test_sessions` (75 bảng). Không nới guard đóng bàn, không ghi thu/hoàn/write-off; giữ số dư và tiền thật chưa quyết toán. Bàn chuyển NEEDS_CLEANING, nhân viên dọn rồi mở phiên/mã mới, QR giữ nguyên. [Báo cáo, bảng tác động và runbook](reference/payos-test-session-retirement-20261026.md) có preflight schema40, backup/restore, kế hoạch schema41, apply xác nhận và khôi phục không ghi đè giao dịch mới. Chưa thực hiện production; trạng thái/counts thực tế phải do operator xác minh.
+
 ## Kiểm chứng công cụ lưu trữ A01/A02 — 25/10/2026
 
 Baseline `aa4eb8a` đã merge PR #5. Bộ lưu trữ dùng migration cộng thêm `202610250002_payos_test_case_archive`, 2 bảng mới (tổng 74), giữ nguyên 19.073 audit gốc theo profile chủ dự án cung cấp. [Biên bản và runbook](reference/payos-test-archive-20261025.md) tách bằng chứng code/lab khỏi trạng thái production chưa truy cập. Kết quả cuối gắn với commit/PR riêng, không dùng checks PR #5 thay thế. Kiểm chứng kết thúc 26/10: 400 unit, toàn bộ 716 API coverage (41 archive mới; lines 92,53%) và 6 browser trọng tâm đạt; rehearsal giữ 74 bảng/19.073 audit, proof/allocator và chặn posting sau restore. [Bằng chứng tổng hợp](reference/payos-test-archive-verification.json).

@@ -1,5 +1,10 @@
 # Học và làm chủ hệ thống gọi món QR
 
+
+## Kết thúc kỹ thuật phiên thử đã archive — 26/10/2026
+
+Nhánh `chore/retire-archived-test-sessions` bổ sung công cụ một lần cho đúng UUID A01/A02, lý do `ARCHIVED_TEST_RETIRED` và migration 41 `202610260001_retire_archived_test_sessions` (75 bảng). Không nới guard đóng bàn, không ghi thu/hoàn/write-off; giữ số dư và tiền thật chưa quyết toán. Bàn chuyển NEEDS_CLEANING, nhân viên dọn rồi mở phiên/mã mới, QR giữ nguyên. [Báo cáo, bảng tác động và runbook](reference/payos-test-session-retirement-20261026.md) có preflight schema40, backup/restore, kế hoạch schema41, apply xác nhận và khôi phục không ghi đè giao dịch mới. Chưa thực hiện production; trạng thái/counts thực tế phải do operator xác minh.
+
 ## Lưu trữ riêng hai hồ sơ thử payOS — 25/10/2026
 
 Bổ sung công cụ mặc định chỉ dry-run cho A01/ffc78214 và A02/300659c7, mỗi khoản 5.000 VND có tiền thật. Giữ nguyên lịch sử/số dư, không reset hoặc giả đã đối soát; [phương án, phạm vi bảng và runbook](reference/payos-test-archive-20261025.md) cần reviewer duyệt trước khi operator thực thi. Không thao tác production trong tác vụ này.

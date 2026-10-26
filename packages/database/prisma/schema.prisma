@@ -11,6 +11,7 @@ datasource db {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model app_user {
+  payos_test_session_retirement payos_test_session_retirement[]
   payos_test_case_archive_payos_test_case_archive_archived_byToapp_user            payos_test_case_archive[]  @relation("payos_test_case_archive_archived_byToapp_user")
   payos_test_case_archive_payos_test_case_archive_visibility_restored_byToapp_user payos_test_case_archive[]  @relation("payos_test_case_archive_visibility_restored_byToapp_user")
   bank_proofs                payment_bank_proof[]
@@ -104,6 +105,7 @@ model dining_area {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model dining_table {
+  payos_test_session_retirement payos_test_session_retirement[]
   payos_test_case_archive                                                                 payos_test_case_archive[]
   access_requests                                                                         support_request[]          @relation("access_request_table")
   id                                                                                      String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -213,6 +215,7 @@ model product_combo_item {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model restaurant {
+  payos_test_session_retirement payos_test_session_retirement[]
   payos_test_case_archive payos_test_case_archive[]
   bank_receipt_claims    bank_receipt_claim[]
   bank_proofs            payment_bank_proof[]
@@ -347,6 +350,7 @@ model table_qr_token {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model table_session {
+  payos_test_session_retirement payos_test_session_retirement?
   payos_test_case_archive   payos_test_case_archive[]
   promotion              session_promotion?
   promotion_requests     promotion_request[]
@@ -859,6 +863,7 @@ model outbox_event {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model outstanding_balance_case {
+  payos_test_session_retirement payos_test_session_retirement?
   id                                                      String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   session_id                                              String        @db.Uuid
   table_id                                                String        @db.Uuid
@@ -1757,6 +1762,7 @@ model payment_assistance_submission {
 
 /// Operator-confirmed test evidence with real funds; SQL enforces immutable posting blocks.
 model payos_test_case_archive {
+  payos_test_session_retirement payos_test_session_retirement?
   id                                                                String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   restaurant_id                                                     String                     @db.Uuid
   session_id                                                        String                     @db.Uuid
@@ -1810,4 +1816,30 @@ model payos_test_archive_event {
 
   @@unique([archive_id, event_kind, payload_hash])
   @@index([archive_id, created_at], map: "payos_test_archive_event_case")
+}
+
+
+/// Technical retirement is separate from payment settlement and immutable in SQL.
+model payos_test_session_retirement {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  restaurant_id String @db.Uuid
+  session_id String @unique @db.Uuid
+  archive_id String @unique @db.Uuid
+  table_id String @db.Uuid
+  voided_case_id String? @unique @db.Uuid
+  financial_snapshot Json
+  before_snapshot_hash String
+  plan_hash String
+  bundle_hash String
+  backup_manifest_hash String
+  retired_by String @db.Uuid
+  reason String
+  retired_at DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+  restaurant restaurant @relation(fields: [restaurant_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  table_session table_session @relation(fields: [session_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  payos_test_case_archive payos_test_case_archive @relation(fields: [archive_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  dining_table dining_table @relation(fields: [table_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  outstanding_balance_case outstanding_balance_case? @relation(fields: [voided_case_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  app_user app_user @relation(fields: [retired_by], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  @@index([restaurant_id, retired_at], map: "payos_test_retirement_restaurant")
 }

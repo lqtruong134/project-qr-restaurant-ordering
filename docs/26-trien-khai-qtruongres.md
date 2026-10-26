@@ -1,5 +1,10 @@
 # 26. Triển khai qtruongres trên laptop và chuyển sang VPS
 
+
+## Kết thúc kỹ thuật phiên thử đã archive — 26/10/2026
+
+Nhánh `chore/retire-archived-test-sessions` bổ sung công cụ một lần cho đúng UUID A01/A02, lý do `ARCHIVED_TEST_RETIRED` và migration 41 `202610260001_retire_archived_test_sessions` (75 bảng). Không nới guard đóng bàn, không ghi thu/hoàn/write-off; giữ số dư và tiền thật chưa quyết toán. Bàn chuyển NEEDS_CLEANING, nhân viên dọn rồi mở phiên/mã mới, QR giữ nguyên. [Báo cáo, bảng tác động và runbook](reference/payos-test-session-retirement-20261026.md) có preflight schema40, backup/restore, kế hoạch schema41, apply xác nhận và khôi phục không ghi đè giao dịch mới. Chưa thực hiện production; trạng thái/counts thực tế phải do operator xác minh.
+
 ## Chuẩn bị archive đúng A01/A02 — 25/10/2026
 
 Sau PR #5 (39 migration), thay đổi riêng này thêm migration thứ 40 và overlay opt-in `deploy/compose.payos-test-archive.yaml`. Nó mount runtime read-only, thư mục riêng UID10001 ngoài source, payOS OFF và không tự chạy trong deploy thường. Operator cần review, fence writer, backup/thử restore, migrate được duyệt, dry-run/full UUID, backup mới rồi mới apply xác nhận. [Runbook đầy đủ và rollback giữ posting tombstone](reference/payos-test-archive-20261025.md). Tác vụ chưa merge/deploy/migrate production.
